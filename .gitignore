@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# 기획서 임시 파일 (PowerPoint가 열려 있을 때 생김)
+~$*.pptx
+
+# Claude Code 로컬 설정
+.claude/settings.local.json
+mobile/.claude/settings.local.json
