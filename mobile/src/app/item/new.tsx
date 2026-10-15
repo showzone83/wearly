@@ -34,9 +34,10 @@ function mockAnalyze(uri: string): ItemDraft {
   const cats: Category[] = ['TOP', 'TOP', 'BOTTOM', 'OUTER', 'SHOES', 'BAG'];
   const category = cats[h % cats.length];
   const subs = SUBTYPES_BY_CATEGORY[category];
-  const subType: SubType = subs[(h >> 3) % subs.length];
+  // h는 32비트 부호 없는 값이라 >>(부호 있는 시프트)를 쓰면 음수 인덱스가 나온다
+  const subType: SubType = subs[(h >>> 3) % subs.length];
   const palette: ColorKey[] = COLOR_KEYS.slice(0, 8);
-  const color = palette[(h >> 7) % palette.length];
+  const color = palette[(h >>> 7) % palette.length];
   return {
     name: defaultName({ color, subType }),
     category,
@@ -98,7 +99,8 @@ export default function NewItem() {
       setDraft(mockAnalyze(res.assets[0].uri));
       setFromAi(true);
       setStep(2);
-    } catch {
+    } catch (e) {
+      console.warn('[item/new] 사진 선택 실패', e);
       notify('사진을 불러오지 못했어요', '직접 입력으로 등록할 수 있어요.');
     }
   };

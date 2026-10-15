@@ -46,7 +46,8 @@ cd mobile && npm run typecheck && npx expo-doctor
 ```
 
 - `CI=1`로 실행하지 않는다. Metro가 파일 감시를 끄므로 코드 수정이 반영되지 않는다.
-- 이 Mac에는 Xcode가 없어 iOS 시뮬레이터를 쓸 수 없다 (Command Line Tools만 설치됨).
+- iOS 시뮬레이터: Xcode 27이 설치되어 있지만 `xcode-select`가 Command Line Tools를 가리킨다. `sudo xcode-select -s /Applications/Xcode.app`을 한 번 해 두거나, 명령 앞에 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`를 붙인다. 실행은 `npx expo start --ios` (Expo Go를 시뮬레이터에 자동 설치). 자세한 방법은 `doc/04_목업_앱.md` 2장.
+- 시뮬레이터 자동 조작(탭·스와이프·스크린샷)은 `idb`(`brew install facebook/fb/idb-companion` + `pip3 install --user fb-idb`)와 `xcrun simctl io booted screenshot`을 쓴다.
 - 패키지 추가는 `npx expo install <패키지>`로 한다 (SDK 호환 버전 자동 선택).
 
 ## 목업 앱 핵심 코드
@@ -60,7 +61,7 @@ cd mobile && npm run typecheck && npx expo-doctor
 ## 현재 상태 (2026-10-15)
 
 - 기획서·문서·목업 앱을 루트 저장소 `main` 브랜치에 커밋하고 GitHub에 올렸다.
-- 브라우저(375×812)에서 주요 흐름을 검증했다. 실제 휴대폰과 iOS 시뮬레이터에서는 아직 확인하지 않았다.
+- 브라우저(375×812)와 iOS 시뮬레이터(iPhone 16 Pro, iOS 18.5, Expo Go)에서 주요 흐름을 검증했다. 실제 휴대폰에서는 아직 확인하지 않았다.
 
 ## 다음 할 일
 
