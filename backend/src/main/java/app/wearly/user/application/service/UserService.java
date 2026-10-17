@@ -1,10 +1,14 @@
 package app.wearly.user.application.service;
 
+import app.wearly.common.domain.DomainValidationException;
+import app.wearly.common.domain.FieldError;
 import app.wearly.common.error.ApiException;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import app.wearly.user.application.port.out.UserPort;
 import app.wearly.user.domain.User;
+import app.wearly.user.domain.UserRole;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,15 +37,20 @@ public class UserService implements UserUseCase {
   @Override
   @Transactional
   public UserAccountDto create(String email, String name, String role) {
-    return toAccount(users.save(User.newUser(email, name, role)));
+    UserRole r =
+        UserRole.parse(role)
+            .orElseThrow(
+                () ->
+                    new DomainValidationException(
+                        List.of(new FieldError("role", "USER 또는 ADMIN이어야 해요."))));
+    return toAccount(users.save(User.newUser(email, name, r)));
   }
 
   @Override
   @Transactional
   public UserAccountDto changeAccess(long userId, String status, String role) {
     User user = users.findById(userId).orElseThrow(ApiException::notFound);
-    user.changeStatus(status);
-    user.changeRole(role);
+    user.changeAccess(status, role);
     return toAccount(users.save(user));
   }
 
@@ -52,6 +61,7 @@ public class UserService implements UserUseCase {
   }
 
   static UserAccountDto toAccount(User u) {
-    return new UserAccountDto(u.id(), u.email(), u.name(), u.role(), u.status(), u.createdAt());
+    return new UserAccountDto(
+        u.id(), u.email(), u.name(), u.role().name(), u.status().name(), u.createdAt());
   }
 }

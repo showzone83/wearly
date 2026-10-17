@@ -15,6 +15,7 @@ import app.wearly.wardrobe.application.port.out.ItemPort;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
 import app.wearly.wardrobe.domain.ItemCodeValidator;
 import app.wearly.wardrobe.domain.ItemInput;
+import app.wearly.wardrobe.domain.ItemRules;
 import app.wearly.wardrobe.domain.WardrobeItem;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,6 +73,7 @@ public class WardrobeService implements WardrobeUseCase {
   @Transactional
   public ItemDto create(long userId, CreateItemDto dto) {
     ItemInput input = dto.toInput();
+    ApiException.throwIfAny(ItemRules.validate(input, ""));
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, null, "", errors);
     ApiException.throwIfAny(errors);
@@ -83,6 +85,11 @@ public class WardrobeService implements WardrobeUseCase {
   public List<ItemDto> bulkCreate(long userId, List<CreateItemDto> dtos) {
     List<ItemInput> inputs = dtos.stream().map(CreateItemDto::toInput).toList();
     CodeSnapshot codes = catalog.current();
+    List<FieldError> invalid = new ArrayList<>();
+    for (int i = 0; i < inputs.size(); i++) {
+      invalid.addAll(ItemRules.validate(inputs.get(i), "items[" + i + "]."));
+    }
+    ApiException.throwIfAny(invalid);
     List<FieldError> errors = new ArrayList<>();
     for (int i = 0; i < inputs.size(); i++) {
       ItemCodeValidator.validate(codes, inputs.get(i), null, "items[" + i + "].", errors);
@@ -101,6 +108,7 @@ public class WardrobeService implements WardrobeUseCase {
     WardrobeItem item = find(userId, itemId);
     ItemInput previous = item.toInput();
     ItemInput input = patch.applyTo(previous);
+    ApiException.throwIfAny(ItemRules.validate(input, ""));
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, previous, "", errors);
     ApiException.throwIfAny(errors);

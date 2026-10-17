@@ -11,10 +11,16 @@ public interface UserUseCase {
   /** 없으면 404 */
   UserAccountDto get(long userId);
 
-  /** 새 회원 (상태 ACTIVE). 이름은 앞뒤 공백을 지우지 않고 받은 그대로 저장한다 */
+  /**
+   * 새 회원 (상태 ACTIVE). 이름은 앞뒤 공백을 지우지 않고 받은 그대로 저장한다. 이름(1~20자)·역할(USER·ADMIN)이 틀리면 400
+   * VALIDATION_FAILED (도메인 규칙)
+   */
   UserAccountDto create(String email, String name, String role);
 
-  /** 상태·역할 바꾸기 (검증은 부르는 쪽 책임) */
+  /**
+   * 상태·역할 바꾸기. 허용 값(ACTIVE·SUSPENDED, USER·ADMIN)은 도메인이 확인한다 (틀리면 400 VALIDATION_FAILED). "자기 자신은
+   * 정지할 수 없음" 같은 관리자 정책은 부르는 쪽(admin)이 정한다
+   */
   UserAccountDto changeAccess(long userId, String status, String role);
 
   /**

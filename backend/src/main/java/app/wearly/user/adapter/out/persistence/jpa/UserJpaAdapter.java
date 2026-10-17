@@ -2,6 +2,8 @@ package app.wearly.user.adapter.out.persistence.jpa;
 
 import app.wearly.user.application.port.out.UserPort;
 import app.wearly.user.domain.User;
+import app.wearly.user.domain.UserRole;
+import app.wearly.user.domain.UserStatus;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
@@ -29,8 +31,8 @@ class UserJpaAdapter implements UserPort {
                 .findById(user.id())
                 .orElseThrow(() -> new IllegalStateException("회원이 없어요: " + user.id()));
     entity.rename(user.name());
-    entity.changeStatus(user.status());
-    entity.changeRole(user.role());
+    entity.changeStatus(user.status().name());
+    entity.changeRole(user.role().name());
     return toDomain(users.saveAndFlush(entity));
   }
 
@@ -42,6 +44,11 @@ class UserJpaAdapter implements UserPort {
 
   static User toDomain(UserEntity e) {
     return new User(
-        e.getId(), e.getEmail(), e.getName(), e.getStatus(), e.getRole(), e.getCreatedAt());
+        e.getId(),
+        e.getEmail(),
+        e.getName(),
+        UserStatus.valueOf(e.getStatus()),
+        UserRole.valueOf(e.getRole()),
+        e.getCreatedAt());
   }
 }
