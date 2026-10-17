@@ -229,6 +229,12 @@ class AdminIntegrationTest extends IntegrationTestBase {
                 "options", Map.of("temperature", 3, "effort", "high", "baseUrl", "ftp://x"))).expectError(400, "VALIDATION_FAILED");
         assertThat(badOpt.body().get("fieldErrors").findValuesAsString("field"))
                 .contains("options.temperature", "options.effort", "options.baseUrl");
+        // 기본 설정(WEARLY_AI_ALLOW_BASE_URL=false)에서는 올바른 주소여도 baseUrl을 받지 않는다 (키를 다른 곳으로 못 보내게)
+        Resp noBase = api().post("/api/v1/admin/ai/providers", t, Map.of("providerId", id, "type", "OPENAI",
+                "displayName", "오픈AI", "apiKeyEnv", "OPENAI_API_KEY", "options", Map.of("baseUrl", "https://example.com/v1")))
+                .expectError(400, "VALIDATION_FAILED");
+        assertThat(noBase.body().get("fieldErrors").get(0).get("field").asString()).isEqualTo("options.baseUrl");
+        assertThat(noBase.body().get("fieldErrors").get(0).get("message").asString()).contains("WEARLY_AI_ALLOW_BASE_URL");
         api().post("/api/v1/admin/ai/providers", t, Map.of("providerId", "mock", "type", "OPENAI", "displayName", "x",
                 "apiKeyEnv", "OPENAI_API_KEY")).expectError(400, "VALIDATION_FAILED");
 

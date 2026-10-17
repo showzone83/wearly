@@ -97,7 +97,7 @@ public class AdminAiProviderService {
         s.setPriority(req.priority() != null ? checkPriority(req.priority(), errors) : settings.maxPriority() + 1);
         if (type != null) {
             s.setType(type.name());
-            s.setOptions(type.normalizeOptions(req.options(), errors));
+            s.setOptions(type.normalizeOptions(req.options(), registry.allowBaseUrl(), errors));
         }
         if (s.isEnabled() && !s.hasModel()) {
             errors.add(new FieldError("model", "사용하려면 모델을 넣어 주세요."));
@@ -171,11 +171,12 @@ public class AdminAiProviderService {
             if (!n.isObject() && !n.isNull()) {
                 errors.add(new FieldError("options", "객체여야 해요."));
             } else {
-                s.setOptions(type.normalizeOptions(n.isNull() ? Map.of() : jsonMapper.convertValue(n, MAP), errors));
+                Map<String, Object> raw = n.isNull() ? Map.of() : jsonMapper.convertValue(n, MAP);
+                s.setOptions(type.normalizeOptions(raw, registry.allowBaseUrl(), errors));
             }
         } else if (body.has("type")) {
             // 종류를 바꾸면 기존 옵션도 새 종류 기준으로 다시 검사한다
-            s.setOptions(type.normalizeOptions(s.getOptions(), errors));
+            s.setOptions(type.normalizeOptions(s.getOptions(), true, errors)); // 이미 저장된 값은 다시 막지 않는다
         }
         if (s.isEnabled() && !s.hasModel()) {
             errors.add(new FieldError("model", "사용하려면 모델을 넣어 주세요."));

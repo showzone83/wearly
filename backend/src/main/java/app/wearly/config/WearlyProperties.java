@@ -29,7 +29,9 @@ public record WearlyProperties(@Valid @NotNull Jwt jwt, @Valid @NotNull Ai ai, @
             String provider,
             @Min(0) int dailyLimit,
             /* 공급자 옵션 timeoutSeconds가 없을 때의 호출 제한 시간 */
-            @NotNull Duration timeout) {
+            @NotNull Duration timeout,
+            /* 공급자 옵션 baseUrl을 받을지. 기본 false: 관리자가 키를 다른 주소로 보내게 만들 수 없다 (테스트·프록시용으로만 켠다) */
+            boolean allowBaseUrl) {
     }
 
     public record Cors(List<String> allowedOrigins) {

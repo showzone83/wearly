@@ -16,17 +16,17 @@ public enum AiProviderType {
                     List.of("low", "medium", "high", "xhigh", "max")),
             OptionSpec.ofInt("maxTokens", "최대 출력 토큰 (max_tokens)", 16000, 1, 128000),
             OptionSpec.ofInt("timeoutSeconds", "호출 제한 시간(초). 비우면 WEARLY_AI_TIMEOUT", null, 1, 600),
-            OptionSpec.ofUrl("baseUrl", "API 주소 (테스트·프록시용)", "https://api.anthropic.com"))),
+            OptionSpec.ofUrl("baseUrl", "API 주소 (테스트·프록시용, WEARLY_AI_ALLOW_BASE_URL=true일 때만)", "https://api.anthropic.com"))),
     OPENAI("OpenAI (Responses API)", "OPENAI_API_KEY", List.of(
             OptionSpec.ofNumber("temperature", "샘플링 온도 0~2. 비우면 모델 기본값 (추론 모델은 받지 않을 수 있다)", null, 0, 2),
             OptionSpec.ofInt("maxTokens", "최대 출력 토큰 (max_output_tokens, 추론 토큰 포함)", 16000, 16, 128000),
             OptionSpec.ofInt("timeoutSeconds", "호출 제한 시간(초). 비우면 WEARLY_AI_TIMEOUT", null, 1, 600),
-            OptionSpec.ofUrl("baseUrl", "API 주소 (테스트·프록시용)", "https://api.openai.com/v1"))),
+            OptionSpec.ofUrl("baseUrl", "API 주소 (테스트·프록시용, WEARLY_AI_ALLOW_BASE_URL=true일 때만)", "https://api.openai.com/v1"))),
     GEMINI("Gemini (Gemini API generateContent)", "GEMINI_API_KEY", List.of(
             OptionSpec.ofNumber("temperature", "샘플링 온도 0~2. 비우면 모델 기본값", null, 0, 2),
             OptionSpec.ofInt("maxTokens", "최대 출력 토큰 (generationConfig.maxOutputTokens)", 16000, 1, 128000),
             OptionSpec.ofInt("timeoutSeconds", "호출 제한 시간(초). 비우면 WEARLY_AI_TIMEOUT", null, 1, 600),
-            OptionSpec.ofUrl("baseUrl", "API 주소 (테스트·프록시용)", "https://generativelanguage.googleapis.com/v1beta"))),
+            OptionSpec.ofUrl("baseUrl", "API 주소 (테스트·프록시용, WEARLY_AI_ALLOW_BASE_URL=true일 때만)", "https://generativelanguage.googleapis.com/v1beta"))),
     MOCK("목업 (같은 사진 = 같은 결과)", "", List.of());
 
     /** 관리자 API로 만들 수 있는 종류 */
@@ -54,8 +54,12 @@ public enum AiProviderType {
         return options;
     }
 
-    /** 모르는 키, 형식·범위가 틀린 값은 fieldErrors(options.키)로 돌려준다. null 값은 '기본값 사용'으로 보고 지운다. */
-    public Map<String, Object> normalizeOptions(Map<String, Object> raw, List<FieldError> errors) {
+    /**
+     * 모르는 키, 형식·범위가 틀린 값은 fieldErrors(options.키)로 돌려준다. null 값은 '기본값 사용'으로 보고 지운다.
+     *
+     * @param allowBaseUrl false면 baseUrl을 받지 않는다 (WEARLY_AI_ALLOW_BASE_URL)
+     */
+    public Map<String, Object> normalizeOptions(Map<String, Object> raw, boolean allowBaseUrl, List<FieldError> errors) {
         Map<String, Object> out = new LinkedHashMap<>();
         if (raw == null) {
             return out;
@@ -68,6 +72,10 @@ public enum AiProviderType {
                 continue;
             }
             if (e.getValue() == null) {
+                continue;
+            }
+            if ("url".equals(spec.type()) && !allowBaseUrl) {
+                errors.add(new FieldError(field, "서버 설정 WEARLY_AI_ALLOW_BASE_URL=true일 때만 바꿀 수 있어요."));
                 continue;
             }
             Object v = spec.check(e.getValue());

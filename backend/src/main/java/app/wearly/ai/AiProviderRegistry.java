@@ -27,6 +27,7 @@ public class AiProviderRegistry {
     private final ApiKeyResolver keys;
     private final JsonMapper jsonMapper;
     private final Duration defaultTimeout;
+    private final boolean allowBaseUrl;
     private final Map<String, Cached> cache = new ConcurrentHashMap<>();
 
     public AiProviderRegistry(WearlyProperties properties, AiProviderSettingRepository settings, ApiKeyResolver keys,
@@ -36,6 +37,11 @@ public class AiProviderRegistry {
         this.keys = keys;
         this.jsonMapper = jsonMapper;
         this.defaultTimeout = properties.ai().timeout();
+        this.allowBaseUrl = properties.ai().allowBaseUrl();
+    }
+
+    public boolean allowBaseUrl() {
+        return allowBaseUrl;
     }
 
     public AiMode mode() {
@@ -97,7 +103,8 @@ public class AiProviderRegistry {
         Duration timeout = o.get("timeoutSeconds") instanceof Number n ? Duration.ofSeconds(n.longValue()) : defaultTimeout;
         int maxTokens = o.get("maxTokens") instanceof Number n ? n.intValue() : (int) ClaudeAiProvider.DEFAULT_MAX_TOKENS;
         Double temperature = o.get("temperature") instanceof Number n ? n.doubleValue() : null;
-        String baseUrl = o.get("baseUrl") instanceof String b && !b.isBlank() ? b : null;
+        // WEARLY_AI_ALLOW_BASE_URL=false(기본)면 DB에 baseUrl이 있어도 무시하고 공식 주소로만 보낸다
+        String baseUrl = allowBaseUrl && o.get("baseUrl") instanceof String b && !b.isBlank() ? b : null;
         SuggestionParser parser = new SuggestionParser(jsonMapper);
         return switch (s.typeEnum()) {
             case CLAUDE -> {

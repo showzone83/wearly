@@ -31,6 +31,7 @@ import tools.jackson.databind.node.ObjectNode;
 @ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(properties = {
         "wearly.ai.provider=db",
+        "wearly.ai.allow-base-url=true", // 가짜 서버 주소를 쓰려면 필요 (기본 false)
         "WEARLY_IT_CLAUDE_API_KEY=" + AiProviderRoutingIntegrationTest.CLAUDE_KEY,
         "WEARLY_IT_OPENAI_API_KEY=" + AiProviderRoutingIntegrationTest.OPENAI_KEY,
         "WEARLY_IT_GEMINI_API_KEY=" + AiProviderRoutingIntegrationTest.GEMINI_KEY,

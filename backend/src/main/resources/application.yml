@@ -64,6 +64,8 @@ wearly:
     provider: ${WEARLY_AI_PROVIDER:db}
     daily-limit: ${WEARLY_AI_DAILY_LIMIT:10}
     timeout: ${WEARLY_AI_TIMEOUT:PT60S}
+    # 공급자 옵션 baseUrl(테스트 서버·프록시 주소)을 받을지. 기본 false: 키가 공식 API 주소로만 나간다
+    allow-base-url: ${WEARLY_AI_ALLOW_BASE_URL:false}
   admin:
     # 둘 다 있으면 시작할 때 이 계정을 만들거나 ADMIN으로 올린다
     email: ${WEARLY_ADMIN_EMAIL:}
