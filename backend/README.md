@@ -5,17 +5,19 @@
 - [`doc/05_백엔드_API.md`](../doc/05_백엔드_API.md) — 1차: 토큰 로그인 · 옷장 · AI 분석
 - [`doc/06_코드_관리.md`](../doc/06_코드_관리.md) — 2차: 옷 속성 값을 DB 코드 테이블로 (`GET /codes`, 코드 검증)
 - [`doc/07_관리자_사이트.md`](../doc/07_관리자_사이트.md) — 2차: 관리자 역할·관리자 API·AI 공급자(Claude·OpenAI·Gemini) 관리, 3차: 6장 AI 키 웹 입력(쓰기 전용 · 암호화 저장)
-- [`doc/08_백엔드_구조.md`](../doc/08_백엔드_구조.md) — 3차: 헥사고날 패키지 구조와 의존 규칙 (ArchUnit으로 검사)
+- [`doc/08_백엔드_구조.md`](../doc/08_백엔드_구조.md) — 3차: 헥사고날 패키지 구조와 의존 규칙 (ArchUnit으로 검사), 4차: 5장 코드 스타일(Google Java Style)
+- [`doc/09_AI_코디_추천.md`](../doc/09_AI_코디_추천.md) — 4차: AI 코디 추천 API (`POST /outfits/recommendations`)
 
 | 항목 | 값 |
 |---|---|
 | Spring Boot | 4.1.1 (Java 21 toolchain, Gradle 9.8.1 wrapper, Kotlin DSL) |
 | 데이터 접근 | Spring Data JPA (Hibernate 7.4) + MyBatis (mybatis-spring-boot-starter 4.1.0) |
-| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V4) |
+| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V5) |
 | 인증 | Spring Security OAuth2 Resource Server, JWT HS256 (Nimbus) |
 | AI | Claude: Anthropic Java SDK 2.73.0 / OpenAI·Gemini: 각 사 REST API를 Spring `RestClient`로 (SDK 없음) |
 | 구조 | 헥사고날 (컨텍스트별 domain · application · adapter), 규칙은 ArchUnit 1.5.1 테스트 |
 | 키 암호화 | AES-256-GCM (JDK `javax.crypto`), 마스터 키 `WEARLY_SECRET_KEY` |
+| 코드 스타일 | Google Java Style: Spotless 8.10.4 + google-java-format 1.36.1, Checkstyle 14.3.0 (`config/checkstyle/google_checks.xml`) |
 
 ## 실행
 
@@ -31,12 +33,12 @@ cp .env.example .env   # 처음 한 번. 키와 관리자 계정을 채운다
 ```
 
 - 서버: `http://localhost:8080`, API 기본 경로 `/api/v1`, 상태 확인 `GET /actuator/health`
-- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
+- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
 - **AI 공급자 고르기** (07 문서 3장)
   - `bootRunMock`(`WEARLY_AI_PROVIDER=mock`)이면 언제나 목업. DB 설정은 무시한다.
   - 그 밖(`bootRun`, 기본 `db`)에는 `tb_ai_provider`에서 사용(`enabled`)·모델·키를 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패(시간 초과·HTTP 오류·응답 검증 실패)하면 다음 공급자로 넘어간다.
   - 키는 **웹에서 넣은 키(DB) → `api_key_env` 환경변수 → 없음** 순서로 고른다 (아래 "AI 키 관리").
-  - 쓸 수 있는 공급자가 없어도 서버는 **뜬다**. 시작 로그에 WARN이 남고, 사진 분석은 502 `AI_UNAVAILABLE`이다 (목업으로 대신하지 않는다). 관리자 사이트에서 고칠 수 있게 하려는 것이다.
+  - 쓸 수 있는 공급자가 없어도 서버는 **뜬다**. 시작 로그에 WARN이 남고, 사진 분석·AI 코디 추천은 502 `AI_UNAVAILABLE`이다 (목업으로 대신하지 않는다). 관리자 사이트에서 고칠 수 있게 하려는 것이다.
   - 시작 직후 로그: `AI 공급자 (시도 순서): claude(CLAUDE, model=…, priority=1, key=ENV), …` 또는 `쓸 수 있는 AI 공급자가 없습니다 …` 또는 `AI 공급자: mock (목업 …)`.
   - 처음 상태: `claude`(사용, `claude-opus-5-5`, 키 `ANTHROPIC_API_KEY`), `openai`·`gemini`(꺼짐, 모델 비움). 그래서 `.env`에 `ANTHROPIC_API_KEY`만 넣으면 1차와 같이 Claude로 돈다.
 - **관리자 계정**: `WEARLY_ADMIN_EMAIL`·`WEARLY_ADMIN_PASSWORD`가 있으면 시작할 때 그 계정을 만들거나(이름 `WEARLY_ADMIN_NAME`, 기본 "관리자") 이미 있는 계정을 `ADMIN`으로 올린다. 이미 있는 계정의 비밀번호·이름은 바꾸지 않는다. 가입 API로는 관리자를 만들 수 없다.
@@ -60,6 +62,7 @@ cp .env.example .env   # 처음 한 번. 키와 관리자 계정을 채운다
 | `WEARLY_REFRESH_TTL` | `P30D` | Refresh 토큰 수명 |
 | `WEARLY_AI_PROVIDER` | `db` | `db`(관리자 화면 설정) · `mock`. 1차 값 `claude`는 `db`와 같다. 그 밖의 값(예전 `auto` 포함)은 시작 실패 |
 | `WEARLY_AI_DAILY_LIMIT` | `10` | 회원별 하루 사진 분석 횟수 (Asia/Seoul 날짜, 성공만, 관리자 시험 분석 제외) |
+| `WEARLY_AI_OUTFIT_DAILY_LIMIT` | `20` | 회원별 하루 AI 코디 추천 횟수 (사진 분석과 따로 센다, Asia/Seoul 날짜, 성공만) |
 | `WEARLY_AI_TIMEOUT` | `PT60S` | 공급자 호출 제한 시간 기본값. 공급자 `options.timeoutSeconds`가 있으면 그 값 |
 | `WEARLY_AI_ALLOW_BASE_URL` | `false` | `true`일 때만 공급자 `options.baseUrl`(API 주소 바꾸기)을 허용. 키가 다른 주소로 갈 수 있어 운영에서는 끈다 |
 | `ANTHROPIC_API_KEY` | (없음) | Claude 키. 처음 상태의 `claude` 행이 가리키는 이름 |
@@ -97,6 +100,36 @@ cp .env.example .env   # 처음 한 번. 키와 관리자 계정을 채운다
 
 하네스 예: `SERVER_PORT=18080 WEARLY_ACCESS_TTL=PT3S WEARLY_AI_DAILY_LIMIT=3 WEARLY_AI_PROVIDER=mock SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wearly_harness`
 
+## AI 코디 추천 (09 문서, 4차)
+
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| POST | `/api/v1/outfits/recommendations` | `OutfitRecommendRequest` (09 문서 3장) | 200 `{ candidates: [{ items, reason, aiScores }], provider, model, remainingToday }` |
+
+- 흐름: 요청 검증 400 → 고정·중심 아이템 확인 400 → 옷 부족 400 `WARDROBE_INSUFFICIENT` → 일일 한도 429 `AI_LIMIT_EXCEEDED` → 공급자를 priority 순으로 시도(사진 분석과 같은 공급자·순서) → 모두 실패 502 `AI_UNAVAILABLE`. AI를 부르기 전에 끝나면 기록을 남기지 않는다.
+- **AI에게 주는 것**: 이번 추천에 쓸 수 있는 내 옷(CATEGORY `slot`이 있고 ITEM_STATUS `recommendable`, 제외 목록·피하고 싶은 색 제외. 고정·중심 아이템은 상태와 관계없이 넣음)을 칸별로 id·이름·세부 종류·색(뉴트럴·밝기)·패턴·계절·스타일·격식·보온·볼륨·착용 횟수·마지막 착용일과 함께, 프로필 취향, 조건(상황·목표 격식·분위기·날씨와 아우터·계절·보온 힌트·컨셉·메모), 최근 7일 코디, 좋아한/덜 좋아한 아이템, 2장 점수 기준, 내 옷 색끼리의 어울리는 짝.
+- **구조화 출력 스키마**: `{ candidates: [{ items: { TOP, BOTTOM, DRESS, OUTER, SHOES, BAG }, reason, aiScores: { color, occasion, weather, taste, diversity } }] }`. 칸 값은 그 칸에 쓸 수 있는 내 옷 id의 enum이고, 비울 수 있는 칸은 `null`도 허용(못 쓰는 칸은 `null`만). 모든 객체 `additionalProperties: false`·모든 필드 required. 숫자 범위 제약은 넣지 않고 서버가 맞춘다(Claude 구조화 출력이 지원하지 않음).
+- **후보 검증**(공급자 무관, `CandidateValidator`): 내 옷인지, 칸이 종류의 칸과 같은지, 추천 가능한 상태인지, 제외·피하고 싶은 색이 아닌지(고정·중심 아이템은 예외), TOP+BOTTOM xor DRESS, SHOES 있음, 고정·중심 포함, 중복 아님, `reason`(80자로 자름), `aiScores`(0~100 정수로 맞춤). 틀린 후보만 버리고, **남은 후보가 0개면 그 공급자를 실패(`REJECTED_OUTPUT`)로 기록하고 다음 공급자**로 넘어간다.
+- **공급자 요청**: Claude `system` + user 텍스트 + `output_config.format`(json_schema, effort·서버 측 폴백은 사진 분석과 같음), OpenAI Responses `instructions` + `input_text` + `text.format`(json_schema, strict), Gemini `systemInstruction` + text part + `generationConfig.responseFormat.text.schema`(또는 `options.schemaField=responseJsonSchema`).
+- **목업**(`bootRunMock`): 칸별 목록에서 규칙에 맞는 후보를 결정적으로 만든다(상의×하의 조합 id 순 → 원피스, 신발·가방은 돌려 쓰기, 아우터는 고정했거나 날씨가 원할 때). 응답 `provider: "mock"`, `model: null`. 서버 검증을 그대로 거친다.
+- **기록**: `tb_ai_analysis_log.feature = 'OUTFIT_RECOMMEND'`, `image_sha256`·`image_bytes`는 NULL, `result`는 `{ candidates: [...], dropped: [버린 까닭] }`. 관리자 대시보드·AI 기록(`feature=OUTFIT_RECOMMEND` 검색, 요약 "코디 후보 N개")·공급자 `today`에 들어간다.
+- 400 `WARDROBE_INSUFFICIENT`의 `message`는 칸 코드로 모자란 칸을 알린다: `추천할 수 있는 옷이 모자라요: BOTTOM 또는 DRESS, SHOES` (앱이 칸 이름으로 바꾼다).
+
+## 코드 스타일 (08 문서 5장, 4차)
+
+[Google Java Style](https://google.github.io/styleguide/javaguide.html). 포맷은 도구가 정하고, `check`가 어기면 실패한다.
+
+```bash
+./gradlew spotlessApply   # 포맷 고치기 (google-java-format: 2칸 들여쓰기, 100자, import 정렬·안 쓰는 import 제거)
+LC_ALL=C.UTF-8 ./gradlew check   # spotlessCheck + checkstyleMain + checkstyleTest + test
+./gradlew spotlessCheck checkstyleMain checkstyleTest   # 테스트 없이 스타일만
+```
+
+- Spotless 8.10.4 + google-java-format 1.36.1 (`src/**/*.java`, 와일드카드 import 금지). google-java-format 1.37.0은 Spotless 8.10.4에서 포맷 단계가 실패해(InvocationTargetException) 그 바로 앞 버전을 쓴다.
+- Checkstyle 14.3.0, 설정은 Checkstyle 14.3.0 배포본의 `google_checks.xml`을 옮긴 `config/checkstyle/google_checks.xml`. 기본 심각도는 error(빌드 실패), Javadoc 관련 모듈 14개만 warning(보고서 `build/reports/checkstyle/`). 바꾼 곳은 파일 머리 주석에 적었다.
+- 예외는 `config/checkstyle/checkstyle-suppressions.xml` 하나: 테스트 소스의 메서드 이름 규칙(`GoogleMethodName`·`AbbreviationAsWordInName`) — 테스트 이름을 한국어 문장으로 쓰기 때문이다. 본 코드에서 꼭 필요한 예외는 `@SuppressWarnings("checkstyle:규칙")`과 이유 주석(예: 앱 JSON 필드 이름 `dMinus1`).
+- MyBatis XML·SQL 마이그레이션·`build.gradle.kts`는 대상이 아니다. IntelliJ는 google-java-format 플러그인을 켜거나 저장 전에 `spotlessApply`를 돌린다.
+
 ## API 요약 (2차에서 더한 것)
 
 ### 코드 (06 문서)
@@ -124,7 +157,7 @@ cp .env.example .env   # 처음 한 번. 키와 관리자 계정을 채운다
 | PATCH·DELETE | `/admin/ai/providers/{id}` | 수정 / 삭제 (분석 기록은 남는다) |
 | POST | `/admin/ai/providers/{id}/test` | multipart `image`. 사용 여부와 관계없이 한 번 호출, 한도에 안 셈, `feature=ADMIN_TEST`로 기록 |
 | GET | `/admin/ai/types` | 지원 `type`과 `options` 설명 |
-| GET | `/admin/ai/logs`, `/admin/ai/logs/{id}` | AI 기록 검색(`providerId`·`status`·`userEmail`·`feature`·`from`·`to`) / 결과 JSON 전체 |
+| GET | `/admin/ai/logs`, `/admin/ai/logs/{id}` | AI 기록 검색(`providerId`·`status`·`userEmail`·`feature`(`ITEM_ANALYZE`·`ADMIN_TEST`·`OUTFIT_RECOMMEND`)·`from`·`to`) / 결과 JSON 전체 |
 | GET·PATCH | `/admin/users`, `/admin/users/{id}` | 회원 검색(`q`·`status`·`role`) / `{ status?, role? }` (자기 자신은 못 내리고 못 정지) |
 | GET | `/admin/audit-logs` | 변경 이력 (`targetType` = `CODE`·`AI_PROVIDER`·`USER`) |
 
@@ -136,7 +169,8 @@ cp .env.example .env   # 처음 한 번. 키와 관리자 계정을 채운다
 ## 테스트
 
 ```bash
-LC_ALL=C.UTF-8 ./gradlew test
+LC_ALL=C.UTF-8 ./gradlew test    # 테스트만
+LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 ```
 
 - 통합 테스트는 **Testcontainers**로 `pgvector/pgvector:pg17` 컨테이너를 한 번 띄워 쓴다 (Docker 필요). 서버를 무작위 포트로 띄워 실제 HTTP로 부른다.
@@ -165,7 +199,10 @@ LC_ALL=C.UTF-8 ./gradlew test
 | `ProviderApiKeyIntegrationTest` | (마스터 키 있음) 웹 키 저장·교체·삭제, 키 출처 ENV→DB→ENV·NONE→DB, 암호문·nonce, 시험 분석이 DB 키로 호출, 재확인 403, 형식 400, verify(가짜 OpenAI·Gemini·Claude 서버의 모델 목록 경로·헤더) 실패 400, 공급자 삭제 시 비밀 행 삭제, 변경 이력 내용, 서버 출력·응답·이력에 키 0건 |
 | `ProviderApiKeyNoMasterKeyIntegrationTest` | 마스터 키 없음 409 `SECRET_KEY_MISSING`(비밀번호 확인보다 먼저), `secretStoreEnabled: false` |
 | `AesGcmSecretCipherTest` · `ApiKeyRulesTest` · `ApiKeyServiceTest` | 암호화 왕복·nonce 매번 다름·AAD/마스터 키/암호문이 다르면 실패·마스터 키 없음 WARN·형식 오류 ERROR, 키 형식·출처 우선순위, 복호화 캐시·무효화·복호화 실패 시 쓸 수 없음 (Spring 없음) |
-| `HexagonalArchitectureTest` | 08 문서 3장 규칙 12개 (ArchUnit) |
+| `HexagonalArchitectureTest` | 08 문서 3장 규칙 12개 (ArchUnit, 4차부터 `outfit` 컨텍스트 포함) |
+| `CandidateValidatorTest` · `OutfitPromptTest` | (Spring 없음) 후보 검증: 정상·남의 아이템·칸 불일치·TOP+DRESS 혼합·신발 없음·고정/중심 누락·제외/피하고 싶은 색/세탁 중·중복·형식. 스키마: 칸별 enum이 그 칸의 내 아이템만·세탁 중 제외·고정·원피스 고정·null 허용 규칙, 프롬프트 내용, 모자란 칸, 고정 확인, 목업 결정성 |
+| `OutfitRecommendIntegrationTest` | (목업) 응답 형식·규칙·결정성, 고정·중심·제외·색·후보 수, 옷 부족 400(기록 없음), 한도 429(사진 분석과 따로), 요청 검증 400·401, 기록 `feature`·관리자 AI 기록·대시보드 |
+| `OutfitProviderFallbackIntegrationTest` | (DB 공급자, 가짜 OpenAI·Gemini·Claude 서버) 오류·남은 후보 0개면 다음 공급자, 각 사 요청 형식(시스템 지시·텍스트·스키마 enum), 실패 기록, 전부 실패 502·한도 미차감, 공급자 없으면 502, 공급자 `today`·대시보드 |
 | `*domain*` 단위 테스트 | 코드 검증·attrs, refresh 회전·재사용 감지, 공급자 선택 순서, 옷장 검증·통계 키, 프로필 정리 (Spring 없음) |
 | `AiProviderFallbackIntegrationTest` | (DB 공급자 실행) 공급자 없으면 502, priority 순 시도·실패 시 다음 공급자·실패 기록, 전부 실패 502·한도 미차감, 시험 분석(사용 여부 무관·한도 미차감·ADMIN_TEST), AI 기록 검색·상세·대시보드 |
 | `AdminUserIntegrationTest` | 시작 시 관리자 생성·기존 회원 승격, 회원 검색, 정지 시 로그인 403·토큰 401·refresh 401, 자기 자신 강등·정지 400, 대시보드 |
@@ -217,7 +254,8 @@ app.wearly.common
 | `user` | `User`, `UserProfile`, `DressCode`, `WorkType` | `UserUseCase`, `ProfileUseCase` | JPA(회원·프로필) |
 | `wardrobe` | `WardrobeItem`, `ItemInput`, `ItemCodeValidator`, `WardrobeStatsRules` | `WardrobeUseCase`, `WardrobeStatsUseCase` | JPA(아이템 쓰기·단건), MyBatis(목록·통계) |
 | `code` | `Code`, `CodeAttrs`, `CodeRules` (스냅샷은 `common.domain.code`) | `CodeCatalog`, `CodeManagementUseCase` | JPA(코드 쓰기), MyBatis(스냅샷 캐시·사용 수) |
-| `ai` | `AiProviderSetting`, `AiProviderSelection`, `AiRunMode`, `AiProviderType`, `ApiKeyRules`, `AnalysisPrompt` … | `AnalyzeImageUseCase`, `ProviderTestUseCase`, `AiProviderAdminUseCase`, `AiStatusUseCase` | JPA(공급자·호출 기록·웹 키), MyBatis(사용량), ai/*(Claude SDK·OpenAI·Gemini REST·목업·키 확인), env, crypto(AES-GCM) |
+| `ai` | `AiProviderSetting`, `AiProviderSelection`, `AiRunMode`, `AiProviderType`, `ApiKeyRules`, `AnalysisPrompt`, `AiJsonPrompt` … | `AnalyzeImageUseCase`, `ProviderTestUseCase`, `AiProviderAdminUseCase`, `AiStatusUseCase`, `JsonGenerationUseCase`(4차) | JPA(공급자·호출 기록·웹 키), MyBatis(사용량), ai/*(Claude SDK·OpenAI·Gemini REST·목업·키 확인), env, crypto(AES-GCM) |
+| `outfit` (4차) | `OutfitPool`, `OutfitPrompt`, `CandidateValidator`, `MockOutfitPlanner`, `OutfitRequest` … | `RecommendOutfitUseCase` | 없음 (옷장·프로필·코드는 각 입력 포트, 공급자는 ai의 `JsonGenerationUseCase`) |
 | `admin` | `AuditTargets`, `SearchText` | `AdminDashboardUseCase`, `AdminUserUseCase`, `AdminCodeUseCase`, `AdminAiProviderUseCase`, `EnsureAdminUseCase` | JPA(변경 이력 = `RecordAuditPort`), MyBatis(대시보드·목록 읽기 모델) |
 
 - 컨텍스트 사이는 상대 `port.in`으로만 부른다. 관리자 API는 admin 컨텍스트가 code·ai·user·auth 유스케이스를 부르고, 같은 트랜잭션에서 변경 이력을 남긴다.
