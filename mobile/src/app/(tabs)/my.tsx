@@ -12,6 +12,7 @@ import { API_BASE_URL, errorMessage } from '@/lib/api';
 import { styleLabel } from '@/lib/codes';
 import { diffDays, todayKey } from '@/lib/date';
 import { MOCK_MODE } from '@/lib/mode';
+import { activeItems } from '@/lib/retire';
 import { useStore } from '@/store/useStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { cardBase, makeStyles, useColors } from '@/theme';
@@ -31,8 +32,10 @@ export default function My() {
   const s = useStyles();
 
   const today = todayKey();
-  const active = items.filter((i) => i.lastWornAt && diffDays(today, i.lastWornAt) <= 30).length;
-  const usage = items.length ? Math.round((active / items.length) * 100) : 0;
+  // 사용 중인 옷 기준 (doc/13)
+  const inUse = activeItems(items);
+  const active = inUse.filter((i) => i.lastWornAt && diffDays(today, i.lastWornAt) <= 30).length;
+  const usage = inUse.length ? Math.round((active / inUse.length) * 100) : 0;
 
   // 바로 바꿔 보여 주고, 계정 모드면 서버에 저장한다. 실패하면 되돌린다
   const toggle = async (key: keyof typeof profile.notify) => {
@@ -81,7 +84,7 @@ export default function My() {
       </View>
 
       <View style={s.stats}>
-        <Stat value={`${items.length}`} unit="벌" label="내 옷" />
+        <Stat value={`${inUse.length}`} unit="벌" label="내 옷" />
         <View style={s.statLine} />
         <Stat value={`${looks.length}`} unit="건" label="코디 기록" />
         <View style={s.statLine} />
@@ -89,7 +92,7 @@ export default function My() {
       </View>
 
       <MenuCard>
-        <MenuRow icon="hanger" label="내 옷장" value={`${items.length}벌`} onPress={() => router.navigate('/closet')} />
+        <MenuRow icon="hanger" label="내 옷장" value={`${inUse.length}벌`} onPress={() => router.navigate('/closet')} />
         <MenuRow icon="clipboard" label="코디 기록" value="캘린더" onPress={() => router.navigate('/calendar')} />
         <MenuRow
           icon="gear"

@@ -112,8 +112,8 @@ export const Header = ({ title, right, onBack, center, hideBack }: IHeaderProps)
   );
 };
 
-/** 탭 화면 맨 위의 큰 제목 줄 */
-export const PageTitle = ({ title, sub, right }: { title: string; sub?: string; right?: ReactNode }) => {
+/** 탭 화면 맨 위의 큰 제목 줄. sub에 Text를 섞어 일부만 작게 쓸 수 있다 */
+export const PageTitle = ({ title, sub, right }: { title: string; sub?: ReactNode; right?: ReactNode }) => {
   const s = useStyles();
 
   return (
@@ -242,6 +242,13 @@ export const Button = ({
       {trailing}
     </Pressable>
   );
+};
+
+/** 옷 이름 뒤에 붙이는 작은 "사용 안 함" 표시 (doc/13). 이름 Text 안에 넣는다 */
+export const RetiredTag = () => {
+  const s = useStyles();
+
+  return <Text style={s.retiredTag}>{'  사용 안 함'}</Text>;
 };
 
 export const Card = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => {
@@ -443,5 +450,6 @@ const useStyles = makeStyles((t) => ({
     alignSelf: 'flex-start',
   },
   badgeText: { fontSize: 11, fontWeight: '700' },
+  retiredTag: { fontSize: 11, fontWeight: '600', color: t.colors.textMuted },
   notice: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: t.radius.md, alignItems: 'flex-start' },
 }));

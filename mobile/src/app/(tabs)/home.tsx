@@ -14,6 +14,7 @@ import type { Outfit, OutfitItems, Slot, Weather } from '@/data/types';
 import { dayContext, isWorkDay } from '@/lib/context';
 import { addDays, diffDays, fromKey, longLabel, todayKey } from '@/lib/date';
 import { canRecommend, recommend } from '@/lib/recommend';
+import { activeItems } from '@/lib/retire';
 import { COND_LABEL, forecast, weatherNotice } from '@/lib/weather';
 import { engineInput, useStore } from '@/store/useStore';
 import { cardBase, makeStyles, useColors } from '@/theme';
@@ -73,9 +74,10 @@ export default function Home() {
   const plan = plans.find((p) => p.date === date);
   const ready = canRecommend(items);
   const recorded = looks.some((l) => l.date === date);
-  // 마이 탭과 같은 기준: 최근 30일 안에 입은 옷의 비율
-  const active = items.filter((i) => i.lastWornAt && diffDays(today, i.lastWornAt) <= 30).length;
-  const usage = items.length ? Math.round((active / items.length) * 100) : 0;
+  // 통계는 사용 중인 옷만 (사용하지 않는 옷은 doc/13). 마이 탭과 같은 기준: 최근 30일 안에 입은 옷의 비율
+  const inUse = activeItems(items);
+  const active = inUse.filter((i) => i.lastWornAt && diffDays(today, i.lastWornAt) <= 30).length;
+  const usage = inUse.length ? Math.round((active / inUse.length) * 100) : 0;
 
   const shuffle = () => {
     if (!current) return;
@@ -187,7 +189,7 @@ export default function Home() {
         <StatCard
           icon="hanger"
           label="등록한 옷"
-          value={`${items.length}`}
+          value={`${inUse.length}`}
           unit="벌"
           onPress={() => router.navigate('/closet')}
         />

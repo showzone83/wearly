@@ -16,6 +16,7 @@ import { api, errorMessage, isNetworkError, photoFile } from '@/lib/api';
 import { activeCodes, defaultStatus, isActiveCode, subTypeMeta, subTypesOf } from '@/lib/codes';
 import { MOCK_MODE } from '@/lib/mode';
 import { canRecommend } from '@/lib/recommend';
+import { activeItems } from '@/lib/retire';
 import { draftFromSuggestion } from '@/lib/serverItems';
 import { photoSource, samplePhotoUri, type TSamplePhoto } from '@/lib/samplePhotos';
 import { useStore } from '@/store/useStore';
@@ -259,7 +260,7 @@ export default function NewItem() {
           <Title style={s.doneTitle}>옷장에 추가했어요</Title>
           <Text style={s.doneSub}>
             {after.ok
-              ? `총 ${items.length}벌 · 이제 이 옷이 들어간 코디도 추천해 드려요.`
+              ? `총 ${activeItems(items).length}벌 · 이제 이 옷이 들어간 코디도 추천해 드려요.`
               : `첫 코디까지 ${after.missing.join(', ')} 1벌씩 남았어요. 원피스 한 벌로도 시작할 수 있어요.`}
           </Text>
         </View>

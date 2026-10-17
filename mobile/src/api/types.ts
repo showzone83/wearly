@@ -16,6 +16,8 @@ export type Season = string;
 export type StyleTag = string;
 /** ITEM_STATUS 코드 (예: OWNED) */
 export type ItemStatus = string;
+/** RETIRE_REASON 코드 (예: DONATED). 사용하지 않는 옷으로 옮긴 이유 (doc/13 2장) */
+export type RetireReason = string;
 export type DressCode = 'CASUAL' | 'BIZ_CASUAL' | 'FORMAL';
 export type WorkType = 'WEEKDAY' | 'WEEKEND' | 'CUSTOM';
 
@@ -86,9 +88,18 @@ export interface ItemDto {
   /** YYYY-MM-DD */
   lastWornAt?: string | null;
   createdAt: string;
+  /** 사용 중지 시각(ISO). null이면 사용 중 (doc/13 3장). 예전 서버는 보내지 않는다 */
+  retiredAt?: string | null;
+  /** 사용 중지 이유 (RETIRE_REASON 코드) */
+  retireReason?: RetireReason | null;
+  /** 사용 중지 메모 (200자 이하) */
+  retireMemo?: string | null;
 }
 
-export type ItemInput = Omit<ItemDto, 'id' | 'createdAt' | 'wornCount' | 'lastWornAt'> & {
+export type ItemInput = Omit<
+  ItemDto,
+  'id' | 'createdAt' | 'wornCount' | 'lastWornAt' | 'retiredAt' | 'retireReason' | 'retireMemo'
+> & {
   wornCount?: number;
   lastWornAt?: string | null;
 };
@@ -106,6 +117,16 @@ export interface ItemFilter {
   /** 이름·브랜드 부분 일치 */
   q?: string;
   sort?: ItemSort;
+  /** 사용 중지한 옷: false(기본, 사용 중만) · true(사용 중지만) · 'all'(모두) (doc/13 3장) */
+  retired?: boolean | 'all';
+}
+
+/** POST /wardrobe/items/{id}/retire 요청 */
+export interface RetireRequest {
+  /** 활성 RETIRE_REASON 코드 */
+  reason: RetireReason;
+  /** 200자 이하 */
+  memo?: string;
 }
 
 export interface WardrobeStats {
@@ -118,6 +139,10 @@ export interface WardrobeStats {
   wornLast30Days: number;
   utilization30d: number;
   sleeping: string[];
+  /** 사용 중지한 옷 수 (위 숫자들은 사용 중인 옷만 센다). 예전 서버는 보내지 않는다 */
+  retired?: number;
+  /** 이유별 사용 중지한 옷 수 */
+  retiredByReason?: { reason: RetireReason; count: number }[];
 }
 
 // ── AI 분석 ──
@@ -236,7 +261,16 @@ export interface OutfitRecommendResponse {
 // ── 코드 (doc/06_코드_관리.md 4장) ──
 
 /** 코드 그룹. 서버가 새 그룹을 더해도 받을 수 있게 string도 허용한다 */
-export type CodeGroupKey = 'CATEGORY' | 'SUB_TYPE' | 'COLOR' | 'PATTERN' | 'SEASON' | 'STYLE' | 'ITEM_STATUS';
+export type CodeGroupKey =
+  | 'CATEGORY'
+  | 'SUB_TYPE'
+  | 'COLOR'
+  | 'PATTERN'
+  | 'SEASON'
+  | 'STYLE'
+  | 'ITEM_STATUS'
+  /** 사용하지 않는 옷 이유 (doc/13 2장). 예전 서버에는 없다 */
+  | 'RETIRE_REASON';
 
 export interface CodeDto {
   code: string;

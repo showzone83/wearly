@@ -11,10 +11,10 @@ import { FORMALITY_LABEL, MOOD_LABEL, OCCASION_LABEL, PLAN_OCCASIONS, TIME_LABEL
 import type { ColorKey, Formality, Mood, Occasion, Outfit, RecommendContext, StyleTag, TimeOfDay } from '@/data/types';
 import type { RecommendSource } from '@/lib/aiOutfits';
 import { requestAiOutfits, ruleOutfits, type AiPhase } from '@/lib/aiRecommend';
-import { activeCodes, colorLabel, isActiveCode, isRecommendable, styleLabel, withCurrent } from '@/lib/codes';
+import { activeCodes, colorLabel, isActiveCode, styleLabel, withCurrent } from '@/lib/codes';
 import { dayContext } from '@/lib/context';
 import { addDays, diffDays, fromKey, longLabel, todayKey } from '@/lib/date';
-import { canRecommend, slotOf } from '@/lib/recommend';
+import { canRecommend, isCandidate, slotOf } from '@/lib/recommend';
 import { COND_LABEL, FEEL_PRESETS, forecast, hasForecast, manualWeather } from '@/lib/weather';
 import { useCodesVersion } from '@/store/useCodes';
 import { useStore } from '@/store/useStore';
@@ -91,7 +91,7 @@ export default function Coordi() {
   const auto = hasForecast(planDate);
   const planWeather = auto ? forecast(planDate) : manualWeather(feel, rain);
   const todayWeather = forecast(today);
-  const anchorable = items.filter((i) => isRecommendable(i.status) && slotOf(i.category) !== null);
+  const anchorable = items.filter((i) => isCandidate(i) && slotOf(i.category) !== null);
 
   /** 지금 화면 조건 (오늘 코디: 오늘 예보 · 예정일 코디: 그날 예보 또는 직접 고른 기온) */
   const buildCtx = (): RecommendContext =>

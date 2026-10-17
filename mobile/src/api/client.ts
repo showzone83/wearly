@@ -20,6 +20,7 @@ import type {
   OutfitRecommendRequest,
   OutfitRecommendResponse,
   ProfileDto,
+  RetireRequest,
   RNFile,
   SignupRequest,
   UserDto,
@@ -334,7 +335,15 @@ export function createApiClient(options: ApiClientOptions) {
       list(filter: ItemFilter = {}): Promise<ItemListResponse> {
         return request<ItemListResponse>('GET', '/wardrobe/items', {
           auth: true,
-          query: { category: filter.category, status: filter.status, color: filter.color, q: filter.q, sort: filter.sort },
+          query: {
+            category: filter.category,
+            status: filter.status,
+            color: filter.color,
+            q: filter.q,
+            sort: filter.sort,
+            // 예전 서버는 모르는 파라미터를 무시하고 전체(=사용 중) 목록을 준다
+            retired: filter.retired === undefined ? undefined : String(filter.retired),
+          },
         });
       },
       get(id: string): Promise<ItemDto> {
@@ -350,9 +359,19 @@ export function createApiClient(options: ApiClientOptions) {
       update(id: string, patch: Partial<ItemInput>): Promise<ItemDto> {
         return request<ItemDto>('PATCH', `/wardrobe/items/${encodeURIComponent(id)}`, { auth: true, json: patch });
       },
+      /** 완전 삭제 (doc/13). 되돌릴 수 없다 */
       remove(id: string): Promise<void> {
         return request<void>('DELETE', `/wardrobe/items/${encodeURIComponent(id)}`, { auth: true });
       },
+      /**
+       * 사용하지 않는 옷으로 옮긴다 (doc/13 3장). 이미 사용 중지면 이유·메모만 바뀌고 시각은 그대로다.
+       * 오류: 400 VALIDATION_FAILED(reason·memo) · 404 NOT_FOUND. 이 API가 없는 예전 서버도 404를 준다
+       */
+      retire: (id: string, req: RetireRequest): Promise<ItemDto> =>
+        request<ItemDto>('POST', `/wardrobe/items/${encodeURIComponent(id)}/retire`, { auth: true, json: req }),
+      /** 다시 사용한다 (doc/13 3장). 사용 중이면 그대로 200 */
+      restore: (id: string): Promise<ItemDto> =>
+        request<ItemDto>('POST', `/wardrobe/items/${encodeURIComponent(id)}/restore`, { auth: true }),
       stats(): Promise<WardrobeStats> {
         return request<WardrobeStats>('GET', '/wardrobe/stats', { auth: true });
       },

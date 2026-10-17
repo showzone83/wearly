@@ -9,6 +9,7 @@ import { dayContext } from '@/lib/context';
 import { diffDays, todayKey } from '@/lib/date';
 import { josa } from '@/lib/josa';
 import { recommend } from '@/lib/recommend';
+import { activeItems } from '@/lib/retire';
 import { useCodesVersion } from '@/store/useCodes';
 import { engineInput, useStore } from '@/store/useStore';
 import { cardBase, makeStyles, useColors } from '@/theme';
@@ -21,7 +22,7 @@ function isSleeping(i: WardrobeItem, today: string) {
 
 // 목업 ⑥ 옷장 스타일 분석 (p.26): 분석 → 평가 → 추천 → 제안
 export default function Analysis() {
-  const items = useStore((s) => s.items);
+  const all = useStore((s) => s.items);
   const looks = useStore((s) => s.looks);
   const profile = useStore((s) => s.profile);
   const setDraft = useStore((s) => s.setDraft);
@@ -31,6 +32,8 @@ export default function Analysis() {
   /** 스타일 구성비 막대 색 (많은 순) */
   const STACK_COLORS = [colors.primary, colors.accent, colors.textSub, colors.primarySoft, colors.accentSoft, colors.textMuted, colors.border];
   const today = todayKey();
+  // 분석은 지금 옷장(사용 중인 옷)만 본다 (doc/13)
+  const items = activeItems(all);
 
   if (items.length === 0) {
     return (

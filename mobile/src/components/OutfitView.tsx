@@ -6,10 +6,12 @@ import { SLOTS } from '@/data/constants';
 import type { Outfit, Slot, WardrobeItem } from '@/data/types';
 import { categoryLabel, colorLabel, isRecommendable, seasonLabel, slotLabel, statusLabel } from '@/lib/codes';
 import { alternativesFor, evaluate, slotOf, type EngineInput } from '@/lib/recommend';
+import { isRetired } from '@/lib/retire';
 import { useStore } from '@/store/useStore';
 import { makeStyles, space, useColors } from '@/theme';
 import { Icon } from './Icon';
 import { ItemThumb } from './ItemThumb';
+import { RetiredTag } from './ui';
 
 const MAX_WIDTH = 480;
 
@@ -111,7 +113,10 @@ export function OutfitItemRows({ outfit, input, onChange, pinned = [], onToggleP
           <View key={k} style={styles.row}>
             <ItemThumb item={it} size={56} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>{it ? it.name : '아우터 없음'}</Text>
+              <Text style={styles.rowTitle}>
+                {it ? it.name : '아우터 없음'}
+                {it && isRetired(it) && <RetiredTag />}
+              </Text>
               <Text style={styles.rowSub}>{it ? itemSubtitle(it) : '날씨에 따라 추가할 수 있어요'}</Text>
             </View>
             {onTogglePin && it && (
@@ -161,7 +166,10 @@ function SwapSheet({
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const options = useMemo(() => (slot ? alternativesFor(slot, outfit.items, input) : []), [slot, outfit, input]);
-  const laundry = slot ? input.items.filter((i) => slotOf(i.category) === slot && !isRecommendable(i.status)) : [];
+  // 사용하지 않는 옷(doc/13)은 교체 후보에도, 세탁·수선 목록에도 보이지 않는다
+  const laundry = slot
+    ? input.items.filter((i) => slotOf(i.category) === slot && !isRetired(i) && !isRecommendable(i.status))
+    : [];
 
   return (
     <Modal visible={!!slot} transparent animationType="slide" onRequestClose={onClose}>

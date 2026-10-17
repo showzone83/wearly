@@ -14,9 +14,10 @@ const _sameEnums: [
   Same<Api.Season, App.Season>,
   Same<Api.StyleTag, App.StyleTag>,
   Same<Api.ItemStatus, App.ItemStatus>,
+  Same<Api.RetireReason, App.RetireReason>,
   Same<Api.DressCode, App.Formality>,
   Same<Api.WorkType, App.WorkType>,
-] = [true, true, true, true, true, true, true, true, true];
+] = [true, true, true, true, true, true, true, true, true, true];
 void _sameEnums;
 
 export function itemFromDto(dto: Api.ItemDto, imageUri?: string): App.WardrobeItem {
@@ -36,8 +37,18 @@ export function itemFromDto(dto: Api.ItemDto, imageUri?: string): App.WardrobeIt
     lastWornAt: dto.lastWornAt ?? undefined,
     createdAt: dto.createdAt,
     imageUri,
+    ...retireFromDto(dto),
   };
 }
+
+/** 사용 중지 필드만 (예전 서버 응답에는 없다 → 사용 중) */
+export const retireFromDto = (
+  dto: Pick<Api.ItemDto, 'retiredAt' | 'retireReason' | 'retireMemo'>,
+): Pick<App.WardrobeItem, 'retiredAt' | 'retireReason' | 'retireMemo'> => ({
+  retiredAt: dto.retiredAt || undefined,
+  retireReason: dto.retiredAt ? dto.retireReason || undefined : undefined,
+  retireMemo: dto.retiredAt ? dto.retireMemo || undefined : undefined,
+});
 
 /** 등록·수정 폼 값 → 서버 입력. 사진(imageUri)은 서버에 보내지 않는다 */
 export function inputFromDraft(d: ItemDraft): Api.ItemInput {

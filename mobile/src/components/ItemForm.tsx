@@ -18,7 +18,26 @@ import { inputBase, makeStyles, useColors } from '@/theme';
 import { ChipGroup } from './Chip';
 import { Badge, Label, Row } from './ui';
 
-export type ItemDraft = Omit<WardrobeItem, 'id' | 'wornCount' | 'createdAt' | 'lastWornAt'>;
+/** 등록·수정 폼 값. 착용 기록과 사용 중지(doc/13)는 폼에서 고치지 않는다 */
+export type ItemDraft = Omit<
+  WardrobeItem,
+  'id' | 'wornCount' | 'createdAt' | 'lastWornAt' | 'retiredAt' | 'retireReason' | 'retireMemo'
+>;
+
+/** 아이템에서 폼 값만 뽑는다 (사용 중지 필드가 폼 저장으로 덮이지 않게) */
+export const draftOf = (i: ItemDraft): ItemDraft => ({
+  name: i.name,
+  category: i.category,
+  subType: i.subType,
+  color: i.color,
+  pattern: i.pattern,
+  seasons: i.seasons,
+  styles: i.styles,
+  formality: i.formality,
+  status: i.status,
+  imageUri: i.imageUri,
+  brand: i.brand,
+});
 
 const FORMALITY_OPTIONS = ['1', '2', '3'] as const;
 const FORMALITY_TEXT: Record<(typeof FORMALITY_OPTIONS)[number], string> = { '1': '편한 데일리', '2': '비즈니스 캐주얼', '3': '포멀' };

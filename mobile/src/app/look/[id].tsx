@@ -4,12 +4,13 @@ import { Text, View } from 'react-native';
 import { Icon } from '@/components/Icon';
 import { ItemThumb } from '@/components/ItemThumb';
 import { OutfitMini } from '@/components/OutfitMini';
-import { Button, Header, Kicker, Row, Screen, Stars, Title } from '@/components/ui';
+import { Button, Header, Kicker, RetiredTag, Row, Screen, Stars, Title } from '@/components/ui';
 import { EMOTION_LABEL, OCCASION_LABEL, OTHERS_LABEL } from '@/data/constants';
 import type { AxisScores } from '@/data/types';
 import { longLabel } from '@/lib/date';
 import { josa } from '@/lib/josa';
 import { AXIS_LABEL } from '@/lib/diagnose';
+import { isRetired } from '@/lib/retire';
 import { useStore } from '@/store/useStore';
 import { cardBase, makeStyles, useColors } from '@/theme';
 
@@ -96,8 +97,10 @@ export default function LookDetail() {
             <Icon name="chevron" color={colors.primary} />
             <ItemThumb item={to} size={64} />
             <Text style={s.rxText}>
-              {from.name} 대신 <Text style={s.em}>{to.name}</Text>
-              {josa(to.name, '이면', '면').slice(to.name.length)} 점수가 더 올라가요.
+              {from.name}
+              {isRetired(from) && <RetiredTag />} 대신 <Text style={s.em}>{to.name}</Text>
+              {josa(to.name, '이면', '면').slice(to.name.length)}
+              {isRetired(to) && <RetiredTag />} 점수가 더 올라가요.
             </Text>
           </Row>
         </View>
@@ -115,7 +118,14 @@ export default function LookDetail() {
         <View style={[s.rx, { backgroundColor: colors.primarySoft, borderColor: colors.primarySoft }]}>
           <Text style={[s.rxHead, { color: colors.primary }]}>다음 추천에 반영</Text>
           <Text style={[s.rxText, { marginTop: 6 }]}>
-            {praised ? `칭찬받은 ${praised.name} 활용 조합의 가중치를 올렸어요.` : '만족도가 높은 이 조합의 가중치를 올렸어요.'}
+            {praised ? (
+              <>
+                칭찬받은 {praised.name}
+                {isRetired(praised) && <RetiredTag />} 활용 조합의 가중치를 올렸어요.
+              </>
+            ) : (
+              '만족도가 높은 이 조합의 가중치를 올렸어요.'
+            )}
           </Text>
         </View>
       )}

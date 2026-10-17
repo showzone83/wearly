@@ -5,7 +5,7 @@ import { Chip } from '@/components/Chip';
 import { Icon } from '@/components/Icon';
 import { ItemThumb } from '@/components/ItemThumb';
 import { Mascot } from '@/components/Mascot';
-import { Button, PageTitle, Row, Screen } from '@/components/ui';
+import { Button, Notice, PageTitle, Row, Screen } from '@/components/ui';
 import { router } from 'expo-router';
 
 import type { Category, Season, WardrobeItem } from '@/data/types';
@@ -19,6 +19,7 @@ import {
   subTypeLabel,
   withCurrent,
 } from '@/lib/codes';
+import { activeItems, retiredItems, retireReasonLabel } from '@/lib/retire';
 import { useCodesVersion } from '@/store/useCodes';
 import { useStore } from '@/store/useStore';
 import { inputBase, makeStyles, space, useColors } from '@/theme';
@@ -30,10 +31,12 @@ const NEXT_SORT: Record<TSortKey, TSortKey> = { recent: 'worn', worn: 'sleeping'
 const FAVORITE_WORN = 5;
 
 export default function Closet() {
-  const items = useStore((s) => s.items);
+  const all = useStore((s) => s.items);
   const codesVersion = useCodesVersion();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<Category | 'ALL'>('ALL');
+  /** "사용 안 함" 칩: 사용하지 않는 옷 목록 (doc/13 4장) */
+  const [retiredView, setRetiredView] = useState(false);
   const [season, setSeason] = useState<Season | null>(null);
   const [laundryOnly, setLaundryOnly] = useState(false);
   const [sort, setSort] = useState<TSortKey>('recent');
@@ -48,6 +51,10 @@ export default function Closet() {
   const gap = 10;
   const tile = (Math.min(width, 480) - space.gutter * 2 - gap * (cols - 1)) / cols;
 
+  // 기본 목록·통계는 사용 중인 옷만
+  const items = useMemo(() => activeItems(all), [all]);
+  const retired = useMemo(() => retiredItems(all), [all]);
+
   const list = useMemo(() => {
     const term = q.trim();
     // 이름·브랜드와 함께 종류·세부 종류·색 이름으로도 찾는다
@@ -55,18 +62,20 @@ export default function Closet() {
       [i.name, i.brand ?? '', categoryLabel(i.category), subTypeLabel(i.subType), colorLabel(i.color)].some((t) =>
         t.includes(term),
       );
-    const filtered = items.filter(
+    const filtered = (retiredView ? retired : items).filter(
       (i) =>
-        (cat === 'ALL' || i.category === cat) &&
+        (retiredView || cat === 'ALL' || i.category === cat) &&
         (!season || i.seasons.includes(season)) &&
         (!laundryOnly || !isRecommendable(i.status)) &&
         (!term || matches(i)),
     );
     const sorted = [...filtered];
+    // 사용 안 함 목록의 최근순은 옮긴 날 기준
+    if (retiredView && sort === 'recent') sorted.sort((a, b) => (b.retiredAt ?? '').localeCompare(a.retiredAt ?? ''));
     if (sort === 'worn') sorted.sort((a, b) => b.wornCount - a.wornCount);
     if (sort === 'sleeping') sorted.sort((a, b) => (a.lastWornAt ?? '0').localeCompare(b.lastWornAt ?? '0'));
     return sorted;
-  }, [items, q, cat, season, laundryOnly, sort, codesVersion]); // codesVersion: 코드가 갱신되면 라벨 검색을 다시 한다
+  }, [items, retired, retiredView, q, cat, season, laundryOnly, sort, codesVersion]); // codesVersion: 코드가 갱신되면 라벨 검색을 다시 한다
 
   const resting = items.filter((i) => !isRecommendable(i.status)).length;
   // 종류 필터: 활성 종류 + 옷장에 있는 비활성(또는 모르는) 종류
@@ -78,7 +87,13 @@ export default function Closet() {
       header={
         <PageTitle
           title="내 옷장"
-          sub={`총 ${items.length}벌의 옷이 등록되어 있어요${resting ? ` · 세탁·수선 중 ${resting}벌` : ''}`}
+          sub={
+            <>
+              {`총 ${items.length}벌의 옷이 등록되어 있어요${resting ? ` · 세탁·수선 중 ${resting}벌` : ''}`}
+              {/* 좁은 화면에서 "·"만 윗줄에 남지 않게 따로 한 줄로 */}
+              {retired.length > 0 && <Text style={s.subSmall}>{`\n사용 안 함 ${retired.length}벌`}</Text>}
+            </>
+          }
           right={
             <>
               <Pressable onPress={() => setSearchOpen(!searchOpen)} hitSlop={8} accessibilityLabel="검색">
@@ -111,10 +126,35 @@ export default function Closet() {
         </View>
       )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips} style={s.chipsWrap}>
-        <Chip label="전체" selected={cat === 'ALL'} onPress={() => setCat('ALL')} small />
+        <Chip
+          label="전체"
+          selected={!retiredView && cat === 'ALL'}
+          onPress={() => {
+            setCat('ALL');
+            setRetiredView(false);
+          }}
+          small
+        />
         {categories.map((x) => (
-          <Chip key={x} label={categoryLabel(x)} selected={cat === x} onPress={() => setCat(x)} small />
+          <Chip
+            key={x}
+            label={categoryLabel(x)}
+            selected={!retiredView && cat === x}
+            onPress={() => {
+              setCat(x);
+              setRetiredView(false);
+            }}
+            small
+          />
         ))}
+        {(retired.length > 0 || retiredView) && (
+          <Chip
+            label={`사용 안 함 (${retired.length})`}
+            selected={retiredView}
+            onPress={() => setRetiredView(!retiredView)}
+            small
+          />
+        )}
       </ScrollView>
       {(filterOpen || filtering) && (
         <ScrollView
@@ -147,11 +187,26 @@ export default function Closet() {
         </Pressable>
       </Row>
 
+      {retiredView && retired.length > 0 && (
+        <Notice tone="plain" style={s.retiredNotice}>
+          <Text style={s.retiredNoticeText}>
+            추천에서 빠진 옷이에요. 착용 기록은 그대로 남아요. 옷을 누르면 다시 사용할 수 있어요.
+          </Text>
+        </Notice>
+      )}
+
       {list.length === 0 ? (
-        items.length === 0 ? (
+        retiredView ? (
+          <Text style={s.emptyText}>
+            {retired.length === 0 ? '사용하지 않는 옷이 없어요.' : '조건에 맞는 옷이 없어요.'}
+          </Text>
+        ) : items.length === 0 ? (
           <View style={s.empty}>
             <Mascot pose="closet" size={170} sceneWidth={290} />
-            <Text style={s.emptyText}>아직 등록한 옷이 없어요.{'\n'}아래 + 버튼으로 첫 옷을 등록해 보세요.</Text>
+            <Text style={s.emptyText}>
+              {retired.length > 0 ? '사용 중인 옷이 없어요.' : '아직 등록한 옷이 없어요.'}
+              {'\n'}아래 + 버튼으로 {retired.length > 0 ? '옷을' : '첫 옷을'} 등록해 보세요.
+            </Text>
             <Button title="옷 등록하기" onPress={() => router.push('/item/new')} style={{ alignSelf: 'stretch' }} />
           </View>
         ) : (
@@ -165,15 +220,23 @@ export default function Closet() {
                 item={it}
                 size={tile}
                 height={tile * 1.12}
-                dim={!isRecommendable(it.status)}
-                heart={it.wornCount >= FAVORITE_WORN ? 'on' : 'off'}
+                dim={retiredView || !isRecommendable(it.status)}
+                heart={retiredView ? undefined : it.wornCount >= FAVORITE_WORN ? 'on' : 'off'}
               />
-              {!isRecommendable(it.status) && (
-                <View style={s.status}>
-                  <Text style={s.statusText}>{statusLabel(it.status)}</Text>
+              {retiredView ? (
+                <View style={[s.status, s.retiredBadge]}>
+                  <Text style={[s.statusText, s.retiredBadgeText]}>
+                    {retireReasonLabel(it.retireReason) || '사용 안 함'}
+                  </Text>
                 </View>
+              ) : (
+                !isRecommendable(it.status) && (
+                  <View style={s.status}>
+                    <Text style={s.statusText}>{statusLabel(it.status)}</Text>
+                  </View>
+                )
               )}
-              <Text style={s.name} numberOfLines={1}>
+              <Text style={[s.name, retiredView && { color: c.textSub }]} numberOfLines={1}>
                 {it.name}
               </Text>
               <Text style={s.meta}>
@@ -215,6 +278,11 @@ const useStyles = makeStyles((t) => ({
     paddingVertical: 2,
   },
   statusText: { color: t.colors.surface, fontSize: 10, fontWeight: '700' },
+  retiredBadge: { backgroundColor: t.colors.surface, borderWidth: 1, borderColor: t.colors.chipBorder },
+  retiredBadgeText: { color: t.colors.textSub },
+  retiredNotice: { marginBottom: 14, paddingVertical: 10 },
+  retiredNoticeText: { fontSize: 12, color: t.colors.textSub, lineHeight: 18 },
+  subSmall: { fontSize: 11, color: t.colors.textMuted },
   empty: { alignItems: 'center', gap: 14, marginTop: 30 },
   emptyText: { color: t.colors.textSub, textAlign: 'center', marginTop: 20, lineHeight: 22 },
 }));

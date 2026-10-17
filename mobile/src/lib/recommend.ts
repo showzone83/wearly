@@ -19,6 +19,7 @@ import type {
 import { categorySlot, colorLabel, colorMeta, isGoodPair, isRecommendable, subTypeMeta } from './codes';
 import { diffDays } from './date';
 import { josa } from './josa';
+import { isRetired } from './retire';
 
 export const WEIGHTS = { color: 0.3, occasion: 0.25, weather: 0.2, taste: 0.15, diversity: 0.1 };
 
@@ -45,9 +46,14 @@ export function slotOf(category: Category): Slot | null {
   return categorySlot(category);
 }
 
+/** 추천 후보가 될 수 있는 옷: 사용 중(doc/13)이고 보유 상태가 추천 대상(세탁·수선 중이 아님) */
+export function isCandidate(i: WardrobeItem): boolean {
+  return !isRetired(i) && isRecommendable(i.status);
+}
+
 /** 상의+하의 또는 원피스가 있어야 코디를 만들 수 있다 */
 export function canRecommend(items: WardrobeItem[]): { ok: boolean; missing: string[] } {
-  const owned = items.filter((i) => isRecommendable(i.status));
+  const owned = items.filter(isCandidate);
   const has = (slot: Slot) => owned.some((i) => slotOf(i.category) === slot);
   if (has('DRESS')) return { ok: true, missing: [] };
   const missing: string[] = [];
@@ -306,6 +312,7 @@ function eligibleBySlot(input: EngineInput): Record<Slot, WardrobeItem[]> {
   for (const i of input.items) {
     const slot = slotOf(i.category);
     if (!slot) continue;
+    if (isRetired(i)) continue; // 사용하지 않는 옷은 고정·중심 아이템이어도 뺀다 (doc/13, 서버는 400)
     if (pinned.has(i.id)) {
       out[slot].push(i);
       continue;
@@ -328,7 +335,7 @@ function eligibleBySlot(input: EngineInput): Record<Slot, WardrobeItem[]> {
   // 고정·중심 아이템이 있으면 그 칸은 해당 아이템으로만 구성
   for (const id of pinned) {
     const it = input.items.find((i) => i.id === id);
-    const slot = it && slotOf(it.category);
+    const slot = it && !isRetired(it) && slotOf(it.category);
     if (it && slot) out[slot] = [it];
   }
   return out;
@@ -424,7 +431,7 @@ export function alternativesFor(
 ): { item: WardrobeItem | null; outfit: Outfit }[] {
   const options: { item: WardrobeItem | null; outfit: Outfit }[] = [];
   for (const it of input.items) {
-    if (slotOf(it.category) !== slot || it.id === current[slot] || !isRecommendable(it.status)) continue;
+    if (slotOf(it.category) !== slot || it.id === current[slot] || !isCandidate(it)) continue;
     options.push({ item: it, outfit: evaluate({ ...current, [slot]: it.id }, input) });
   }
   if ((slot === 'OUTER' || slot === 'BAG') && current[slot]) {

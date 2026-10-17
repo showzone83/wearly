@@ -13,6 +13,7 @@ import { dayContext, newId } from '@/lib/context';
 import { longLabel, todayKey } from '@/lib/date';
 import { diagnose } from '@/lib/diagnose';
 import { slotOf } from '@/lib/recommend';
+import { isRetired } from '@/lib/retire';
 import { engineInput, useStore } from '@/store/useStore';
 import { inputBase, makeStyles, useColors } from '@/theme';
 
@@ -90,7 +91,10 @@ export default function NewLook() {
             slot={slot}
             value={items[slot]}
             required={(slot === 'TOP' || slot === 'BOTTOM') && !items.DRESS}
-            items={allItems.filter((i) => slotOf(i.category) === slot)}
+            // 사용하지 않는 옷(doc/13)은 불러온 코디에 들어 있던 것만 보여 준다
+            items={allItems.filter(
+              (i) => slotOf(i.category) === slot && (!isRetired(i) || Object.values(initial).includes(i.id)),
+            )}
             onChange={(id) => pickSlot(slot, id)}
           />
         ))}
@@ -110,7 +114,10 @@ export default function NewLook() {
           <Label>어떤 아이템을 칭찬받았나요?</Label>
           <ChipGroup
             options={chosen}
-            labels={(id) => allItems.find((i) => i.id === id)?.name ?? ''}
+            labels={(id) => {
+              const it = allItems.find((i) => i.id === id);
+              return it ? `${it.name}${isRetired(it) ? ' (사용 안 함)' : ''}` : '';
+            }}
             value={praised}
             small
             allowEmpty
@@ -151,10 +158,11 @@ function SlotPicker({
           const on = value === it.id;
           return (
             <Pressable key={it.id} onPress={() => onChange(on ? undefined : it.id)} style={[s.pick, on && s.pickOn]}>
-              <ItemThumb item={it} size={64} />
+              <ItemThumb item={it} size={64} dim={isRetired(it)} />
               <Text style={s.pickName} numberOfLines={1}>
                 {it.name}
               </Text>
+              {isRetired(it) && <Text style={s.pickRetired}>사용 안 함</Text>}
             </Pressable>
           );
         })}
@@ -171,5 +179,6 @@ const useStyles = makeStyles((t) => ({
   pick: { width: 74, padding: 3, borderWidth: 2, borderColor: 'transparent', borderRadius: 16 },
   pickOn: { borderColor: t.colors.primary },
   pickName: { fontSize: 11, marginTop: 4, color: t.colors.text, textAlign: 'center' },
+  pickRetired: { fontSize: 10, color: t.colors.textMuted, textAlign: 'center' },
   note: { color: t.colors.textMuted, fontSize: 12, marginTop: 14 },
 }));

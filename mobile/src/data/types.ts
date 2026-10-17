@@ -14,6 +14,8 @@ export type Season = string;
 export type StyleTag = string;
 /** ITEM_STATUS 코드 (예: OWNED). 추천 후보 여부는 attrs.recommendable */
 export type ItemStatus = string;
+/** RETIRE_REASON 코드 (예: DONATED). 사용하지 않는 옷으로 옮긴 이유 (doc/13) */
+export type RetireReason = string;
 
 export interface WardrobeItem {
   id: string;
@@ -32,6 +34,13 @@ export interface WardrobeItem {
   wornCount: number;
   lastWornAt?: string;
   createdAt: string;
+  /**
+   * 사용하지 않는 옷으로 옮긴 시각(ISO). 있으면 옷장·추천에서 빠지고 과거 기록에만 보인다 (doc/13).
+   * 보유 상태(status)와 별개라 다시 사용하면 원래 status로 돌아온다
+   */
+  retiredAt?: string;
+  retireReason?: RetireReason;
+  retireMemo?: string;
 }
 
 /** 코디 칸 (앱 로직이라 고정). 코디는 TOP+BOTTOM 또는 DRESS 하나로 몸판을 채운다 */

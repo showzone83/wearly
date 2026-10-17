@@ -8,6 +8,7 @@ import type { Outfit, OutfitItems, Slot, TimeOfDay } from '@/data/types';
 import { slotLabel } from './codes';
 import { diffDays } from './date';
 import { evaluate, recentExclusions, slotOf, type EngineInput } from './recommend';
+import { isRetired } from './retire';
 
 /** 서버에 요청하는 후보 수 (계약 기본값) */
 export const CANDIDATE_COUNT = 5;
@@ -16,6 +17,8 @@ export const SHOW_COUNT = 3;
 /** 최근 코디로 보내는 기간(일). 엔진의 반복 판단(engineInput)과 같다 */
 const RECENT_DAYS = 7;
 const MEMO_MAX = 200;
+/** 서버가 받는 id 목록 최대 길이 (OutfitRequestValidator.ID_LIST_MAX) */
+const ID_LIST_MAX = 500;
 
 /** 추천 결과의 출처. 결과 화면 배지에 쓴다 */
 export type RecommendSource =
@@ -73,7 +76,11 @@ function knownItems(items: OutfitItems, known: Set<string>): OutfitSlotItems {
 /** coordi 화면 조건 + 기기 기록으로 POST /outfits/recommendations 요청을 만든다 */
 export function buildRecommendRequest({ input, history, plan, count = CANDIDATE_COUNT }: RequestSource): OutfitRecommendRequest {
   const { ctx } = input;
+  // 최근 코디는 지난 기록이라 사용하지 않는 옷도 그대로 보낸다
   const known = new Set(input.items.map((i) => i.id));
+  // 고정·중심·취향은 사용 중인 옷만 (사용하지 않는 옷을 고정·중심으로 주면 서버가 400, doc/13 3장)
+  const usable = new Set(input.items.filter((i) => !isRetired(i)).map((i) => i.id));
+  const retired = input.items.filter(isRetired).map((i) => i.id);
 
   // 최근 7일 코디: 기준 날짜 이전 1~7일. 같은 날 같은 조합(저장 코디와 착용 기록)은 한 번만
   const seen = new Set<string>();
@@ -92,13 +99,13 @@ export function buildRecommendRequest({ input, history, plan, count = CANDIDATE_
   const liked: string[] = [];
   const disliked: string[] = [];
   for (const [id, v] of Object.entries(input.affinity)) {
-    if (!known.has(id) || !v) continue;
+    if (!usable.has(id) || !v) continue;
     (v > 0 ? liked : disliked).push(id);
   }
 
   const w = ctx.weather;
   const memo = plan?.memo?.trim().slice(0, MEMO_MAX);
-  const fixed = ctx.fixed ? knownItems(ctx.fixed, known) : undefined;
+  const fixed = ctx.fixed ? knownItems(ctx.fixed, usable) : undefined;
 
   return {
     context: {
@@ -108,14 +115,15 @@ export function buildRecommendRequest({ input, history, plan, count = CANDIDATE_
       formality: ctx.formality,
       // manual(직접 입력 여부)은 계약에 없어서 뺀다
       weather: w ? { temp: w.temp, min: w.min, max: w.max, rainProb: w.rainProb, cond: w.cond } : undefined,
-      anchorItemId: ctx.anchorItemId && known.has(ctx.anchorItemId) ? ctx.anchorItemId : undefined,
+      anchorItemId: ctx.anchorItemId && usable.has(ctx.anchorItemId) ? ctx.anchorItemId : undefined,
       fixed: fixed && Object.keys(fixed).length ? fixed : undefined,
       avoidColors: ctx.avoidColors?.length ? [...ctx.avoidColors] : undefined,
       concepts: ctx.concepts?.length ? [...ctx.concepts] : undefined,
       timeOfDay: plan?.timeOfDay,
       memo: memo || undefined,
     },
-    excludeItemIds: recentExclusions(input),
+    // 서버도 사용하지 않는 옷을 후보에서 빼지만, 기기와 서버가 어긋났을 때를 위해 한 번 더 보낸다
+    excludeItemIds: [...recentExclusions(input), ...retired].slice(0, ID_LIST_MAX),
     recent,
     likedItemIds: liked,
     dislikedItemIds: disliked,
@@ -138,6 +146,7 @@ export interface RankResult {
  * 서버 후보를 이 기기 옷장 기준으로 검사하고 엔진으로 점수를 매긴다.
  * - 기기에 없는 id, 아이템 종류와 다른 칸에 든 id가 있으면 그 후보를 버리고 stale에 모은다.
  * - 몸판이 상의+하의 또는 원피스 하나가 아니면 버린다(서버가 검증하지만 화면이 깨지지 않게 한 번 더).
+ * - 사용하지 않는 옷(doc/13)이 든 후보는 버린다(서버도 빼지만 기기와 어긋났을 때를 위해).
  * - 같은 조합은 한 번만.
  */
 export function rankCandidates(candidates: readonly OutfitCandidateDto[], input: EngineInput, count = SHOW_COUNT): RankResult {
@@ -157,6 +166,10 @@ export function rankCandidates(candidates: readonly OutfitCandidateDto[], input:
       const item = typeof id === 'string' ? byId.get(id) : undefined;
       if (!item || slotOf(item.category) !== slot) {
         if (typeof id === 'string') stale.add(id);
+        ok = false;
+        continue;
+      }
+      if (isRetired(item)) {
         ok = false;
         continue;
       }

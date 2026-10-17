@@ -4,11 +4,15 @@ import type { ItemDto, UserDto } from '@/api/types';
 import type { ItemDraft } from '@/components/ItemForm';
 import { seedItems } from '@/data/seed';
 import type { Profile, WardrobeItem } from '@/data/types';
-import { isApiError } from '@/api/errors';
+import { ApiError, isApiError } from '@/api/errors';
 import { useStore, type AccountUser } from '@/store/useStore';
 import { api, setAuthLostHandler, tokenStore } from './api';
 import { newId } from './context';
-import { inputFromDraft, inputFromItem, itemFromDto, profileFromDto, profileToDto } from './serverItems';
+import { RETIRE_MEMO_MAX } from './retire';
+import { inputFromDraft, inputFromItem, itemFromDto, profileFromDto, profileToDto, retireFromDto } from './serverItems';
+
+/** 옷장 동기화 목록: 사용하지 않는 옷도 받아 과거 기록에 보이게 한다 (doc/13 3장) */
+const ALL_ITEMS = { retired: 'all' } as const;
 
 export function isAccountMode(): boolean {
   return useStore.getState().authMode === 'account';
@@ -61,7 +65,7 @@ function applyServerItems(dtos: ItemDto[]) {
  */
 export async function enterAccount(user: UserDto): Promise<'home' | 'onboarding'> {
   const profileDto = await api.profile.get();
-  const list = profileDto.onboarded ? await api.wardrobe.list() : null;
+  const list = profileDto.onboarded ? await api.wardrobe.list(ALL_ITEMS) : null;
 
   const s = useStore.getState();
   const sameUser = s.authMode === 'account' && s.user?.id === user.id && s.onboarded;
@@ -85,7 +89,7 @@ export async function enterAccount(user: UserDto): Promise<'home' | 'onboarding'
 /** 앱 시작·복귀 때 서버 기준으로 프로필·옷장을 다시 맞춘다. 오프라인이면 기기 데이터로 계속한다 */
 export async function refreshAccount(): Promise<void> {
   try {
-    const [user, profileDto, list] = await Promise.all([api.users.me(), api.profile.get(), api.wardrobe.list()]);
+    const [user, profileDto, list] = await Promise.all([api.users.me(), api.profile.get(), api.wardrobe.list(ALL_ITEMS)]);
     const s = useStore.getState();
     if (s.authMode !== 'account' || s.user?.id !== user.id) return;
     useStore.setState({ user: toAccountUser(user), profile: profileFromDto(profileDto) });
@@ -102,7 +106,7 @@ export async function refreshAccount(): Promise<void> {
 export async function syncWardrobe(): Promise<boolean> {
   if (!isAccountMode()) return false;
   try {
-    const list = await api.wardrobe.list();
+    const list = await api.wardrobe.list(ALL_ITEMS);
     if (!isAccountMode()) return false;
     applyServerItems(list.items);
     return true;
@@ -163,7 +167,7 @@ export async function deleteAccount(): Promise<void> {
 /** 계정 모드 온보딩 마무리: 샘플 옷장 업로드 → 프로필 저장 → 기기 상태 구성 */
 export async function finishAccountOnboarding(profile: Profile, withSample: boolean): Promise<void> {
   // 이전 시도가 중간에 실패했을 수 있으니 서버에 이미 옷이 있으면 샘플을 다시 올리지 않는다
-  const existing = (await api.wardrobe.list()).items;
+  const existing = (await api.wardrobe.list(ALL_ITEMS)).items;
   let items: WardrobeItem[];
   let seeded = false;
   if (existing.length) {
@@ -240,6 +244,7 @@ export async function saveItem(id: string, draft: ItemDraft): Promise<boolean> {
   }
 }
 
+/** 완전 삭제 (doc/13): 서버에서 지우고 기기의 코디·예정일에서도 뺀다 */
 export async function removeItem(id: string): Promise<void> {
   const s = useStore.getState();
   if (s.authMode === 'account') {
@@ -268,3 +273,97 @@ export async function pushWorn(ids: string[]): Promise<void> {
     }),
   );
 }
+
+// ── 사용하지 않는 옷 (doc/13) ──
+
+/** 서버에 사용 중지 API가 아직 없을 때 (예전 서버). 화면은 message를 그대로 보여 준다 */
+export const RETIRE_UNSUPPORTED = 'RETIRE_UNSUPPORTED';
+
+const unsupported = (status: number) =>
+  new ApiError(status, RETIRE_UNSUPPORTED, "서버에 아직 '사용하지 않는 옷' 기능이 없어요. 서버를 최신으로 올린 뒤 다시 시도해 주세요.");
+
+/**
+ * 사용 중지·다시 사용 요청이 404·405·501로 실패했을 때 까닭을 가린다.
+ * 아이템 조회가 되면 서버에 API가 없는 것(unsupported), 조회도 404면 다른 기기에서 지운 옷(gone)이다.
+ */
+const classifyMissing = async (id: string, e: unknown): Promise<'unsupported' | 'gone' | null> => {
+  if (!isApiError(e) || ![404, 405, 501].includes(e.status)) return null;
+  if (e.status !== 404) return 'unsupported';
+  try {
+    await api.wardrobe.get(id);
+    return 'unsupported';
+  } catch (inner) {
+    return isApiError(inner) && inner.status === 404 ? 'gone' : null;
+  }
+};
+
+export interface IRetireInput {
+  /** RETIRE_REASON 코드 */
+  reason: string;
+  memo?: string;
+}
+
+/**
+ * 사용하지 않는 옷으로 옮긴다. 이미 사용 중지면 이유·메모만 바꾼다.
+ * 계정 모드는 서버에 먼저 반영하고, 게스트는 기기에서만 바꾼다.
+ * @returns false면 서버에 이미 없는 아이템이라 기기에서도 지웠다
+ * @throws ApiError. 서버에 기능이 없으면 code가 RETIRE_UNSUPPORTED
+ */
+export const retireItem = async (id: string, input: IRetireInput): Promise<boolean> => {
+  const s = useStore.getState();
+  const memo = input.memo?.trim().slice(0, RETIRE_MEMO_MAX) || undefined;
+  if (s.authMode !== 'account') {
+    const prev = s.items.find((i) => i.id === id);
+    s.updateItem(id, {
+      retiredAt: prev?.retiredAt ?? new Date().toISOString(),
+      retireReason: input.reason,
+      retireMemo: memo,
+    });
+    return true;
+  }
+  let dto: ItemDto;
+  try {
+    dto = await api.wardrobe.retire(id, { reason: input.reason, memo });
+  } catch (e) {
+    const why = await classifyMissing(id, e);
+    if (why === 'unsupported') throw unsupported(isApiError(e) ? e.status : 404);
+    if (why === 'gone') {
+      useStore.getState().deleteItem(id);
+      return false;
+    }
+    throw e;
+  }
+  // 예전 서버가 다른 경로로 200을 줬다면 사용 중지 필드가 없다
+  if (!dto?.retiredAt) throw unsupported(200);
+  useStore.getState().updateItem(id, retireFromDto(dto));
+  return true;
+};
+
+/**
+ * 다시 사용한다 (사용 중지 해제). 원래 보유 상태(status)로 돌아온다.
+ * @returns false면 서버에 이미 없는 아이템이라 기기에서도 지웠다
+ * @throws ApiError. 서버에 기능이 없으면 code가 RETIRE_UNSUPPORTED
+ */
+export const restoreItem = async (id: string): Promise<boolean> => {
+  const s = useStore.getState();
+  const cleared = { retiredAt: undefined, retireReason: undefined, retireMemo: undefined };
+  if (s.authMode !== 'account') {
+    s.updateItem(id, cleared);
+    return true;
+  }
+  let dto: ItemDto;
+  try {
+    dto = await api.wardrobe.restore(id);
+  } catch (e) {
+    const why = await classifyMissing(id, e);
+    if (why === 'unsupported') throw unsupported(isApiError(e) ? e.status : 404);
+    if (why === 'gone') {
+      useStore.getState().deleteItem(id);
+      return false;
+    }
+    throw e;
+  }
+  if (dto?.retiredAt) throw unsupported(200);
+  useStore.getState().updateItem(id, dto ? retireFromDto(dto) : cleared);
+  return true;
+};
