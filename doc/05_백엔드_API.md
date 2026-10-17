@@ -1,6 +1,10 @@
 # 05. 백엔드 API 계약 (1차: 토큰 로그인 · 옷장 · AI 분석)
 
 > 백엔드(`backend/`), 앱(`mobile/src/api/`), 연동 하네스(`harness/`)가 함께 따르는 계약이다. 셋 중 하나를 바꾸면 이 문서부터 고친다.
+>
+> **2차 변경**: 옷 속성 값(종류·세부 종류·색·패턴·계절·스타일·보유 상태)은 DB 코드 테이블로 옮겼다 → [06_코드_관리.md](06_코드_관리.md).
+> 관리자 역할·관리자 API·AI 공급자(Claude·OpenAI·Gemini) 관리는 → [07_관리자_사이트.md](07_관리자_사이트.md).
+> 이 문서에서 두 문서와 겹치는 부분은 06·07 문서가 우선이다.
 
 ## 1. 범위
 
@@ -24,7 +28,7 @@
 | DB | `docker compose up -d` → `wearly-postgres`, `localhost:5433`, DB·계정·비밀번호 모두 `wearly` (로컬 전용) |
 | 스키마 | Flyway가 만든다. JPA는 `ddl-auto: validate` |
 | 서버 포트 | 8080 |
-| 비밀 값 | `backend/.env` (git 제외). `ANTHROPIC_API_KEY`, `WEARLY_JWT_SECRET` |
+| 비밀 값 | `backend/.env` (git 제외). `ANTHROPIC_API_KEY`·`OPENAI_API_KEY`·`GEMINI_API_KEY`(공급자 행의 `api_key_env`가 가리키는 이름), `WEARLY_JWT_SECRET`, `WEARLY_ADMIN_EMAIL`·`WEARLY_ADMIN_PASSWORD`(·`WEARLY_ADMIN_NAME`) |
 
 ### 데이터 접근 분담
 
@@ -32,7 +36,9 @@
 - **MyBatis**: 읽기 전용 조회. 동적 필터 목록, 집계 통계, AI 일일 사용량 집계처럼 SQL이 더 읽기 쉬운 곳.
 - 같은 트랜잭션 매니저를 쓴다. MyBatis 매퍼는 XML(`resources/mapper/*.xml`)로 둔다.
 
-## 3. 테이블 (Flyway `V1__init.sql`)
+## 3. 테이블 (Flyway `V1__init.sql`, 2차 `V2__codes.sql`·`V3__admin_ai.sql`)
+
+2차에서 더한 테이블: `tb_code_group`·`tb_code`(06 문서 2장), `tb_ai_provider`·`tb_admin_audit_log`, `tb_user.role`(07 문서 2·3장).
 
 모든 이름은 소문자 snake_case, 접두사 `tb_`. PK는 `BIGINT GENERATED ALWAYS AS IDENTITY`. 시각은 `TIMESTAMPTZ`, 날짜는 `DATE`. 회원 삭제 시 모든 하위 데이터는 `ON DELETE CASCADE`로 지운다.
 
@@ -54,15 +60,15 @@
 | `tb_wardrobe_report` | 옷장 분석 리포트 (`report JSONB`) | 테이블만 |
 | `tb_ai_analysis_log` | AI 호출 기록: 공급자·모델·상태·지연·토큰 수·결과. 일일 한도와 '코디당 AI 비용' 지표에 쓴다 | O |
 
-열거형 값은 앱 `mobile/src/data/types.ts`의 문자열을 그대로 `VARCHAR`로 저장한다 (`CHECK` 제약 권장).
+열거형 값은 앱 `mobile/src/data/types.ts`의 문자열을 그대로 `VARCHAR`로 저장한다 (`CHECK` 제약 권장). 단, 옷 속성 7개 그룹은 2차부터 CHECK 대신 코드 테이블로 서버가 검증한다 (06 문서). 코디 칸(`item_role`)에 `DRESS`가 들어갔다.
 
 ## 4. 공통 규칙
 
 - 기본 경로 `/api/v1`, JSON, UTF-8. 필드는 camelCase.
 - **ID는 JSON에서 문자열**이다 (`"id": "42"`). 앱의 기존 문자열 ID와 맞추고 JS 정수 한계를 피한다.
 - 날짜는 `YYYY-MM-DD`, 시각은 ISO-8601 UTC (`2026-10-17T03:00:00Z`).
-- 인증: `Authorization: Bearer <accessToken>`. 공개 경로는 `/api/v1/auth/**`와 `/actuator/health`뿐이다.
-- CORS: `http://localhost:8081`, `http://localhost:19006`, `http://127.0.0.1:8081` 허용 (Expo 웹).
+- 인증: `Authorization: Bearer <accessToken>`. 공개 경로는 `/api/v1/auth/**`, `GET /api/v1/codes`(2차), `/actuator/health`뿐이다. `/api/v1/admin/**`는 `ADMIN`만 (07 문서).
+- CORS: `http://localhost:8081`, `http://localhost:19006`, `http://127.0.0.1:8081` 허용 (Expo 웹), 관리자 사이트 `http://localhost:5173`(2차).
 
 ### 오류 응답
 
@@ -79,8 +85,11 @@
 | 401 | `INVALID_CREDENTIALS` | 이메일 또는 비밀번호 불일치 (어느 쪽인지 알리지 않음) |
 | 401 | `REFRESH_INVALID` | Refresh 토큰 없음·만료·폐기 |
 | 401 | `REFRESH_REUSED` | 이미 회전된 Refresh 토큰 재사용 → 같은 family 전체 폐기 |
+| 403 | `FORBIDDEN` | 권한 없음 (관리자 API에 일반 회원 등) |
+| 403 | `ACCOUNT_SUSPENDED` | 정지된 회원의 로그인 (비밀번호가 맞을 때만, 07 문서 2장) |
 | 404 | `NOT_FOUND` | 없거나 남의 리소스 (남의 것도 404) |
 | 409 | `EMAIL_TAKEN` | 가입 이메일 중복 |
+| 409 | `CODE_EXISTS` · `CODE_IN_USE` · `PROVIDER_EXISTS` | 관리자 코드 중복·사용 중 삭제, AI 공급자 ID 중복 (07 문서 4장) |
 | 413 | `IMAGE_TOO_LARGE` | 분석 이미지 10MB 초과 |
 | 429 | `AI_LIMIT_EXCEEDED` | AI 분석 일일 한도 초과 |
 | 502 | `AI_UNAVAILABLE` | AI 공급자 오류 |
@@ -89,7 +98,7 @@
 
 | 항목 | 값 |
 |---|---|
-| Access | JWT HS256, `sub` = userId, `iss` = `wearly`, 기본 30분 (`WEARLY_ACCESS_TTL`, 예: `PT30M`) |
+| Access | JWT HS256, `sub` = userId, `iss` = `wearly`, `role` = `USER`·`ADMIN`(2차), 기본 30분 (`WEARLY_ACCESS_TTL`, 예: `PT30M`) |
 | Refresh | 32바이트 난수 base64url (JWT 아님). DB에는 SHA-256만 저장. 기본 30일 (`WEARLY_REFRESH_TTL`) |
 | 회전 | `/auth/refresh`마다 새 Refresh를 주고 이전 것은 `revoked_at` + `replaced_by_id` |
 | 재사용 감지 | 이미 회전된 토큰이 다시 오면 같은 `family_id` 전체 폐기, `REFRESH_REUSED` |
@@ -114,7 +123,7 @@ interface AuthResponse {
   refreshTokenExpiresIn: number; // 초
   user: UserDto;
 }
-interface UserDto { id: string; email: string | null; name: string; createdAt: string }
+interface UserDto { id: string; email: string | null; name: string; role: 'USER' | 'ADMIN'; createdAt: string } // role은 2차
 ```
 
 `name`은 1~20자. `email`은 소문자로 바꿔 저장한다.
@@ -159,6 +168,8 @@ interface ProfileDto {
 | GET | `/wardrobe/stats` | — | `WardrobeStats` | MyBatis 집계 |
 | POST | `/wardrobe/items/analyze` | multipart, 파트 이름 `image` (jpeg·png·webp·heic, 10MB) | `AnalyzeResponse` | AI 공급자 |
 
+2차부터 `Category`·`SubType`·`ColorKey`·`Pattern`·`Season`·`StyleTag`·보유 상태는 **코드 문자열**이다. 허용 값·검증 규칙(새 값은 활성 코드만, PATCH에서 안 바꾼 비활성 값은 통과, subType의 parent = category)은 06 문서 4장을 따른다. `WardrobeStats.byCategory`·`byStatus`의 키는 활성 코드 전부 + 아이템이 있는 비활성 코드다.
+
 ```ts
 // 앱 WardrobeItem에서 imageUri를 뺀 모양. 사진은 앱이 아이템 id별로 기기에 따로 보관한다.
 interface ItemDto {
@@ -202,26 +213,27 @@ interface AnalyzeResponse {
     formality: 1 | 2 | 3;
     confidence: number;       // 0~1
   };
-  provider: 'mock' | 'claude';
+  provider: string;           // 2차: 응답한 공급자의 provider_id ("claude", "openai", "gemini", "mock" …)
   model: string | null;
   remainingToday: number;
 }
 ```
 
-서버는 `category`와 `subType`의 짝이 맞는지 검증한다. 짝은 앱 `mobile/src/data/constants.ts`의 `SUBTYPE`을 따른다.
+서버는 `category`와 `subType`의 짝이 맞는지 검증한다. 짝은 2차부터 코드 테이블의 SUB_TYPE `parent`를 따른다 (06 문서).
 
 ## 7. AI 분석
 
-- 공급자 인터페이스 하나에 구현 둘: `ClaudeAiProvider`(기본), `MockAiProvider`.
-- `WEARLY_AI_PROVIDER` = `claude`(기본) | `mock`. 목업이 실제 오류를 가리지 않도록 **조용한 대체는 없다**.
-  - `claude`인데 `ANTHROPIC_API_KEY`가 비어 있으면 서버 시작을 실패시키고 안내를 띄운다 ("ANTHROPIC_API_KEY가 없습니다. backend/.env에 … 목업으로 띄우려면 ./gradlew bootRunMock").
-  - 목업은 `WEARLY_AI_PROVIDER=mock`일 때만 쓴다. 로컬에서는 `./gradlew bootRunMock`(이 값을 넣어 띄우는 Gradle 태스크), 하네스·테스트는 값을 직접 준다.
-  - 예전 `auto`를 포함해 그 밖의 값은 시작 실패.
-  - 시작 직후 고른 공급자를 INFO 로그 한 줄로 남긴다: `AI 공급자: claude (model=…, effort=…)` / `AI 공급자: mock (목업 — 실제 Claude를 호출하지 않음)`.
-- Claude는 이미지와 함께 허용 값 목록을 주고 **구조화된 JSON 출력**으로 받는다. 허용 목록 밖 값은 서버가 거부하고 `AI_UNAVAILABLE`로 바꾼다. 모델은 `WEARLY_AI_MODEL`로 바꿀 수 있다.
-- 목업은 이미지 바이트의 SHA-256으로 값을 정한다 (같은 사진 = 같은 결과).
-- 일일 한도 `WEARLY_AI_DAILY_LIMIT` (기본 10, 기획서 무료회원 1회는 운영 설정에서 정한다). 성공한 호출만 센다. 집계는 `tb_ai_analysis_log`를 MyBatis로 센다 (Asia/Seoul 날짜 기준).
-- 이미지는 저장하지 않는다. 로그에는 결과 JSON과 메타만 남긴다.
+> 2차에서 공급자 선택이 DB 기반으로 바뀌었다. **공급자 선택·실패 처리·관리는 07 문서 3장을 따른다.** 아래는 요약이다.
+
+- 공급자 구현: `ClaudeAiProvider`(Anthropic Java SDK), `OpenAiProvider`(Responses API, REST), `GeminiAiProvider`(generateContent, REST), `MockAiProvider`.
+- `WEARLY_AI_PROVIDER` = `db`(기본, 1차 값 `claude`도 같은 뜻) | `mock`. 그 밖의 값(예전 `auto` 포함)은 시작 실패.
+  - `mock`(`./gradlew bootRunMock`, 하네스·테스트)이면 언제나 목업. DB 설정은 무시한다.
+  - 그 밖에는 `tb_ai_provider`에서 사용·모델·키 환경변수 값을 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패하면 다음 공급자로 넘어간다. 실패도 각각 기록한다.
+  - 쓸 수 있는 공급자가 없으면 502 `AI_UNAVAILABLE`. **목업으로 대신하지 않는다.** 서버는 이때도 시작하고 WARN을 남긴다 (1차의 "키 없으면 시작 실패"는 없어졌다).
+- 세 공급자 모두 이미지와 함께 **활성 코드**로 만든 허용 값 목록(코드+한국어 라벨, 세부 종류는 종류별)과 JSON 스키마를 주고 구조화 출력으로 받는다. 허용 목록 밖 값·짝 불일치는 서버가 거부하고 다음 공급자로 넘어간다 (06 문서 4장).
+- 목업은 이미지 바이트의 SHA-256으로 활성 코드 중에서 값을 정한다 (같은 사진 + 같은 코드 = 같은 결과).
+- 일일 한도 `WEARLY_AI_DAILY_LIMIT` (기본 10). 성공한 사진 분석(`feature='ITEM_ANALYZE'`)만 센다. 관리자 시험 분석(`ADMIN_TEST`)은 세지 않는다. 집계는 `tb_ai_analysis_log`를 MyBatis로 센다 (Asia/Seoul 날짜 기준).
+- 이미지는 저장하지 않는다. 로그에는 결과 JSON과 메타만 남긴다. 키 값·키 일부는 어떤 응답·로그에도 내보내지 않는다.
 
 ## 8. 앱 API 모듈 계약 (`mobile/src/api/`)
 
