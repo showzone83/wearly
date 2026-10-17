@@ -131,7 +131,7 @@ class ApiResponseSnapshotTest {
   private void scenario() {
     auth();
     Session a = login("snap-a@wearly.test", "pass1234");
-    Session b = login("snap-b@wearly.test", "pass1234");
+    final Session b = login("snap-b@wearly.test", "pass1234");
     users(a);
     codes();
     Map<String, String> ids = wardrobe(a);
@@ -266,7 +266,7 @@ class ApiResponseSnapshotTest {
     item.put("seasons", List.of("FALL", "WINTER", "FALL"));
     Resp created = api.post("/api/v1/wardrobe/items", t, item);
     record("wardrobe.create", created);
-    String id = created.body().get("id").asString();
+    final String id = created.body().get("id").asString();
     Map<String, Object> invalid = new HashMap<>();
     invalid.put("name", " ");
     invalid.put("formality", 4);
