@@ -2,7 +2,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
-import { api, errorMessage, isApiError, type AiProvider, type AiSuggestion, type ProviderTestResult } from '@/api';
+import { api, errorMessage, isApiError, type IAiProvider, type IAiSuggestion, type IProviderTestResult } from '@/api';
 import { ColorChip } from '@/components/Garment';
 import { Badge, Button, Card, Notice } from '@/components/ui';
 import { fmtBytes, fmtMs, fmtNum } from '@/lib/format';
@@ -11,13 +11,13 @@ import { useCodeBook } from '@/lib/queries';
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
 
-type RunState =
+type TRunState =
   | { state: 'running'; startedAt: number }
-  | { state: 'done'; result: ProviderTestResult; elapsedMs: number }
+  | { state: 'done'; result: IProviderTestResult; elapsedMs: number }
   | { state: 'error'; code: string; message: string; elapsedMs: number };
 
 /** 비교할 필드와 표시 방법 */
-const ROWS: { key: keyof AiSuggestion; label: string; group?: string; multi?: boolean }[] = [
+const ROWS: { key: keyof IAiSuggestion; label: string; group?: string; multi?: boolean }[] = [
   { key: 'name', label: '이름' },
   { key: 'category', label: '종류', group: 'CATEGORY' },
   { key: 'subType', label: '세부 종류', group: 'SUB_TYPE' },
@@ -29,19 +29,19 @@ const ROWS: { key: keyof AiSuggestion; label: string; group?: string; multi?: bo
   { key: 'confidence', label: '확신도' },
 ];
 
-function norm(v: unknown): string {
+const norm = (v: unknown): string => {
   if (Array.isArray(v)) return [...v].map(String).sort().join(',');
   return v === undefined || v === null ? '' : String(v);
-}
+};
 
-export function TestPanel({ providers }: { providers: AiProvider[] }) {
+export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
   const book = useCodeBook();
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(providers.filter((p) => p.usable || (p.model && p.keyConfigured)).map((p) => p.providerId)));
-  const [runs, setRuns] = useState<Record<string, RunState>>({});
+  const [runs, setRuns] = useState<Record<string, TRunState>>({});
   const [, setTick] = useState(0);
 
   // 미리보기 URL 정리
@@ -86,7 +86,7 @@ export function TestPanel({ providers }: { providers: AiProvider[] }) {
     if (!file) return;
     const ids = providers.filter((p) => selected.has(p.providerId)).map((p) => p.providerId);
     const startedAt = performance.now();
-    setRuns(Object.fromEntries(ids.map((id) => [id, { state: 'running', startedAt } as RunState])));
+    setRuns(Object.fromEntries(ids.map((id) => [id, { state: 'running', startedAt } as TRunState])));
     await Promise.all(
       ids.map(async (id) => {
         try {
@@ -108,7 +108,7 @@ export function TestPanel({ providers }: { providers: AiProvider[] }) {
   const columns = providers.filter((p) => runs[p.providerId]);
   const okSuggestions = columns
     .map((p) => runs[p.providerId])
-    .filter((r): r is Extract<RunState, { state: 'done' }> => r.state === 'done' && r.result.ok && !!r.result.suggestion)
+    .filter((r): r is Extract<TRunState, { state: 'done' }> => r.state === 'done' && r.result.ok && !!r.result.suggestion)
     .map((r) => r.result.suggestion!);
   const differs = useMemo(() => {
     const out = new Set<string>();
@@ -119,7 +119,7 @@ export function TestPanel({ providers }: { providers: AiProvider[] }) {
     return out;
   }, [okSuggestions]);
 
-  const show = (row: (typeof ROWS)[number], s: AiSuggestion) => {
+  const show = (row: (typeof ROWS)[number], s: IAiSuggestion) => {
     const v = s[row.key];
     if (v === undefined || v === null) return <span className="muted">—</span>;
     if (row.key === 'confidence' && typeof v === 'number') return `${Math.round(v * 100)}%`;
@@ -268,4 +268,4 @@ export function TestPanel({ providers }: { providers: AiProvider[] }) {
       ) : null}
     </Card>
   );
-}
+};

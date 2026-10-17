@@ -3,15 +3,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 
-import { api, isApiError, type AiProvider, type ProviderOptionSpec, type ProviderTypeSpec } from '@/api';
-import { useToast } from '@/components/toast';
+import { api, isApiError, type IAiProvider, type IProviderOptionSpec, type IProviderTypeSpec } from '@/api';
+import { useToastStore } from '@/stores/useToastStore';
 import { Badge, Button, Drawer, Field, Notice, Switch } from '@/components/ui';
 import { DEFAULT_KEY_ENV, FALLBACK_TYPES } from '@/lib/providerTypes';
 import { qk } from '@/lib/queries';
 
 import { ApiKeySection } from './ApiKeySection';
 
-interface FormState {
+interface IFormState {
   providerId: string;
   type: string;
   displayName: string;
@@ -25,11 +25,11 @@ interface FormState {
   extraJson: string;
 }
 
-function isNumericType(t?: string) {
+const isNumericType = (t?: string) => {
   return t === 'number' || t === 'integer' || t === 'int' || t === 'float' || t === 'double';
-}
+};
 
-function splitOptions(options: Record<string, unknown> | null | undefined, specs: ProviderOptionSpec[]) {
+const splitOptions = (options: Record<string, unknown> | null | undefined, specs: IProviderOptionSpec[]) => {
   const values: Record<string, string> = {};
   const extra: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(options ?? {})) {
@@ -37,25 +37,25 @@ function splitOptions(options: Record<string, unknown> | null | undefined, specs
     else extra[k] = v;
   }
   return { values, extraJson: Object.keys(extra).length ? JSON.stringify(extra, null, 2) : '' };
-}
+};
 
-export function ProviderForm({
+export const ProviderForm = ({
   original,
   types,
   nextPriority,
   onClose,
 }: {
-  original?: AiProvider;
-  types: ProviderTypeSpec[];
+  original?: IAiProvider;
+  types: IProviderTypeSpec[];
   nextPriority: number;
   onClose: () => void;
-}) {
+}) => {
   const isEdit = !!original;
   const queryClient = useQueryClient();
-  const toast = useToast();
+  const toast = useToastStore((s) => s.show);
   const typeList = types.length ? types : FALLBACK_TYPES;
 
-  const [form, setForm] = useState<FormState>(() => {
+  const [form, setForm] = useState<IFormState>(() => {
     const type = original?.type ?? typeList[0]?.type ?? 'CLAUDE';
     const specs = typeList.find((t) => t.type === type)?.options ?? [];
     const { values, extraJson } = splitOptions(original?.options, specs);
@@ -76,7 +76,7 @@ export function ProviderForm({
 
   const spec = typeList.find((t) => t.type === form.type);
   const specs = spec?.options ?? [];
-  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const set = <K extends keyof IFormState>(key: K, value: IFormState[K]) => setForm((f) => ({ ...f, [key]: value }));
   const err = (f: string) => errors.get(f);
 
   const changeType = (type: string) => {
@@ -89,7 +89,7 @@ export function ProviderForm({
     });
   };
 
-  function buildOptions(): Record<string, unknown> {
+  const buildOptions = (): Record<string, unknown> => {
     const out: Record<string, unknown> = form.extraJson.trim() ? (JSON.parse(form.extraJson) as Record<string, unknown>) : {};
     for (const s of specs) {
       const raw = (form.optionValues[s.key] ?? '').trim();
@@ -99,9 +99,9 @@ export function ProviderForm({
       else out[s.key] = raw;
     }
     return out;
-  }
+  };
 
-  function validate(): Map<string, string> {
+  const validate = (): Map<string, string> => {
     const e = new Map<string, string>();
     if (!isEdit) {
       if (!/^[a-z0-9][a-z0-9_-]{0,29}$/.test(form.providerId)) e.set('providerId', '영문 소문자·숫자·-·_ 1~30자로 입력하세요.');
@@ -125,7 +125,7 @@ export function ProviderForm({
       }
     }
     return e;
-  }
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -282,4 +282,4 @@ export function ProviderForm({
       </form>
     </Drawer>
   );
-}
+};

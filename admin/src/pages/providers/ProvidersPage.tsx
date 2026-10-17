@@ -2,8 +2,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { api, errorMessage, type AiProvider } from '@/api';
-import { useToast } from '@/components/toast';
+import { api, errorMessage, type IAiProvider } from '@/api';
+import { useToastStore } from '@/stores/useToastStore';
 import { Badge, Button, Card, Empty, ErrorBox, Loading, PageHeader, Switch } from '@/components/ui';
 import { FALLBACK_TYPES } from '@/lib/providerTypes';
 import { qk, useProviders } from '@/lib/queries';
@@ -12,26 +12,26 @@ import { KeySourceBadge } from './ApiKeySection';
 import { ProviderForm } from './ProviderForm';
 import { TestPanel } from './TestPanel';
 
-function usableReason(p: AiProvider): string {
+const usableReason = (p: IAiProvider): string => {
   const missing: string[] = [];
   if (!p.enabled) missing.push('사용 꺼짐');
   if (!p.model) missing.push('모델 없음');
   if (!p.keyConfigured) missing.push('키 없음');
   return missing.join(' · ');
-}
+};
 
-export function ProvidersPage() {
+export const ProvidersPage = () => {
   const { data, error, isLoading, refetch } = useProviders();
   const typesQuery = useQuery({ queryKey: qk.providerTypes, queryFn: () => api.providers.types(), staleTime: 5 * 60_000 });
   const queryClient = useQueryClient();
-  const toast = useToast();
+  const toast = useToastStore((s) => s.show);
   // 행 객체가 아니라 ID를 들고 있다가 최신 목록에서 찾는다 (키 저장 뒤 패널이 옛 값을 보지 않게)
   const [editingId, setEditingId] = useState<string | 'new' | null>(null);
 
   const providers = (data ?? []).slice().sort((a, b) => a.priority - b.priority || a.providerId.localeCompare(b.providerId));
   const nextPriority = providers.length ? Math.max(...providers.map((p) => p.priority)) + 1 : 1;
   const editing = editingId === 'new' ? 'new' : (providers.find((p) => p.providerId === editingId) ?? null);
-  const setEditing = (p: AiProvider | 'new' | null) => setEditingId(p === 'new' || p === null ? p : p.providerId);
+  const setEditing = (p: IAiProvider | 'new' | null) => setEditingId(p === 'new' || p === null ? p : p.providerId);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: qk.providers });
@@ -39,7 +39,7 @@ export function ProvidersPage() {
   };
 
   const toggle = useMutation({
-    mutationFn: (p: AiProvider) => api.providers.update(p.providerId, { enabled: !p.enabled }),
+    mutationFn: (p: IAiProvider) => api.providers.update(p.providerId, { enabled: !p.enabled }),
     onSuccess: async (_r, p) => {
       await invalidate();
       toast(`${p.displayName}: ${p.enabled ? '사용 끔' : '사용 켬'}`);
@@ -48,7 +48,7 @@ export function ProvidersPage() {
   });
 
   const swap = useMutation({
-    mutationFn: async ([a, b]: [AiProvider, AiProvider]) => {
+    mutationFn: async ([a, b]: [IAiProvider, IAiProvider]) => {
       // 우선순위 값이 같으면 자리만 바꿔도 순서가 정해지도록 서로 다른 값을 준다
       const pa = a.priority === b.priority ? b.priority + 1 : b.priority;
       await api.providers.update(a.providerId, { priority: pa });
@@ -62,7 +62,7 @@ export function ProvidersPage() {
   });
 
   const remove = useMutation({
-    mutationFn: (p: AiProvider) => api.providers.remove(p.providerId),
+    mutationFn: (p: IAiProvider) => api.providers.remove(p.providerId),
     onSuccess: async (_r, p) => {
       await invalidate();
       toast(`${p.providerId} 공급자를 삭제했습니다.`);
@@ -70,7 +70,7 @@ export function ProvidersPage() {
     onError: (e) => toast(errorMessage(e), 'error'),
   });
 
-  const onDelete = (p: AiProvider) => {
+  const onDelete = (p: IAiProvider) => {
     if (window.confirm(`${p.displayName}(${p.providerId}) 공급자를 삭제할까요? 분석 기록은 남습니다.`)) remove.mutate(p);
   };
 
@@ -198,4 +198,4 @@ export function ProvidersPage() {
       ) : null}
     </>
   );
-}
+};

@@ -10,8 +10,8 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 
-import { api, errorMessage, isApiError, type AiProvider } from '@/api';
-import { useToast } from '@/components/toast';
+import { api, errorMessage, isApiError, type IAiProvider } from '@/api';
+import { useToastStore } from '@/stores/useToastStore';
 import { Badge, Button, Field, Modal, Notice } from '@/components/ui';
 import { fmtDateTime } from '@/lib/format';
 import { qk, useProviders } from '@/lib/queries';
@@ -24,22 +24,22 @@ const KEY_MAX = 300;
 const masked = (last4: string | null) => `••••${last4 ?? ''}`;
 
 /** 저장·삭제 응답(공급자 행)을 목록 캐시에 바로 반영하고, 목록·변경 이력을 다시 읽는다 */
-function applyRow(queryClient: QueryClient, row: AiProvider | null) {
+const applyRow = (queryClient: QueryClient, row: IAiProvider | null) => {
   if (row) {
-    queryClient.setQueryData<AiProvider[]>(qk.providers, (list) => list?.map((p) => (p.providerId === row.providerId ? { ...p, ...row, today: row.today ?? p.today } : p)));
+    queryClient.setQueryData<IAiProvider[]>(qk.providers, (list) => list?.map((p) => (p.providerId === row.providerId ? { ...p, ...row, today: row.today ?? p.today } : p)));
   }
   void queryClient.invalidateQueries({ queryKey: qk.providers });
   void queryClient.invalidateQueries({ queryKey: ['audit'] });
-}
+};
 
-interface KeyFormErrors {
+interface IKeyFormErrors {
   apiKey?: string;
   currentPassword?: string;
   form?: ReactNode;
 }
 
 /** 서버 오류 → 입력칸별 안내 (07 6장 오류 코드) */
-function toKeyErrors(e: unknown): KeyFormErrors {
+const toKeyErrors = (e: unknown): IKeyFormErrors => {
   if (!isApiError(e)) return { form: errorMessage(e) };
   switch (e.code) {
     case 'REAUTH_FAILED':
@@ -49,7 +49,7 @@ function toKeyErrors(e: unknown): KeyFormErrors {
     case 'SECRET_KEY_MISSING':
       return { form: `${SECRET_MISSING_TEXT}. 서버 관리자에게 WEARLY_SECRET_KEY 설정을 요청하거나, 환경변수 키를 쓰세요.` };
     case 'VALIDATION_FAILED': {
-      const out: KeyFormErrors = {};
+      const out: IKeyFormErrors = {};
       const rest: string[] = [];
       for (const f of e.fieldErrors) {
         if (f.field === 'apiKey') out.apiKey = f.message;
@@ -65,10 +65,10 @@ function toKeyErrors(e: unknown): KeyFormErrors {
     default:
       return { form: `${e.message} (${e.code})` };
   }
-}
+};
 
 /** 표에 넣는 짧은 출처 표시 */
-export function KeySourceBadge({ provider: p }: { provider: AiProvider }) {
+export const KeySourceBadge = ({ provider: p }: { provider: IAiProvider }) => {
   if (p.keySource === 'DB') {
     return (
       <span className="key-cell" title={`웹에서 넣은 키 · ${fmtDateTime(p.keyUpdatedAt)}${p.keyUpdatedBy ? ` · ${p.keyUpdatedBy}` : ''}`}>
@@ -91,10 +91,10 @@ export function KeySourceBadge({ provider: p }: { provider: AiProvider }) {
       <span className="mono small muted">{p.apiKeyEnv}</span>
     </span>
   );
-}
+};
 
 /** 공급자 상세(수정 패널)의 "API 키" 영역. 목록 캐시에서 최신 행을 읽어 저장·삭제 직후 바로 바뀐다 */
-export function ApiKeySection({ providerId, fallback }: { providerId: string; fallback: AiProvider }) {
+export const ApiKeySection = ({ providerId, fallback }: { providerId: string; fallback: IAiProvider }) => {
   const { data } = useProviders();
   const p = data?.find((x) => x.providerId === providerId) ?? fallback;
   const [dialog, setDialog] = useState<'set' | 'delete' | null>(null);
@@ -143,17 +143,17 @@ export function ApiKeySection({ providerId, fallback }: { providerId: string; fa
       {dialog === 'delete' ? <DeleteKeyModal provider={p} onClose={() => setDialog(null)} /> : null}
     </section>
   );
-}
+};
 
 /** 키 입력·교체 대화상자 */
-function ApiKeyModal({ provider, onClose }: { provider: AiProvider; onClose: () => void }) {
+const ApiKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose: () => void }) => {
   const queryClient = useQueryClient();
-  const toast = useToast();
+  const toast = useToastStore((s) => s.show);
   const keyRef = useRef<HTMLInputElement>(null);
   const pwRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState('');
   const [verify, setVerify] = useState(true);
-  const [errors, setErrors] = useState<KeyFormErrors>({});
+  const [errors, setErrors] = useState<IKeyFormErrors>({});
 
   // 변수({ apiKey, ... })가 캐시에 남지 않도록 gcTime 0, 끝나면 reset()
   const save = useMutation({
@@ -173,7 +173,7 @@ function ApiKeyModal({ provider, onClose }: { provider: AiProvider; onClose: () 
     // 성공·실패와 관계없이 입력칸을 바로 비운다
     if (input) input.value = '';
 
-    const next: KeyFormErrors = {};
+    const next: IKeyFormErrors = {};
     if (!apiKey) next.apiKey = 'API 키를 붙여 넣으세요.';
     else if (/\s/.test(apiKey)) next.apiKey = '키 안에 공백이나 줄바꿈이 있어요. 키만 다시 붙여 넣으세요.';
     else if (apiKey.length < KEY_MIN || apiKey.length > KEY_MAX) next.apiKey = `키 길이가 ${KEY_MIN}~${KEY_MAX}자가 아니에요. 키 전체를 다시 붙여 넣으세요.`;
@@ -268,15 +268,15 @@ function ApiKeyModal({ provider, onClose }: { provider: AiProvider; onClose: () 
       </form>
     </Modal>
   );
-}
+};
 
 /** 웹 키 삭제 확인 대화상자 */
-function DeleteKeyModal({ provider, onClose }: { provider: AiProvider; onClose: () => void }) {
+const DeleteKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose: () => void }) => {
   const queryClient = useQueryClient();
-  const toast = useToast();
+  const toast = useToastStore((s) => s.show);
   const pwRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<KeyFormErrors>({});
+  const [errors, setErrors] = useState<IKeyFormErrors>({});
 
   const remove = useMutation({
     mutationFn: (vars: { currentPassword: string }) => api.providers.deleteApiKey(provider.providerId, vars),
@@ -344,4 +344,4 @@ function DeleteKeyModal({ provider, onClose }: { provider: AiProvider; onClose: 
       </form>
     </Modal>
   );
-}
+};

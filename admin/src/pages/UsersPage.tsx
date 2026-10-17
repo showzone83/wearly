@@ -3,22 +3,22 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
 
-import { api, errorMessage, type AdminUser, type UserPatch, type UserQuery } from '@/api';
-import { useAuth } from '@/auth/AuthContext';
-import { useToast } from '@/components/toast';
+import { api, errorMessage, type IAdminUser, type IUserPatch, type IUserQuery } from '@/api';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { useToastStore } from '@/stores/useToastStore';
 import { Badge, Button, Card, Empty, ErrorBox, Loading, PageHeader, Pagination } from '@/components/ui';
 import { fmtDate, fmtNum } from '@/lib/format';
 import { qk } from '@/lib/queries';
 
 const PAGE_SIZE = 20;
 
-export function UsersPage() {
-  const { user: me } = useAuth();
+export const UsersPage = () => {
+  const me = useAuthStore((s) => s.user);
   const [params, setParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const toast = useToast();
+  const toast = useToastStore((s) => s.show);
 
-  const query: UserQuery = {
+  const query: IUserQuery = {
     q: params.get('q') ?? undefined,
     status: params.get('status') ?? undefined,
     role: params.get('role') ?? undefined,
@@ -34,7 +34,7 @@ export function UsersPage() {
   });
 
   const update = useMutation({
-    mutationFn: ({ user, patch }: { user: AdminUser; patch: UserPatch }) => api.users.update(user.id, patch),
+    mutationFn: ({ user, patch }: { user: IAdminUser; patch: IUserPatch }) => api.users.update(user.id, patch),
     onSuccess: async (_r, { user, patch }) => {
       await queryClient.invalidateQueries({ queryKey: ['users'] });
       void queryClient.invalidateQueries({ queryKey: ['audit'] });
@@ -62,7 +62,7 @@ export function UsersPage() {
     setParams(next);
   };
 
-  const act = (u: AdminUser, patch: UserPatch, message: string) => {
+  const act = (u: IAdminUser, patch: IUserPatch, message: string) => {
     if (window.confirm(message)) update.mutate({ user: u, patch });
   };
 
@@ -176,4 +176,4 @@ export function UsersPage() {
       ) : null}
     </>
   );
-}
+};

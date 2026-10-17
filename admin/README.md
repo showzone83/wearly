@@ -76,9 +76,9 @@ admin/
       client.ts            토큰 갱신 single-flight, 응답 정규화
       tokenStore.ts        sessionStorage (wearly-admin-tokens, wearly-admin-user)
       types.ts · errors.ts · index.ts
-    auth/AuthContext.tsx   로그인 상태, 로그인 잃음 처리
-    components/            Layout(왼쪽 메뉴), ui(버튼·표·패널 등), Garment(일러스트·색 칩), toast
-    lib/                   garment(앱 일러스트 데이터 래퍼), queries(TanStack Query 키·훅), format, providerTypes
+    stores/                zustand 스토어: useAuthStore(로그인 사용자·상태, 로그인·로그아웃, 로그인 잃음 처리), useToastStore(토스트)
+    components/            Layout(왼쪽 메뉴), ui(버튼·표·패널 등), Garment(일러스트·색 칩), Toaster(토스트 표시)
+    lib/                   queryClient(React Query 캐시), garment(앱 일러스트 데이터 래퍼), queries(TanStack Query 키·훅), format, providerTypes
     pages/                 Dashboard · codes/ · providers/(ApiKeySection = API 키 웹 입력) · AiLogs · Users · AuditLogs · Login
 ```
 
@@ -91,3 +91,18 @@ admin/
 ### 옷 일러스트 데이터
 
 `src/lib/garment.ts`가 앱의 `mobile/src/data/garmentShapes.ts`(순수 TS)를 그대로 가져와 앱 `GarmentArt`와 같은 순서(몸판 → 밝은 면 → 세부선 → 단추)로 SVG를 그린다. 앱 파일이 없으면 `src/lib/garmentShapesFallback.ts`(빈 데이터, 사각형)로 빌드되고 코드 관리 화면에 안내가 뜬다.
+
+## 코드 규칙
+
+`npm run lint`(`eslint.config.js`)가 아래 규칙을 강제한다. 어기면 lint가 실패한다.
+
+1. **함수는 화살표 함수로 쓴다.** 함수 선언(`function foo() {}`), 함수 표현식(`function () {}`), 객체 메서드 축약(`{ get() {} }`) 대신 `const foo = () => {}`, `{ get: () => {} }`. React 컴포넌트도 `export const Page = () => { ... };`. TSX의 제네릭 화살표 함수는 `<T,>(x: T) =>`처럼 쉼표를 붙인다.
+   - 화살표로 쓸 수 없는 클래스 메서드·생성자(`class ApiError extends Error`), 객체의 getter/setter, 제너레이터는 규칙에서 빠져 있다.
+   - 그 밖에 불가피한 곳(`this` 바인딩이 꼭 필요한 함수, 함수 오버로드 등)은 그 줄 위에 `// eslint-disable-next-line no-restricted-syntax -- <불가피한 이유>`를 단다.
+   - 화살표 함수(`const`)는 호이스팅되지 않으므로 모듈 최상위에서 바로 부르는 함수는 부르는 곳보다 위에 정의한다.
+   - ESLint: `no-restricted-syntax`(`FunctionDeclaration`, 클래스 메서드·getter/setter·제너레이터를 뺀 `FunctionExpression`), `prefer-arrow-callback`.
+2. **인터페이스 이름은 `I`로 시작한다**: `IProps`, `IAiProvider`. (`@typescript-eslint/naming-convention`)
+3. **타입 별칭 이름은 `T`로 시작한다**: `TKeySource`, `TAuthStatus`. (`@typescript-eslint/naming-convention`)
+   - 2·3은 `admin/src`에서 선언한 이름에만 적용한다. 외부 패키지 타입과 앱 파일(`mobile/src/data/garmentShapes.ts`)의 이름은 그대로 쓴다.
+4. **상태 공유는 zustand 스토어(`src/stores/`)로 하고 React Context는 쓰지 않는다.** 화면에서는 `useAuthStore((s) => s.user)`처럼 선택자로 구독하고, 컴포넌트 밖(API 클라이언트의 `onAuthLost` 등)에서는 `useAuthStore.getState()`로 부른다. 토큰 자체는 스토어가 아니라 `api/tokenStore.ts`(sessionStorage)에 둔다. 서버 데이터 캐시는 TanStack Query가 맡는다.
+   - ESLint: `no-restricted-imports`로 `react`의 `createContext`·`useContext` import 금지(그래서 `import * as React from 'react'`도 막힌다), `no-restricted-syntax`로 `React.createContext`·`React.useContext` 금지.

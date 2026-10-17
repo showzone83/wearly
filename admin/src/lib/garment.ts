@@ -19,7 +19,7 @@ export const HAS_APP_SHAPES = Object.keys(GARMENT_SHAPES).length > 0;
 export const SHAPE_KEYS: string[] = Object.keys(GARMENT_SHAPES).sort();
 
 /** 앱 GarmentArt와 같은 층: 몸판 → 밝은 면 → 세부선 → 단추 */
-export interface GarmentLayers {
+export interface IGarmentLayers {
   /** 실제로 그린 모양 키 (모르는 키면 종류 기본 모양) */
   key: string;
   body: string;
@@ -29,7 +29,7 @@ export interface GarmentLayers {
   buttons: [number, number][];
 }
 
-export function garmentLayers(shape: string | null | undefined, category: string | null | undefined): GarmentLayers {
+export const garmentLayers = (shape: string | null | undefined, category: string | null | undefined): IGarmentLayers => {
   const key = resolveShape(shape ?? '', category ?? '');
   return {
     key,
@@ -39,15 +39,15 @@ export function garmentLayers(shape: string | null | undefined, category: string
     detailWidth: GARMENT_DETAIL_WIDTH[key] ?? 1.2,
     buttons: GARMENT_BUTTONS[key] ?? [],
   };
-}
+};
 
 /** 이 모양 키를 앱이 아는지 */
-export function isKnownShape(shape: string | null | undefined): boolean {
+export const isKnownShape = (shape: string | null | undefined): boolean => {
   return !!shape && Object.prototype.hasOwnProperty.call(GARMENT_SHAPES, shape);
-}
+};
 
 /** 진하게(음수)·연하게(양수) 조정한 색 */
-export function shade(hex: string, amount: number): string {
+export const shade = (hex: string, amount: number): string => {
   const n = parseInt(hex.replace('#', ''), 16);
   if (Number.isNaN(n)) return hex;
   const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v + amount * 255)));
@@ -55,10 +55,10 @@ export function shade(hex: string, amount: number): string {
   const g = ch((n >> 8) & 0xff);
   const b = ch(n & 0xff);
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
+};
 
 /** hex의 밝기(0~1, 소수 둘째 자리). COLOR attrs.light 제안값 */
-export function lightnessOf(hex: string): number | null {
+export const lightnessOf = (hex: string): number | null => {
   if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return null;
   const n = parseInt(hex.slice(1), 16);
   const lin = (c: number) => {
@@ -69,4 +69,4 @@ export function lightnessOf(hex: string): number | null {
   // 상대 휘도를 사람이 느끼는 밝기에 가깝게 (L* / 100)
   const l = y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y;
   return Math.round((l / 100) * 100) / 100;
-}
+};

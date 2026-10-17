@@ -4,9 +4,9 @@ import { createPortal } from 'react-dom';
 
 import { errorMessage, isApiError } from '@/api';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type TButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
-export function Button({
+export const Button = ({
   variant = 'secondary',
   size,
   busy,
@@ -14,7 +14,7 @@ export function Button({
   children,
   disabled,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: 'sm'; busy?: boolean }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: TButtonVariant; size?: 'sm'; busy?: boolean }) => {
   return (
     <button
       type="button"
@@ -26,9 +26,9 @@ export function Button({
       {children}
     </button>
   );
-}
+};
 
-export function PageHeader({ title, desc, actions }: { title: string; desc?: ReactNode; actions?: ReactNode }) {
+export const PageHeader = ({ title, desc, actions }: { title: string; desc?: ReactNode; actions?: ReactNode }) => {
   return (
     <header className="page-header">
       <div>
@@ -38,9 +38,9 @@ export function PageHeader({ title, desc, actions }: { title: string; desc?: Rea
       {actions ? <div className="page-actions">{actions}</div> : null}
     </header>
   );
-}
+};
 
-export function Card({ title, actions, children, className }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string }) {
+export const Card = ({ title, actions, children, className }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string }) => {
   return (
     <section className={`card ${className ?? ''}`}>
       {title || actions ? (
@@ -52,27 +52,27 @@ export function Card({ title, actions, children, className }: { title?: ReactNod
       {children}
     </section>
   );
-}
+};
 
-type Tone = 'green' | 'gray' | 'red' | 'beige' | 'ink';
+type TTone = 'green' | 'gray' | 'red' | 'beige' | 'ink';
 
-export function Badge({ tone = 'gray', children, title }: { tone?: Tone; children: ReactNode; title?: string }) {
+export const Badge = ({ tone = 'gray', children, title }: { tone?: TTone; children: ReactNode; title?: string }) => {
   return (
     <span className={`badge badge-${tone}`} title={title}>
       {children}
     </span>
   );
-}
+};
 
-export function Loading({ label = '불러오는 중…' }: { label?: string }) {
+export const Loading = ({ label = '불러오는 중…' }: { label?: string }) => {
   return (
     <div className="loading">
       <span className="spinner" aria-hidden /> {label}
     </div>
   );
-}
+};
 
-export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+export const ErrorBox = ({ error, onRetry }: { error: unknown; onRetry?: () => void }) => {
   if (!error) return null;
   const code = isApiError(error) ? error.code : null;
   return (
@@ -88,17 +88,17 @@ export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => v
       ) : null}
     </div>
   );
-}
+};
 
-export function Notice({ tone = 'info', children }: { tone?: 'info' | 'warn' | 'error' | 'success'; children: ReactNode }) {
+export const Notice = ({ tone = 'info', children }: { tone?: 'info' | 'warn' | 'error' | 'success'; children: ReactNode }) => {
   return <div className={`alert alert-${tone}`}>{children}</div>;
-}
+};
 
-export function Empty({ children = '데이터가 없습니다.' }: { children?: ReactNode }) {
+export const Empty = ({ children = '데이터가 없습니다.' }: { children?: ReactNode }) => {
   return <div className="empty">{children}</div>;
-}
+};
 
-export function Field({
+export const Field = ({
   label,
   hint,
   error,
@@ -110,7 +110,7 @@ export function Field({
   error?: string;
   children: ReactNode;
   required?: boolean;
-}) {
+}) => {
   return (
     <div className={`field ${error ? 'field-invalid' : ''}`}>
       <div className="field-label">
@@ -121,9 +121,9 @@ export function Field({
       {error ? <div className="field-error">{error}</div> : hint ? <div className="field-hint">{hint}</div> : null}
     </div>
   );
-}
+};
 
-export function Switch({
+export const Switch = ({
   checked,
   onChange,
   disabled,
@@ -135,7 +135,7 @@ export function Switch({
   disabled?: boolean;
   label?: ReactNode;
   title?: string;
-}) {
+}) => {
   return (
     <label className={`switch ${disabled ? 'switch-disabled' : ''}`} title={title}>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
@@ -145,9 +145,9 @@ export function Switch({
       {label ? <span className="switch-label">{label}</span> : null}
     </label>
   );
-}
+};
 
-export function Segmented<T extends string | number>({
+export const Segmented = <T extends string | number,>({
   value,
   options,
   onChange,
@@ -155,7 +155,7 @@ export function Segmented<T extends string | number>({
   value: T | undefined;
   options: { value: T; label: ReactNode }[];
   onChange: (v: T) => void;
-}) {
+}) => {
   return (
     <div className="segmented" role="radiogroup">
       {options.map((o) => (
@@ -172,9 +172,9 @@ export function Segmented<T extends string | number>({
       ))}
     </div>
   );
-}
+};
 
-export function Pagination({ page, size, total, onPage }: { page: number; size: number; total: number; onPage: (p: number) => void }) {
+export const Pagination = ({ page, size, total, onPage }: { page: number; size: number; total: number; onPage: (p: number) => void }) => {
   const pages = Math.max(1, Math.ceil(total / Math.max(1, size)));
   return (
     <div className="pagination">
@@ -191,10 +191,10 @@ export function Pagination({ page, size, total, onPage }: { page: number; size: 
       </div>
     </div>
   );
-}
+};
 
 /** 오른쪽에서 나오는 패널 (추가·수정 폼, 상세 보기) */
-export function Drawer({ title, onClose, children, footer, wide }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
+export const Drawer = ({ title, onClose, children, footer, wide }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // 위에 뜬 Modal이 Esc를 먼저 처리했으면(defaultPrevented) 패널은 닫지 않는다
@@ -217,10 +217,10 @@ export function Drawer({ title, onClose, children, footer, wide }: { title: Reac
       </aside>
     </div>
   );
-}
+};
 
 /** 가운데 뜨는 작은 대화상자 (확인·비밀 입력). Drawer 위에 겹쳐 열 수 있고, Esc는 이 창만 닫는다 */
-export function Modal({ title, onClose, children, footer }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+export const Modal = ({ title, onClose, children, footer }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode }) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
@@ -247,18 +247,18 @@ export function Modal({ title, onClose, children, footer }: { title: ReactNode; 
     </div>,
     document.body,
   );
-}
+};
 
-export function JsonView({ value, maxHeight }: { value: unknown; maxHeight?: number }) {
+export const JsonView = ({ value, maxHeight }: { value: unknown; maxHeight?: number }) => {
   const text = value === undefined ? '—' : JSON.stringify(value, null, 2);
   return (
     <pre className="json" style={maxHeight ? { maxHeight } : undefined}>
       {text}
     </pre>
   );
-}
+};
 
-export function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
+export const Stat = ({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) => {
   return (
     <div className="stat">
       <div className="stat-label">{label}</div>
@@ -266,4 +266,4 @@ export function Stat({ label, value, sub }: { label: string; value: ReactNode; s
       {sub ? <div className="stat-sub">{sub}</div> : null}
     </div>
   );
-}
+};

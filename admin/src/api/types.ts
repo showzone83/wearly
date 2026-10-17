@@ -3,61 +3,61 @@
 
 // ───────── 공통 ─────────
 
-export interface FieldError {
+export interface IFieldError {
   field: string;
   message: string;
 }
 
-export interface ApiErrorBody {
+export interface IApiErrorBody {
   status: number;
   code: string;
   message: string;
-  fieldErrors?: FieldError[];
+  fieldErrors?: IFieldError[];
 }
 
 /** 목록 응답 `{ items, page, size, total }` (07 4장). page는 0부터 */
-export interface Page<T> {
+export interface IPage<T> {
   items: T[];
   page: number;
   size: number;
   total: number;
 }
 
-export interface PageQuery {
+export interface IPageQuery {
   page?: number;
   size?: number;
 }
 
 // ───────── 인증 ─────────
 
-export type UserRole = 'USER' | 'ADMIN';
-export type UserStatus = 'ACTIVE' | 'SUSPENDED';
+export type TUserRole = 'USER' | 'ADMIN';
+export type TUserStatus = 'ACTIVE' | 'SUSPENDED';
 
-export interface UserDto {
+export interface IUserDto {
   id: string;
   email: string | null;
   name: string;
   createdAt: string;
   /** 07 2장에서 추가. 예전 서버는 없을 수 있다 */
-  role?: UserRole;
+  role?: TUserRole;
 }
 
-export interface AuthResponse {
+export interface IAuthResponse {
   accessToken: string;
   accessTokenExpiresIn: number;
   refreshToken: string;
   refreshTokenExpiresIn: number;
-  user: UserDto;
+  user: IUserDto;
 }
 
-export interface LoginRequest {
+export interface ILoginRequest {
   email: string;
   password: string;
 }
 
 // ───────── 대시보드 ─────────
 
-export interface ProviderStat7d {
+export interface IProviderStat7d {
   providerId: string;
   success: number;
   failed: number;
@@ -66,22 +66,22 @@ export interface ProviderStat7d {
   outputTokens: number | null;
 }
 
-export interface Dashboard {
+export interface IDashboard {
   users: number;
   newUsers7d: number;
   items: number;
   aiToday: { total: number; success: number; failed: number };
-  aiByProvider7d: ProviderStat7d[];
+  aiByProvider7d: IProviderStat7d[];
 }
 
 // ───────── 코드 (06 문서) ─────────
 
-export type GroupCode = 'CATEGORY' | 'SUB_TYPE' | 'COLOR' | 'PATTERN' | 'SEASON' | 'STYLE' | 'ITEM_STATUS';
-export type Slot = 'TOP' | 'BOTTOM' | 'DRESS' | 'OUTER' | 'SHOES' | 'BAG';
+export type TGroupCode = 'CATEGORY' | 'SUB_TYPE' | 'COLOR' | 'PATTERN' | 'SEASON' | 'STYLE' | 'ITEM_STATUS';
+export type TSlot = 'TOP' | 'BOTTOM' | 'DRESS' | 'OUTER' | 'SHOES' | 'BAG';
 
 /** 그룹마다 쓰는 키가 다르다 (06 3장). 모르는 키도 그대로 보존한다 */
-export interface CodeAttrs {
-  slot?: Slot | null;
+export interface ICodeAttrs {
+  slot?: TSlot | null;
   volume?: number;
   warmth?: number;
   shape?: string;
@@ -93,63 +93,63 @@ export interface CodeAttrs {
   [key: string]: unknown;
 }
 
-export interface AdminCode {
+export interface IAdminCode {
   code: string;
   label: string;
   parent: string | null;
   sortOrder: number;
   active: boolean;
-  attrs: CodeAttrs;
+  attrs: ICodeAttrs;
   /** 그 코드를 쓰는 아이템 수 */
   usageCount: number;
 }
 
-export interface AdminCodeGroup {
+export interface IAdminCodeGroup {
   group: string;
   name: string;
   description?: string | null;
-  codes: AdminCode[];
+  codes: IAdminCode[];
 }
 
-export interface AdminCodesResponse {
+export interface IAdminCodesResponse {
   version: string;
-  groups: AdminCodeGroup[];
+  groups: IAdminCodeGroup[];
 }
 
-export interface CodeCreate {
+export interface ICodeCreate {
   code: string;
   label: string;
   parent?: string | null;
   sortOrder?: number;
   active?: boolean;
-  attrs: CodeAttrs;
+  attrs: ICodeAttrs;
 }
 
-export interface CodePatch {
+export interface ICodePatch {
   label?: string;
   parent?: string | null;
   sortOrder?: number;
   active?: boolean;
-  attrs?: CodeAttrs;
+  attrs?: ICodeAttrs;
 }
 
 // ───────── AI 공급자 ─────────
 
-export type ProviderType = 'CLAUDE' | 'OPENAI' | 'GEMINI' | 'MOCK';
+export type TProviderType = 'CLAUDE' | 'OPENAI' | 'GEMINI' | 'MOCK';
 
 /** 지금 실제로 쓰는 키의 출처 (07 6장). DB = 웹에서 넣은 키, ENV = `apiKeyEnv` 환경변수 */
-export type KeySource = 'DB' | 'ENV' | 'NONE';
+export type TKeySource = 'DB' | 'ENV' | 'NONE';
 
-export interface AiProvider {
+export interface IAiProvider {
   providerId: string;
-  type: ProviderType | (string & {});
+  type: TProviderType | (string & {});
   displayName: string;
   model: string | null;
   apiKeyEnv: string;
   /** 쓸 수 있는 키가 있는지 (= keySource !== 'NONE'). 키 값 자체는 내려오지 않는다 */
   keyConfigured: boolean;
   /** 예전 서버처럼 내려오지 않으면 keyConfigured로 추정한다 ('ENV' / 'NONE') */
-  keySource: KeySource;
+  keySource: TKeySource;
   /** DB 키일 때만. 키의 마지막 4자 */
   keyLast4: string | null;
   /** DB 키일 때만 */
@@ -166,7 +166,7 @@ export interface AiProvider {
   today: { success: number; failed: number };
 }
 
-export interface ProviderCreate {
+export interface IProviderCreate {
   providerId: string;
   type: string;
   displayName: string;
@@ -177,13 +177,13 @@ export interface ProviderCreate {
   options?: Record<string, unknown>;
 }
 
-export type ProviderPatch = Partial<Omit<ProviderCreate, 'providerId'>>;
+export type TProviderPatch = Partial<Omit<IProviderCreate, 'providerId'>>;
 
 /**
  * `PUT /admin/ai/providers/{id}/api-key` 본문 (07 6장). 쓰기 전용 — 이 값은 mutation 변수로만 지나가고
  * URL·쿼리 문자열·브라우저 저장소·쿼리 캐시 키·로그에 남기지 않는다.
  */
-export interface ApiKeySetRequest {
+export interface IApiKeySetRequest {
   apiKey: string;
   /** 요청한 관리자의 비밀번호 (재확인) */
   currentPassword: string;
@@ -192,12 +192,12 @@ export interface ApiKeySetRequest {
 }
 
 /** `DELETE /admin/ai/providers/{id}/api-key` 본문 */
-export interface ApiKeyDeleteRequest {
+export interface IApiKeyDeleteRequest {
   currentPassword: string;
 }
 
 /** `/admin/ai/types`의 옵션 설명 하나 (화면 폼용). 서버 형식이 정해지지 않아 느슨하게 받는다 */
-export interface ProviderOptionSpec {
+export interface IProviderOptionSpec {
   key: string;
   /** number | integer | string | boolean | enum 등 */
   type?: string;
@@ -208,15 +208,15 @@ export interface ProviderOptionSpec {
   values?: string[];
 }
 
-export interface ProviderTypeSpec {
+export interface IProviderTypeSpec {
   type: string;
   label?: string;
   description?: string;
   defaultApiKeyEnv?: string;
-  options: ProviderOptionSpec[];
+  options: IProviderOptionSpec[];
 }
 
-export interface AiSuggestion {
+export interface IAiSuggestion {
   name?: string;
   category?: string;
   subType?: string;
@@ -229,9 +229,9 @@ export interface AiSuggestion {
   [key: string]: unknown;
 }
 
-export interface ProviderTestResult {
+export interface IProviderTestResult {
   ok: boolean;
-  suggestion?: AiSuggestion | null;
+  suggestion?: IAiSuggestion | null;
   errorCode?: string | null;
   errorMessage?: string | null;
   latencyMs: number;
@@ -242,9 +242,9 @@ export interface ProviderTestResult {
 
 // ───────── AI 분석 기록 ─────────
 
-export type AiLogStatus = 'SUCCESS' | 'FAILED';
+export type TAiLogStatus = 'SUCCESS' | 'FAILED';
 
-export interface AiLogRow {
+export interface IAiLogRow {
   id: string;
   createdAt: string;
   userEmail: string | null;
@@ -252,7 +252,7 @@ export interface AiLogRow {
   feature: string;
   providerId: string;
   model: string | null;
-  status: AiLogStatus | (string & {});
+  status: TAiLogStatus | (string & {});
   latencyMs: number | null;
   inputTokens: number | null;
   outputTokens: number | null;
@@ -262,7 +262,7 @@ export interface AiLogRow {
   errorCode: string | null;
 }
 
-export interface AiLogQuery extends PageQuery {
+export interface IAiLogQuery extends IPageQuery {
   providerId?: string;
   status?: string;
   userEmail?: string;
@@ -272,35 +272,35 @@ export interface AiLogQuery extends PageQuery {
 }
 
 /** 상세: 행 정보 + 결과 JSON 전체 */
-export type AiLogDetail = Partial<AiLogRow> & { result?: unknown; [key: string]: unknown };
+export type TAiLogDetail = Partial<IAiLogRow> & { result?: unknown; [key: string]: unknown };
 
 // ───────── 회원 ─────────
 
-export interface AdminUser {
+export interface IAdminUser {
   id: string;
   email: string | null;
   name: string;
-  role: UserRole;
-  status: UserStatus;
+  role: TUserRole;
+  status: TUserStatus;
   createdAt: string;
   itemCount: number;
   aiToday: number;
 }
 
-export interface UserQuery extends PageQuery {
+export interface IUserQuery extends IPageQuery {
   q?: string;
   status?: string;
   role?: string;
 }
 
-export interface UserPatch {
-  status?: UserStatus;
-  role?: UserRole;
+export interface IUserPatch {
+  status?: TUserStatus;
+  role?: TUserRole;
 }
 
 // ───────── 변경 이력 ─────────
 
-export interface AuditLog {
+export interface IAuditLog {
   id: string;
   adminUserId: string | null;
   adminEmail?: string | null;
@@ -313,6 +313,6 @@ export interface AuditLog {
   createdAt: string;
 }
 
-export interface AuditQuery extends PageQuery {
+export interface IAuditQuery extends IPageQuery {
   targetType?: string;
 }

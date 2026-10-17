@@ -58,6 +58,13 @@ cd mobile && npm run typecheck && npx expo-doctor
 - 화면: `mobile/src/app/` (expo-router). 탭은 홈·내 옷장·AI 코디·캘린더·마이
 - 목업 처리: 날씨(가짜 예보), AI 사진 분석(가짜 제안값), 푸시·바로 진단(안내 문구만), 소셜 로그인(제외)
 
+## 관리자 사이트 코드 규칙 (`admin/`, ESLint로 강제)
+
+- 함수는 화살표 함수(`const f = () => {}`, 컴포넌트 포함). 클래스 메서드·getter/setter·제너레이터만 예외, 그 밖에 불가피하면 `eslint-disable-next-line no-restricted-syntax -- 이유`.
+- 인터페이스 이름은 `I`(`IProps`), 타입 별칭 이름은 `T`(`TKeySource`)로 시작한다.
+- 상태 공유는 zustand 스토어(`admin/src/stores/`), React Context 금지.
+- 자세한 내용은 `admin/README.md`의 "코드 규칙".
+
 ## 현재 상태 (2026-10-15)
 
 - 기획서·문서·목업 앱을 루트 저장소 `main` 브랜치에 커밋하고 GitHub에 올렸다.

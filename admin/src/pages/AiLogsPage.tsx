@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
 
-import { api, type AiLogQuery } from '@/api';
+import { api, type IAiLogQuery } from '@/api';
 import { Badge, Button, Card, Drawer, Empty, ErrorBox, JsonView, Loading, PageHeader, Pagination } from '@/components/ui';
 import { fmtBytes, fmtDateTime, fmtMs, fmtNum, todaySeoul } from '@/lib/format';
 import { qk, useProviders } from '@/lib/queries';
@@ -13,12 +13,12 @@ const FILTER_KEYS = ['providerId', 'status', 'userEmail', 'from', 'to'] as const
 
 const FEATURE_LABEL: Record<string, string> = { ITEM_ANALYZE: '사진 분석', ADMIN_TEST: '관리자 시험' };
 
-export function AiLogsPage() {
+export const AiLogsPage = () => {
   const [params, setParams] = useSearchParams();
   const providers = useProviders();
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const query: AiLogQuery = {
+  const query: IAiLogQuery = {
     providerId: params.get('providerId') ?? undefined,
     status: params.get('status') ?? undefined,
     userEmail: params.get('userEmail') ?? undefined,
@@ -159,9 +159,9 @@ export function AiLogsPage() {
       {openId ? <LogDetail id={openId} onClose={() => setOpenId(null)} /> : null}
     </>
   );
-}
+};
 
-function LogDetail({ id, onClose }: { id: string; onClose: () => void }) {
+const LogDetail = ({ id, onClose }: { id: string; onClose: () => void }) => {
   const { data, error, isLoading, refetch } = useQuery({ queryKey: qk.aiLog(id), queryFn: () => api.aiLogs.get(id) });
   const result = data && 'result' in data ? data.result : undefined;
   return (
@@ -198,4 +198,4 @@ function LogDetail({ id, onClose }: { id: string; onClose: () => void }) {
       ) : null}
     </Drawer>
   );
-}
+};

@@ -3,9 +3,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
-import { api, errorMessage, type AdminCode, type AdminCodeGroup } from '@/api';
+import { api, errorMessage, type IAdminCode, type IAdminCodeGroup } from '@/api';
 import { ColorChip, GarmentPreview } from '@/components/Garment';
-import { useToast } from '@/components/toast';
+import { useToastStore } from '@/stores/useToastStore';
 import { Badge, Button, Card, Empty, ErrorBox, Loading, Notice, PageHeader, Switch } from '@/components/ui';
 import { HAS_APP_SHAPES } from '@/lib/garment';
 import { qk, useCodeBook, useCodes } from '@/lib/queries';
@@ -13,30 +13,30 @@ import { qk, useCodeBook, useCodes } from '@/lib/queries';
 import { CodeForm } from './CodeForm';
 
 /** 표시 순서: sortOrder, 같으면 받은 순서 */
-function ordered(codes: AdminCode[]): AdminCode[] {
+const ordered = (codes: IAdminCode[]): IAdminCode[] => {
   return codes
     .map((c, i) => ({ c, i }))
     .sort((a, b) => a.c.sortOrder - b.c.sortOrder || a.i - b.i)
     .map((x) => x.c);
-}
+};
 
 const VOLUME_LABEL: Record<string, string> = { '-1': '슬림', '0': '레귤러', '1': '볼륨' };
 
-export function CodesPage() {
+export const CodesPage = () => {
   const [params, setParams] = useSearchParams();
   const { data, error, isLoading, refetch } = useCodes();
   const book = useCodeBook();
   const queryClient = useQueryClient();
-  const toast = useToast();
+  const toast = useToastStore((s) => s.show);
 
   const groups = data?.groups ?? [];
-  const activeGroup: AdminCodeGroup | undefined = groups.find((g) => g.group === params.get('group')) ?? groups[0];
+  const activeGroup: IAdminCodeGroup | undefined = groups.find((g) => g.group === params.get('group')) ?? groups[0];
   const g = activeGroup?.group ?? '';
 
   const [q, setQ] = useState('');
   const [parentFilter, setParentFilter] = useState('');
   const [hideInactive, setHideInactive] = useState(false);
-  const [editing, setEditing] = useState<AdminCode | 'new' | null>(null);
+  const [editing, setEditing] = useState<IAdminCode | 'new' | null>(null);
 
   const all = useMemo(() => (activeGroup ? ordered(activeGroup.codes) : []), [activeGroup]);
   const filtering = q.trim() !== '';
@@ -86,7 +86,7 @@ export function CodesPage() {
   });
 
   const toggleActive = useMutation({
-    mutationFn: (c: AdminCode) => api.codes.update(g, c.code, { active: !c.active }),
+    mutationFn: (c: IAdminCode) => api.codes.update(g, c.code, { active: !c.active }),
     onSuccess: async (_r, c) => {
       await queryClient.invalidateQueries({ queryKey: qk.codes });
       void queryClient.invalidateQueries({ queryKey: ['audit'] });
@@ -96,7 +96,7 @@ export function CodesPage() {
   });
 
   /** 보이는 목록 안에서 이웃과 자리를 바꾸고, 그룹 전체 순서를 보낸다 */
-  const move = (code: AdminCode, dir: -1 | 1) => {
+  const move = (code: IAdminCode, dir: -1 | 1) => {
     const vi = visible.indexOf(code);
     const neighbor = visible[vi + dir];
     if (!neighbor) return;
@@ -107,7 +107,7 @@ export function CodesPage() {
     reorder.mutate(next);
   };
 
-  const onToggle = (c: AdminCode) => {
+  const onToggle = (c: IAdminCode) => {
     if (c.active && g === 'CATEGORY') {
       const children = book.group('SUB_TYPE').filter((s) => s.parent === c.code && s.active).length;
       if (!window.confirm(`${c.label} 종류를 비활성화하면 하위 세부 종류 ${children}개도 새로 고를 수 없게 됩니다. 계속할까요?`)) return;
@@ -290,9 +290,9 @@ export function CodesPage() {
       ) : null}
     </>
   );
-}
+};
 
-function AttrSummary({ group, code, label }: { group: string; code: AdminCode; label: (color: string) => string }) {
+const AttrSummary = ({ group, code, label }: { group: string; code: IAdminCode; label: (color: string) => string }) => {
   const a = code.attrs ?? {};
   switch (group) {
     case 'CATEGORY':
@@ -316,4 +316,4 @@ function AttrSummary({ group, code, label }: { group: string; code: AdminCode; l
     default:
       return Object.keys(a).length ? <span className="mono small">{JSON.stringify(a)}</span> : <span className="muted">—</span>;
   }
-}
+};

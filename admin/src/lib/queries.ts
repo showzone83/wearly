@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { api, type AdminCode, type AdminCodeGroup } from '@/api';
+import { api, type IAdminCode, type IAdminCodeGroup } from '@/api';
 
 export const qk = {
   dashboard: ['dashboard'] as const,
@@ -15,24 +15,24 @@ export const qk = {
   audit: (q: object) => ['audit', q] as const,
 };
 
-export function useCodes() {
+export const useCodes = () => {
   return useQuery({ queryKey: qk.codes, queryFn: () => api.codes.list() });
-}
+};
 
-export function useProviders() {
+export const useProviders = () => {
   return useQuery({ queryKey: qk.providers, queryFn: () => api.providers.list() });
-}
+};
 
-export interface CodeBook {
-  groups: AdminCodeGroup[];
-  group(group: string): AdminCode[];
-  find(group: string, code: string | null | undefined): AdminCode | undefined;
+export interface ICodeBook {
+  groups: IAdminCodeGroup[];
+  group(group: string): IAdminCode[];
+  find(group: string, code: string | null | undefined): IAdminCode | undefined;
   /** 코드 → 라벨. 모르는 코드면 코드 문자열 그대로 */
   label(group: string, code: string | null | undefined): string;
 }
 
 /** 코드 목록을 찾아보기 쉬운 모양으로 */
-export function useCodeBook(): CodeBook {
+export const useCodeBook = (): ICodeBook => {
   const { data } = useCodes();
   return useMemo(() => {
     const groups = data?.groups ?? [];
@@ -45,4 +45,4 @@ export function useCodeBook(): CodeBook {
       label: (group: string, code: string | null | undefined) => (code ? (find(group, code)?.label ?? code) : '—'),
     };
   }, [data]);
-}
+};

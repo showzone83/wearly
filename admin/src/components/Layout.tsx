@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router';
 
 import { API_URL } from '@/api';
-import { useAuth } from '@/auth/AuthContext';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 const MENU = [
   { to: '/', label: '대시보드', icon: '◧', end: true },
@@ -12,8 +12,9 @@ const MENU = [
   { to: '/audit', label: '변경 이력', icon: '↺' },
 ];
 
-export function Layout() {
-  const { user, logout } = useAuth();
+export const Layout = () => {
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   return (
     <div className="shell">
       <nav className="sidebar">
@@ -51,4 +52,4 @@ export function Layout() {
       </main>
     </div>
   );
-}
+};

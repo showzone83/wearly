@@ -6,7 +6,7 @@ import { Badge, Card, Empty, ErrorBox, Loading, PageHeader, Stat } from '@/compo
 import { fmtMs, fmtNum, fmtPercent } from '@/lib/format';
 import { qk, useProviders } from '@/lib/queries';
 
-export function DashboardPage() {
+export const DashboardPage = () => {
   const { data, error, isLoading, refetch, isFetching } = useQuery({ queryKey: qk.dashboard, queryFn: () => api.dashboard() });
   const providers = useProviders();
   const nameOf = (id: string) => providers.data?.find((p) => p.providerId === id)?.displayName ?? id;
@@ -103,4 +103,4 @@ export function DashboardPage() {
       </Card>
     </>
   );
-}
+};

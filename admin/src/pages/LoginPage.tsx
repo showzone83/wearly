@@ -2,10 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation } from 'react-router';
 
 import { API_URL, errorMessage, isApiError } from '@/api';
-import { useAuth } from '@/auth/AuthContext';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { Button, Notice } from '@/components/ui';
 
-function loginErrorText(e: unknown): string {
+const loginErrorText = (e: unknown): string => {
   if (!isApiError(e)) return errorMessage(e);
   switch (e.code) {
     case 'INVALID_CREDENTIALS':
@@ -19,10 +19,12 @@ function loginErrorText(e: unknown): string {
     default:
       return errorMessage(e);
   }
-}
+};
 
-export function LoginPage() {
-  const { user, login, lostReason } = useAuth();
+export const LoginPage = () => {
+  const user = useAuthStore((s) => s.user);
+  const login = useAuthStore((s) => s.login);
+  const lostReason = useAuthStore((s) => s.lostReason);
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -76,4 +78,4 @@ export function LoginPage() {
       </form>
     </div>
   );
-}
+};

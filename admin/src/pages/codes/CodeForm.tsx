@@ -2,14 +2,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type FormEvent } from 'react';
 
-import { api, isApiError, type AdminCode, type AdminCodeGroup, type CodeAttrs, type FieldError, type Slot } from '@/api';
+import { api, isApiError, type IAdminCode, type IAdminCodeGroup, type ICodeAttrs, type IFieldError, type TSlot } from '@/api';
 import { ColorChip, GarmentPreview } from '@/components/Garment';
-import { useToast } from '@/components/toast';
+import { useToastStore } from '@/stores/useToastStore';
 import { Button, Drawer, Field, Notice, Segmented, Switch } from '@/components/ui';
 import { HAS_APP_SHAPES, SHAPE_KEYS, isKnownShape, lightnessOf, resolveShape } from '@/lib/garment';
-import { qk, type CodeBook } from '@/lib/queries';
+import { qk, type ICodeBook } from '@/lib/queries';
 
-const SLOTS: { value: Slot | ''; label: string }[] = [
+const SLOTS: { value: TSlot | ''; label: string }[] = [
   { value: 'TOP', label: '상의 칸 (TOP)' },
   { value: 'BOTTOM', label: '하의 칸 (BOTTOM)' },
   { value: 'DRESS', label: '원피스 칸 (DRESS)' },
@@ -39,22 +39,22 @@ const NO_ATTR_GROUPS = new Set(['PATTERN', 'SEASON', 'STYLE']);
 const CUSTOM_SHAPE = '__custom__';
 
 /** 코드 문자열 규칙: 영문 대문자·숫자·밑줄, COLOR는 영문 소문자·숫자·밑줄. 1~30자 */
-function codePattern(group: string): RegExp {
+const codePattern = (group: string): RegExp => {
   return group === 'COLOR' ? /^[a-z0-9_]{1,30}$/ : /^[A-Z0-9_]{1,30}$/;
-}
+};
 
-interface FormState {
+interface IFormState {
   code: string;
   label: string;
   parent: string;
   sortOrder: string;
   active: boolean;
-  attrs: CodeAttrs;
+  attrs: ICodeAttrs;
   /** 알 수 없는 그룹용 attrs JSON 직접 입력 */
   attrsJson: string;
 }
 
-function initialAttrs(group: string): CodeAttrs {
+const initialAttrs = (group: string): ICodeAttrs => {
   switch (group) {
     case 'CATEGORY':
       return { slot: null };
@@ -67,42 +67,42 @@ function initialAttrs(group: string): CodeAttrs {
     default:
       return {};
   }
-}
+};
 
 /** 서버 fieldErrors를 입력칸별로. `attrs.pairs[0]`처럼 하위 경로도 `attrs.pairs`에 붙인다 */
-function errorsByField(list: FieldError[]): Map<string, string> {
+const errorsByField = (list: IFieldError[]): Map<string, string> => {
   const m = new Map<string, string>();
   for (const f of list) if (!m.has(f.field)) m.set(f.field, f.message);
   return m;
-}
+};
 
 const KNOWN_FIELDS = ['code', 'label', 'parent', 'sortOrder', 'active', 'attrs', 'attrs.slot', 'attrs.volume', 'attrs.warmth', 'attrs.shape', 'attrs.hex', 'attrs.neutral', 'attrs.light', 'attrs.pairs', 'attrs.recommendable'];
 
-function baseField(field: string): string {
+const baseField = (field: string): string => {
   return field.replace(/\[\d+\]$/, '').replace(/\.\d+$/, '');
-}
+};
 
-export function CodeForm({
+export const CodeForm = ({
   group,
   original,
   book,
   onClose,
   onDeactivateInstead,
 }: {
-  group: AdminCodeGroup;
+  group: IAdminCodeGroup;
   /** 없으면 추가 */
-  original?: AdminCode;
-  book: CodeBook;
+  original?: IAdminCode;
+  book: ICodeBook;
   onClose: () => void;
-  onDeactivateInstead?: (code: AdminCode) => void;
-}) {
+  onDeactivateInstead?: (code: IAdminCode) => void;
+}) => {
   const g = group.group;
   const isEdit = !!original;
   const queryClient = useQueryClient();
-  const toast = useToast();
+  const toast = useToastStore((s) => s.show);
   const maxOrder = Math.max(0, ...group.codes.map((c) => c.sortOrder));
 
-  const [form, setForm] = useState<FormState>(() => ({
+  const [form, setForm] = useState<IFormState>(() => ({
     code: original?.code ?? '',
     label: original?.label ?? '',
     parent: original?.parent ?? '',
@@ -115,7 +115,7 @@ export function CodeForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [inUse, setInUse] = useState(false);
 
-  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const set = <K extends keyof IFormState>(key: K, value: IFormState[K]) => setForm((f) => ({ ...f, [key]: value }));
   const setAttr = (key: string, value: unknown) => setForm((f) => ({ ...f, attrs: { ...f.attrs, [key]: value } }));
   const err = (field: string) => errors.get(field);
 
@@ -123,7 +123,7 @@ export function CodeForm({
   const colors = book.group('COLOR');
 
   // ───── 검증 ─────
-  function clientValidate(): Map<string, string> {
+  const clientValidate = (): Map<string, string> => {
     const e = new Map<string, string>();
     if (!isEdit && !codePattern(g).test(form.code)) {
       e.set('code', g === 'COLOR' ? '영문 소문자·숫자·밑줄 1~30자로 입력하세요.' : '영문 대문자·숫자·밑줄 1~30자로 입력하세요.');
@@ -151,12 +151,12 @@ export function CodeForm({
       }
     }
     return e;
-  }
+  };
 
-  function buildAttrs(): CodeAttrs {
+  const buildAttrs = (): ICodeAttrs => {
     if (NO_ATTR_GROUPS.has(g)) return { ...(original?.attrs ?? {}) };
-    if (!ATTR_GROUPS.has(g)) return JSON.parse(form.attrsJson || '{}') as CodeAttrs;
-    const a: CodeAttrs = { ...form.attrs };
+    if (!ATTR_GROUPS.has(g)) return JSON.parse(form.attrsJson || '{}') as ICodeAttrs;
+    const a: ICodeAttrs = { ...form.attrs };
     if (g === 'SUB_TYPE') {
       a.shape = String(a.shape ?? '').trim();
       a.volume = Number(a.volume);
@@ -169,7 +169,7 @@ export function CodeForm({
     }
     if (g === 'CATEGORY') a.slot = a.slot || null;
     return a;
-  }
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -356,17 +356,17 @@ export function CodeForm({
       </form>
     </Drawer>
   );
-}
+};
 
 // ───────── 그룹별 속성 폼 ─────────
 
-interface AttrProps {
-  attrs: CodeAttrs;
+interface IAttrProps {
+  attrs: ICodeAttrs;
   setAttr: (key: string, value: unknown) => void;
   err: (field: string) => string | undefined;
 }
 
-function CategoryAttrs({ attrs, setAttr, err }: AttrProps) {
+const CategoryAttrs = ({ attrs, setAttr, err }: IAttrProps) => {
   return (
     <Field label="코디 칸 (slot)" error={err('attrs.slot')} hint="추천 코디에서 이 종류가 들어갈 칸입니다.">
       <select value={attrs.slot ?? ''} onChange={(e) => setAttr('slot', e.target.value || null)}>
@@ -378,16 +378,16 @@ function CategoryAttrs({ attrs, setAttr, err }: AttrProps) {
       </select>
     </Field>
   );
-}
+};
 
-function SubTypeAttrs({
+const SubTypeAttrs = ({
   attrs,
   setAttr,
   err,
   parent,
   parentLabel,
   colors,
-}: AttrProps & { parent: string; parentLabel: string; colors: AdminCode[] }) {
+}: IAttrProps & { parent: string; parentLabel: string; colors: IAdminCode[] }) => {
   const shape = String(attrs.shape ?? '');
   const [custom, setCustom] = useState(() => !!shape && !isKnownShape(shape));
   const activeColors = colors.filter((c) => c.active && typeof c.attrs.hex === 'string');
@@ -485,9 +485,9 @@ function SubTypeAttrs({
       </div>
     </div>
   );
-}
+};
 
-function ColorAttrs({ attrs, setAttr, err, self, colors }: AttrProps & { self: string; colors: AdminCode[] }) {
+const ColorAttrs = ({ attrs, setAttr, err, self, colors }: IAttrProps & { self: string; colors: IAdminCode[] }) => {
   const hex = String(attrs.hex ?? '');
   const validHex = /^#[0-9A-Fa-f]{6}$/.test(hex);
   const light = Number(attrs.light ?? 0);
@@ -571,4 +571,4 @@ function ColorAttrs({ attrs, setAttr, err, self, colors }: AttrProps & { self: s
       </Field>
     </>
   );
-}
+};

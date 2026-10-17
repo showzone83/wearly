@@ -1,7 +1,7 @@
-import type { ApiErrorBody, FieldError } from './types';
+import type { IApiErrorBody, IFieldError } from './types';
 
 /** 서버 오류 코드 (05 4장, 07 2·4장) + 이 사이트가 만드는 코드 */
-export type ApiErrorCode =
+export type TApiErrorCode =
   | 'VALIDATION_FAILED'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
@@ -32,10 +32,10 @@ export type ApiErrorCode =
 export class ApiError extends Error {
   /** HTTP 상태. 네트워크 실패는 0 */
   readonly status: number;
-  readonly code: ApiErrorCode | (string & {});
-  readonly fieldErrors: FieldError[];
+  readonly code: TApiErrorCode | (string & {});
+  readonly fieldErrors: IFieldError[];
 
-  constructor(status: number, code: string, message: string, fieldErrors: FieldError[] = []) {
+  constructor(status: number, code: string, message: string, fieldErrors: IFieldError[] = []) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
@@ -45,17 +45,17 @@ export class ApiError extends Error {
   }
 }
 
-export function isApiError(e: unknown): e is ApiError {
+export const isApiError = (e: unknown): e is ApiError => {
   return e instanceof ApiError;
-}
+};
 
-export function networkError(cause: unknown, timedOut = false): ApiError {
+export const networkError = (cause: unknown, timedOut = false): ApiError => {
   const err = new ApiError(0, 'NETWORK', timedOut ? '서버 응답이 너무 늦어요.' : '서버에 연결할 수 없어요. 백엔드가 켜져 있는지 확인해 주세요.');
   (err as { cause?: unknown }).cause = cause;
   return err;
-}
+};
 
-const FALLBACK_CODE: Record<number, ApiErrorCode> = {
+const FALLBACK_CODE: Record<number, TApiErrorCode> = {
   401: 'UNAUTHORIZED',
   403: 'FORBIDDEN',
   404: 'NOT_FOUND',
@@ -71,16 +71,16 @@ const FALLBACK_MESSAGE: Record<number, string> = {
   413: '사진이 너무 커요.',
 };
 
-function fallbackMessage(status: number): string {
+const fallbackMessage = (status: number): string => {
   return FALLBACK_MESSAGE[status] ?? (status >= 500 ? `서버 오류가 났어요. (HTTP ${status})` : `요청을 처리하지 못했어요. (HTTP ${status})`);
-}
+};
 
-function isErrorBody(v: unknown): v is ApiErrorBody {
-  return typeof v === 'object' && v !== null && typeof (v as ApiErrorBody).code === 'string';
-}
+const isErrorBody = (v: unknown): v is IApiErrorBody => {
+  return typeof v === 'object' && v !== null && typeof (v as IApiErrorBody).code === 'string';
+};
 
 /** 오류 응답 본문(JSON이 아닐 수도 있음)을 ApiError로 바꾼다 */
-export function errorFromResponse(status: number, rawText: string): ApiError {
+export const errorFromResponse = (status: number, rawText: string): ApiError => {
   let parsed: unknown;
   try {
     parsed = rawText ? JSON.parse(rawText) : undefined;
@@ -89,16 +89,16 @@ export function errorFromResponse(status: number, rawText: string): ApiError {
   }
   if (isErrorBody(parsed)) {
     const fieldErrors = Array.isArray(parsed.fieldErrors)
-      ? parsed.fieldErrors.filter((f): f is FieldError => typeof f?.field === 'string' && typeof f?.message === 'string')
+      ? parsed.fieldErrors.filter((f): f is IFieldError => typeof f?.field === 'string' && typeof f?.message === 'string')
       : [];
     return new ApiError(status, parsed.code, parsed.message || fallbackMessage(status), fieldErrors);
   }
   return new ApiError(status, FALLBACK_CODE[status] ?? 'HTTP_ERROR', fallbackMessage(status));
-}
+};
 
 /** 화면에 보여 줄 한 줄 오류 문구 */
-export function errorMessage(e: unknown): string {
+export const errorMessage = (e: unknown): string => {
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error) return e.message;
   return '알 수 없는 오류가 났어요.';
-}
+};

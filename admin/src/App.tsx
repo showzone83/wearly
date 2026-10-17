@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 
-import { useAuth } from '@/auth/AuthContext';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { Layout } from '@/components/Layout';
 import { AiLogsPage } from '@/pages/AiLogsPage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
@@ -11,14 +11,14 @@ import { LoginPage } from '@/pages/LoginPage';
 import { ProvidersPage } from '@/pages/providers/ProvidersPage';
 import { UsersPage } from '@/pages/UsersPage';
 
-function RequireAdmin({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+const RequireAdmin = ({ children }: { children: ReactNode }) => {
+  const user = useAuthStore((s) => s.user);
   const location = useLocation();
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   return <>{children}</>;
-}
+};
 
-export function App() {
+export const App = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -39,4 +39,4 @@ export function App() {
       </Route>
     </Routes>
   );
-}
+};

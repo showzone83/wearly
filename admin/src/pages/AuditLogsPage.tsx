@@ -3,7 +3,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
-import { api, type AuditLog, type AuditQuery } from '@/api';
+import { api, type IAuditLog, type IAuditQuery } from '@/api';
 import { Badge, Card, Empty, ErrorBox, JsonView, Loading, PageHeader, Pagination } from '@/components/ui';
 import { fmtDateTime } from '@/lib/format';
 import { qk } from '@/lib/queries';
@@ -17,22 +17,22 @@ const TARGET_TYPES: { value: string; label: string }[] = [
   { value: 'USER', label: '회원' },
 ];
 
-function targetLabel(t: string): string {
+const targetLabel = (t: string): string => {
   return TARGET_TYPES.find((x) => x.value === t)?.label ?? t;
-}
+};
 
 /** before/after에서 값이 바뀐 최상위 키 */
-function changedKeys(before: unknown, after: unknown): string[] {
+const changedKeys = (before: unknown, after: unknown): string[] => {
   const b = (before && typeof before === 'object' ? before : {}) as Record<string, unknown>;
   const a = (after && typeof after === 'object' ? after : {}) as Record<string, unknown>;
   const keys = new Set([...Object.keys(b), ...Object.keys(a)]);
   return [...keys].filter((k) => JSON.stringify(b[k]) !== JSON.stringify(a[k]));
-}
+};
 
-export function AuditLogsPage() {
+export const AuditLogsPage = () => {
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState<string | null>(null);
-  const query: AuditQuery = { targetType: params.get('targetType') ?? undefined, page: Number(params.get('page') ?? 0) || 0, size: PAGE_SIZE };
+  const query: IAuditQuery = { targetType: params.get('targetType') ?? undefined, page: Number(params.get('page') ?? 0) || 0, size: PAGE_SIZE };
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: qk.audit(query),
     queryFn: () => api.audit.list(query),
@@ -75,7 +75,7 @@ export function AuditLogsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.items.map((r: AuditLog) => {
+                  {data.items.map((r: IAuditLog) => {
                     const keys = changedKeys(r.before, r.after);
                     const isOpen = open === r.id;
                     return (
@@ -122,4 +122,4 @@ export function AuditLogsPage() {
       ) : null}
     </>
   );
-}
+};

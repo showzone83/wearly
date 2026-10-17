@@ -11,12 +11,12 @@ export const GARMENT_LIGHT: Record<string, string> = {};
 export const DEFAULT_SHAPE_BY_CATEGORY: Record<string, string> = {};
 export const FALLBACK_SHAPE = 'BOX';
 
-export function resolveShape(shape: string | null | undefined, category?: string | null): string {
+export const resolveShape = (shape: string | null | undefined, category?: string | null): string => {
   if (shape && GARMENT_SHAPES[shape]) return shape;
   const byCategory = category ? DEFAULT_SHAPE_BY_CATEGORY[category] : undefined;
   return byCategory && GARMENT_SHAPES[byCategory] ? byCategory : FALLBACK_SHAPE;
-}
+};
 
-export function shapePath(shape: string | null | undefined, category?: string | null): string {
+export const shapePath = (shape: string | null | undefined, category?: string | null): string => {
   return GARMENT_SHAPES[resolveShape(shape, category)] ?? 'M30 20 L70 20 L70 80 L30 80 Z';
-}
+};
