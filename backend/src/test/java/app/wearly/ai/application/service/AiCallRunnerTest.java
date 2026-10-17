@@ -23,8 +23,7 @@ class AiCallRunnerTest {
 
   static final AiJsonPrompt PROMPT =
       new AiJsonPrompt("plan", null, "프롬프트", Map.of("type", "object"), Map::of);
-  static final AiCallRunner.Call CALL =
-      new AiCallRunner.Call(7L, AiCallRecord.FEATURE_OUTFIT_RECOMMEND, PROMPT, null);
+  static final AiCallRunner.Call CALL = new AiCallRunner.Call(7L, "OUTFIT_RECOMMEND", PROMPT, null);
 
   final List<AiCallRecord> records = new ArrayList<>();
   final AiCallRunner runner = new AiCallRunner(records::add);
@@ -35,7 +34,7 @@ class AiCallRunnerTest {
         if (!json.containsKey("ok")) {
           throw new RejectedOutputException("ok가 없어요.");
         }
-        return new JsonOutputHandler.Accepted<>((String) json.get("ok"), Map.of("summary", "요약"));
+        return new JsonOutputHandler.Accepted<>((String) json.get("ok"), Map.of("k", "v"), "요약");
       };
 
   @Test
@@ -76,7 +75,8 @@ class AiCallRunnerTest {
     // 거부한 응답도 받은 모델·토큰을 남기고, 성공 기록에는 handler가 준 기록용 결과를 남긴다
     assertThat(records.get(1).model()).isEqualTo("b-1");
     assertThat(records.get(1).inputTokens()).isEqualTo(10L);
-    assertThat(records.get(3).result()).isEqualTo(Map.of("summary", "요약"));
+    assertThat(records.get(3).result()).isEqualTo(Map.of("k", "v"));
+    assertThat(records.get(3).summary()).isEqualTo("요약");
     assertThat(records.get(3).inputTokens()).isEqualTo(30L);
     assertThat(records).allSatisfy(r -> assertThat(r.userId()).isEqualTo(7L));
   }

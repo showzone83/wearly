@@ -21,15 +21,15 @@ import app.wearly.admin.domain.SearchText;
 import app.wearly.ai.application.port.in.AiFeatures;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.ApiException;
+import app.wearly.outfit.application.port.in.OutfitFeatures;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +38,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminDashboardService implements AdminDashboardUseCase {
 
   static final Set<String> STATUSES = Set.of("SUCCESS", "FAILED");
-  static final Set<String> FEATURES = Set.copyOf(AiFeatures.ALL);
+
+  /** 기록 필터에 쓸 수 있는 기능: ai 자체 기능 + AI를 쓰는 컨텍스트의 기능 (L6, 순서는 오류 문구 순서) */
+  static final List<String> FEATURE_NAMES =
+      Stream.concat(AiFeatures.ALL.stream(), Stream.of(OutfitFeatures.OUTFIT_RECOMMEND)).toList();
+
+  static final Set<String> FEATURES = Set.copyOf(FEATURE_NAMES);
 
   private final AdminQueryPort queries;
   private final Clock clock;
@@ -85,7 +90,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
     }
     String ft = SearchText.blankToNull(search.feature());
     if (ft != null && !FEATURES.contains(ft)) {
-      throw ApiException.validation("feature", String.join(", ", AiFeatures.ALL) + " 중 하나여야 해요.");
+      throw ApiException.validation("feature", String.join(", ", FEATURE_NAMES) + " 중 하나여야 해요.");
     }
     String email = SearchText.blankToNull(search.userEmail());
     AiLogFilter filter =
@@ -156,7 +161,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
         r.inputTokens(),
         r.outputTokens(),
         r.imageBytes(),
-        summary(r.result()),
+        r.summary(),
         r.errorCode());
   }
 
@@ -171,23 +176,6 @@ public class AdminDashboardService implements AdminDashboardUseCase {
         r.before(),
         r.after(),
         r.createdAt());
-  }
-
-  /** 결과 요약: 사진 분석 "네이비 울 니트 · TOP/KNIT · navy", 코디 추천 "코디 후보 3개" */
-  static String summary(Map<String, Object> result) {
-    if (result == null) {
-      return null;
-    }
-    if (result.get("candidates") instanceof List<?> candidates) {
-      return "코디 후보 " + candidates.size() + "개";
-    }
-    return Objects.toString(result.get("name"), "")
-        + " · "
-        + result.get("category")
-        + "/"
-        + result.get("subType")
-        + " · "
-        + result.get("color");
   }
 
   private static Instant time(String field, String raw, boolean end) {

@@ -1,5 +1,6 @@
 package app.wearly.ai.application.service;
 
+import app.wearly.ai.application.port.in.AiFeatures;
 import app.wearly.ai.application.port.in.AiLimitExceededException;
 import app.wearly.ai.application.port.in.AiUnavailableException;
 import app.wearly.ai.application.port.in.JsonGenerationUseCase;
@@ -35,6 +36,9 @@ public class AiJsonGenerationService implements JsonGenerationUseCase {
 
   @Override
   public <T> GeneratedJsonDto<T> generate(GenerateJsonDto command, JsonOutputHandler<T> handler) {
+    if (!AiFeatures.isValidName(command.feature())) {
+      throw new IllegalArgumentException("기능 이름 형식이 아니에요: " + command.feature());
+    }
     AiQuotaService.Reservation reservation =
         quota
             .reserve(command.userId(), command.feature(), command.dailyLimit())

@@ -25,6 +25,7 @@ import app.wearly.common.error.ErrorCode;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -137,7 +138,18 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   private static JsonOutputHandler.Accepted<AiSuggestion> suggestion(
       Map<String, Object> json, CodeSnapshot codes) {
     AiSuggestion s = AiSuggestionValidator.validate(json, codes);
-    return new JsonOutputHandler.Accepted<>(s, s);
+    return new JsonOutputHandler.Accepted<>(s, s, summary(s));
+  }
+
+  /** 관리자 AI 기록 목록의 요약: "네이비 울 니트 · TOP/KNIT · navy" (4차까지 관리자 서비스가 만들던 문구와 같다) */
+  static String summary(AiSuggestion s) {
+    return Objects.toString(s.name(), "")
+        + " · "
+        + s.category()
+        + "/"
+        + s.subType()
+        + " · "
+        + s.color();
   }
 
   /** 오늘(한국 시간) 성공한 사진 분석 수 (관리자 시험 분석 제외) */

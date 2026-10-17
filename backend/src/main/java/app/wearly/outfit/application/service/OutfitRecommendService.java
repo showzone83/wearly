@@ -1,6 +1,5 @@
 package app.wearly.outfit.application.service;
 
-import app.wearly.ai.application.port.in.AiFeatures;
 import app.wearly.ai.application.port.in.AiLimitExceededException;
 import app.wearly.ai.application.port.in.AiUnavailableException;
 import app.wearly.ai.application.port.in.JsonGenerationUseCase;
@@ -11,6 +10,7 @@ import app.wearly.ai.application.port.in.dto.GeneratedJsonDto;
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
+import app.wearly.outfit.application.port.in.OutfitFeatures;
 import app.wearly.outfit.application.port.in.RecommendOutfitUseCase;
 import app.wearly.outfit.application.port.in.dto.OutfitCandidateDto;
 import app.wearly.outfit.application.port.in.dto.OutfitRecommendationDto;
@@ -98,7 +98,7 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
     GenerateJsonDto generate =
         new GenerateJsonDto(
             userId,
-            AiFeatures.OUTFIT_RECOMMEND,
+            OutfitFeatures.OUTFIT_RECOMMEND,
             limit,
             OutfitPrompt.SCHEMA_NAME,
             OutfitPrompt.instructions(),
@@ -132,6 +132,8 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
       throw new RejectedOutputException("남은 후보가 없어요: " + why);
     }
     return new JsonOutputHandler.Accepted<>(
-        r.accepted(), OutfitLogResults.of(r.accepted(), r.rejections()));
+        r.accepted(),
+        OutfitLogResults.of(r.accepted(), r.rejections()),
+        "코디 후보 " + r.accepted().size() + "개");
   }
 }

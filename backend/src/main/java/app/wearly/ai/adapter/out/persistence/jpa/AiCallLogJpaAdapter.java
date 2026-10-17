@@ -38,6 +38,7 @@ class AiCallLogJpaAdapter implements AiCallLogPort {
             r.imageSha256(),
             r.imageBytes(),
             result,
+            r.summary(),
             r.errorCode()));
   }
 

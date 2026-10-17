@@ -57,6 +57,9 @@ public class AiAnalysisLogEntity {
   @Column(name = "result")
   private Map<String, Object> result;
 
+  @Column(name = "result_summary")
+  private String resultSummary;
+
   @Column(name = "error_code", length = 50)
   private String errorCode;
 
@@ -77,6 +80,7 @@ public class AiAnalysisLogEntity {
       String imageSha256,
       Integer imageBytes,
       Map<String, Object> result,
+      String resultSummary,
       String errorCode) {
     this.userId = userId;
     this.feature = feature;
@@ -89,6 +93,7 @@ public class AiAnalysisLogEntity {
     this.imageSha256 = imageSha256;
     this.imageBytes = imageBytes;
     this.result = result;
+    this.resultSummary = resultSummary;
     this.errorCode = errorCode;
   }
 

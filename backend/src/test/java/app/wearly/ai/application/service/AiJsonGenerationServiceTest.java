@@ -113,7 +113,7 @@ class AiJsonGenerationServiceTest {
         if (!json.containsKey("ok")) {
           throw new RejectedOutputException("ok가 없어요.");
         }
-        return new JsonOutputHandler.Accepted<>((String) json.get("ok"), json);
+        return new JsonOutputHandler.Accepted<>((String) json.get("ok"), json, "요약");
       };
 
   @Test
@@ -153,10 +153,22 @@ class AiJsonGenerationServiceTest {
         .isEqualTo("REJECTED_OUTPUT");
   }
 
+  @Test
+  void 기능_이름은_형식만_본다() {
+    assertThatThrownBy(() -> service.generate(command("outfit recommend", 3), handler))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThat(service.generate(command("NEW_FEATURE_2", 3), handler).value()).isEqualTo("좋아요");
+    assertThat(records).extracting(AiCallRecord::feature).containsExactly("NEW_FEATURE_2");
+  }
+
   private GenerateJsonDto command(int limit) {
+    return command("OUTFIT_RECOMMEND", limit);
+  }
+
+  private GenerateJsonDto command(String feature, int limit) {
     return new GenerateJsonDto(
         5L,
-        AiCallRecord.FEATURE_OUTFIT_RECOMMEND,
+        feature,
         limit,
         "plan",
         null,

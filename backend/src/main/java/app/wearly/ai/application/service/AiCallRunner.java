@@ -76,7 +76,7 @@ public class AiCallRunner {
       received = provider.generateJson(call.prompt(), call.image());
       JsonOutputHandler.Accepted<T> accepted = handler.accept(received.json());
       int ms = elapsedMs(started);
-      logs.save(success(call, provider.name(), received, ms, accepted.logResult()));
+      logs.save(success(call, provider.name(), received, ms, accepted));
       return new Attempt<>(
           provider.name(),
           accepted.value(),
@@ -115,7 +115,7 @@ public class AiCallRunner {
   }
 
   private static AiCallRecord success(
-      Call call, String provider, AiJsonResult r, int ms, Object logResult) {
+      Call call, String provider, AiJsonResult r, int ms, JsonOutputHandler.Accepted<?> accepted) {
     return new AiCallRecord(
         call.userId(),
         call.feature(),
@@ -127,7 +127,8 @@ public class AiCallRunner {
         r.outputTokens(),
         call.image() == null ? null : call.image().sha256(),
         call.image() == null ? null : call.image().bytes().length,
-        logResult,
+        accepted.logResult(),
+        accepted.summary(),
         null);
   }
 

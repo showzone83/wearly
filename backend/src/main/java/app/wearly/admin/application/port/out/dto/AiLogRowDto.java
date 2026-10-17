@@ -19,4 +19,5 @@ public record AiLogRowDto(
     Integer imageBytes,
     String imageSha256,
     String errorCode,
-    Map<String, Object> result) {}
+    Map<String, Object> result,
+    String summary) {}

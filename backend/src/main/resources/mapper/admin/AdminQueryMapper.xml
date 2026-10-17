@@ -21,6 +21,7 @@
             <arg column="image_sha256" name="imageSha256" javaType="java.lang.String"/>
             <arg column="error_code" name="errorCode" javaType="java.lang.String"/>
             <arg column="result" name="result" javaType="java.util.Map" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+            <arg column="result_summary" name="summary" javaType="java.lang.String"/>
         </constructor>
     </resultMap>
 
@@ -111,7 +112,7 @@
     <select id="findAiLogs" resultMap="aiLogRow">
         SELECT l.ai_analysis_log_id, l.created_at, l.user_id, u.email AS user_email, l.feature, l.provider, l.model,
                l.status, l.latency_ms, l.input_tokens, l.output_tokens, l.image_bytes, l.image_sha256, l.error_code,
-               l.result
+               l.result, l.result_summary
           FROM tb_ai_analysis_log l
           LEFT JOIN tb_user u ON u.user_id = l.user_id
         <include refid="aiLogWhere"/>
@@ -129,7 +130,7 @@
     <select id="findAiLog" resultMap="aiLogRow">
         SELECT l.ai_analysis_log_id, l.created_at, l.user_id, u.email AS user_email, l.feature, l.provider, l.model,
                l.status, l.latency_ms, l.input_tokens, l.output_tokens, l.image_bytes, l.image_sha256, l.error_code,
-               l.result
+               l.result, l.result_summary
           FROM tb_ai_analysis_log l
           LEFT JOIN tb_user u ON u.user_id = l.user_id
          WHERE l.ai_analysis_log_id = #{id}
