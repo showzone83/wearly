@@ -1,0 +1,24 @@
+{
+  // 하네스 코드와 함께 앱 API 모듈(../mobile/src/api)도 같은 설정으로 타입 검사한다.
+  // 앱 API 모듈은 계약(doc/05 8장)상 순수 TypeScript여야 하므로 RN 타입 없이 통과해야 한다.
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "types": ["node"],
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "../mobile/src/api/**/*.ts",
+    "../mobile/src/data/types.ts",
+    "../mobile/src/data/constants.ts"
+  ]
+}

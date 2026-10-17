@@ -1,0 +1,15 @@
+{
+  "name": "wearly-harness",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Wearly 앱 API 모듈 ↔ 백엔드 연동 테스트 하네스",
+  "scripts": {
+    "scenarios": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3"
+  }
+}
