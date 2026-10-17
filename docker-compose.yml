@@ -54,7 +54,7 @@ services:
 
   admin:
     build:
-      # 관리자 사이트가 ../mobile/src/data/garmentShapes.ts를 가져오므로 컨텍스트는 저장소 루트 (.dockerignore로 필요한 것만)
+      # 관리자 사이트가 ../mobile/src/data의 순수 TS(옷 모양·테마·마스코트)를 가져오므로 컨텍스트는 저장소 루트 (.dockerignore로 필요한 것만)
       context: .
       dockerfile: admin/Dockerfile
       args:

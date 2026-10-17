@@ -316,3 +316,21 @@ export interface IAuditLog {
 export interface IAuditQuery extends IPageQuery {
   targetType?: string;
 }
+
+// ───────── 앱 설정 (doc/12 3장) ─────────
+
+/**
+ * `GET·PUT /admin/app/theme` 응답. 서버는 어떤 테마를 쓸지만 저장한다(테마 값은 앱 코드에 있다).
+ * themeId는 계약상 'nyang'·'closeta'지만, 이 폴더는 앱 코드를 가져오지 않으므로 문자열로 받고 화면이 확인한다.
+ */
+export interface IAppTheme {
+  themeId: string;
+  /** 마지막 변경 시각 (ISO). 초기값이면 null일 수 있다 */
+  updatedAt: string | null;
+  /** 바꾼 관리자 이메일. 초기값이거나 계정이 지워졌으면 null */
+  updatedBy: string | null;
+}
+
+export interface IAppThemeUpdate {
+  themeId: string;
+}

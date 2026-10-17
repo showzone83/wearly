@@ -1,4 +1,4 @@
-// 변경 이력: 코드·AI 공급자·회원을 누가 언제 어떻게 바꿨는지 (before/after)
+// 변경 이력: 코드·AI 공급자·회원·앱 설정을 누가 언제 어떻게 바꿨는지 (before/after)
 import { Fragment, useState } from 'react';
 
 import { api } from '@/api';
@@ -9,6 +9,7 @@ import { Badge, Card, Empty, ErrorBox, JsonView, Loading, PageHeader, Pagination
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router';
 
+import { themeName } from '@/lib/appTheme';
 import { fmtDateTime } from '@/lib/format';
 import { qk } from '@/lib/queries';
 
@@ -19,10 +20,30 @@ const TARGET_TYPES: { value: string; label: string }[] = [
   { value: 'CODE', label: '코드' },
   { value: 'AI_PROVIDER', label: 'AI 공급자' },
   { value: 'USER', label: '회원' },
+  // 앱 테마 변경(APP_THEME_UPDATE, doc/12 3장). 서버가 다른 값을 쓰면 아래 extraTypes로 탭이 생긴다
+  { value: 'APP_SETTING', label: '앱 설정' },
 ];
 
 const targetLabel = (t: string): string => {
   return TARGET_TYPES.find((x) => x.value === t)?.label ?? t;
+};
+
+/** 값 하나짜리 변경. 테마 변경은 before·after가 themeId 문자열이거나 { themeId } 객체다 (doc/12 3장) */
+const unwrap = (v: unknown): unknown => {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return v;
+  const keys = Object.keys(v);
+  return keys.length === 1 && keys[0] === 'themeId' ? (v as { themeId: unknown }).themeId : v;
+};
+
+/** before/after가 객체가 아닌 값(테마 id 등)일 때 '전 → 후' 한 줄. 테마 변경은 테마 이름으로 */
+const valueChange = (r: IAuditLog): string | null => {
+  const before = unwrap(r.before);
+  const after = unwrap(r.after);
+  const simple = (v: unknown) => v === null || v === undefined || typeof v !== 'object';
+  if (!simple(before) || !simple(after) || before === after) return null;
+  const show = (v: unknown) =>
+    v === null || v === undefined ? '—' : /THEME/i.test(r.action) ? themeName(String(v)) : String(v);
+  return `${show(before)} → ${show(after)}`;
 };
 
 /** before/after에서 값이 바뀐 최상위 키 */
@@ -49,6 +70,11 @@ export const AuditLogsPage = () => {
     placeholderData: keepPreviousData,
   });
 
+  // 알려진 후보에 없는 대상 종류(지금 고른 값, 받은 행의 값)도 탭으로 보여 준다
+  const extraTypes = [query.targetType, ...(data?.items.map((r) => r.targetType) ?? [])].filter(
+    (t, i, all): t is string => !!t && !TARGET_TYPES.some((x) => x.value === t) && all.indexOf(t) === i,
+  );
+
   const setType = (t: string) => setParams(t ? { targetType: t } : {});
   const setPage = (p: number) => {
     const next = new URLSearchParams(params);
@@ -58,18 +84,20 @@ export const AuditLogsPage = () => {
 
   return (
     <>
-      <PageHeader title="변경 이력" desc="관리자가 바꾼 코드·AI 공급자·회원 기록" />
+      <PageHeader title="변경 이력" desc="관리자가 바꾼 코드·AI 공급자·회원·앱 설정 기록" />
       <div className="tabs">
-        {[{ value: '', label: '전체' }, ...TARGET_TYPES].map((t) => (
-          <button
-            type="button"
-            key={t.value}
-            className={(query.targetType ?? '') === t.value ? 'tab on' : 'tab'}
-            onClick={() => setType(t.value)}
-          >
-            {t.label}
-          </button>
-        ))}
+        {[{ value: '', label: '전체' }, ...TARGET_TYPES, ...extraTypes.map((t) => ({ value: t, label: t }))].map(
+          (t) => (
+            <button
+              type="button"
+              key={t.value}
+              className={(query.targetType ?? '') === t.value ? 'tab on' : 'tab'}
+              onClick={() => setType(t.value)}
+            >
+              {t.label}
+            </button>
+          ),
+        )}
       </div>
       <ErrorBox error={error} onRetry={() => void refetch()} />
       {isLoading ? <Loading /> : null}
@@ -92,6 +120,7 @@ export const AuditLogsPage = () => {
                 <tbody>
                   {data.items.map((r: IAuditLog) => {
                     const keys = changedKeys(r.before, r.after);
+                    const change = valueChange(r);
                     const isOpen = open === r.id;
                     return (
                       <Fragment key={r.id}>
@@ -111,7 +140,9 @@ export const AuditLogsPage = () => {
                             {targetLabel(r.targetType)} <span className="mono small">{r.targetId ?? ''}</span>
                           </td>
                           <td className="small">
-                            {keys.length ? (
+                            {change ? (
+                              change
+                            ) : keys.length ? (
                               keys.slice(0, 6).join(', ') + (keys.length > 6 ? ` 외 ${keys.length - 6}` : '')
                             ) : (
                               <span className="muted">—</span>

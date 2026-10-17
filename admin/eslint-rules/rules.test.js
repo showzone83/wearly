@@ -243,6 +243,8 @@ import { create } from 'zustand';
 import type { QueryClient } from '@tanstack/react-query';
 
 import { fmtDate } from '@/lib/format';
+import { mascotArt } from '@app-mascots';
+import { THEMES } from '@app-themes';
 import { SHAPES } from '@garment-shapes';
 import type { ICodeBook } from '@/lib/queries';
 

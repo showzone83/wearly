@@ -13,6 +13,8 @@ import type {
   IAiProvider,
   IApiKeyDeleteRequest,
   IApiKeySetRequest,
+  IAppTheme,
+  IAppThemeUpdate,
   IAuditLog,
   IAuditQuery,
   IAuthResponse,
@@ -147,6 +149,18 @@ const toAudit = (r: Record<string, unknown>): IAuditLog => {
     id: String(r.id ?? r.auditId ?? ''),
     targetId: str(r.targetId),
     adminUserId: str(r.adminUserId),
+  };
+};
+
+/** 앱 테마 설정. updatedBy가 객체(관리자 정보)로 와도 이메일 문자열로 바꾼다 */
+const toAppTheme = (raw: unknown): IAppTheme => {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const by = r.updatedBy;
+  const byObj = by && typeof by === 'object' ? (by as Record<string, unknown>) : null;
+  return {
+    themeId: String(r.themeId ?? ''),
+    updatedAt: str(r.updatedAt),
+    updatedBy: byObj ? str(byObj.email ?? byObj.name) : str(by),
   };
 };
 
@@ -460,6 +474,17 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       },
       update: (id: string, patch: IUserPatch) => {
         return request<IAdminUser>('PATCH', `/admin/users/${enc(id)}`, { auth: true, json: patch });
+      },
+    },
+
+    appSettings: {
+      /** 지금 전체 사용자에게 적용 중인 앱 테마 */
+      theme: async (): Promise<IAppTheme> => {
+        return toAppTheme(await get<unknown>('/admin/app/theme'));
+      },
+      /** 앱 테마 바꾸기. 허용 값 밖이면 400 VALIDATION_FAILED(themeId) */
+      setTheme: async (body: IAppThemeUpdate): Promise<IAppTheme> => {
+        return toAppTheme(await request<unknown>('PUT', '/admin/app/theme', { auth: true, json: body }));
       },
     },
 

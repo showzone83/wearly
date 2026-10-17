@@ -10,6 +10,8 @@ const MENU = [
   { to: '/ai/providers', label: 'AI 공급자', icon: '✦' },
   { to: '/ai/logs', label: 'AI 분석 기록', icon: '≡' },
   { to: '/users', label: '회원', icon: '◔' },
+  // 앱 설정: 지금은 테마 하나 (doc/12 6장)
+  { to: '/app/theme', label: '앱 설정', icon: '◐' },
   { to: '/audit', label: '변경 이력', icon: '↺' },
 ];
 

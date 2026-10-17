@@ -53,7 +53,8 @@ wearly:
 | AI 공급자 | 목록(키 출처·사용 가능 여부·오늘 성공/실패), 사용 켜기/끄기, 우선순위 위·아래, 추가·수정(종류·모델·서버 설정 키 이름·우선순위·옵션), **API 키 웹 입력**, 삭제, **시험 분석** |
 | AI 분석 기록 | 공급자·상태·회원 이메일·기간 필터, 표, 행을 누르면 결과 JSON 전체 |
 | 회원 | 이메일·이름 검색, 상태·역할 필터, 정지·해제, 관리자 지정·해제 (자기 자신은 정지·해제 불가) |
-| 변경 이력 | 대상(코드·AI 공급자·회원)별 목록, 행을 누르면 변경 전·후 JSON |
+| 앱 설정 | **테마**(doc/12 3·6장): 냥깨비·Closeta 카드(이름·설명·색 견본 18개·작은 앱 화면 미리보기·마스코트 6자세), 현재 적용 중 배지, 마지막 변경 시각·관리자, "이 테마로 바꾸기" → 확인 대화상자 → `PUT /admin/app/theme`. 사용자가 앱을 다시 열거나 앱으로 돌아오면 반영된다. 백엔드가 아직 API를 모르면(404) 안내를 띄우고 미리보기만 보여 준다 |
+| 변경 이력 | 대상(코드·AI 공급자·회원·앱 설정)별 목록, 행을 누르면 변경 전·후 JSON. 목록에 모르는 대상 종류가 오면 탭이 따로 생긴다. 테마 변경은 '냥깨비 → Closeta'처럼 보인다 |
 
 ### 코드 속성 폼
 
@@ -77,16 +78,19 @@ wearly:
 admin/
   eslint.config.js         코드 규칙(아래 "코드 규칙")
   eslint-rules/            로컬 ESLint 규칙: component-order.js(컴포넌트 본문 순서), import-groups.js(import 그룹), rules.test.js(단위 테스트)
-  vite.config.ts           포트 5173, '@' → src, '@garment-shapes' → ../mobile/src/data/garmentShapes.ts (fs.allow로 그 폴더만 허용)
+  vite.config.ts           포트 5173, '@' → src, 앱 데이터 별칭(fs.allow로 ../mobile/src/data 폴더만 허용):
+                           '@garment-shapes' → garmentShapes.ts, '@app-themes' → themes.ts, '@app-mascots' → mascots/index.ts
   src/
     api/                   관리자 API 클라이언트와 계약 타입 (앱 코드를 import하지 않음)
       client.ts            토큰 갱신 single-flight, 응답 정규화
       tokenStore.ts        sessionStorage (wearly-admin-tokens, wearly-admin-user)
       types.ts · errors.ts · index.ts
     stores/                zustand 스토어: useAuthStore(로그인 사용자·상태, 로그인·로그아웃, 로그인 잃음 처리), useToastStore(토스트)
-    components/            Layout(왼쪽 메뉴), ui(버튼·표·패널 등), Garment(일러스트·색 칩), Toaster(토스트 표시)
-    lib/                   queryClient(React Query 캐시), garment(앱 일러스트 데이터 래퍼), queries(TanStack Query 키·훅), format, providerTypes
-    pages/                 Dashboard · codes/ · providers/(ApiKeySection = API 키 웹 입력) · AiLogs · Users · AuditLogs · Login
+    components/            Layout(왼쪽 메뉴), ui(버튼·표·패널 등), Garment(일러스트·색 칩), Toaster(토스트 표시),
+                           Mascot(마스코트 DOM SVG), ThemePreview(색 견본·작은 앱 화면)
+    lib/                   queryClient(React Query 캐시), garment(앱 일러스트 데이터 래퍼), appTheme(앱 테마·마스코트 데이터 래퍼),
+                           queries(TanStack Query 키·훅), format, providerTypes
+    pages/                 Dashboard · codes/ · providers/(ApiKeySection = API 키 웹 입력) · AiLogs · Users · AppTheme · AuditLogs · Login
 ```
 
 ### 토큰
@@ -99,6 +103,10 @@ admin/
 
 `src/lib/garment.ts`가 앱의 `mobile/src/data/garmentShapes.ts`(순수 TS)를 그대로 가져와 앱 `GarmentArt`와 같은 순서(몸판 → 밝은 면 → 세부선 → 단추)로 SVG를 그린다. 앱 파일이 없으면 `src/lib/garmentShapesFallback.ts`(빈 데이터, 사각형)로 빌드되고 코드 관리 화면에 안내가 뜬다.
 
+### 앱 테마·마스코트 데이터
+
+`src/lib/appTheme.ts`가 앱의 `mobile/src/data/themes.ts`(`THEMES`·`THEME_IDS`)와 `mobile/src/data/mascots/`(`mascotArt(id, pose)`·`MASCOT_POSES`)를 그대로 가져온다. 마스코트는 앱 `Mascot`과 같은 규칙(도형을 위에서부터, `fill` 기본값 `none`)으로 DOM SVG를 그린다(`components/Mascot.tsx`). 이 두 파일에는 대체 파일이 없어 없으면 빌드가 실패한다. docker 이미지(`admin/Dockerfile`, 루트 `.dockerignore`)는 `garmentShapes.ts`·`themes.ts`·`mascots/` 폴더를 함께 복사한다.
+
 ## 코드 규칙
 
 `npm run lint`(`eslint.config.js`)가 아래 규칙을 강제한다. 어기면 lint가 실패한다.
@@ -110,7 +118,7 @@ admin/
    - ESLint: `no-restricted-syntax`(`FunctionDeclaration`, 클래스 메서드·getter/setter·제너레이터를 뺀 `FunctionExpression`), `prefer-arrow-callback`.
 2. **인터페이스 이름은 `I`로 시작한다**: `IProps`, `IAiProvider`. (`@typescript-eslint/naming-convention`)
 3. **타입 별칭 이름은 `T`로 시작한다**: `TKeySource`, `TAuthStatus`. (`@typescript-eslint/naming-convention`)
-   - 2·3은 `admin/src`에서 선언한 이름에만 적용한다. 외부 패키지 타입과 앱 파일(`mobile/src/data/garmentShapes.ts`)의 이름은 그대로 쓴다.
+   - 2·3은 `admin/src`에서 선언한 이름에만 적용한다. 외부 패키지 타입과 앱 파일(`mobile/src/data/garmentShapes.ts`·`themes.ts`·`mascots/`)의 이름은 그대로 쓴다.
 4. **상태 공유는 zustand 스토어(`src/stores/`)로 하고 React Context는 쓰지 않는다.** 화면에서는 `useAuthStore((s) => s.user)`처럼 선택자로 구독하고, 컴포넌트 밖(API 클라이언트의 `onAuthLost` 등)에서는 `useAuthStore.getState()`로 부른다. 토큰 자체는 스토어가 아니라 `api/tokenStore.ts`(sessionStorage)에 둔다. 서버 데이터 캐시는 TanStack Query가 맡는다.
    - ESLint: `no-restricted-imports`로 `react`의 `createContext`·`useContext` import 금지(그래서 `import * as React from 'react'`도 막힌다), `no-restricted-syntax`로 `React.createContext`·`React.useContext` 금지.
 5. **컴포넌트·커스텀 훅 본문은 ref → state → hooks → effect → memo → event 순서로 쓰고, 그 뒤에 `return`(JSX)을 둔다.** 분류 사이에는 빈 줄 하나, 같은 분류 안은 원래 순서.
@@ -130,7 +138,7 @@ admin/
    3. component: `src/components/**`, 화면 컴포넌트 `src/pages/**`, `src/App`
    4. hooks: `src/hooks/**`, zustand 스토어 `src/stores/**`(스토어도 `useXxxStore` 훅)
    5. 3rd party: react를 뺀 외부 패키지(`@tanstack/react-query`, `react-router`, `zustand`, `node:*` …)
-   6. local: 위에 안 든 내부 모듈(`src/lib/**`, 타입·유틸 등)과 앱 일러스트 데이터 별칭 `@garment-shapes`
+   6. local: 위에 안 든 내부 모듈(`src/lib/**`, 타입·유틸 등)과 앱 데이터 별칭 `@garment-shapes`·`@app-themes`·`@app-mascots`
    7. css: `import '@/styles.css'`
    - 그룹 안은 경로 알파벳순, `{ … }` 안의 이름도 알파벳순. 타입은 `import { a, type B }` 대신 **`import type { B }` 문으로 따로** 쓰고, 같은 그룹 안에서 값 import 뒤에 온다.
    - **내부 모듈은 `@/` 별칭으로만 가져온다**(`./client`, `../api` 같은 상대 경로 금지, 같은 폴더도 `@/pages/providers/ProviderForm`처럼). 그래야 경로 문자열만으로 위치를 알 수 있다. `@/`는 `tsconfig.app.json`의 `paths`와 `vite.config.ts`의 `alias`에 있다.

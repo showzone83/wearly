@@ -24,7 +24,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@garment-shapes": ["../mobile/src/data/garmentShapes.ts", "./src/lib/garmentShapesFallback.ts"]
+      "@garment-shapes": ["../mobile/src/data/garmentShapes.ts", "./src/lib/garmentShapesFallback.ts"],
+      "@app-themes": ["../mobile/src/data/themes.ts"],
+      "@app-mascots": ["../mobile/src/data/mascots/index.ts"]
     }
   },
   "include": ["src"]

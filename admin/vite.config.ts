@@ -8,12 +8,17 @@ import { defineConfig } from 'vite';
 const mobileData = fileURLToPath(new URL('../mobile/src/data', import.meta.url));
 const garmentShapes = fileURLToPath(new URL('../mobile/src/data/garmentShapes.ts', import.meta.url));
 const garmentFallback = fileURLToPath(new URL('./src/lib/garmentShapesFallback.ts', import.meta.url));
+// 앱 디자인 테마 값과 마스코트 그림도 같은 폴더의 순수 TS를 그대로 가져온다 (doc/12 2·4·6장). 대체 파일은 없다.
+const appThemes = fileURLToPath(new URL('../mobile/src/data/themes.ts', import.meta.url));
+const appMascots = fileURLToPath(new URL('../mobile/src/data/mascots/index.ts', import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
       '@garment-shapes': existsSync(garmentShapes) ? garmentShapes : garmentFallback,
+      '@app-themes': appThemes,
+      '@app-mascots': appMascots,
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },

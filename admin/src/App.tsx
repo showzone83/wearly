@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { Layout } from '@/components/Layout';
 import { AiLogsPage } from '@/pages/AiLogsPage';
+import { AppThemePage } from '@/pages/AppThemePage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
 import { CodesPage } from '@/pages/codes/CodesPage';
 import { DashboardPage } from '@/pages/DashboardPage';
@@ -36,6 +37,8 @@ export const App = () => {
         <Route path="ai/providers" element={<ProvidersPage />} />
         <Route path="ai/logs" element={<AiLogsPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="app" element={<Navigate to="/app/theme" replace />} />
+        <Route path="app/theme" element={<AppThemePage />} />
         <Route path="audit" element={<AuditLogsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

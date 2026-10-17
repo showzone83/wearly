@@ -3,6 +3,8 @@
 *
 !admin
 !mobile/src/data/garmentShapes.ts
+!mobile/src/data/themes.ts
+!mobile/src/data/mascots
 
 **/node_modules
 **/dist

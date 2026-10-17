@@ -1355,6 +1355,350 @@ details summary {
   color: var(--danger) !important;
 }
 
+/* ───────── 앱 설정 > 테마 (pages/AppThemePage, components/ThemePreview) ───────── */
+
+.theme-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 40px;
+}
+
+.theme-status-name {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(540px, 100%), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.theme-card-active {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px var(--green-soft);
+}
+
+.theme-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.theme-desc {
+  margin: 0;
+  color: var(--sub);
+}
+
+.theme-sub {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sub);
+  margin-bottom: 8px;
+}
+
+.theme-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.theme-change {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+/* 색 견본 */
+.swatches {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 6px 10px;
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.swatch-color {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  flex: none;
+}
+
+.swatch-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.swatch-key {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.swatch-hex {
+  font-size: 10px;
+  color: var(--faint);
+}
+
+/* 마스코트 자세 */
+.pose-grid {
+  list-style: none;
+  margin: 0;
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pose {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pose svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.pose-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pose-key {
+  font-size: 10px;
+  color: var(--faint);
+}
+
+/* 작은 앱 화면: 색은 모두 테마 CSS 변수(--t-*)에서 온다 */
+.tp-phone {
+  width: 212px;
+  border-radius: 26px;
+  border: 6px solid #1d1f22;
+  background: var(--t-bg);
+  color: var(--t-text);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-size: 10px;
+  line-height: 1.35;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  flex: none;
+}
+
+.tp-screen {
+  padding: 14px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tp-greet {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+.tp-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.tp-sub {
+  color: var(--t-textSub);
+}
+
+.tp-muted {
+  color: var(--t-textMuted);
+  font-size: 9px;
+}
+
+.tp-strong {
+  font-weight: 700;
+}
+
+.tp-card {
+  background: var(--t-surface);
+  border: 1px solid var(--t-border);
+  border-radius: var(--t-r-md);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--t-shadow) 10%, transparent);
+}
+
+.tp-weather {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.tp-sun {
+  color: var(--t-accent);
+  font-size: 15px;
+}
+
+.tp-temp {
+  font-size: 15px;
+  font-weight: 800;
+  margin-right: auto;
+}
+
+.tp-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+.tp-stat {
+  padding: 6px 4px;
+  text-align: center;
+}
+
+.tp-stat-v {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--t-primary);
+}
+
+.tp-chips {
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.tp-chip {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--t-chip);
+  border: 1px solid var(--t-chipBorder);
+  color: var(--t-textSub);
+  white-space: nowrap;
+}
+
+.tp-chip.on {
+  background: var(--t-primary);
+  border-color: var(--t-primary);
+  color: var(--t-onPrimary);
+  font-weight: 700;
+}
+
+.tp-outfit {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  align-items: center;
+}
+
+.tp-outfit-art {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--t-r-sm);
+  background: var(--t-surfaceAlt);
+  flex: none;
+}
+
+.tp-badge {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  font-size: 7px;
+  font-weight: 800;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--t-accentSoft);
+  color: var(--t-text);
+}
+
+.tp-heart {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  color: var(--t-accent);
+  font-size: 12px;
+}
+
+.tp-outfit-text {
+  min-width: 0;
+}
+
+.tp-button {
+  height: 31px;
+  border-radius: 999px;
+  background: var(--t-primary);
+  color: var(--t-onPrimary);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tp-tabbar {
+  margin-top: 2px;
+  background: var(--t-tabBar);
+  border-top: 1px solid var(--t-border);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  justify-items: center;
+  padding: 6px 4px 8px;
+  font-size: 8px;
+  color: var(--t-textMuted);
+}
+
+.tp-tab.on {
+  color: var(--t-primary);
+  font-weight: 800;
+}
+
+.tp-plus {
+  width: 26px;
+  height: 26px;
+  margin-top: -12px;
+  border-radius: 50%;
+  background: var(--t-primary);
+  color: var(--t-onPrimary);
+  font-size: 17px;
+  line-height: 26px;
+  text-align: center;
+  font-weight: 700;
+}
+
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;
@@ -1405,5 +1749,18 @@ details summary {
 
   .filters-actions {
     grid-column: auto;
+  }
+
+  .theme-body {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .theme-colors {
+    width: 100%;
+  }
+
+  .pose-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
