@@ -1,10 +1,12 @@
 package app.wearly.ai.domain;
 
 import app.wearly.common.domain.FieldError;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /** 관리자 공급자 입력 규칙 (07 문서 3·4장) */
 public final class AiProviderRules {
@@ -32,17 +34,20 @@ public final class AiProviderRules {
     return id;
   }
 
+  /** 공급자 종류. 허용 값 문구는 AiProviderType 상수에서 만든다 (공급자를 더해도 고칠 곳이 없다, M2) */
   public static AiProviderType type(String raw, List<FieldError> errors) {
-    try {
-      AiProviderType t = raw == null ? null : AiProviderType.valueOf(raw.strip());
-      if (t == null) {
-        errors.add(new FieldError("type", "CLAUDE, OPENAI, GEMINI 중 하나여야 해요."));
+    String name = raw == null ? null : raw.strip();
+    for (AiProviderType t : AiProviderType.values()) {
+      if (t.name().equals(name)) {
+        return t;
       }
-      return t;
-    } catch (IllegalArgumentException e) {
-      errors.add(new FieldError("type", "CLAUDE, OPENAI, GEMINI 중 하나여야 해요."));
-      return null;
     }
+    errors.add(
+        new FieldError(
+            "type",
+            Arrays.stream(AiProviderType.values()).map(Enum::name).collect(Collectors.joining(", "))
+                + " 중 하나여야 해요."));
+    return null;
   }
 
   public static String displayName(String raw, List<FieldError> errors) {
