@@ -1,15 +1,15 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { OutfitMini } from '@/components/OutfitMini';
-import { Badge, Button, confirm, Row, Screen, Serif, Stars } from '@/components/ui';
+import { Badge, Button, confirm, PageTitle, Row, Screen, SectionHead, Stars, Title } from '@/components/ui';
 import { OCCASION_LABEL, WEEKDAY_SHORT } from '@/data/constants';
 import { styleLabel } from '@/lib/codes';
 import { addDays, diffDays, fromKey, shortLabel, todayKey, weekStart, weekTitle } from '@/lib/date';
 import { upcomingPlans, useStore } from '@/store/useStore';
-import { colors } from '@/theme';
+import { cardBase, makeStyles, useColors } from '@/theme';
 
 // 목업 ④ 코디 캘린더 (p.42): 주간 보기 · D-day · 지난 기록
 export default function Calendar() {
@@ -17,6 +17,8 @@ export default function Calendar() {
   const looks = useStore((s) => s.looks);
   const plans = useStore((s) => s.plans);
   const deletePlan = useStore((s) => s.deletePlan);
+  const s = useStyles();
+  const colors = useColors();
   const today = todayKey();
   const [monday, setMonday] = useState(weekStart(today));
   const [selected, setSelected] = useState(today);
@@ -32,16 +34,20 @@ export default function Calendar() {
   return (
     <Screen
       header={
-        <Row style={s.top}>
-          <Text style={s.title}>코디 캘린더</Text>
-          <Pressable onPress={() => router.push('/coordi?mode=plan')} hitSlop={8}>
-            <Text style={s.add}>+ 예정일</Text>
-          </Pressable>
-        </Row>
+        <PageTitle
+          title="코디 기록"
+          sub="저장한 코디 · 착용 기록 · 다가오는 예정"
+          right={
+            <Pressable onPress={() => router.push('/coordi?mode=plan')} hitSlop={8} style={s.addBtn}>
+              <Icon name="plus" size={14} color={colors.primary} strokeWidth={2} />
+              <Text style={s.add}>예정일</Text>
+            </Pressable>
+          }
+        />
       }
     >
       <Row style={{ justifyContent: 'space-between', marginTop: 4 }}>
-        <Serif style={s.week}>{weekTitle(monday)}</Serif>
+        <Title style={s.week}>{weekTitle(monday)}</Title>
         <Row style={{ gap: 14 }}>
           <Pressable onPress={() => setMonday(addDays(monday, -7))} hitSlop={8} accessibilityLabel="이전 주">
             <Icon name="back" size={20} />
@@ -52,15 +58,15 @@ export default function Calendar() {
         </Row>
       </Row>
 
-      <View style={s.strip}>
+      <View style={[s.strip, s.stripCard]}>
         {week.map((d) => {
           const on = d === selected;
           const has = !!dayOutfits[d] || looks.some((l) => l.date === d) || plans.some((p) => p.date === d);
           return (
             <Pressable key={d} onPress={() => setSelected(d)} style={[s.day, on && s.dayOn]}>
-              <Text style={[s.dayW, { color: on ? colors.beige : colors.sub }]}>{WEEKDAY_SHORT[fromKey(d).getDay()]}</Text>
-              <Serif style={[s.dayN, { color: on ? '#fff' : colors.ink }]}>{fromKey(d).getDate()}</Serif>
-              <View style={[s.dot, { backgroundColor: has ? (d === today ? colors.beige : colors.green) : 'transparent' }]} />
+              <Text style={[s.dayW, { color: on ? colors.onPrimary : colors.textSub }]}>{WEEKDAY_SHORT[fromKey(d).getDay()]}</Text>
+              <Title style={[s.dayN, { color: on ? colors.onPrimary : colors.text }]}>{fromKey(d).getDate()}</Title>
+              <View style={[s.dot, { backgroundColor: has ? (on ? colors.onPrimary : d === today ? colors.accent : colors.primary) : 'transparent' }]} />
             </Pressable>
           );
         })}
@@ -78,7 +84,7 @@ export default function Calendar() {
               <Text style={s.cardSub}>AI {look.diagnosis.aiScore}점 · 기록 완료</Text>
               <Stars value={look.selfScore} size={14} />
             </View>
-            <Icon name="chevron" size={18} color={colors.faint} />
+            <Icon name="chevron" size={18} color={colors.textMuted} />
           </Pressable>
         ) : saved ? (
           <View style={s.cardRow}>
@@ -104,20 +110,20 @@ export default function Calendar() {
           </View>
         )}
         {plan && (
-          <Text style={[s.cardSub, { marginTop: 10, color: colors.green }]}>
+          <Text style={[s.cardSub, { marginTop: 10, color: colors.primary }]}>
             예정 · {plan.title} {plan.outfit ? '(코디 저장됨)' : '(추천 대기)'}
           </Text>
         )}
       </View>
 
-      <Text style={s.section}>다가오는 예정</Text>
+      <SectionHead title="다가오는 예정" />
       {upcoming.length === 0 && <Text style={s.cardSub}>예정일 코디가 없어요. 오른쪽 위 ‘+ 예정일’로 추가해 보세요.</Text>}
       {upcoming.map((p) => {
         const dday = diffDays(p.date, today);
         return (
-          <View key={p.id} style={[s.plan, { borderLeftColor: p.outfit ? colors.green : colors.beige }]}>
+          <View key={p.id} style={[s.plan, { borderLeftColor: p.outfit ? colors.primary : colors.accent }]}>
             <View style={s.dday}>
-              <Serif style={[s.ddayN, { color: p.outfit ? colors.green : colors.ink }]}>{dday === 0 ? 'D-DAY' : `D-${dday}`}</Serif>
+              <Title style={[s.ddayN, { color: p.outfit ? colors.primary : colors.text }]}>{dday === 0 ? 'D-DAY' : `D-${dday}`}</Title>
               <Text style={s.ddayDate}>{shortLabel(p.date)}</Text>
             </View>
             <View style={{ flex: 1, gap: 4 }}>
@@ -133,7 +139,7 @@ export default function Calendar() {
                   </Pressable>
                 )}
                 <Pressable onPress={() => confirm('예정을 삭제할까요?', p.title, () => deletePlan(p.id), '삭제')}>
-                  <Text style={[s.link, { color: colors.faint }]}>삭제</Text>
+                  <Text style={[s.link, { color: colors.textMuted }]}>삭제</Text>
                 </Pressable>
               </Row>
             </View>
@@ -142,41 +148,71 @@ export default function Calendar() {
         );
       })}
 
-      <Text style={s.section}>지난 기록</Text>
+      <SectionHead title="지난 기록" />
       {history.length === 0 && <Text style={s.cardSub}>착용 기록을 남기면 AI 진단과 함께 여기에 쌓여요.</Text>}
-      {history.map((l) => (
-        <Pressable key={l.id} style={s.hist} onPress={() => router.push(`/look/${l.id}`)}>
-          <Serif style={s.histDate}>{shortLabel(l.date)}</Serif>
-          <Text style={s.histScore}>AI {l.diagnosis.aiScore}점</Text>
-          <Stars value={l.selfScore} size={15} />
-        </Pressable>
-      ))}
+      {history.length > 0 && (
+        <View style={s.histCard}>
+          {history.map((l, i) => (
+            <Pressable key={l.id} style={[s.hist, i === history.length - 1 && { borderBottomWidth: 0 }]} onPress={() => router.push(`/look/${l.id}`)}>
+              <Text style={s.histDate}>{shortLabel(l.date)}</Text>
+              <Text style={s.histScore}>AI {l.diagnosis.aiScore}점</Text>
+              <Stars value={l.selfScore} size={15} />
+              <Icon name="chevron" size={16} color={colors.textMuted} />
+            </Pressable>
+          ))}
+        </View>
+      )}
     </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  top: { justifyContent: 'space-between', paddingHorizontal: 20, height: 52 },
-  title: { fontSize: 18, fontWeight: '800', color: colors.ink, letterSpacing: 2 },
-  add: { color: colors.green, fontWeight: '800' },
+const useStyles = makeStyles((t) => ({
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderWidth: 1,
+    borderColor: t.colors.primary,
+    borderRadius: t.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  add: { color: t.colors.primary, fontWeight: '800', fontSize: 13 },
   week: { fontSize: 20 },
-  strip: { flexDirection: 'row', marginTop: 16, gap: 4 },
-  day: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 4 },
-  dayOn: { backgroundColor: colors.ink },
+  strip: { flexDirection: 'row', marginTop: 14, gap: 4 },
+  stripCard: { ...cardBase(t), padding: 8 },
+  day: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 4, borderRadius: t.radius.md },
+  dayOn: { backgroundColor: t.colors.primary },
   dayW: { fontSize: 12, fontWeight: '700' },
   dayN: { fontSize: 18 },
   dot: { width: 5, height: 5, borderRadius: 3 },
-  section: { fontSize: 14, fontWeight: '700', color: colors.sub, marginTop: 26, marginBottom: 10 },
-  card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 16 },
+  section: { fontSize: 17, fontWeight: '800', color: t.colors.text, marginTop: 26, marginBottom: 12 },
+  card: { ...cardBase(t), padding: 16 },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: colors.ink },
-  cardSub: { fontSize: 13, color: colors.sub, marginVertical: 2 },
-  link: { color: colors.green, fontWeight: '800', marginTop: 4 },
-  plan: { flexDirection: 'row', gap: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderLeftWidth: 4, padding: 14, marginBottom: 10, alignItems: 'flex-start' },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: t.colors.text },
+  cardSub: { fontSize: 13, color: t.colors.textSub, marginVertical: 2 },
+  link: { color: t.colors.primary, fontWeight: '800', marginTop: 4 },
+  plan: {
+    ...cardBase(t),
+    flexDirection: 'row',
+    gap: 14,
+    borderLeftWidth: 4,
+    padding: 14,
+    marginBottom: 10,
+    alignItems: 'flex-start',
+  },
   dday: { width: 64, alignItems: 'center' },
   ddayN: { fontSize: 20 },
-  ddayDate: { fontSize: 11, color: colors.sub, marginTop: 2 },
-  hist: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.line, gap: 14 },
-  histDate: { fontSize: 15, width: 92 },
-  histScore: { flex: 1, color: colors.sub },
-});
+  ddayDate: { fontSize: 11, color: t.colors.textSub, marginTop: 2 },
+  histCard: { ...cardBase(t), paddingHorizontal: 16 },
+  hist: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: t.colors.border,
+    gap: 12,
+  },
+  histDate: { fontSize: 15, width: 92, fontWeight: '700', color: t.colors.text },
+  histScore: { flex: 1, color: t.colors.textSub },
+}));

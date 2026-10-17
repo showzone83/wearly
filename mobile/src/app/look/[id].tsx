@@ -1,28 +1,30 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { ItemThumb } from '@/components/ItemThumb';
 import { OutfitMini } from '@/components/OutfitMini';
-import { Button, Header, Kicker, Row, Screen, Serif, Stars } from '@/components/ui';
+import { Button, Header, Kicker, Row, Screen, Stars, Title } from '@/components/ui';
 import { EMOTION_LABEL, OCCASION_LABEL, OTHERS_LABEL } from '@/data/constants';
 import type { AxisScores } from '@/data/types';
 import { longLabel } from '@/lib/date';
 import { josa } from '@/lib/josa';
 import { AXIS_LABEL } from '@/lib/diagnose';
 import { useStore } from '@/store/useStore';
-import { colors } from '@/theme';
+import { cardBase, makeStyles, useColors } from '@/theme';
 
 // 목업 ⑤ AI 진단 · 처방 (p.25): 5개 항목 → 강점 1 · 개선점 1 → 내 옷장 교체 · 스타일링 팁
 export default function LookDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const look = useStore((s) => s.looks.find((l) => l.id === id));
   const items = useStore((s) => s.items);
+  const s = useStyles();
+  const colors = useColors();
 
   if (!look) {
     return (
       <Screen header={<Header title="AI 진단" />}>
-        <Text style={{ color: colors.sub, marginTop: 40, textAlign: 'center' }}>기록을 찾을 수 없어요.</Text>
+        <Text style={{ color: colors.textSub, marginTop: 40, textAlign: 'center' }}>기록을 찾을 수 없어요.</Text>
       </Screen>
     );
   }
@@ -35,11 +37,11 @@ export default function LookDetail() {
 
   return (
     <Screen header={<Header title="AI 진단" onBack={() => router.dismissTo('/calendar')} />} footer={<Button title="캘린더로" variant="outline" onPress={() => router.dismissTo('/calendar')} />}>
-      <Kicker>
+      <Kicker color={colors.primary}>
         DAILY · {longLabel(look.date)} · {OCCASION_LABEL[look.occasion]}
       </Kicker>
       <Row style={{ alignItems: 'flex-end', gap: 10, marginTop: 10 }}>
-        <Serif style={s.score}>{d.aiScore}</Serif>
+        <Title style={s.score}>{d.aiScore}</Title>
         <Text style={s.scoreUnit}>점</Text>
         <View style={{ flex: 1 }} />
         <OutfitMini items={look.items} size={46} />
@@ -53,7 +55,7 @@ export default function LookDetail() {
       <View style={s.compare}>
         <View style={s.cmpCol}>
           <Text style={s.cmpLabel}>AI 점수</Text>
-          <Serif style={s.cmpValue}>{d.aiScore}</Serif>
+          <Title style={s.cmpValue}>{d.aiScore}</Title>
         </View>
         <View style={s.cmpCol}>
           <Text style={s.cmpLabel}>나의 만족도</Text>
@@ -72,7 +74,7 @@ export default function LookDetail() {
       <View style={{ gap: 10 }}>
         {(Object.keys(AXIS_LABEL) as (keyof AxisScores)[]).map((k) => {
           const v = Math.round(d.axes[k] * 100);
-          const tone = k === d.weakness ? colors.danger : k === d.strength ? colors.green : colors.ink;
+          const tone = k === d.weakness ? colors.danger : k === d.strength ? colors.primary : colors.text;
           return (
             <Row key={k} style={{ gap: 10 }}>
               <Text style={s.axis}>{AXIS_LABEL[k]}</Text>
@@ -91,7 +93,7 @@ export default function LookDetail() {
           <Text style={s.rxHead}>1 · 내 옷장에서 교체</Text>
           <Row style={{ gap: 10, marginTop: 10 }}>
             <ItemThumb item={from} size={64} />
-            <Icon name="chevron" color={colors.green} />
+            <Icon name="chevron" color={colors.primary} />
             <ItemThumb item={to} size={64} />
             <Text style={s.rxText}>
               {from.name} 대신 <Text style={s.em}>{to.name}</Text>
@@ -110,8 +112,8 @@ export default function LookDetail() {
         <Text style={[s.rxText, { marginTop: 6 }]}>{d.tip}</Text>
       </View>
       {(praised || look.selfScore >= 4) && (
-        <View style={[s.rx, { backgroundColor: colors.greenSoft, borderColor: colors.greenSoft }]}>
-          <Text style={[s.rxHead, { color: colors.green }]}>다음 추천에 반영</Text>
+        <View style={[s.rx, { backgroundColor: colors.primarySoft, borderColor: colors.primarySoft }]}>
+          <Text style={[s.rxHead, { color: colors.primary }]}>다음 추천에 반영</Text>
           <Text style={[s.rxText, { marginTop: 6 }]}>
             {praised ? `칭찬받은 ${praised.name} 활용 조합의 가중치를 올렸어요.` : '만족도가 높은 이 조합의 가중치를 올렸어요.'}
           </Text>
@@ -121,23 +123,23 @@ export default function LookDetail() {
   );
 }
 
-const s = StyleSheet.create({
-  score: { fontSize: 60, lineHeight: 70 },
-  scoreUnit: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
-  summary: { fontSize: 15, color: colors.ink, lineHeight: 22 },
-  em: { fontWeight: '800', color: colors.green },
-  compare: { flexDirection: 'row', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, marginTop: 18 },
+const useStyles = makeStyles((t) => ({
+  score: { fontSize: 60, lineHeight: 70, color: t.colors.primary },
+  scoreUnit: { fontSize: 18, fontWeight: '700', marginBottom: 12, color: t.colors.text },
+  summary: { fontSize: 15, color: t.colors.text, lineHeight: 22 },
+  em: { fontWeight: '800', color: t.colors.primary },
+  compare: { ...cardBase(t), flexDirection: 'row', marginTop: 18 },
   cmpCol: { flex: 1, alignItems: 'center', paddingVertical: 14, gap: 6 },
-  cmpLabel: { fontSize: 12, color: colors.sub, fontWeight: '600' },
+  cmpLabel: { fontSize: 12, color: t.colors.textSub, fontWeight: '600' },
   cmpValue: { fontSize: 22 },
-  cmpSub: { fontSize: 11, color: colors.sub },
-  memo: { color: colors.sub, fontSize: 13, marginTop: 10, fontStyle: 'italic' },
-  section: { fontSize: 16, fontWeight: '800', color: colors.ink, marginTop: 28, marginBottom: 12 },
-  axis: { width: 92, fontSize: 13, color: colors.ink },
-  track: { flex: 1, height: 8, backgroundColor: colors.tile },
-  fill: { height: 8 },
+  cmpSub: { fontSize: 11, color: t.colors.textSub },
+  memo: { color: t.colors.textSub, fontSize: 13, marginTop: 10, fontStyle: 'italic' },
+  section: { fontSize: 17, fontWeight: '800', color: t.colors.text, marginTop: 28, marginBottom: 12 },
+  axis: { width: 92, fontSize: 13, color: t.colors.text },
+  track: { flex: 1, height: 8, backgroundColor: t.colors.surfaceAlt, borderRadius: 4, overflow: 'hidden' },
+  fill: { height: 8, borderRadius: 4 },
   axisVal: { width: 30, textAlign: 'right', fontWeight: '800' },
-  rx: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 14, marginBottom: 10 },
-  rxHead: { fontSize: 13, fontWeight: '800', color: colors.ink },
-  rxText: { flex: 1, fontSize: 14, color: colors.ink, lineHeight: 20 },
-});
+  rx: { ...cardBase(t), padding: 14, marginBottom: 10 },
+  rxHead: { fontSize: 13, fontWeight: '800', color: t.colors.text },
+  rxText: { flex: 1, fontSize: 14, color: t.colors.text, lineHeight: 20 },
+}));

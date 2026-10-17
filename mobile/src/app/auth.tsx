@@ -1,15 +1,15 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { isApiError } from '@/api/errors';
-import { Chip } from '@/components/Chip';
-import { Button, Header, Kicker, Screen, Serif } from '@/components/ui';
+import { Mascot } from '@/components/Mascot';
+import { Button, Header, Kicker, Screen, Title } from '@/components/ui';
 import { continueAsGuest, enterAccount } from '@/lib/account';
 import { MOCK_MODE } from '@/lib/mode';
 import { api, errorMessage } from '@/lib/api';
 import { useStore } from '@/store/useStore';
-import { colors } from '@/theme';
+import { inputBase, makeStyles, useColors } from '@/theme';
 
 type Mode = 'login' | 'signup';
 type Field = 'email' | 'password' | 'name';
@@ -51,6 +51,8 @@ export default function Auth() {
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [banner, setBanner] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const s = useStyles();
+  const colors = useColors();
 
   const switchMode = (m: Mode) => {
     setMode(m);
@@ -94,9 +96,14 @@ export default function Auth() {
 
   return (
     <Screen header={expired ? <View style={{ height: 24 }} /> : <Header title={mode === 'login' ? '로그인' : '회원가입'} />}>
-      <View style={{ paddingTop: expired ? 20 : 8 }}>
-        <Kicker>WEARLY ACCOUNT</Kicker>
-        <Serif style={s.title}>{mode === 'login' ? '다시 만나서\n반가워요' : '내 옷장을\n계정에 담아요'}</Serif>
+      <View style={[s.head, { paddingTop: expired ? 20 : 4 }]}>
+        <View style={{ flex: 1 }}>
+          <Kicker color={colors.primary}>WEARLY ACCOUNT</Kicker>
+          <Title style={s.title}>{mode === 'login' ? '다시 만나서\n반가워요' : '내 옷장을\n계정에 담아요'}</Title>
+        </View>
+        <Mascot pose="hello" size={104} />
+      </View>
+      <View>
         <Text style={s.desc}>
           {mode === 'login'
             ? '로그인하면 옷장과 취향 설정이 서버에 저장돼요.'
@@ -117,8 +124,19 @@ export default function Auth() {
       )}
 
       <View style={s.tabs}>
-        <Chip label="로그인" selected={mode === 'login'} onPress={() => switchMode('login')} />
-        <Chip label="회원가입" selected={mode === 'signup'} onPress={() => switchMode('signup')} />
+        {(['login', 'signup'] as Mode[]).map((m) => (
+          <Pressable
+            key={m}
+            onPress={() => switchMode(m)}
+            style={[s.tab, mode === m && s.tabOn]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: mode === m }}
+          >
+            <Text style={[s.tabText, mode === m && { color: colors.onPrimary, fontWeight: '800' }]}>
+              {m === 'login' ? '로그인' : '회원가입'}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       <View style={{ gap: 18 }}>
@@ -186,27 +204,40 @@ export default function Auth() {
 }
 
 function Input({ label, error, hint, ...props }: TextInputProps & { label: string; error?: string; hint?: string }) {
+  const s = useStyles();
+  const colors = useColors();
   return (
     <View>
       <Text style={s.label}>{label}</Text>
-      <TextInput {...props} style={[s.input, !!error && { borderColor: colors.danger }]} placeholderTextColor={colors.faint} />
+      <TextInput {...props} style={[s.input, !!error && { borderColor: colors.danger }]} placeholderTextColor={colors.textMuted} />
       {error ? <Text style={s.error}>{error}</Text> : hint ? <Text style={s.hint}>{hint}</Text> : null}
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  title: { fontSize: 27, lineHeight: 38, marginTop: 10 },
-  desc: { color: colors.sub, fontSize: 14, lineHeight: 21, marginTop: 10 },
-  tabs: { flexDirection: 'row', gap: 8, marginTop: 26, marginBottom: 22 },
-  label: { fontSize: 13, color: colors.sub, fontWeight: '600', marginBottom: 8, letterSpacing: 0.5 },
-  input: { height: 48, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, fontSize: 15, color: colors.ink },
-  error: { color: colors.danger, fontSize: 12, marginTop: 6 },
-  hint: { color: colors.faint, fontSize: 12, marginTop: 6 },
-  notice: { backgroundColor: colors.tile, padding: 14, marginTop: 20, gap: 4 },
-  noticeWarn: { backgroundColor: colors.beigeSoft },
-  noticeTitle: { fontSize: 14, fontWeight: '800', color: colors.ink },
-  noticeText: { fontSize: 13, color: colors.ink, lineHeight: 19 },
-  link: { color: colors.green, fontWeight: '700', textDecorationLine: 'underline' },
-  foot: { color: colors.faint, fontSize: 12, textAlign: 'center', marginTop: 26 },
-});
+const useStyles = makeStyles((t) => ({
+  head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontSize: 27, lineHeight: 37, marginTop: 8 },
+  desc: { color: t.colors.textSub, fontSize: 14, lineHeight: 21, marginTop: 10 },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: t.colors.surfaceAlt,
+    borderRadius: t.radius.pill,
+    padding: 4,
+    marginTop: 24,
+    marginBottom: 22,
+  },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: t.radius.pill },
+  tabOn: { backgroundColor: t.colors.primary },
+  tabText: { fontSize: 15, color: t.colors.textSub, fontWeight: '600' },
+  label: { fontSize: 14, color: t.colors.text, fontWeight: '700', marginBottom: 8 },
+  input: inputBase(t),
+  error: { color: t.colors.danger, fontSize: 12, marginTop: 6 },
+  hint: { color: t.colors.textMuted, fontSize: 12, marginTop: 6 },
+  notice: { backgroundColor: t.colors.surfaceAlt, borderRadius: t.radius.md, padding: 14, marginTop: 20, gap: 4 },
+  noticeWarn: { backgroundColor: t.colors.accentSoft },
+  noticeTitle: { fontSize: 14, fontWeight: '800', color: t.colors.text },
+  noticeText: { fontSize: 13, color: t.colors.text, lineHeight: 19 },
+  link: { color: t.colors.primary, fontWeight: '700', textDecorationLine: 'underline' },
+  foot: { color: t.colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 26 },
+}));

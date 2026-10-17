@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SLOTS } from '@/data/constants';
@@ -7,7 +7,7 @@ import type { Outfit, Slot, WardrobeItem } from '@/data/types';
 import { categoryLabel, colorLabel, isRecommendable, seasonLabel, slotLabel, statusLabel } from '@/lib/codes';
 import { alternativesFor, evaluate, slotOf, type EngineInput } from '@/lib/recommend';
 import { useStore } from '@/store/useStore';
-import { colors, space } from '@/theme';
+import { makeStyles, space, useColors } from '@/theme';
 import { Icon } from './Icon';
 import { ItemThumb } from './ItemThumb';
 
@@ -17,12 +17,13 @@ const MAX_WIDTH = 480;
  * 목업 p.42의 코디 보드: 상의·하의 크게, 아우터 크게, 신발·가방 작게.
  * 원피스 코디는 왼쪽에 원피스를 길게, 오른쪽에 아우터와 신발·가방을 둔다.
  */
-export function OutfitBoard({ outfit, compact }: { outfit: Outfit; compact?: boolean }) {
+export function OutfitBoard({ outfit, compact, inset = 0 }: { outfit: Outfit; compact?: boolean; inset?: number }) {
+  const styles = useStyles();
   const items = useStore((s) => s.items);
   const { width } = useWindowDimensions();
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const get = (slot: Slot) => (outfit.items[slot] ? byId.get(outfit.items[slot]!) : undefined);
-  const inner = Math.min(width, MAX_WIDTH) - space.gutter * 2;
+  const inner = Math.min(width, MAX_WIDTH) - space.gutter * 2 - inset * 2;
   const gap = 10;
   const big = (inner - gap) / 2;
   const small = (big - gap) / 2;
@@ -71,6 +72,7 @@ export function OutfitBoard({ outfit, compact }: { outfit: Outfit; compact?: boo
 }
 
 export function ReasonBox({ reasons, title = '추천 이유' }: { reasons: string[]; title?: string }) {
+  const styles = useStyles();
   if (reasons.length === 0) return null;
   return (
     <View style={styles.reason}>
@@ -92,6 +94,8 @@ interface RowsProps {
 
 /** 아이템 목록 + 한 벌만 교체하는 시트 (목업 p.13 아이템 교체 시트) */
 export function OutfitItemRows({ outfit, input, onChange, pinned = [], onTogglePin }: RowsProps) {
+  const styles = useStyles();
+  const colors = useColors();
   const items = useStore((s) => s.items);
   const bumpAffinity = useStore((s) => s.bumpAffinity);
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
@@ -112,7 +116,7 @@ export function OutfitItemRows({ outfit, input, onChange, pinned = [], onToggleP
             </View>
             {onTogglePin && it && (
               <Pressable onPress={() => onTogglePin(k)} hitSlop={8} accessibilityLabel={isPinned ? '고정 해제' : '고정'} style={styles.pin}>
-                <Icon name="pin" size={18} color={isPinned ? colors.green : colors.faint} filled={isPinned} />
+                <Icon name="pin" size={18} color={isPinned ? colors.primary : colors.textMuted} filled={isPinned} />
               </Pressable>
             )}
             <Pressable onPress={() => setSlot(k)} style={styles.swapBtn} accessibilityRole="button">
@@ -153,6 +157,8 @@ function SwapSheet({
   onClose: () => void;
   onPick: (next: Outfit, fromId?: string) => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const options = useMemo(() => (slot ? alternativesFor(slot, outfit.items, input) : []), [slot, outfit, input]);
   const laundry = slot ? input.items.filter((i) => slotOf(i.category) === slot && !isRecommendable(i.status)) : [];
@@ -186,7 +192,7 @@ function SwapSheet({
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={styles.score}>{next.score}점</Text>
-                  <Text style={[styles.delta, { color: delta >= 0 ? colors.green : colors.danger }]}>
+                  <Text style={[styles.delta, { color: delta >= 0 ? colors.primary : colors.danger }]}>
                     {delta >= 0 ? `+${delta}` : delta}
                   </Text>
                 </View>
@@ -208,26 +214,67 @@ function SwapSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  noOuter: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
-  noOuterText: { color: colors.faint, fontSize: 13, textAlign: 'center', lineHeight: 19 },
-  reason: { backgroundColor: colors.beigeSoft, borderLeftWidth: 3, borderLeftColor: colors.beige, padding: 14, marginTop: 16 },
-  reasonHead: { color: colors.green, fontWeight: '800' },
-  reasonText: { color: colors.ink, fontSize: 14, lineHeight: 21 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
-  rowTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  rowSub: { fontSize: 12, color: colors.sub, marginTop: 3 },
+const useStyles = makeStyles((t) => ({
+  noOuter: {
+    backgroundColor: t.colors.surface,
+    borderWidth: 1,
+    borderColor: t.colors.border,
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noOuterText: { color: t.colors.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  reason: { backgroundColor: t.colors.accentSoft, borderRadius: t.radius.md, padding: 14, marginTop: 14 },
+  reasonHead: { color: t.colors.primary, fontWeight: '800' },
+  reasonText: { color: t.colors.text, fontSize: 14, lineHeight: 21 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: t.colors.border,
+  },
+  rowTitle: { fontSize: 15, fontWeight: '700', color: t.colors.text },
+  rowSub: { fontSize: 12, color: t.colors.textSub, marginTop: 3 },
   pin: { padding: 4 },
-  swapBtn: { borderWidth: 1, borderColor: colors.green, borderRadius: 16, paddingHorizontal: 13, paddingVertical: 6 },
-  swapText: { color: colors.green, fontWeight: '700', fontSize: 13 },
+  swapBtn: {
+    borderWidth: 1,
+    borderColor: t.colors.primary,
+    borderRadius: t.radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  swapText: { color: t.colors.primary, fontWeight: '700', fontSize: 13 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
-  sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: space.gutter, paddingTop: 8 },
-  grip: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.line, marginBottom: 10 },
+  sheet: {
+    backgroundColor: t.colors.bg,
+    borderTopLeftRadius: t.radius.xl,
+    borderTopRightRadius: t.radius.xl,
+    paddingHorizontal: space.gutter,
+    paddingTop: 8,
+  },
+  grip: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: t.colors.border,
+    marginBottom: 10,
+  },
   sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sheetTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
-  sheetSub: { fontSize: 12, color: colors.sub, marginTop: 4, marginBottom: 8 },
-  optRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line },
-  score: { fontSize: 15, fontWeight: '800', color: colors.ink },
+  sheetTitle: { fontSize: 18, fontWeight: '800', color: t.colors.text },
+  sheetSub: { fontSize: 12, color: t.colors.textSub, marginTop: 4, marginBottom: 8 },
+  optRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: t.colors.border,
+  },
+  score: { fontSize: 15, fontWeight: '800', color: t.colors.text },
   delta: { fontSize: 12, fontWeight: '700', marginTop: 2 },
-  emptyText: { color: colors.sub, paddingVertical: 24, textAlign: 'center' },
-});
+  emptyText: { color: t.colors.textSub, paddingVertical: 24, textAlign: 'center' },
+}));

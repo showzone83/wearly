@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 
 import type { WardrobeItem } from '@/data/types';
 import {
@@ -14,7 +14,7 @@ import {
   withCurrent,
 } from '@/lib/codes';
 import { useCodesVersion } from '@/store/useCodes';
-import { colors } from '@/theme';
+import { inputBase, makeStyles, useColors } from '@/theme';
 import { ChipGroup } from './Chip';
 import { Badge, Label, Row } from './ui';
 
@@ -39,6 +39,8 @@ interface Props {
  * 고를 수 있는 값은 서버 코드의 활성 값이다. 이미 저장된 값이 비활성이면 선택된 칩으로 함께 보여 준다.
  */
 export function ItemForm({ value, onChange, aiFields = [] }: Props) {
+  const s = useStyles();
+  const colors = useColors();
   useCodesVersion(); // 코드가 갱신되면 다시 그린다
   // 이름을 직접 바꾸지 않았다면 종류·색 변경에 맞춰 자동으로 갱신한다
   const autoName = value.name === defaultName(value);
@@ -141,36 +143,28 @@ export function ItemForm({ value, onChange, aiFields = [] }: Props) {
       </View>
       <View>
         <Label>이름</Label>
-        <TextInput value={value.name} onChangeText={(name) => onChange({ ...value, name })} style={s.input} placeholder="예: 네이비 니트" placeholderTextColor={colors.faint} />
+        <TextInput value={value.name} onChangeText={(name) => onChange({ ...value, name })} style={s.input} placeholder="예: 네이비 니트" placeholderTextColor={colors.textMuted} />
       </View>
       <View>
         <Row style={[s.labelRow, { justifyContent: 'space-between' }]}>
           <Label style={s.noMargin}>브랜드 · 가격 · 소재</Label>
-          <Text style={{ color: colors.faint, fontSize: 12 }}>선택 입력</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 12 }}>선택 입력</Text>
         </Row>
         <TextInput
           value={value.brand ?? ''}
           onChangeText={(brand) => onChange({ ...value, brand })}
           style={s.input}
           placeholder="예: 유니클로 · 39,900원 · 울 30%"
-          placeholderTextColor={colors.faint}
+          placeholderTextColor={colors.textMuted}
         />
       </View>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  labelRow: { gap: 8, marginBottom: 10 },
-  subTypes: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line },
+const useStyles = makeStyles((t) => ({
+  labelRow: { gap: 8, marginBottom: 12 },
+  subTypes: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.colors.border },
   noMargin: { marginBottom: 0 },
-  input: {
-    height: 48,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    color: colors.ink,
-  },
-});
+  input: inputBase(t),
+}));

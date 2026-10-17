@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { ItemForm, type ItemDraft } from '@/components/ItemForm';
@@ -11,18 +11,20 @@ import { errorMessage } from '@/lib/api';
 import { diffDays, todayKey } from '@/lib/date';
 import { josa } from '@/lib/josa';
 import { useStore } from '@/store/useStore';
-import { colors } from '@/theme';
+import { cardBase, makeStyles, useColors } from '@/theme';
 
 export default function ItemDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const item = useStore((s) => s.items.find((i) => i.id === id));
   const [draft, setDraft] = useState<ItemDraft | null>(item ?? null);
   const [busy, setBusy] = useState(false);
+  const s = useStyles();
+  const colors = useColors();
 
   if (!item || !draft) {
     return (
       <Screen header={<Header title="아이템" />}>
-        <Text style={{ color: colors.sub, marginTop: 40, textAlign: 'center' }}>삭제되었거나 없는 아이템이에요.</Text>
+        <Text style={{ color: colors.textSub, marginTop: 40, textAlign: 'center' }}>삭제되었거나 없는 아이템이에요.</Text>
       </Screen>
     );
   }
@@ -76,14 +78,14 @@ export default function ItemDetail() {
       footer={
         <Button
           title={busy ? '' : dirty ? '수정 내용 저장' : '저장됨'}
-          icon={busy ? <ActivityIndicator color="#fff" /> : undefined}
+          icon={busy ? <ActivityIndicator color={colors.onPrimary} /> : undefined}
           disabled={!dirty || busy}
           onPress={onSave}
         />
       }
     >
       <View style={{ alignItems: 'center' }}>
-        <ItemThumb item={{ ...item, ...draft }} size={200} />
+        <ItemThumb item={{ ...item, ...draft }} size={200} radius={28} />
       </View>
       <Row style={s.stats}>
         <View style={s.stat}>
@@ -95,7 +97,7 @@ export default function ItemDetail() {
           <Text style={s.statLabel}>마지막 착용</Text>
         </View>
         <View style={s.stat}>
-          <Text style={[s.statNum, { color: since === null || since >= 30 ? colors.danger : colors.green }]}>
+          <Text style={[s.statNum, { color: since === null || since >= 30 ? colors.danger : colors.primary }]}>
             {since === null || since >= 30 ? '잠자는 옷' : '활발'}
           </Text>
           <Text style={s.statLabel}>활용 상태</Text>
@@ -106,9 +108,9 @@ export default function ItemDetail() {
   );
 }
 
-const s = StyleSheet.create({
-  stats: { marginVertical: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
+const useStyles = makeStyles((t) => ({
+  stats: { ...cardBase(t), marginVertical: 22 },
   stat: { flex: 1, alignItems: 'center', paddingVertical: 14 },
-  statNum: { fontSize: 16, fontWeight: '800', color: colors.ink },
-  statLabel: { fontSize: 12, color: colors.sub, marginTop: 4 },
-});
+  statNum: { fontSize: 16, fontWeight: '800', color: t.colors.text },
+  statLabel: { fontSize: 12, color: t.colors.textSub, marginTop: 4 },
+}));

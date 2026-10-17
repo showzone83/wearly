@@ -268,6 +268,21 @@ export type CodesResult =
   | { changed: true; codes: CodesResponse; /** 다음 요청의 If-None-Match에 그대로 넣을 값 */ etag: string }
   | { changed: false };
 
+// ── 앱 설정 (doc/12 3장) ──
+
+/** GET /app/config 응답. 전체 사용자에게 같은 값이다 */
+export interface AppConfigDto {
+  /** 앱 테마 ID (nyang · closeta). 앱이 모르는 값이면 무시한다 */
+  themeId: string;
+  /** 설정이 바뀐 시각(ISO). ETag와 같은 값 */
+  version: string;
+}
+
+/** GET /app/config 결과. If-None-Match가 맞아 304가 오면 changed: false */
+export type AppConfigResult =
+  | { changed: true; config: AppConfigDto; /** 다음 요청의 If-None-Match에 그대로 넣을 값 */ etag: string }
+  | { changed: false };
+
 /** React Native의 FormData 파일 파트 모양 */
 export interface RNFile {
   uri: string;

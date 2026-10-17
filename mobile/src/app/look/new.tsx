@@ -1,10 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { ChipGroup } from '@/components/Chip';
 import { ItemThumb } from '@/components/ItemThumb';
-import { Button, Header, Kicker, Label, Screen, Serif, Stars } from '@/components/ui';
+import { Button, Header, Kicker, Label, Screen, Stars, Title } from '@/components/ui';
 import { EMOTION_LABEL, OTHERS_LABEL, SLOTS } from '@/data/constants';
 import type { DailyLook, Emotion, OthersReaction, OutfitItems, Slot } from '@/data/types';
 import { pushWorn } from '@/lib/account';
@@ -14,7 +14,7 @@ import { longLabel, todayKey } from '@/lib/date';
 import { diagnose } from '@/lib/diagnose';
 import { slotOf } from '@/lib/recommend';
 import { engineInput, useStore } from '@/store/useStore';
-import { colors } from '@/theme';
+import { inputBase, makeStyles, useColors } from '@/theme';
 
 // 목업 ⑤ 착장 기록 (p.17 · p.18): 입은 옷 + 나의 만족도 + 주변 반응 → AI 진단
 export default function NewLook() {
@@ -25,6 +25,8 @@ export default function NewLook() {
   const saved = useStore((s) => s.dayOutfits[date]);
   const plan = useStore((s) => s.plans.find((p) => p.date === date));
   const addLook = useStore((s) => s.addLook);
+  const s = useStyles();
+  const colors = useColors();
 
   const initial = saved?.outfit.items ?? plan?.outfit?.items ?? {};
   const [items, setItems] = useState<OutfitItems>(initial);
@@ -73,8 +75,8 @@ export default function NewLook() {
 
   return (
     <Screen header={<Header title="착용 기록" />} footer={<Button title="기록하고 AI 진단 받기" variant="green" disabled={!canSave} onPress={submit} />}>
-      <Kicker>{longLabel(date)}</Kicker>
-      <Serif style={s.title}>오늘 입은 옷을 남겨 주세요</Serif>
+      <Kicker color={colors.primary}>{longLabel(date)}</Kicker>
+      <Title style={s.title}>오늘 입은 옷을 남겨 주세요</Title>
       <Text style={s.desc}>
         {saved
           ? '저장한 코디를 불러왔어요. 실제로 바꿔 입은 옷이 있다면 고쳐 주세요.'
@@ -99,7 +101,7 @@ export default function NewLook() {
       <View style={{ marginTop: 14 }}>
         <ChipGroup options={Object.keys(EMOTION_LABEL) as Emotion[]} labels={EMOTION_LABEL} value={emotions} multi small onChange={setEmotions} />
       </View>
-      <TextInput value={memo} onChangeText={setMemo} placeholder="한 줄 메모 · 예: 하루 종일 편했다" placeholderTextColor={colors.faint} style={s.input} />
+      <TextInput value={memo} onChangeText={setMemo} placeholder="한 줄 메모 · 예: 하루 종일 편했다" placeholderTextColor={colors.textMuted} style={s.input} />
 
       <Text style={s.section}>Others · 주변 만족도</Text>
       <ChipGroup options={Object.keys(OTHERS_LABEL) as OthersReaction[]} labels={OTHERS_LABEL} value={others} onChange={([o]) => setOthers(o)} />
@@ -134,13 +136,15 @@ function SlotPicker({
   items: ReturnType<typeof useStore.getState>['items'];
   onChange: (id?: string) => void;
 }) {
+  const s = useStyles();
+  const colors = useColors();
   if (items.length === 0) return null;
   return (
     <View>
       <Label>
         {slotLabel(slot)}
         {required && <Text style={{ color: colors.danger }}> *</Text>}
-        {slot === 'DRESS' && <Text style={{ color: colors.faint, fontWeight: '400' }}> (고르면 상의·하의 대신)</Text>}
+        {slot === 'DRESS' && <Text style={{ color: colors.textMuted, fontWeight: '400' }}> (고르면 상의·하의 대신)</Text>}
       </Label>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }}>
         {items.map((it) => {
@@ -159,13 +163,13 @@ function SlotPicker({
   );
 }
 
-const s = StyleSheet.create({
-  title: { fontSize: 23, marginTop: 8 },
-  desc: { color: colors.sub, fontSize: 13, lineHeight: 19, marginTop: 8 },
-  section: { fontSize: 16, fontWeight: '800', color: colors.ink, marginTop: 30, marginBottom: 12 },
-  input: { height: 48, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, fontSize: 15, color: colors.ink, marginTop: 14 },
-  pick: { width: 72, padding: 2, borderWidth: 2, borderColor: 'transparent' },
-  pickOn: { borderColor: colors.green },
-  pickName: { fontSize: 11, marginTop: 4, color: colors.ink },
-  note: { color: colors.faint, fontSize: 12, marginTop: 14 },
-});
+const useStyles = makeStyles((t) => ({
+  title: { fontSize: 24, marginTop: 8 },
+  desc: { color: t.colors.textSub, fontSize: 13, lineHeight: 19, marginTop: 8 },
+  section: { fontSize: 17, fontWeight: '800', color: t.colors.text, marginTop: 30, marginBottom: 12 },
+  input: { ...inputBase(t), marginTop: 14 },
+  pick: { width: 74, padding: 3, borderWidth: 2, borderColor: 'transparent', borderRadius: 16 },
+  pickOn: { borderColor: t.colors.primary },
+  pickName: { fontSize: 11, marginTop: 4, color: t.colors.text, textAlign: 'center' },
+  note: { color: t.colors.textMuted, fontSize: 12, marginTop: 14 },
+}));

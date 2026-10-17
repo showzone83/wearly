@@ -1,11 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 
 import { Chip, ChipGroup } from '@/components/Chip';
 import { condIcon, Icon } from '@/components/Icon';
 import { ItemThumb } from '@/components/ItemThumb';
-import { Button, Label, notify, Row, Screen, Serif } from '@/components/ui';
+import { Mascot } from '@/components/Mascot';
+import { Button, Label, notify, PageTitle, Row, Screen, Title } from '@/components/ui';
 import { FORMALITY_LABEL, MOOD_LABEL, OCCASION_LABEL, PLAN_OCCASIONS, TIME_LABEL, WEEKDAY_SHORT, WORK_OCCASIONS } from '@/data/constants';
 import type { ColorKey, Formality, Mood, Occasion, Outfit, RecommendContext, StyleTag, TimeOfDay } from '@/data/types';
 import type { RecommendSource } from '@/lib/aiOutfits';
@@ -17,7 +18,7 @@ import { canRecommend, slotOf } from '@/lib/recommend';
 import { COND_LABEL, FEEL_PRESETS, forecast, hasForecast, manualWeather } from '@/lib/weather';
 import { useCodesVersion } from '@/store/useCodes';
 import { useStore } from '@/store/useStore';
-import { colors } from '@/theme';
+import { inputBase, makeStyles, useColors } from '@/theme';
 
 type Mode = 'TODAY' | 'PLAN';
 
@@ -59,6 +60,8 @@ export default function Coordi() {
   const items = useStore((s) => s.items);
   const setDraft = useStore((s) => s.setDraft);
   useCodesVersion(); // 코드가 갱신되면 다시 그린다
+  const s = useStyles();
+  const colors = useColors();
   const today = todayKey();
   const base = dayContext(today, profile);
 
@@ -174,21 +177,21 @@ export default function Coordi() {
 
   return (
     <Screen
-      header={
-        <View style={s.top}>
-          <Text style={s.title}>AI 코디</Text>
-        </View>
-      }
+      header={<PageTitle title="코디 추천" sub="내 옷장 속 아이템으로 AI가 코디를 완성해요" />}
       footer={
         ready.ok && phase === null && !failure ? (
-          <Button title="코디 추천 받기" variant="green" icon={<Icon name="sparkle" color="#fff" size={18} />} onPress={() => void submit()} />
+          <Button
+            title="코디 추천 받기"
+            icon={<Icon name="sparkle" color={colors.onPrimary} size={18} filled />}
+            onPress={() => void submit()}
+          />
         ) : undefined
       }
     >
       <View style={s.segment}>
         {(['TODAY', 'PLAN'] as Mode[]).map((m) => (
           <Pressable key={m} onPress={() => setMode(m)} disabled={phase !== null} style={[s.segItem, mode === m && s.segOn]}>
-            <Text style={[s.segText, mode === m && { color: colors.ink, fontWeight: '800' }]}>{m === 'TODAY' ? '오늘 코디' : '예정일 코디'}</Text>
+            <Text style={[s.segText, mode === m && { color: colors.onPrimary, fontWeight: '800' }]}>{m === 'TODAY' ? '오늘 코디' : '예정일 코디'}</Text>
           </Pressable>
         ))}
       </View>
@@ -198,8 +201,9 @@ export default function Coordi() {
       ) : failure ? (
         <FailurePanel failure={failure} onRule={submitRule} onRetry={() => void submit()} onBack={reset} />
       ) : !ready.ok ? (
-        <View style={{ paddingTop: 40, alignItems: 'center', gap: 14 }}>
-          <Text style={{ color: colors.sub, textAlign: 'center', lineHeight: 21 }}>
+        <View style={{ paddingTop: 20, alignItems: 'center', gap: 14 }}>
+          <Mascot pose="closet" size={160} />
+          <Text style={{ color: colors.textSub, textAlign: 'center', lineHeight: 21 }}>
             코디를 만들려면 {ready.missing.join(', ')}이(가) 필요해요.{'\n'}(원피스 한 벌로도 시작할 수 있어요) 옷장에 먼저 등록해 주세요.
           </Text>
           <Button title="옷 등록하기" onPress={() => router.push('/item/new')} style={{ alignSelf: 'stretch' }} />
@@ -207,9 +211,9 @@ export default function Coordi() {
       ) : mode === 'TODAY' ? (
         <View style={{ gap: 24 }}>
           <View>
-            <Serif style={s.headline}>오늘 어떤 자리에 가세요?</Serif>
+            <Title style={s.headline}>오늘 어떤 자리에 가세요?</Title>
             <Row style={{ gap: 6, marginTop: 8 }}>
-              <Icon name={condIcon(todayWeather.cond)} size={16} color={colors.sub} />
+              <Icon name={condIcon(todayWeather.cond)} size={16} color={colors.textSub} />
               <Text style={s.weatherLine}>
                 {longLabel(today)} · {todayWeather.temp}° {COND_LABEL[todayWeather.cond]} (예보 자동 반영)
               </Text>
@@ -233,13 +237,13 @@ export default function Coordi() {
               <Text style={s.switchTitle}>최근 착용 아이템 제외</Text>
               <Text style={s.switchSub}>최근 3일 안에 입은 옷은 빼고 추천해요</Text>
             </View>
-            <Switch value={excludeRecent} onValueChange={setExcludeRecent} trackColor={{ true: colors.green }} />
+            <Switch value={excludeRecent} onValueChange={setExcludeRecent} trackColor={{ true: colors.primary }} />
           </Row>
           <AvoidColors value={avoid} onChange={setAvoid} />
         </View>
       ) : (
         <View style={{ gap: 24 }}>
-          <Serif style={s.headline}>언제 입을 코디인가요?</Serif>
+          <Title style={s.headline}>언제 입을 코디인가요?</Title>
           <View>
             <Label>날짜 · 시간대</Label>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 20 }}>
@@ -248,10 +252,10 @@ export default function Coordi() {
                 const dt = fromKey(d);
                 return (
                   <Pressable key={d} onPress={() => setPlanDate(d)} style={[s.dateChip, on ? s.dateOn : s.dateOff]}>
-                    <Text style={[s.dateW, { color: on ? colors.beige : colors.sub }]}>
+                    <Text style={[s.dateW, { color: on ? colors.onPrimary : colors.textSub }]}>
                       {dt.getDate() === 1 || d === planDates[0] ? `${dt.getMonth() + 1}월` : WEEKDAY_SHORT[dt.getDay()]}
                     </Text>
-                    <Text style={[s.dateN, { color: on ? '#fff' : colors.ink }]}>{dt.getDate()}</Text>
+                    <Text style={[s.dateN, { color: on ? colors.onPrimary : colors.text }]}>{dt.getDate()}</Text>
                   </Pressable>
                 );
               })}
@@ -275,7 +279,7 @@ export default function Coordi() {
             <Label>날씨</Label>
             {auto ? (
               <View style={s.weatherBox}>
-                <Icon name={condIcon(planWeather.cond)} size={22} color={colors.green} />
+                <Icon name={condIcon(planWeather.cond)} size={22} color={colors.primary} />
                 <Text style={s.weatherBoxText}>
                   예보 자동 · {planWeather.temp}°C {COND_LABEL[planWeather.cond]} · 강수 {planWeather.rainProb}%
                 </Text>
@@ -296,7 +300,7 @@ export default function Coordi() {
           <AvoidColors value={avoid} onChange={setAvoid} />
           <View>
             <Label>동행 · 장소 메모</Label>
-            <TextInput value={memo} onChangeText={setMemo} placeholder="예: 야외 정원 예식, 오래 서 있어야 함" placeholderTextColor={colors.faint} style={s.input} />
+            <TextInput value={memo} onChangeText={setMemo} placeholder="예: 야외 정원 예식, 오래 서 있어야 함" placeholderTextColor={colors.textMuted} style={s.input} />
           </View>
         </View>
       )}
@@ -306,10 +310,13 @@ export default function Coordi() {
 
 /** AI 추천 진행 표시: 옷장을 살펴보는 중 → 조합을 고르는 중 → 점수를 매기는 중 */
 function AiProgress({ phase, onCancel }: { phase: number; onCancel: () => void }) {
+  const s = useStyles();
+  const colors = useColors();
   return (
     <View style={s.panel}>
-      <ActivityIndicator color={colors.green} />
-      <Serif style={s.panelTitle}>AI가 내 옷장에서{'\n'}코디를 고르고 있어요</Serif>
+      <Mascot pose="style" size={140} />
+      <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} />
+      <Title style={s.panelTitle}>AI가 내 옷장에서{'\n'}코디를 고르고 있어요</Title>
       <Text style={s.panelSub}>보통 몇 초 걸려요</Text>
       <View style={{ gap: 12, marginTop: 22, alignSelf: 'center' }}>
         {PHASES.map((p, i) => {
@@ -318,11 +325,11 @@ function AiProgress({ phase, onCancel }: { phase: number; onCancel: () => void }
           return (
             <Row key={p.key} style={{ gap: 10 }}>
               {active ? (
-                <ActivityIndicator size="small" color={colors.green} style={{ width: 18 }} />
+                <ActivityIndicator size="small" color={colors.primary} style={{ width: 18 }} />
               ) : (
-                <Icon name="check" size={18} color={done ? colors.green : colors.line} />
+                <Icon name="check" size={18} color={done ? colors.primary : colors.border} />
               )}
-              <Text style={{ color: done || active ? colors.ink : colors.faint, fontWeight: active ? '800' : '600', fontSize: 15 }}>{p.label}</Text>
+              <Text style={{ color: done || active ? colors.text : colors.textMuted, fontWeight: active ? '800' : '600', fontSize: 15 }}>{p.label}</Text>
             </Row>
           );
         })}
@@ -346,6 +353,8 @@ function FailurePanel({
   onRetry: () => void;
   onBack: () => void;
 }) {
+  const s = useStyles();
+  const colors = useColors();
   const title =
     failure.kind === 'limit' ? '오늘 AI 코디 추천을 모두 썼어요' : failure.kind === 'insufficient' ? '코디를 만들 옷이 모자라요' : 'AI 추천을 받지 못했어요';
   const body =
@@ -356,11 +365,11 @@ function FailurePanel({
         : failure.message;
   return (
     <View style={s.panel}>
-      <Serif style={s.panelTitle}>{title}</Serif>
+      <Title style={s.panelTitle}>{title}</Title>
       <Text style={[s.panelSub, { lineHeight: 21 }]}>{body}</Text>
       <View style={{ gap: 10, marginTop: 26, alignSelf: 'stretch' }}>
         {failure.kind === 'insufficient' ? (
-          <Button title="옷 등록하기" icon={<Icon name="plus" color="#fff" size={18} />} onPress={() => router.push('/item/new')} />
+          <Button title="옷 등록하기" icon={<Icon name="plus" color={colors.onPrimary} size={18} />} onPress={() => router.push('/item/new')} />
         ) : (
           <Button title="규칙 엔진으로 추천 받기" variant="green" onPress={onRule} />
         )}
@@ -382,6 +391,8 @@ function AnchorPicker({
   onChange: (id?: string) => void;
   title?: string;
 }) {
+  const s = useStyles();
+  const colors = useColors();
   return (
     <View>
       <Label>{title}</Label>
@@ -389,7 +400,7 @@ function AnchorPicker({
         {items.map((it) => {
           const on = value === it.id;
           return (
-            <Pressable key={it.id} onPress={() => onChange(on ? undefined : it.id)} style={[s.anchor, on && { borderColor: colors.green, borderWidth: 2 }]}>
+            <Pressable key={it.id} onPress={() => onChange(on ? undefined : it.id)} style={[s.anchor, on && { borderColor: colors.primary, borderWidth: 2 }]}>
               <ItemThumb item={it} size={68} />
               <Text style={s.anchorName} numberOfLines={1}>
                 {it.name}
@@ -411,30 +422,48 @@ function AvoidColors({ value, onChange }: { value: ColorKey[]; onChange: (v: Col
   );
 }
 
-const s = StyleSheet.create({
-  top: { paddingHorizontal: 20, height: 52, justifyContent: 'center' },
-  title: { fontSize: 18, fontWeight: '800', color: colors.ink, letterSpacing: 2 },
-  segment: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.line, marginBottom: 22 },
-  segItem: { flex: 1, alignItems: 'center', paddingVertical: 12 },
-  segOn: { borderBottomWidth: 2, borderBottomColor: colors.green, marginBottom: -1 },
-  segText: { fontSize: 15, color: colors.faint, fontWeight: '600' },
-  headline: { fontSize: 23, lineHeight: 33 },
-  weatherLine: { color: colors.sub, fontSize: 13, marginTop: 8 },
+const useStyles = makeStyles((t) => ({
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: t.colors.surfaceAlt,
+    borderRadius: t.radius.pill,
+    padding: 4,
+    marginBottom: 24,
+  },
+  segItem: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: t.radius.pill },
+  segOn: { backgroundColor: t.colors.primary },
+  segText: { fontSize: 15, color: t.colors.textSub, fontWeight: '600' },
+  headline: { fontSize: 23, lineHeight: 32 },
+  weatherLine: { color: t.colors.textSub, fontSize: 13, marginTop: 8 },
   switchRow: { gap: 12 },
-  switchTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
-  switchSub: { fontSize: 12, color: colors.sub, marginTop: 2, lineHeight: 18 },
-  dateChip: { width: 48, height: 60, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  dateOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  dateOff: { backgroundColor: colors.surface, borderColor: colors.line },
+  switchTitle: { fontSize: 14, fontWeight: '700', color: t.colors.text },
+  switchSub: { fontSize: 12, color: t.colors.textSub, marginTop: 2, lineHeight: 18 },
+  dateChip: {
+    width: 50,
+    height: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: t.radius.md,
+  },
+  dateOn: { backgroundColor: t.colors.primary, borderColor: t.colors.primary },
+  dateOff: { backgroundColor: t.colors.surface, borderColor: t.colors.border },
   dateW: { fontSize: 11, fontWeight: '700' },
   dateN: { fontSize: 18, fontWeight: '800', marginTop: 2 },
-  weatherBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.greenSoft, padding: 14 },
-  weatherBoxText: { color: colors.green, fontWeight: '700', fontSize: 14 },
-  anchor: { width: 76, borderWidth: 1, borderColor: 'transparent', padding: 3 },
-  anchorName: { fontSize: 11, color: colors.ink, marginTop: 4 },
-  panel: { alignItems: 'center', paddingTop: 36, paddingHorizontal: 4 },
-  panelTitle: { fontSize: 22, lineHeight: 32, marginTop: 16, textAlign: 'center' },
-  panelSub: { color: colors.sub, fontSize: 14, marginTop: 10, textAlign: 'center' },
-  link: { color: colors.green, fontWeight: '700', textDecorationLine: 'underline' },
-  input: { height: 48, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, fontSize: 15, color: colors.ink },
-});
+  weatherBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: t.colors.primarySoft,
+    borderRadius: t.radius.md,
+    padding: 14,
+  },
+  weatherBoxText: { color: t.colors.primary, fontWeight: '700', fontSize: 14 },
+  anchor: { width: 78, borderWidth: 2, borderColor: 'transparent', borderRadius: 16, padding: 3 },
+  anchorName: { fontSize: 11, color: t.colors.text, marginTop: 4, textAlign: 'center' },
+  panel: { alignItems: 'center', paddingTop: 16, paddingHorizontal: 4 },
+  panelTitle: { fontSize: 22, lineHeight: 32, marginTop: 12, textAlign: 'center' },
+  panelSub: { color: t.colors.textSub, fontSize: 14, marginTop: 10, textAlign: 'center' },
+  link: { color: t.colors.primary, fontWeight: '700', textDecorationLine: 'underline' },
+  input: inputBase(t),
+}));

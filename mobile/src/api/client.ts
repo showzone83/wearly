@@ -6,6 +6,8 @@ import { ApiError, errorFromResponse, networkError } from './errors';
 import type { Tokens, TokenStore } from './tokenStore';
 import type {
   AnalyzeFile,
+  AppConfigDto,
+  AppConfigResult,
   AnalyzeResponse,
   AuthResponse,
   CodesResponse,
@@ -264,6 +266,23 @@ export function createApiClient(options: ApiClientOptions) {
         // 웹(CORS)에서는 ETag 헤더를 읽지 못할 수 있으니 본문의 version으로 같은 값을 만든다
         const header = res.headers?.get?.('ETag');
         return { changed: true, codes, etag: header || `"${codes.version}"` };
+      },
+    },
+    app: {
+      /**
+       * 앱 설정 (인증 불필요, doc/12 3장). 지금은 테마 ID. etag를 주면 If-None-Match로 보내고,
+       * 서버가 304를 주면 `{ changed: false }`를 돌려준다.
+       */
+      async config(etag?: string | null): Promise<AppConfigResult> {
+        const res = await send('GET', '/app/config', { headers: etag ? { 'If-None-Match': etag } : undefined });
+        if (res.status === 304) return { changed: false };
+        const config = await readBody<AppConfigDto>(res);
+        if (!config || typeof config.themeId !== 'string') {
+          throw new ApiError(res.status, 'HTTP_ERROR', '앱 설정 응답 형식이 달라요.');
+        }
+        // 웹(CORS)에서는 ETag 헤더를 읽지 못할 수 있으니 본문의 version으로 같은 값을 만든다
+        const header = res.headers?.get?.('ETag');
+        return { changed: true, config, etag: header || `"${config.version}"` };
       },
     },
     auth: {

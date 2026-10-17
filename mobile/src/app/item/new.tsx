@@ -7,7 +7,8 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from '
 import { GarmentArt } from '@/components/GarmentArt';
 import { Icon } from '@/components/Icon';
 import { defaultName, ItemForm, type ItemDraft } from '@/components/ItemForm';
-import { Badge, Button, Header, Kicker, notify, Row, Screen, Serif } from '@/components/ui';
+import { Mascot } from '@/components/Mascot';
+import { Badge, Button, Header, Kicker, notify, Row, Screen, StepDots, Title } from '@/components/ui';
 import type { Category, ColorKey, SubType } from '@/data/types';
 import { isApiError } from '@/api/errors';
 import { createItem, isAccountMode } from '@/lib/account';
@@ -17,9 +18,17 @@ import { MOCK_MODE } from '@/lib/mode';
 import { canRecommend } from '@/lib/recommend';
 import { draftFromSuggestion } from '@/lib/serverItems';
 import { useStore } from '@/store/useStore';
-import { colors } from '@/theme';
+import { makeStyles, useColors } from '@/theme';
 
 type Step = 1 | 2 | 3 | 4;
+
+/** 1단계 "예시 이미지" 줄: 이렇게 찍으면 된다는 보기 (일러스트) */
+const EXAMPLES: { subType: SubType; category: Category; color: ColorKey; pattern?: string }[] = [
+  { subType: 'COAT', category: 'OUTER', color: 'khaki' },
+  { subType: 'KNIT', category: 'TOP', color: 'lightblue', pattern: 'STRIPE' },
+  { subType: 'JEANS', category: 'BOTTOM', color: 'denim' },
+  { subType: 'SNEAKER', category: 'SHOES', color: 'white' },
+];
 
 const ANALYSIS_STEPS = ['종류 인식', '색상 추출', '패턴 · 계절 판단'];
 /** 분석 진행 표시를 끝까지 보여 주는 최소 시간 */
@@ -151,6 +160,8 @@ export default function NewItem() {
   const [saving, setSaving] = useState(false);
   /** 분석 중 '직접 입력'으로 넘어가면 늦게 온 분석 결과를 버린다 */
   const runRef = useRef(0);
+  const s = useStyles();
+  const colors = useColors();
   const fromAi = aiSource !== null;
 
   // 2단계: 분석 진행 표시 (결과가 오면 analyze()가 3단계로 넘긴다)
@@ -227,19 +238,13 @@ export default function NewItem() {
     }
   };
 
-  const progress = (
-    <View style={s.progress}>
-      {[1, 2, 3, 4].map((n) => (
-        <View key={n} style={[s.bar, { backgroundColor: n <= step ? colors.green : colors.line }]} />
-      ))}
-    </View>
-  );
+  const header = <Header center={<StepDots total={4} current={step} />} />;
 
   if (step === 4) {
     const after = canRecommend(useStore.getState().items);
     return (
       <Screen
-        header={<Header title="옷 등록" />}
+        header={header}
         footer={
           <View style={{ gap: 10 }}>
             <Button title="계속 등록하기" variant="outline" onPress={() => { setDraft(null); setAiSource(null); setPhotoUri(undefined); setStep(1); }} />
@@ -247,11 +252,15 @@ export default function NewItem() {
           </View>
         }
       >
-        {progress}
-        <View style={{ alignItems: 'center', paddingTop: 40 }}>
-          {draft && <GarmentArt subType={draft.subType} category={draft.category} color={draft.color} pattern={draft.pattern} size={140} />}
+                <View style={{ alignItems: 'center', paddingTop: 20 }}>
+          <Mascot pose="cheer" size={170} />
+          {draft && (
+            <View style={s.doneArt}>
+              <GarmentArt subType={draft.subType} category={draft.category} color={draft.color} pattern={draft.pattern} size={90} />
+            </View>
+          )}
           <Kicker>STEP 4 / 4</Kicker>
-          <Serif style={s.doneTitle}>옷장에 추가했어요</Serif>
+          <Title style={s.doneTitle}>옷장에 추가했어요</Title>
           <Text style={s.doneSub}>
             {after.ok
               ? `총 ${items.length}벌 · 이제 이 옷이 들어간 코디도 추천해 드려요.`
@@ -265,18 +274,17 @@ export default function NewItem() {
   if (step === 3 && draft) {
     return (
       <Screen
-        header={<Header title="옷 등록" />}
+        header={header}
         footer={
           <Button
             title={saving ? '' : '옷장에 저장'}
-            icon={saving ? <ActivityIndicator color="#fff" /> : undefined}
+            icon={saving ? <ActivityIndicator color={colors.onPrimary} /> : undefined}
             disabled={saving}
             onPress={save}
           />
         }
       >
-        {progress}
-        <Kicker>STEP 3 / 4</Kicker>
+                <Kicker>STEP 3 / 4</Kicker>
         <Row style={{ gap: 16, marginTop: 12, marginBottom: 26 }}>
           <View style={s.preview}>
             {draft.imageUri ? (
@@ -312,17 +320,16 @@ export default function NewItem() {
 
   if (step === 2) {
     return (
-      <Screen header={<Header title="옷 등록" />} scroll={false}>
-        {progress}
-        <View style={s.center}>
+      <Screen header={header} scroll={false}>
+                <View style={s.center}>
           {photoUri && <Image source={{ uri: photoUri }} style={s.analyzing} contentFit="cover" />}
-          <ActivityIndicator color={colors.green} style={{ marginTop: 28 }} />
-          <Serif style={s.doneTitle}>AI가 분석하고 있어요</Serif>
+          <ActivityIndicator color={colors.primary} style={{ marginTop: 28 }} />
+          <Title style={s.doneTitle}>AI가 분석하고 있어요</Title>
           <View style={{ gap: 8, marginTop: 16 }}>
             {ANALYSIS_STEPS.map((t, i) => (
               <Row key={t} style={{ gap: 8 }}>
-                <Icon name="check" size={16} color={i < phase ? colors.green : colors.line} />
-                <Text style={{ color: i < phase ? colors.ink : colors.faint }}>{t}</Text>
+                <Icon name="check" size={16} color={i < phase ? colors.primary : colors.border} />
+                <Text style={{ color: i < phase ? colors.text : colors.textMuted }}>{t}</Text>
               </Row>
             ))}
           </View>
@@ -335,54 +342,138 @@ export default function NewItem() {
   }
 
   return (
-    <Screen header={<Header title="옷 등록" />}>
-      {progress}
-      <Kicker>STEP 1 / 4</Kicker>
-      <Serif style={s.title}>사진 한 장이면{'\n'}충분해요</Serif>
-      <Text style={s.desc}>AI가 종류·색상·패턴을 제안하고, 사용자는 확인만 하면 돼요. 위치정보(EXIF)는 저장하지 않아요.</Text>
-      <View style={{ gap: 12, marginTop: 28 }}>
-        <Pressable style={s.option} onPress={() => pick('camera')}>
-          <Icon name="camera" size={28} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.optTitle}>카메라로 촬영</Text>
-            <Text style={s.optSub}>밝은 바닥에 옷을 펼쳐 찍으면 인식이 잘 돼요</Text>
+    <Screen
+      header={header}
+      footer={
+        <View style={{ gap: 4 }}>
+          <Button title="사진 선택하기" onPress={() => pick('library')} />
+          <Button title="사진 없이 직접 입력" variant="ghost" small onPress={() => manual()} />
+        </View>
+      }
+    >
+      <View style={s.stepHead}>
+        <View style={{ flex: 1 }}>
+          <Kicker>STEP 1 / 4</Kicker>
+          <Title style={s.title}>내 옷을 사진으로{'\n'}등록해주세요!</Title>
+        </View>
+        <Mascot pose="camera" size={112} />
+      </View>
+      <Text style={s.desc}>사진을 찍으면 AI가 종류와 색상을 알아서 분석해요. 위치정보(EXIF)는 저장하지 않아요.</Text>
+
+      {/* 점선 사진 추가 상자: 카메라(웹은 앨범) */}
+      <Pressable
+        style={({ pressed }) => [s.drop, pressed && { opacity: 0.8 }]}
+        onPress={() => pick('camera')}
+        accessibilityRole="button"
+        accessibilityLabel="카메라로 촬영"
+      >
+        <View style={s.dropIcon}>
+          <Icon name="camera" size={30} color={colors.onPrimary} strokeWidth={1.8} />
+        </View>
+        <Text style={s.dropTitle}>사진 추가하기</Text>
+        <Text style={s.dropSub}>카메라로 촬영하거나{'\n'}아래 버튼으로 앨범에서 선택해보세요.</Text>
+      </Pressable>
+
+      <Text style={s.exampleLabel}>예시 이미지</Text>
+      <View style={s.examples}>
+        {EXAMPLES.map((e) => (
+          <View key={e.subType} style={s.example}>
+            <GarmentArt subType={e.subType} category={e.category} color={e.color} pattern={e.pattern} size={54} />
           </View>
-        </Pressable>
-        <Pressable style={s.option} onPress={() => pick('library')}>
-          <Icon name="image" size={28} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.optTitle}>앨범에서 선택</Text>
-            <Text style={s.optSub}>쇼핑몰 캡처 사진도 괜찮아요</Text>
-          </View>
-        </Pressable>
-        <Pressable style={[s.option, { borderStyle: 'dashed' }]} onPress={() => manual()}>
-          <Icon name="plus" size={28} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.optTitle}>사진 없이 직접 입력</Text>
-            <Text style={s.optSub}>분석이 어렵거나 사진이 없을 때</Text>
-          </View>
-        </Pressable>
+        ))}
+      </View>
+      <View style={s.tip}>
+        <View style={s.tipBadge}>
+          <Text style={s.tipBadgeText}>TIP</Text>
+        </View>
+        <Text style={s.tipText}>
+          밝은 바닥에 옷을 펼쳐 찍으면 인식이 잘 돼요. 쇼핑몰 캡처 사진도 괜찮아요. 옷을 여러 장 등록할수록 더 다양한 코디를
+          추천받을 수 있어요!
+        </Text>
       </View>
     </Screen>
   );
 }
 
-const s = StyleSheet.create({
-  progress: { flexDirection: 'row', gap: 6, marginBottom: 18 },
-  bar: { flex: 1, height: 3 },
-  title: { fontSize: 27, lineHeight: 38, marginTop: 10 },
-  desc: { color: colors.sub, fontSize: 14, lineHeight: 21, marginTop: 10 },
-  option: { flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 18 },
-  optTitle: { fontSize: 16, fontWeight: '800', color: colors.ink },
-  optSub: { fontSize: 12, color: colors.sub, marginTop: 3 },
+const useStyles = makeStyles((t) => ({
+  stepHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8 },
+  title: { fontSize: 27, lineHeight: 37, marginTop: 8 },
+  desc: { color: t.colors.textSub, fontSize: 14, lineHeight: 21, marginTop: 10 },
+  drop: {
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: t.colors.chipBorder,
+    borderRadius: t.radius.lg,
+    backgroundColor: t.colors.surface,
+    paddingVertical: 34,
+    marginTop: 22,
+  },
+  dropIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: t.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dropTitle: { fontSize: 16, fontWeight: '800', color: t.colors.text, marginTop: 14 },
+  dropSub: { fontSize: 13, color: t.colors.textSub, marginTop: 6, textAlign: 'center', lineHeight: 19 },
+  exampleLabel: { fontSize: 12, color: t.colors.textMuted, marginTop: 18, marginBottom: 8 },
+  examples: { flexDirection: 'row', gap: 8 },
+  example: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: t.radius.md,
+    backgroundColor: t.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tip: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: t.colors.primarySoft,
+    borderRadius: t.radius.md,
+    padding: 14,
+    marginTop: 18,
+    alignItems: 'flex-start',
+  },
+  tipBadge: {
+    backgroundColor: t.colors.primary,
+    borderRadius: 12,
+    width: 28,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tipBadgeText: { color: t.colors.onPrimary, fontSize: 10, fontWeight: '800' },
+  tipText: { flex: 1, fontSize: 13, color: t.colors.text, lineHeight: 19 },
   center: { flex: 1, alignItems: 'center', paddingTop: 30 },
-  analyzing: { width: 180, height: 180, backgroundColor: colors.tile },
+  analyzing: { width: 180, height: 180, borderRadius: t.radius.lg, backgroundColor: t.colors.surfaceAlt },
+  doneArt: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: t.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -10,
+    marginBottom: 14,
+  },
   doneTitle: { fontSize: 22, marginTop: 14, textAlign: 'center' },
-  doneSub: { color: colors.sub, marginTop: 10, textAlign: 'center', lineHeight: 20 },
-  manual: { color: colors.green, fontWeight: '700', textDecorationLine: 'underline' },
-  preview: { width: 110, height: 110, backgroundColor: colors.tile, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  formTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
-  formSub: { fontSize: 13, color: colors.sub, lineHeight: 18 },
-  remaining: { fontSize: 12, color: colors.green, fontWeight: '700' },
-  provider: { fontSize: 11, color: colors.sub, fontWeight: '600' },
-});
+  doneSub: { color: t.colors.textSub, marginTop: 10, textAlign: 'center', lineHeight: 20 },
+  manual: { color: t.colors.primary, fontWeight: '700', textDecorationLine: 'underline' },
+  preview: {
+    width: 110,
+    height: 110,
+    borderRadius: t.radius.lg,
+    backgroundColor: t.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  formTitle: { fontSize: 18, fontWeight: '800', color: t.colors.text },
+  formSub: { fontSize: 13, color: t.colors.textSub, lineHeight: 18 },
+  remaining: { fontSize: 12, color: t.colors.primary, fontWeight: '700' },
+  provider: { fontSize: 11, color: t.colors.textSub, fontWeight: '600' },
+}));

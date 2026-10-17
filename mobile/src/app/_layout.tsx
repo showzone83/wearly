@@ -1,17 +1,18 @@
-import { NotoSerifKR_700Bold } from '@expo-google-fonts/noto-serif-kr/700Bold';
-import { useFonts } from 'expo-font';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, AppState, Platform, Text, View } from 'react-native';
+
+import { Button, Title } from '@/components/ui';
 import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { Button, Serif } from '@/components/ui';
 import { bootstrapSession } from '@/lib/account';
 import { API_BASE_URL } from '@/lib/api';
+import { syncAppConfig } from '@/lib/appConfig';
 import { bootstrapCodes, useCodes } from '@/store/useCodes';
 import { useStore } from '@/store/useStore';
-import { colors } from '@/theme';
+import { useThemeStore } from '@/store/useThemeStore';
+import { makeStyles, useColors } from '@/theme';
 
 type PersistApi = { hasHydrated: () => boolean; onFinishHydration: (fn: () => void) => () => void };
 
@@ -49,9 +50,10 @@ function useCodesReady(hydrated: boolean) {
 }
 
 function CodesRetry({ onRetry }: { onRetry: () => void }) {
+  const styles = useStyles();
   return (
     <View style={styles.retry}>
-      <Serif style={styles.retryTitle}>옷 정보를 불러오지 못했어요</Serif>
+      <Title style={styles.retryTitle}>옷 정보를 불러오지 못했어요</Title>
       <Text style={styles.retryText}>
         처음 실행할 때는 서버에서 옷 종류·색상 목록을 받아야 해요.{'\n'}
         서버({API_BASE_URL})가 켜져 있는지, 휴대폰과 Mac이 같은 Wi-Fi인지 확인한 뒤 다시 시도해 주세요.
@@ -73,6 +75,21 @@ function useSession(hydrated: boolean) {
   return checked;
 }
 
+/**
+ * 서버 앱 설정(테마) 동기화 (doc/12 3장): 테마 저장값을 복원한 뒤 한 번, 앱이 다시 활성이 될 때마다 한 번.
+ * 실패해도 화면을 막지 않는다.
+ */
+const useAppConfigSync = (themeHydrated: boolean) => {
+  useEffect(() => {
+    if (!themeHydrated) return;
+    void syncAppConfig();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void syncAppConfig();
+    });
+    return () => sub.remove();
+  }, [themeHydrated]);
+};
+
 /** 계정 모드에서 로그인이 풀리면(Refresh 실패) 로그인 화면으로 보낸다 */
 function AuthWatcher() {
   const lost = useStore((s) => s.authMode === 'account' && s.authLost);
@@ -84,14 +101,17 @@ function AuthWatcher() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({ NotoSerifKR_700Bold });
+  const styles = useStyles();
+  const colors = useColors();
   const hydrated = useHydrated(useStore.persist);
   const codesHydrated = useHydrated(useCodes.persist);
+  const themeHydrated = useHydrated(useThemeStore.persist);
   const sessionChecked = useSession(hydrated);
   const codes = useCodesReady(codesHydrated);
-  const fontsReady = fontsLoaded || !!fontError;
-  const ready = fontsReady && hydrated && sessionChecked && codes.phase === 'ready';
-  const codesFailed = fontsReady && codes.phase === 'failed';
+  useAppConfigSync(themeHydrated);
+  // 저장된 테마로 첫 화면을 그리도록 테마 복원을 기다린다 (제목은 시스템 산세리프라 글꼴 로딩은 없다)
+  const ready = themeHydrated && hydrated && sessionChecked && codes.phase === 'ready';
+  const codesFailed = codes.phase === 'failed';
 
   return (
     <SafeAreaProvider>
@@ -113,7 +133,7 @@ export default function RootLayout() {
             <CodesRetry onRetry={codes.retry} />
           ) : (
             <View style={styles.loading}>
-              <ActivityIndicator color={colors.green} />
+              <ActivityIndicator color={colors.primary} />
             </View>
           )}
         </View>
@@ -122,11 +142,11 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  outer: { flex: 1, backgroundColor: Platform.OS === 'web' ? '#DADCE0' : colors.bg, alignItems: 'center' },
-  app: { flex: 1, width: '100%', maxWidth: Platform.OS === 'web' ? 480 : undefined, backgroundColor: colors.bg },
+const useStyles = makeStyles((t) => ({
+  outer: { flex: 1, backgroundColor: Platform.OS === 'web' ? '#DADCE0' : t.colors.bg, alignItems: 'center' },
+  app: { flex: 1, width: '100%', maxWidth: Platform.OS === 'web' ? 480 : undefined, backgroundColor: t.colors.bg },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   retry: { flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
-  retryTitle: { fontSize: 22, color: colors.ink },
-  retryText: { fontSize: 14, color: colors.sub, lineHeight: 21, marginTop: 12 },
-});
+  retryTitle: { fontSize: 22 },
+  retryText: { fontSize: 14, color: t.colors.textSub, lineHeight: 21, marginTop: 12 },
+}));
