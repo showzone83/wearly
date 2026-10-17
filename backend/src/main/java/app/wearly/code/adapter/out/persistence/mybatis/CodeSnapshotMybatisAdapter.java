@@ -3,6 +3,7 @@ package app.wearly.code.adapter.out.persistence.mybatis;
 import app.wearly.code.adapter.out.persistence.mybatis.dto.CodeRowDto;
 import app.wearly.code.adapter.out.persistence.mybatis.mapper.CodeMapper;
 import app.wearly.code.application.port.out.CodeSnapshotPort;
+import app.wearly.common.transaction.AfterTransaction;
 import app.wearly.sharedkernel.code.CodeEntry;
 import app.wearly.sharedkernel.code.CodeGroupEntry;
 import app.wearly.sharedkernel.code.CodeSnapshot;
@@ -16,8 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * 코드 메모리 캐시 (06 문서 4장 "캐시"). 시작할 때 MyBatis로 읽고, 관리자 API로 코드가 바뀌면 커밋 뒤에 다시 읽는다. 읽기는 잠금 없이 volatile
@@ -67,17 +66,7 @@ class CodeSnapshotMybatisAdapter implements CodeSnapshotPort {
 
   @Override
   public void refreshAfterCommit() {
-    if (TransactionSynchronizationManager.isSynchronizationActive()) {
-      TransactionSynchronizationManager.registerSynchronization(
-          new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-              reload();
-            }
-          });
-    } else {
-      reload();
-    }
+    AfterTransaction.commit(this::reload);
   }
 
   private CodeSnapshot load() {

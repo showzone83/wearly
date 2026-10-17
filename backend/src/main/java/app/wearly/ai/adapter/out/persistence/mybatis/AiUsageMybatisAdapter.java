@@ -1,6 +1,6 @@
 package app.wearly.ai.adapter.out.persistence.mybatis;
 
-import app.wearly.ai.adapter.out.persistence.mybatis.mapper.AiUsageMapper;
+import app.wearly.ai.adapter.out.persistence.mybatis.mapper.AiQuotaMapper;
 import app.wearly.ai.application.port.out.AiUsagePort;
 import java.time.Instant;
 import org.springframework.stereotype.Component;
@@ -9,9 +9,9 @@ import org.springframework.stereotype.Component;
 @Component
 class AiUsageMybatisAdapter implements AiUsagePort {
 
-  private final AiUsageMapper mapper;
+  private final AiQuotaMapper mapper;
 
-  AiUsageMybatisAdapter(AiUsageMapper mapper) {
+  AiUsageMybatisAdapter(AiQuotaMapper mapper) {
     this.mapper = mapper;
   }
 

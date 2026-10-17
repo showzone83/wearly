@@ -1,19 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!-- AI 일일 사용량 집계 (기능별 성공만: 사진 분석 ITEM_ANALYZE · 코디 추천 OUTFIT_RECOMMEND, 관리자 시험 분석 제외). 날짜 경계(Asia/Seoul 자정)는 서비스에서 계산해 넘긴다 -->
-<mapper namespace="app.wearly.ai.adapter.out.persistence.mybatis.mapper.AiUsageMapper">
+<mapper namespace="app.wearly.ai.adapter.out.persistence.mybatis.mapper.AiQuotaMapper">
 
-    <resultMap id="aiLogRow" type="app.wearly.ai.adapter.out.persistence.mybatis.dto.AiLogRowDto">
-        <id property="id" column="ai_analysis_log_id"/>
-        <result property="feature" column="feature"/>
-        <result property="provider" column="provider"/>
-        <result property="model" column="model"/>
-        <result property="status" column="status"/>
-        <result property="errorCode" column="error_code"/>
-        <result property="imageSha256" column="image_sha256"/>
-        <result property="result" column="result" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
-        <result property="createdAt" column="created_at"/>
-    </resultMap>
 
     <select id="countSuccess" resultType="long">
         SELECT count(*)
@@ -38,11 +27,4 @@
         SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended('ai-quota:' || #{userId} || ':' || #{feature}, 0))) l
     </select>
 
-    <select id="findRecent" resultMap="aiLogRow">
-        SELECT ai_analysis_log_id, feature, provider, model, status, error_code, image_sha256, result, created_at
-          FROM tb_ai_analysis_log
-         WHERE user_id = #{userId}
-         ORDER BY created_at DESC, ai_analysis_log_id DESC
-         LIMIT #{limit}
-    </select>
 </mapper>

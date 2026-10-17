@@ -2,10 +2,10 @@ package app.wearly.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.wearly.ai.adapter.out.persistence.mybatis.dto.AiLogRowDto;
-import app.wearly.ai.adapter.out.persistence.mybatis.mapper.AiUsageMapper;
 import app.wearly.ai.application.service.AiAnalysisService;
 import app.wearly.code.application.port.in.CodeCatalog;
+import app.wearly.support.AiLogRowDto;
+import app.wearly.support.AiUsageMapper;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;

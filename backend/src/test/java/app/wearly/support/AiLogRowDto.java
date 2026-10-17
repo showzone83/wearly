@@ -1,9 +1,9 @@
-package app.wearly.ai.adapter.out.persistence.mybatis.dto;
+package app.wearly.support;
 
 import java.time.Instant;
 import java.util.Map;
 
-/** MyBatis로 읽은 AI 호출 기록 (result는 JSONB → Map) */
+/** 테스트가 MyBatis로 읽는 AI 호출 기록 (result는 JSONB → Map). 운영 코드에는 없다 (L10) */
 public class AiLogRowDto {
 
   private Long id;

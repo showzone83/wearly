@@ -26,11 +26,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminCodeService implements AdminCodeUseCase {
 
   private final CodeCatalog catalog;
+  private final AdminCodeOrderWriter orderWriter;
   private final CodeManagementUseCase codes;
   private final RecordAuditPort audit;
 
-  public AdminCodeService(CodeCatalog catalog, CodeManagementUseCase codes, RecordAuditPort audit) {
+  public AdminCodeService(
+      CodeCatalog catalog,
+      CodeManagementUseCase codes,
+      RecordAuditPort audit,
+      AdminCodeOrderWriter orderWriter) {
     this.catalog = catalog;
+    this.orderWriter = orderWriter;
     this.codes = codes;
     this.audit = audit;
   }
@@ -78,17 +84,11 @@ public class AdminCodeService implements AdminCodeUseCase {
     return after;
   }
 
+  /** 트랜잭션 밖: 쓰기(AdminCodeOrderWriter)가 커밋되어 코드 캐시가 다시 읽힌 뒤 목록을 만든다 */
   @Override
-  @Transactional
-  public void reorder(long adminId, String group, List<String> order) {
-    List<String> before = codes.reorder(group, order);
-    audit.record(
-        adminId,
-        "CODE_REORDER",
-        AuditTargets.CODE,
-        group,
-        Map.of("codes", before),
-        Map.of("codes", order));
+  public AdminCodesDto reorder(long adminId, String group, List<String> order) {
+    orderWriter.reorder(adminId, group, order);
+    return list();
   }
 
   @Override

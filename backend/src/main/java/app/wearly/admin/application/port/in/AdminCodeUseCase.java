@@ -14,8 +14,12 @@ public interface AdminCodeUseCase {
 
   AdminCodeDto create(long adminId, String group, CreateCodeDto command);
 
-  /** 보낸 순서대로 sortOrder 10, 20, …. 응답(GET /admin/codes 모양)은 커밋 뒤 다시 읽은 list()로 만든다 */
-  void reorder(long adminId, String group, List<String> codes);
+  /**
+   * 보낸 순서대로 sortOrder 10, 20, ….
+   *
+   * @return 커밋하고 코드 캐시를 다시 읽은 뒤의 list() (GET /admin/codes 모양, 새 version)
+   */
+  AdminCodesDto reorder(long adminId, String group, List<String> codes);
 
   AdminCodeDto patch(long adminId, String group, String code, PatchCodeDto patch);
 

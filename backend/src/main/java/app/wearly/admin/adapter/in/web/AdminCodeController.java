@@ -57,8 +57,8 @@ public class AdminCodeController {
       @CurrentUser long adminId,
       @PathVariable String group,
       @RequestBody(required = false) OrderRequest request) {
-    service.reorder(adminId, group, request == null ? null : request.codes());
-    return AdminCodesResponse.from(service.list());
+    return AdminCodesResponse.from(
+        service.reorder(adminId, group, request == null ? null : request.codes()));
   }
 
   @PatchMapping("/{group}/{code}")
