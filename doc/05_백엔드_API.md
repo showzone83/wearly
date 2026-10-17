@@ -1,6 +1,10 @@
 # 05. 백엔드 API 계약 (1차: 토큰 로그인 · 옷장 · AI 분석)
 
 > 백엔드(`backend/`), 앱(`mobile/src/api/`), 연동 하네스(`harness/`)가 함께 따르는 계약이다. 셋 중 하나를 바꾸면 이 문서부터 고친다.
+>
+> **2차 변경**: 옷 속성 값(종류·세부 종류·색·패턴·계절·스타일·보유 상태)은 DB 코드 테이블로 옮겼다 → [06_코드_관리.md](06_코드_관리.md).
+> 관리자 역할·관리자 API·AI 공급자(Claude·OpenAI·Gemini) 관리는 → [07_관리자_사이트.md](07_관리자_사이트.md).
+> 아래에서 두 문서와 겹치는 부분은 06·07 문서가 우선한다.
 
 ## 1. 범위
 
@@ -55,14 +59,16 @@
 | `tb_ai_analysis_log` | AI 호출 기록: 공급자·모델·상태·지연·토큰 수·결과. 일일 한도와 '코디당 AI 비용' 지표에 쓴다 | O |
 
 열거형 값은 앱 `mobile/src/data/types.ts`의 문자열을 그대로 `VARCHAR`로 저장한다 (`CHECK` 제약 권장).
+옷 속성 값은 2차에서 CHECK 제약 대신 코드 테이블(`tb_code_group`·`tb_code`, Flyway `V2__codes.sql`)로 검증한다 → 06 문서 2장.
+관리자·AI 공급자 테이블(`tb_user.role`, `tb_ai_provider`, `tb_admin_audit_log`, `V3__admin_ai.sql`)은 07 문서.
 
 ## 4. 공통 규칙
 
 - 기본 경로 `/api/v1`, JSON, UTF-8. 필드는 camelCase.
 - **ID는 JSON에서 문자열**이다 (`"id": "42"`). 앱의 기존 문자열 ID와 맞추고 JS 정수 한계를 피한다.
 - 날짜는 `YYYY-MM-DD`, 시각은 ISO-8601 UTC (`2026-10-17T03:00:00Z`).
-- 인증: `Authorization: Bearer <accessToken>`. 공개 경로는 `/api/v1/auth/**`와 `/actuator/health`뿐이다.
-- CORS: `http://localhost:8081`, `http://localhost:19006`, `http://127.0.0.1:8081` 허용 (Expo 웹).
+- 인증: `Authorization: Bearer <accessToken>`. 공개 경로는 `/api/v1/auth/**`, `GET /api/v1/codes`(06 문서), `/actuator/health`뿐이다. `/api/v1/admin/**`는 ADMIN만(07 문서).
+- CORS: `http://localhost:8081`, `http://localhost:19006`, `http://127.0.0.1:8081` 허용 (Expo 웹). 관리자 사이트 개발 주소 `http://localhost:5173`도 허용 (07 문서).
 
 ### 오류 응답
 
@@ -79,8 +85,11 @@
 | 401 | `INVALID_CREDENTIALS` | 이메일 또는 비밀번호 불일치 (어느 쪽인지 알리지 않음) |
 | 401 | `REFRESH_INVALID` | Refresh 토큰 없음·만료·폐기 |
 | 401 | `REFRESH_REUSED` | 이미 회전된 Refresh 토큰 재사용 → 같은 family 전체 폐기 |
+| 403 | `FORBIDDEN` | 관리자 API를 ADMIN이 아닌 회원이 부름 (07 문서) |
+| 403 | `ACCOUNT_SUSPENDED` | 정지된 회원의 로그인 (07 문서) |
 | 404 | `NOT_FOUND` | 없거나 남의 리소스 (남의 것도 404) |
 | 409 | `EMAIL_TAKEN` | 가입 이메일 중복 |
+| 409 | `CODE_EXISTS` · `CODE_IN_USE` | 관리자 코드 중복 · 사용 중인 코드 삭제 (07 문서) |
 | 413 | `IMAGE_TOO_LARGE` | 분석 이미지 10MB 초과 |
 | 429 | `AI_LIMIT_EXCEEDED` | AI 분석 일일 한도 초과 |
 | 502 | `AI_UNAVAILABLE` | AI 공급자 오류 |
@@ -114,7 +123,7 @@ interface AuthResponse {
   refreshTokenExpiresIn: number; // 초
   user: UserDto;
 }
-interface UserDto { id: string; email: string | null; name: string; createdAt: string }
+interface UserDto { id: string; email: string | null; name: string; role: 'USER' | 'ADMIN'; createdAt: string } // role은 2차(07 문서), 앱은 무시해도 된다
 ```
 
 `name`은 1~20자. `email`은 소문자로 바꿔 저장한다.
@@ -161,6 +170,7 @@ interface ProfileDto {
 
 ```ts
 // 앱 WardrobeItem에서 imageUri를 뺀 모양. 사진은 앱이 아이템 id별로 기기에 따로 보관한다.
+// 2차: category·subType·color·pattern·seasons·styles·status는 코드 문자열이다 (값 목록은 GET /codes, 06 문서).
 interface ItemDto {
   id: string;
   name: string;
@@ -209,8 +219,12 @@ interface AnalyzeResponse {
 ```
 
 서버는 `category`와 `subType`의 짝이 맞는지 검증한다. 짝은 앱 `mobile/src/data/constants.ts`의 `SUBTYPE`을 따른다.
+2차부터 짝은 코드 테이블의 SUB_TYPE `parent`이고, 새로 고르는 값은 활성 코드만 받는다. `/wardrobe/stats`의 키도 코드 기준이다 → 06 문서 4장.
+`AnalyzeResponse.provider`는 2차부터 공급자 ID 문자열(`"claude"`, `"openai"`, `"mock"` …)이다 → 07 문서 3장.
 
 ## 7. AI 분석
+
+> **2차에서 바뀜**: 공급자 선택은 DB(`tb_ai_provider`) 기반이다. `WEARLY_AI_PROVIDER=mock`이면 언제나 목업, 그 밖(기본 `db`)에는 사용·모델·키를 갖춘 공급자를 우선순위 순으로 시도하고 실패하면 다음 공급자로 넘어간다. 쓸 수 있는 공급자가 없어도 시작은 하고(WARN) 분석은 502다. 아래 "키 없으면 시작 실패" 규칙은 더 이상 쓰지 않는다 → 07 문서 3장.
 
 - 공급자 인터페이스 하나에 구현 둘: `ClaudeAiProvider`(기본), `MockAiProvider`.
 - `WEARLY_AI_PROVIDER` = `claude`(기본) | `mock`. 목업이 실제 오류를 가리지 않도록 **조용한 대체는 없다**.

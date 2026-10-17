@@ -1,101 +1,179 @@
-# 백엔드 1차 작업 보고 (2026-10-17)
+# 백엔드 2차 작업 보고 (2026-10-17)
 
-## 브랜치
+계약: [`doc/06_코드_관리.md`](../doc/06_코드_관리.md) + [`06_코드_초기값.json`](../doc/06_코드_초기값.json), [`doc/07_관리자_사이트.md`](../doc/07_관리자_사이트.md). 계약 문서는 고치지 않았다.
 
-- `feat/backend` (기준: `origin/dev`, 계약 문서 커밋 `3f1c5d7` 위). PR은 만들지 않았다.
-- `mobile/`, `harness/`, `doc/`는 건드리지 않았다. 바뀐 것은 `backend/` 아래뿐이다.
+## 브랜치 (꼭 읽어 주세요)
 
-## 확정한 버전
+- 기준: `origin/dev`의 `50f4837`(관리자 사이트·AI 공급자 관리 계약 문서).
+- **`feat/backend-admin`으로는 푸시하지 못했다.** 작업하는 동안 **다른 Claude 세션**(`session_01U2FYW1aJj2fnDyvu5eircN`)이 같은 작업을 따로 구현해 `feat/backend-admin`에 먼저 올렸다(`9deb29d`, `20f2cd4`, 같은 dev 기준). 덮어쓰지 않고, 지시대로 이 세션에 허용된 이름으로 푸시했다:
+  **`claude/wearly-backend-admin-kocdh2`**
+- 두 구현은 거의 같은 설계다(아래 "계약과 다르게 정한 점"이 대부분 겹친다). 둘 중 **하나만 골라 dev에 합쳐야 한다.** 둘을 섞으면 Flyway V2·V3가 충돌한다(같은 버전 번호, 내용 다름). 한쪽에만 있는 좋은 점은 골라서 옮기면 된다. 이번 세션은 저쪽 보고서를 보고 `WEARLY_AI_ALLOW_BASE_URL`(baseUrl 옵션 허용 스위치)을 같은 방식으로 넣었다.
+- PR은 만들지 않았다. `main`·`dev`에 직접 푸시하지 않았다. `mobile/`, `harness/`, `admin/`, `doc/06_*`·`doc/07_*`는 고치지 않았다. 바뀐 것은 `backend/` 아래와 `doc/05_백엔드_API.md`(06·07을 가리키는 안내)뿐이다.
 
-| 항목 | 버전 | 비고 |
-|---|---|---|
-| Spring Boot | **4.1.1** | Gradle 플러그인 `io.spring.dependency-management` 1.1.7 |
-| Gradle wrapper | 9.8.1 | Kotlin DSL, Java 21 toolchain |
-| mybatis-spring-boot-starter | **4.1.0** | Maven Central 최신. mybatis 3.5.19, mybatis-spring 4.1.0, Boot 4.1.0 기준으로 빌드된 버전 |
-| Anthropic Java SDK | **2.73.0** (`com.anthropic:anthropic-java`) | Maven Central 최신 |
-| 함께 들어온 주요 버전 | Hibernate 7.4.5, Flyway 12.4.0, Jackson 3.1.5, PostgreSQL JDBC 42.7.13, Testcontainers 2.0.5 | Boot BOM |
+## 버전
 
-**MyBatis 호환성**: initializr는 MyBatis를 Boot [4.0.0, 4.1.0-M1)로만 표시하지만, Maven Central에 4.1.0 스타터가 있고 Boot 4.1.1에서 컨텍스트 기동, 매퍼 XML 로딩, TypeHandler(TEXT[]·JSONB), 매퍼 직접 호출 테스트가 모두 통과했다. **Boot 4.0.x로 내리지 않았다.**
-start.spring.io는 이 클라우드 환경의 네트워크 정책에서 막혀 있어서 프로젝트를 받지 않고 직접 구성했다 (빌드 파일·wrapper는 initializr 기본 구성과 같은 모양).
+1차와 같다. 새 의존성은 없다(OpenAI·Gemini는 SDK 없이 Spring `RestClient` + JDK HttpClient).
 
-## 실행한 검증
+| 항목 | 버전 |
+|---|---|
+| Spring Boot | 4.1.1 (Hibernate 7.4.5, Flyway 12.4.0, Jackson 3.1.5) |
+| mybatis-spring-boot-starter | 4.1.0 |
+| Anthropic Java SDK | 2.73.0 |
+| Java / Gradle | 21 / 9.8.1 |
 
-### 환경
+## 마이그레이션
 
-- 처음에는 Docker 데몬이 꺼져 있었지만 `dockerd`를 직접 띄워 Docker를 쓸 수 있었다. 그래서 **Testcontainers 테스트를 이 환경에서 그대로 돌렸다** (PostgreSQL 직접 설치는 필요 없었다).
-- 루트 `docker-compose.yml`의 `wearly-postgres`(pgvector/pgvector:pg17, PostgreSQL 17.11, vector 0.8.7)도 띄워 `bootRun`과 외부 DB 테스트 경로를 확인했다.
+| 파일 | 내용 |
+|---|---|
+| `V2__codes.sql` | `tb_code_group`·`tb_code`(계약 2장 DDL 그대로) + 초기값 7그룹 102코드(JSON 그대로, 그룹 `sort_order`는 JSON 순서대로 10~70). `tb_wardrobe_item`의 category·sub_type·color·pattern·seasons·styles·status CHECK, `tb_user_profile`의 colors·moods CHECK 삭제. 아이템 코드 컬럼을 `VARCHAR(30)`으로 넓힘(관리자 코드가 30자까지라서). `tb_outfit_item`·`tb_daily_look_item`의 item_role CHECK에 `DRESS` 추가 |
+| `V3__admin_ai.sql` | `tb_user.role`(`USER`·`ADMIN`, CHECK). `tb_ai_provider`(계약 3장 컬럼 + `enabled`면 모델 필수 CHECK) 초기값 claude(사용, `claude-opus-5-5`, `{"effort":"medium"}`)·openai·gemini(미사용, 모델 비움). `tb_ai_analysis_log.provider` CHECK 삭제·`VARCHAR(30)`, feature CHECK에 `ADMIN_TEST` 추가, 검색용 인덱스. `tb_admin_audit_log`(관리자 FK는 `ON DELETE SET NULL`) |
 
-### 테스트 결과
+V1은 고치지 않았다. 기존 데이터는 변환 없이 그대로 새 코드에 맞는다.
+
+## 테스트 결과
 
 | 명령 | 결과 |
 |---|---|
-| `LC_ALL=C.UTF-8 ./gradlew test` (Testcontainers) | **41개 전부 통과, 실패 0, 건너뜀 0** |
-| `LC_ALL=C.UTF-8 WEARLY_TEST_DB_URL=jdbc:postgresql://localhost:5433/wearly_ext_test ./gradlew test --rerun-tasks` (외부 DB 경로) | **41개 전부 통과** (컨테이너를 만들지 않고 compose DB에 붙음) |
+| `LC_ALL=C.UTF-8 ./gradlew test` (Testcontainers, `pgvector/pgvector:pg17`) | **78개 전부 통과, 실패 0, 건너뜀 0** (16개 클래스) |
 
-| 테스트 클래스 | 개수 |
-|---|---|
-| `AuthIntegrationTest` | 15 |
-| `ShortAccessTtlIntegrationTest` | 1 |
-| `ProfileIntegrationTest` | 3 |
-| `WardrobeIntegrationTest` | 8 |
-| `AiAnalyzeIntegrationTest` | 4 |
-| `AiFailureIntegrationTest` | 1 |
-| `ClaudeAiProviderTest` | 6 |
-| `MockAiProviderTest` | 2 |
-| `ImageTypesTest` | 1 |
+| 테스트 클래스 | 개수 | 2차에서 |
+|---|---|---|
+| `AuthIntegrationTest` | 15 | 그대로 |
+| `ShortAccessTtlIntegrationTest` | 1 | 그대로 |
+| `ProfileIntegrationTest` | 3 | 잘못된 색 예시를 `pink`→`rainbow` (pink는 이제 있는 코드) |
+| `WardrobeIntegrationTest` | 8 | 통계 키에 `DRESS`, 잘못된 색 예시 변경 |
+| `CodesIntegrationTest` | 5 | 새로: `/codes` 형식·ETag 304(W/·여러 값·`*`)·공개 경로, JEANS·DRESS·JUMPSUIT·denim·FLORAL·FEMININE 등록, 모르는 코드·parent 불일치 400(bulk 포함), 비활성 코드 400과 PATCH에서 안 바꾼 비활성 값 통과(아이템·프로필), 통계 키 |
+| `AdminCodeIntegrationTest` | 6 | 새로: 관리자 권한 403·401, `usageCount`, 색 CRUD·pairs 양방향(추가·제거·삭제 시)·version 변경, 사용 중 삭제 409, 검증·중복 409, 종류 비활성 시 하위 세부 종류 선택 불가, 순서 바꾸기, 변경 이력 |
+| `AdminIntegrationTest` | 7 | 새로: 시작 시 관리자 생성·JWT role, 기존 계정 승격(정지 해제)·약한 비밀번호 거부, 회원 정지 → 로그인 403·토큰 401·refresh 401·해제·역할 변경·자기 자신 400, 회원 목록·페이지, 대시보드·AI 기록 검색·상세, AI 공급자 CRUD·`keyConfigured`·`usable`·baseUrl 거부·옵션 검증, CORS 5173 |
+| `AiProviderRoutingIntegrationTest` | 6 | 새로(`db` 모드, 세 공급자 모두 가짜 서버): 우선순위 순 시도·검증 실패→5xx→성공, 사용 안 함·모델 없음·키 없음 건너뛰기, 시간 초과→다음, 전부 실패 502·각각 기록·한도 안 셈, 공급자 없음 502(목업 대체 없음)·시작 WARN/INFO 로그, 시험 분석은 사용 안 함이어도 호출·한도에 안 셈·키 미노출 |
+| `AiAnalyzeIntegrationTest` | 4 | 코드 기준 검증으로 바꿈 |
+| `AiFailureIntegrationTest` | 1 | 공급자 선택(`AiProviderRegistry`)을 가짜로 바꿔 502·실패 기록 |
+| `ClaudeAiProviderTest` | 7 | 활성 코드로 만든 프롬프트·스키마(52·22개), 비활성 코드 제외·거부 |
+| `OpenAiProviderTest` | 5 | 새로: Responses API 요청(input_text·input_image data URL·text.format json_schema strict·store false), output_text 파싱·토큰, 거절·잘림·짝 틀림, 401 키 조각 지우기·503, 시간 초과·HEIC |
+| `GeminiAiProviderTest` | 3 | 새로: generateContent 요청(x-goog-api-key 헤더·URL에 키 없음·inlineData·responseMimeType·responseJsonSchema), 생각 part 제외·토큰 합산, 차단·잘림·400 키 지우기·500 |
+| `AiModeTest` | 3 | 새로(1차 `AiProviderConfigTest` 대체): 기본 `db`, mock, 예전 claude, auto·모르는 값 시작 실패 |
+| `MockAiProviderTest` | 3 | 활성 코드에서만 고름, 비활성 종류의 세부 종류 제외 |
+| `ImageTypesTest` | 1 | 그대로 |
 
-요청받은 항목은 모두 들어 있다: 가입·중복·로그인 실패·토큰 만료(서명한 만료 토큰 + 실제 1초 TTL)·refresh 회전·재사용 감지·logout·탈퇴 후 토큰 무효·아이템 CRUD·남의 아이템 404·필터 목록·통계·bulk·analyze(mock)·일일 한도 429. 모든 통합 테스트 컨텍스트가 Flyway 마이그레이션과 `ddl-auto: validate`를 거쳐 뜬다.
+### 실제 기동 확인 (curl)
 
-### 수동 확인 (curl)
-
-- `docker compose up -d` 후 `./gradlew bootRun`: Flyway V1 적용, JPA validate 통과, 기동 약 12초.
-- 하네스와 같은 설정(`SERVER_PORT=18080 WEARLY_ACCESS_TTL=PT3S WEARLY_AI_DAILY_LIMIT=3 WEARLY_AI_PROVIDER=mock`, DB `wearly_harness`)으로 jar를 띄워 3초 뒤 `TOKEN_EXPIRED`가 나오는 것을 확인.
-- `backend/.env`의 값(`SERVER_PORT`, `WEARLY_AI_DAILY_LIMIT`)이 반영되는 것을 확인 (확인 뒤 파일 삭제).
-- `SPRING_PROFILES_ACTIVE=prod`에서 `WEARLY_JWT_SECRET`이 없으면 기동 실패하는 것을 확인.
+- `docker compose up -d` 후 빈 DB `wearly_boot`에 `WEARLY_ADMIN_EMAIL/PASSWORD`만 주고 `./gradlew bootRun`:
+  Flyway V1→V2→V3 적용, `관리자 계정을 만들었습니다`, 키가 없으니 `WARN 쓸 수 있는 AI 공급자가 없습니다…`, `코드 7개 그룹, 102개 코드` 로그 확인. 기동 약 7초.
+- `GET /codes` 200 + ETag → 같은 ETag로 304. 관리자 로그인(`user.role: ADMIN`) → 대시보드·공급자 목록(`keyConfigured:false`, `usable:false`)·회원 목록·변경 이력 200. 관리자로 색 `teal`(pairs `white`) 추가 201 → `/codes`의 version이 바뀌고 `white`의 pairs에 `teal`이 들어감, 예전 ETag는 200. 삭제 204.
+- 일반 회원: 사진 분석 502 `AI_UNAVAILABLE`(목업으로 대신하지 않음), 관리자 API 403. 시험 분석은 `{ ok:false, errorCode:"KEY_MISSING" }`.
+- `./gradlew bootRunMock`: `AI 공급자: mock (목업 실행 — DB 설정을 무시…)`, 사진 분석 200 `provider:"mock"`(새 코드 `FLORAL`·`FEMININE`이 나옴).
+- **연동 하네스**(`harness/`, 고치지 않고 실행만): 하네스 설정(18080, `PT3S`, 한도 3, mock)으로 띄우고 `./run.sh --external http://localhost:18080` → **통과 18 · 실패 2 · 건너뜀 3**. 실패 2개는 하네스가 1차 고정 목록을 기대해서다(06 계약대로 바뀐 동작):
+  - #13 통계 `byCategory`에 `DRESS: 0`이 더 있음
+  - #15 목업 제안 색 `yellow`를 허용 값으로 보지 않음 (하네스의 색 목록이 12개)
+  → 하네스의 기대값을 `/codes`(또는 06 초기값) 기준으로 바꾸면 된다. 건너뜀 3개는 `--external`이 Access 3초 TTL을 보장하지 않아서 건너뛰는 시나리오다.
 
 ## 실행하지 못한 검증
 
-- **실제 Claude API 호출**: 키가 없어 하지 못했다. 대신 SDK 클라이언트를 로컬 가짜 HTTP 서버에 붙여 실제로 나가는 요청 JSON(이미지 base64, `output_config.format` JSON 스키마 enum, `effort`, `fallbacks`)과 응답 파싱·검증·거절·API 오류 처리를 확인했다. 실제 모델이 이 스키마와 프롬프트로 좋은 값을 주는지, `fallbacks: "default"` + 베타 헤더를 서버가 받아들이는지는 키를 넣고 확인해야 한다.
-- **앱(`mobile/src/api`)·하네스(`harness/`)와의 실제 연동**: 이 브랜치(dev 기준)에는 두 폴더가 아직 없어 돌려 보지 못했다. 계약 문서만 보고 맞췄다.
-- **사용자 Mac 환경**: macOS·Docker Desktop에서의 Testcontainers 실행은 확인하지 못했다 (리눅스 Docker 29에서 확인).
-- JPA와 MyBatis를 **한 트랜잭션 안에서 섞어 쓰는 경우**는 지금 코드에 없어서 따로 시험하지 않았다 (같은 DataSource·`JpaTransactionManager`라 동작해야 한다).
+- **실제 Claude·OpenAI·Gemini 호출**: 키가 없어 못 했다. 세 어댑터 모두 로컬 가짜 HTTP 서버로 실제 나가는 요청 JSON·헤더와 응답 파싱·오류 처리만 확인했다.
+- **공식 문서 확인 방법**: 이 클라우드 환경의 네트워크 정책이 `developers.openai.com`·`platform.openai.com`·`ai.google.dev`를 막아 WebFetch로 문서 페이지를 읽지 못했다. 대신 각 사가 공개한 **기계용 공식 명세**로 확인했다.
+  - OpenAI: `openai/openai-openapi`의 `openapi.yaml`(v2.3.0) — `POST /responses`, `CreateResponse`(input·`input_text`·`input_image.image_url` data URL·`detail`), `text.format`(`type: json_schema`, `name`, `schema`, `strict`), `max_output_tokens`·`temperature`·`store`, `Response`(`status`·`incomplete_details.reason`·`output[].type=message`·`output_text`·`refusal`), `usage.input_tokens/output_tokens`, 오류 `{ error: { message } }`, Bearer 인증.
+  - Gemini: `generativelanguage.googleapis.com/$discovery/rest?version=v1beta` — `models.generateContent`(`v1beta/{model}:generateContent`), `contents[].parts[].inlineData{mimeType,data}`, `generationConfig.responseMimeType`·`responseJsonSchema`·`maxOutputTokens`·`temperature`, `candidates[].finishReason`·`content.parts[].thought`, `promptFeedback.blockReason`, `usageMetadata.promptTokenCount/candidatesTokenCount/thoughtsTokenCount`, `modelVersion`. `x-goog-api-key` 헤더는 Google 공식 `google-genai` 파이썬 SDK(2.31.0)가 쓰는 방식으로 확인.
+  - 실제 키로 한 번씩 확인이 필요하다: OpenAI strict 스키마가 52개 enum을 그대로 받는지, Gemini `responseJsonSchema`가 이 스키마(enum·required)를 받는지, 각 모델의 이미지 품질·지연·토큰.
+- **사용자 Mac**: macOS·Docker Desktop에서 Testcontainers·`bootRun`은 확인하지 못했다(리눅스 Docker 29에서 확인).
+- **앱·관리자 사이트 연동**: `mobile/`·`admin/`은 범위 밖이라 붙여 보지 않았다(하네스만 위처럼 실행).
 
 ## 계약과 다르게(또는 빈틈을 채워) 정한 점
 
-계약 문서는 고치지 않았다. 아래는 계약에 없거나 모호해서 정한 것이다.
+### 공급자 선택·호출 (07 문서 3장)
 
-1. **추가 오류 코드**: 계약 표에 없는 상황용으로 `FORBIDDEN`(403), `METHOD_NOT_ALLOWED`(405), `UNSUPPORTED_MEDIA_TYPE`(415, JSON 엔드포인트에 Content-Type이 틀린 경우), `INTERNAL_ERROR`(500)를 같은 JSON 형식으로 낸다. 없는 경로는 인증 후 404 `NOT_FOUND`.
-2. **`/auth/refresh`에 토큰이 없거나 빈 문자열**이면 400이 아니라 401 `REFRESH_INVALID` (계약 표의 "Refresh 토큰 없음"을 따름).
-3. **공개 경로(`/api/v1/auth/**`)는 Authorization 헤더를 무시**한다. 앱이 만료된 Access 토큰을 붙인 채 refresh를 불러도 막히지 않게 하려는 것.
-4. **JWT 시계 오차 허용 0초**. Spring 기본값(60초)이면 하네스의 `PT3S` 만료가 1분 동안 안 일어난다.
-5. **ID 경로 변수가 숫자가 아니면 404** (예: `/wardrobe/items/abc`).
-6. **시각 형식**: `createdAt`은 밀리초까지 ISO-8601 UTC (`2026-10-17T03:39:37.430Z`). 계약 예시(`…T03:00:00Z`)처럼 초 단위로 자르지는 않았다. JS `Date`는 둘 다 읽는다.
-7. **검증 길이** (계약에 없음): 아이템 `name` 1~40자, `brand` 최대 40자, `wornCount` ≥ 0. `seasons`·`styles`는 빈 배열 허용, 중복은 제거하고 순서는 지킨다. 프로필 `workDays`는 중복 제거 후 오름차순으로 저장한다.
-8. **프로필**: 저장 전 GET의 `name`은 기본값 "웨어리 사용자"가 아니라 **가입한 회원 이름**을 준다 (나머지는 `DEFAULT_PROFILE`과 같음). `PUT`에서 `onboarded`를 빼면 `true`로 저장한다. 이름은 `tb_user.name`에만 두고 프로필 테이블에는 따로 두지 않는다.
-9. **PATCH 의미**: 보낸 필드만 덮어쓰고, `null`을 보내면 그 값을 비운다(`brand`, `lastWornAt`). 필수 필드에 `null`을 보내면 400. 병합 결과에 등록과 같은 검증(짝 검증 포함)을 한다. `id`·`createdAt` 등 모르는 필드는 무시한다.
-10. **bulk**: 빈 배열은 201 + 빈 목록. 하나라도 틀리면 아무것도 저장하지 않고 400 (`field`는 `items[3].subType` 형태).
-11. **목록 정렬**: `recent` = 등록 최신순, `worn` = 착용 횟수 많은 순 → 최근 착용일 → id, `name` = `lower(name) COLLATE "C"` (가나다·유니코드 순). DB의 glibc `en_US.utf8` 정렬은 한글 순서가 어긋나서(화 < 블 < 숫자) 로케일과 무관한 정렬을 골랐다. 영문은 대소문자 무시. 잘못된 `category`·`status`·`color`·`sort` 값은 400. `q`는 이름·브랜드 대소문자 무시 부분 일치, `%`·`_`는 글자 그대로 찾는다.
-12. **통계 날짜 기준** (Asia/Seoul): `wornLast30Days` = 마지막 착용일이 오늘 포함 최근 30일(오늘-29일 ~ 오늘). `sleeping` = 한 번도 안 입었거나 마지막 착용일이 오늘-60일보다 이전, 안 입은 것·오래된 것부터 최대 10개, 상태(세탁·수선 중)와 상관없이 포함. `byColor`·`byStyle`은 개수가 같으면 코드 알파벳순. `utilization30d`는 반올림(HALF_UP) 소수 둘째 자리, 아이템이 없으면 0.
-13. **AI 분석**
-    - 형식: 파트의 Content-Type이 jpeg(jpg)·png·webp·heic(heif)이면 받고, 없거나 `application/octet-stream`이면 첫 바이트로 판별한다. 그 밖은 400 `VALIDATION_FAILED`(`field: image`). 빈 파일·파트 없음도 400.
-    - 크기: 정확히 10MB(10,485,760바이트)까지 허용, 넘으면 413. multipart 한도(`max-file-size: 10MB`)와 서비스 검사 둘 다 둔다.
-    - 한도는 호출 전 확인한다. 동시에 여러 요청이 오면 한도를 1~2회 넘길 수 있다 (락 없음, Redis 요청 제한은 범위 밖).
-    - 공급자 실패도 `tb_ai_analysis_log`에 `status='FAILED'`와 `error_code`로 남기되 한도에는 세지 않는다. 로그에는 이미지 대신 SHA-256과 바이트 수를 남긴다.
-    - **HEIC + Claude**: Claude 비전 API는 HEIC를 받지 않는다. Claude 공급자일 때 HEIC 사진은 502 `AI_UNAVAILABLE`가 된다 (목업은 정상). → 앱에서 JPEG로 바꿔 보내는 것을 권장 (아래 보강 항목).
-    - Claude 응답 `name`이 40자를 넘으면 잘라서 쓴다 (프롬프트는 20자 이내를 요청). 나머지 허용 목록 밖 값·짝 불일치·범위 밖 숫자는 거부 → 502.
-    - 응답 `model`은 실제로 응답한 모델 ID다 (폴백 시 설정값과 다를 수 있음).
-14. **Claude 요청 구성**: 모델 `claude-opus-5-5`(설정 가능), `max_tokens` 16000, thinking 파라미터는 보내지 않음(Opus 5.5는 항상 적응형 사고), `output_config.effort`는 `medium`(`WEARLY_AI_EFFORT`로 변경), 구조화 출력은 `output_config.format`의 JSON 스키마에 허용 값을 `enum`으로 넣음. 거절(refusal) 대비로 **서버 측 폴백**(`fallbacks: "default"`, 베타 헤더 `server-side-fallback-2026-07-01`)을 켰다. 원치 않으면 `ClaudeAiProvider.buildParams`에서 두 줄을 지우면 된다.
-15. **스키마 세부**
-    - `tb_user.status`는 `ACTIVE`·`SUSPENDED`. 탈퇴는 상태 변경이 아니라 행 삭제(하위 데이터 CASCADE)다.
-    - `tb_user_profile`·`tb_user_local_credential`도 identity PK를 두고 `user_id`는 UNIQUE.
-    - 테이블만 만든 것들(코디·피드백·예정일·착용 기록·진단·리포트·이미지·취향)의 컬럼은 앱 `types.ts` 모양을 보고 정했다. 2차 API에서 바뀔 수 있다.
-    - `vector` 확장은 DB에 설치돼 있을 때만 만든다 (`pg_available_extensions` 확인). 지금은 vector 컬럼이 없다.
+1. **`WEARLY_AI_PROVIDER`**: `db`(새 기본)·`mock`. 1차 기본값 `claude`는 `db`로 받는다(기존 `.env` 호환, 초기값에서 claude가 우선순위 1이라 같은 동작). `auto`·모르는 값은 시작 실패(안내는 `AiProviderFailureAnalyzer`). 1차의 "claude인데 키 없으면 시작 실패" 규칙과 테스트는 없앴다. `WEARLY_AI_MODEL`·`WEARLY_AI_EFFORT`도 없앴다(공급자 행에서 바꾼다).
+2. **다음 공급자로 넘어가는 실패**: 계약 예시(시간 초과·5xx·응답 검증 실패)뿐 아니라 **4xx(키 오류 등)·네트워크·거절·잘림·지원하지 않는 이미지 형식까지 모두** 넘어간다. 한 공급자 설정 실수로 분석 전체가 멈추지 않게.
+3. **공급자가 없을 때 502**는 호출이 없으므로 `tb_ai_analysis_log`에 남기지 않는다(WARN 로그만).
+4. **키 환경변수 이름**은 `^[A-Z][A-Z0-9_]*_API_KEY$`만 받는다. 관리자가 `SPRING_DATASOURCE_PASSWORD`·`WEARLY_JWT_SECRET` 같은 서버 비밀을 공급자에게 보내게 만들지 못하게.
+5. **`options.baseUrl`은 `WEARLY_AI_ALLOW_BASE_URL=true`일 때만** 받는다(기본 false). false면 관리자 API가 400으로 거부하고, DB에 값이 있어도 무시해 키가 공식 주소로만 나간다. 테스트(가짜 서버)만 켠다.
+6. **키 미노출**: 키는 Spring `Environment`(환경변수·`.env`)에서 호출 직전에만 읽는다. 공급자 오류 메시지는 키 값과 키 모양 문자열(`sk-…`, `AIza…`, 가린 키 `sk-ab***yz` 포함)을 지운 뒤에만 로그·시험 분석 응답에 넣는다. 관리자 응답에는 `apiKeyEnv`(이름)와 `keyConfigured`만.
+7. **공급자 ID**: 영문 소문자로 시작하는 소문자·숫자·`_`·`-` 1~30자. `mock`은 목업 응답과 겹쳐 예약. 중복은 409 **`PROVIDER_EXISTS`**(계약에 없는 코드). POST의 `type`은 CLAUDE·OPENAI·GEMINI만(`MOCK`은 DB CHECK에는 남겨 두었고, 직접 넣은 행은 목업으로 동작). priority 기본값은 지금 최대값+1, 범위 0~10000.
+8. **options** (`GET /admin/ai/types`): CLAUDE `effort`(low~max, 기본 medium)·`maxTokens`(기본 16000)·`timeoutSeconds`·`baseUrl` / OPENAI `temperature`(넣을 때만 보냄)·`maxTokens`(→`max_output_tokens`, 기본 16000)·`timeoutSeconds`·`baseUrl` / GEMINI `temperature`·`maxTokens`(→`maxOutputTokens`, 기본 16000)·`timeoutSeconds`·`baseUrl`. 모르는 키·형식 오류는 400(`options.키`). `null` 값은 "기본값"으로 보고 지운다. type을 바꾸면 기존 options를 새 type 기준으로 다시 검사한다.
+9. **OpenAI**: Responses API, user 메시지 하나에 `input_text`(프롬프트)+`input_image`(data URL, `detail: auto`), `text.format` strict 스키마(`additionalProperties:false`), `store:false`. 재시도 없음. HEIC는 보내지 않고 `UNSUPPORTED_MEDIA`로 다음 공급자.
+10. **Gemini**: 키는 URL `key=` 쿼리 대신 `x-goog-api-key` 헤더(URL이 로그에 남지 않게). `responseJsonSchema`(JSON Schema)를 쓰고 `additionalProperties`는 넣지 않는다(서버 검증이 대신). 출력 토큰 = `candidatesTokenCount + thoughtsTokenCount`, `thought:true` part는 결과에서 뺀다. 모델은 `gemini-x`·`models/gemini-x` 둘 다. **HEIC를 받는 유일한 공급자**라 iOS 사진은 Claude·OpenAI가 넘기고 Gemini가 받을 수 있다.
+11. **Claude**: 1차 그대로(SDK, `output_config.format`·effort·서버 측 폴백 `fallbacks:"default"`). SDK 재시도는 1차처럼 2회. 모델·effort·max_tokens·제한 시간·baseUrl은 공급자 행에서.
+12. **집계 기준**: 공급자 목록 `today`와 대시보드 `aiToday`·`aiByProvider7d`는 **모든 기능(사진 분석 + 시험 분석)**을 센다(비용·장애 확인용). 회원 목록 `aiToday`는 한도와 같은 기준(오늘 성공한 회원 사진 분석). 대시보드 7일은 한국 날짜로 오늘 포함 7일(오늘-6일 0시부터).
+13. **시험 분석**: 목업 실행이어도 그 행의 실제 공급자를 부른다(비교가 목적). 사용 여부는 보지 않는다. 모델이 없거나 키가 비면 호출·기록 없이 200 `{ ok:false, errorCode:"MODEL_MISSING" | "KEY_MISSING" }`. 사진 형식 오류는 400.
+
+### 코드 (06 문서, 07 문서 4장)
+
+14. **코드 형식**: COLOR `^[a-z][a-z0-9_]{0,29}$`, 그 밖 `^[A-Z][A-Z0-9_]{0,29}$`(영문으로 시작해야 함).
+15. **attrs**: 그룹에 없는 키는 400(`attrs.키`). 필수 — CATEGORY `slot`(없으면 null), SUB_TYPE `volume`·`warmth`·`shape`, COLOR `hex`·`neutral`·`light`(`pairs` 없으면 []), ITEM_STATUS `recommendable`. PATTERN·SEASON·STYLE은 빈 객체만. `hex`는 대문자로, `pairs`는 중복 제거·알파벳순·자기 자신 금지로 저장.
+16. **pairs 양방향**: 색을 추가·수정하면 내 pairs에 있는 색에는 나를 넣고, 없는 색에서는 나를 뺀다. 색을 지우면 모든 색의 pairs에서 뺀다. 상대 색 변경은 `CODE_PAIRS_SYNC` 이력으로 따로 남긴다.
+17. **parent**: SUB_TYPE만, 필수(있는 CATEGORY 코드, 비활성이어도 됨). 다른 그룹에 보내면 400.
+18. **삭제 409 `CODE_IN_USE`**: 쓰는 아이템, 쓰는 프로필(COLOR→colors, STYLE→moods), CATEGORY는 하위 SUB_TYPE이 있을 때도. 메시지에 이유와 개수를 넣는다. (테이블만 있는 코디·착용 기록·`tb_planned_outfit.concepts`·`tb_user_style`은 보지 않는다. V1의 `ck_planned_outfit_concepts`·`ck_user_style_code`는 계약 목록에 없어 남겨 두었다.)
+19. **순서**: 그룹의 코드 전부를 한 번씩 보내야 한다(빠짐·중복·모르는 코드 400). 응답은 그 순서의 코드 배열.
+20. **PATCH**: 보낸 필드만, `attrs`는 통째로. `code`를 다른 값으로 보내면 400. 실제로 바뀐 게 없으면 이력·캐시 갱신도 없다(version 그대로).
+21. **version** = `tb_code`의 `max(updated_at)`(마이크로초 ISO) + `#` + 코드 수. 응답 `ETag: "<version>"`, `Cache-Control: no-cache`. `If-None-Match`는 여러 값·약한 비교(`W/`)·`*`를 받는다. CORS에 `If-None-Match` 요청 헤더와 `ETag` 노출을 더했다.
+22. **`/codes` 공개 응답**에는 그룹 `description`을 넣지 않는다(계약 예시 모양). 만료된 Authorization 헤더가 붙어 와도 무시한다.
+23. **"새로 고르는 값"**: 등록·bulk는 모두 새 값. PATCH는 저장값과 같으면 비활성이어도 통과(안 보낸 필드도, 같은 값을 다시 보낸 필드도). 배열은 원소마다 저장된 배열에 있었는지로 본다. 프로필 PUT도 저장돼 있던 colors·moods는 통과. 비활성 = `active=false` 또는 SUB_TYPE의 상위 CATEGORY가 비활성. 메시지: 모르는 값 "허용되지 않는 값이에요.", 비활성 "더 이상 고를 수 없는 값이에요.", 짝 "카테고리와 맞지 않는 세부 종류예요."
+24. **필터**(`category`·`status`·`color`)는 비활성 코드도 받는다. 모르는 값만 400.
+25. **통계 키 순서**: 코드 `sort_order` 순. 코드 테이블에 없는 값이 데이터에 남아 있으면(직접 넣은 경우) 맨 뒤에 붙인다.
+
+### 관리자·회원 (07 문서 2·4장)
+
+26. **권한은 요청마다 DB 역할**로 판단한다. JWT `role` 클레임은 관리자 사이트 표시용. 역할을 바꾸면 기존 토큰에도 바로 반영된다.
+27. **정지**: 로그인은 비밀번호가 맞을 때만 403 `ACCOUNT_SUSPENDED`(틀리면 401 `INVALID_CREDENTIALS`). 기존 토큰 401 `TOKEN_INVALID`, refresh 401 `REFRESH_INVALID`(회원 상태 확인으로 막는다. Refresh 행을 따로 폐기하지는 않는다 — 해제하면 기존 refresh가 다시 쓰인다). 자기 자신 정지·역할 내리기는 400.
+28. **시작 시 관리자**: 이미 있는 계정은 역할을 올리고 정지돼 있으면 ACTIVE로 되돌린다. 비밀번호·이름은 바꾸지 않는다. 새로 만들 때 비밀번호가 가입 규칙(8~64자, 영문+숫자)에 안 맞으면 만들지 않고 WARN. 이름은 20자로 자른다. 이력은 `ADMIN_BOOTSTRAP_CREATE`·`ADMIN_BOOTSTRAP_PROMOTE`(관리자 ID null).
+29. **AI 기록 검색**: `from`·`to`는 `YYYY-MM-DD`(한국 날짜, to는 그날 끝까지) 또는 ISO-8601 시각. `userEmail` 부분 일치(대소문자 무시). 계약에 없는 `feature`(`ITEM_ANALYZE`·`ADMIN_TEST`) 필터를 더했다. 결과 요약은 `"이름 (종류/세부 종류, 색)"`.
+30. **변경 이력 action**: `CODE_CREATE`·`CODE_UPDATE`·`CODE_PAIRS_SYNC`·`CODE_REORDER`(targetId = 그룹)·`CODE_DELETE`, `AI_PROVIDER_CREATE`·`_UPDATE`·`_DELETE`, `USER_UPDATE`, `ADMIN_BOOTSTRAP_*`. 코드 targetId는 `GROUP:CODE`. 이력은 변경과 같은 트랜잭션에 저장(함께 커밋·롤백). `targetType` 필터는 `CODE`·`AI_PROVIDER`·`USER`, 그 밖은 400.
+31. **페이지**: `page`<0, `size` 1~100 밖은 400. 공급자 목록(`/admin/ai/providers`)은 계약대로 배열(페이지 없음).
+
+## 앱·관리자 사이트가 알아야 할 응답 형식
+
+```ts
+// GET /api/v1/codes  (공개, ETag)
+interface CodesResponse { version: string; groups: { group: string; name: string; codes: Code[] }[] }
+interface Code { code: string; label: string; parent: string | null; sortOrder: number; active: boolean; attrs: Record<string, unknown> }
+// GET /api/v1/admin/codes: 같은 모양 + groups[].description: string, codes[].usageCount: number
+
+// UserDto (로그인·가입·refresh 응답 user, GET /users/me)
+interface UserDto { id: string; email: string | null; name: string; role: 'USER' | 'ADMIN'; createdAt: string }
+
+// AnalyzeResponse.provider: 공급자 ID 문자열 ("claude" | "openai" | "gemini" | 관리자가 만든 ID | "mock")
+// ItemDto·ItemInput·WardrobeStats·AiSuggestion의 속성 값: 코드 문자열 (byCategory·byStatus는 Record<string, number>)
+
+// 목록 공통
+interface Page<T> { items: T[]; page: number; size: number; total: number }
+
+// GET /admin/dashboard
+interface Dashboard { users: number; newUsers7d: number; items: number;
+  aiToday: { total: number; success: number; failed: number };
+  aiByProvider7d: { providerId: string; success: number; failed: number; avgLatencyMs: number | null; inputTokens: number; outputTokens: number }[] }
+
+// GET /admin/ai/providers → ProviderDto[]
+interface ProviderDto { providerId: string; type: 'CLAUDE' | 'OPENAI' | 'GEMINI'; displayName: string; model: string | null;
+  apiKeyEnv: string; keyConfigured: boolean; enabled: boolean; priority: number; options: Record<string, unknown>;
+  usable: boolean; today: { success: number; failed: number } }
+// POST /admin/ai/providers/{id}/test
+interface ProviderTestResult { ok: boolean; suggestion: AiSuggestion | null; errorCode: string | null; errorMessage: string | null;
+  latencyMs: number; inputTokens: number | null; outputTokens: number | null; model: string | null }
+// GET /admin/ai/types
+interface ProviderTypeInfo { type: string; displayName: string; defaultApiKeyEnv: string;
+  options: { key: string; type: 'enum' | 'integer' | 'number' | 'url'; description: string; defaultValue: unknown;
+             min: number | null; max: number | null; values: string[] | null }[] }
+
+// GET /admin/ai/logs → Page<AiLogItem>, GET /admin/ai/logs/{id} → AiLogItem + { imageSha256, result }
+interface AiLogItem { id: string; createdAt: string; userId: string; userEmail: string | null; feature: 'ITEM_ANALYZE' | 'ADMIN_TEST';
+  providerId: string; model: string | null; status: 'SUCCESS' | 'FAILED'; latencyMs: number; inputTokens: number | null;
+  outputTokens: number | null; imageBytes: number | null; resultSummary: string | null; errorCode: string | null }
+
+// GET /admin/users → Page<UserItem>, PATCH /admin/users/{id} → UserItem
+interface UserItem { id: string; email: string | null; name: string; role: 'USER' | 'ADMIN'; status: 'ACTIVE' | 'SUSPENDED';
+  createdAt: string; itemCount: number; aiToday: number }
+
+// GET /admin/audit-logs → Page<AuditItem>
+interface AuditItem { id: string; adminUserId: string | null; adminEmail: string | null; action: string; targetType: string;
+  targetId: string; before: object | null; after: object | null; createdAt: string }
+```
+
+새 오류 코드: 403 `ACCOUNT_SUSPENDED`, 409 `CODE_EXISTS`·`CODE_IN_USE`·`PROVIDER_EXISTS`. 관리자 API의 403은 1차부터 있던 `FORBIDDEN`. 코드 PUT order 응답은 그 순서의 `Code[]`, 코드 POST·PATCH 응답은 `Code` 하나(usageCount 없음).
 
 ## 로컬에서 보강이 필요한 점
 
-1. **Mac에서 `./gradlew test`** 한 번 돌려 Testcontainers가 Docker Desktop에서 뜨는지 확인 (처음엔 `pgvector/pgvector:pg17` 이미지를 받는다).
-2. **앱·하네스 연동**: `mobile/src/api`와 `harness/`를 이 브랜치와 합친 뒤 하네스 시나리오를 돌려 계약 차이가 없는지 확인. 특히 위 "정한 점" 2·6·8·9·11·13번이 앱 기대와 맞는지.
-3. **Claude 실제 호출**: `backend/.env`에 `ANTHROPIC_API_KEY`를 넣고 실제 옷 사진 몇 장으로 분석 품질·지연·토큰 수 확인. `effort`(`low`/`medium`)와 프롬프트 조정이 필요할 수 있다. 서버 측 폴백 베타가 이 계정에서 받아들여지는지도 확인.
-4. **HEIC**: iOS 사진은 HEIC가 많다. 앱에서 `expo-image-manipulator` 등으로 JPEG로 바꿔 올리면 Claude 공급자에서도 동작한다 (서버 변환은 하지 않았다).
-5. **운영 준비**(범위 밖으로 남긴 것): 소셜 로그인, AI 한도의 동시성 보장(Redis/Bucket4j 또는 DB 락), 로그 마스킹, `WEARLY_JWT_SECRET` 비밀 관리, CORS origin 운영 값, PostgreSQL RLS.
-6. 리눅스 CI에서 돌릴 때는 `LC_ALL=C.UTF-8`을 준다 (한글 테스트 이름 보고서 파일 생성 문제).
+1. **브랜치 정리**: `feat/backend-admin`(다른 세션)과 `claude/wearly-backend-admin-kocdh2`(이 세션) 중 하나를 골라 dev에 합친다. 둘 다 합치면 V2·V3가 충돌한다.
+2. **하네스 기대값 갱신**: `harness/`의 통계 `byCategory` 기대값에 `DRESS`, 허용 색 목록을 22색(또는 `/codes` 기준)으로. 그 뒤 `./run.sh`(3초 TTL 포함 전체)로 다시 확인.
+3. **실제 키로 확인**: `backend/.env`에 `ANTHROPIC_API_KEY`(·`OPENAI_API_KEY`·`GEMINI_API_KEY`)와 `WEARLY_ADMIN_*`를 넣고, 관리자 화면에서 openai·gemini 행에 모델을 넣어 **시험 분석**으로 세 공급자를 같은 사진으로 비교한다. OpenAI strict 스키마·Gemini `responseJsonSchema`가 이 스키마를 그대로 받는지 여기서 처음 확인된다.
+4. **Mac에서 `./gradlew test`** (Docker Desktop의 Testcontainers).
+5. **운영 준비**(범위 밖으로 남긴 것): 관리자 2단계 인증·IP 제한, 정지 시 Refresh 행 폐기 여부, AI 한도 동시성(Redis·DB 락), 코드 캐시의 다중 서버 무효화(지금은 서버 한 대 기준 메모리 캐시 — 서버를 여러 대 띄우면 다른 서버의 캐시는 재시작 전까지 옛 값), 공급자별 비용 단가.
+6. 리눅스 CI는 `LC_ALL=C.UTF-8`.

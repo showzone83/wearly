@@ -60,11 +60,11 @@ tasks.withType<Test> {
     }
 }
 
-// 기본 ./gradlew bootRun은 실제 Claude만 쓴다 (ANTHROPIC_API_KEY 없으면 시작 실패).
-// 목업 공급자는 이 태스크로만 켠다: ./gradlew bootRunMock
+// 기본 ./gradlew bootRun은 관리자 화면의 AI 공급자 설정(tb_ai_provider)을 우선순위 순으로 쓴다
+// (쓸 수 있는 공급자가 없으면 시작 WARN, 사진 분석은 502). 목업 공급자는 이 태스크로만 켠다: ./gradlew bootRunMock
 tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunMock") {
     group = "application"
-    description = "AI 공급자를 목업으로 바꿔 서버를 띄운다 (WEARLY_AI_PROVIDER=mock)"
+    description = "AI 공급자를 목업으로 바꿔 서버를 띄운다 (WEARLY_AI_PROVIDER=mock, DB 공급자 설정 무시)"
     // bootRun 태스크를 거치지 않고 같은 클래스패스·메인 클래스를 쓴다 (bootRun에 의존하면 bootRun이 먼저 실행된다)
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("app.wearly.WearlyApplication")
