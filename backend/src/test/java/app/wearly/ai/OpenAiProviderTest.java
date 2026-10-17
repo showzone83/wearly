@@ -3,7 +3,7 @@ package app.wearly.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import app.wearly.ai.adapter.out.ai.SuggestionParser;
+import app.wearly.ai.adapter.out.ai.JsonObjectParser;
 import app.wearly.ai.adapter.out.ai.openai.OpenAiProvider;
 import app.wearly.ai.domain.AiImage;
 import app.wearly.ai.domain.AiProviderException;
@@ -51,7 +51,7 @@ class OpenAiProviderTest {
             0.2,
             null,
             JSON,
-            new SuggestionParser(JSON));
+            new JsonObjectParser(JSON));
   }
 
   @AfterEach
@@ -180,7 +180,7 @@ class OpenAiProviderTest {
             null,
             "low",
             JSON,
-            new SuggestionParser(JSON));
+            new JsonObjectParser(JSON));
     server.delay(1500).respond(200, response(ClaudeAiProviderTest.validSuggestion()));
     assertThatThrownBy(() -> slow.analyze(image(), codes))
         .isInstanceOf(AiProviderException.class)

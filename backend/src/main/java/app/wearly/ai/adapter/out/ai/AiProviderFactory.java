@@ -27,14 +27,14 @@ public class AiProviderFactory implements AiModelFactoryPort {
 
   private final WearlyProperties.Ai props;
   private final JsonMapper jsonMapper;
-  private final SuggestionParser parser;
+  private final JsonObjectParser parser;
   private final MockAiProvider mock = new MockAiProvider();
   private final Map<String, AiModelPort> cache = new ConcurrentHashMap<>();
 
   public AiProviderFactory(WearlyProperties properties, JsonMapper jsonMapper) {
     this.props = properties.ai();
     this.jsonMapper = jsonMapper;
-    this.parser = new SuggestionParser(jsonMapper);
+    this.parser = new JsonObjectParser(jsonMapper);
   }
 
   @Override

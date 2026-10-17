@@ -3,7 +3,7 @@ package app.wearly.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import app.wearly.ai.adapter.out.ai.SuggestionParser;
+import app.wearly.ai.adapter.out.ai.JsonObjectParser;
 import app.wearly.ai.adapter.out.ai.gemini.GeminiAiProvider;
 import app.wearly.ai.domain.AiImage;
 import app.wearly.ai.domain.AiProviderException;
@@ -55,7 +55,7 @@ class GeminiAiProviderTest {
         null,
         schemaField,
         JSON,
-        new SuggestionParser(JSON));
+        new JsonObjectParser(JSON));
   }
 
   @Test

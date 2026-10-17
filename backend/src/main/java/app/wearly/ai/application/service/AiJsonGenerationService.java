@@ -57,7 +57,7 @@ public class AiJsonGenerationService implements JsonGenerationUseCase {
             command.instructions(),
             command.prompt(),
             command.schema(),
-            command.mockOutput());
+            command.mockOutput() == null ? null : command::mockOutput);
     for (AiModelPort provider : candidates) {
       long started = System.nanoTime();
       AiJsonResult received = null;

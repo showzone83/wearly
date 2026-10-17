@@ -3,7 +3,7 @@ package app.wearly.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import app.wearly.ai.adapter.out.ai.SuggestionParser;
+import app.wearly.ai.adapter.out.ai.JsonObjectParser;
 import app.wearly.ai.adapter.out.ai.claude.ClaudeAiProvider;
 import app.wearly.ai.domain.AiImage;
 import app.wearly.ai.domain.AiProviderException;
@@ -75,7 +75,7 @@ class ClaudeAiProviderTest {
             "claude-opus-5-5",
             "medium",
             16000,
-            new SuggestionParser(JSON),
+            new JsonObjectParser(JSON),
             "test-key");
   }
 

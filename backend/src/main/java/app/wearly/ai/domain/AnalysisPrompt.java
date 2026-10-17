@@ -9,8 +9,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 세 공급자가 같이 쓰는 프롬프트와 JSON 스키마. 허용 값은 활성(고를 수 있는) 코드에서 만든다 (06 문서 4장 "AI 분석"). 프롬프트에는 코드와 한국어 라벨을 함께
- * 주고, 세부 종류는 종류별로 묶는다.
+ * 사진 분석 프롬프트와 JSON 스키마 (공급자와 무관, M1). 세 공급자가 같은 것을 받는다. 허용 값은 활성(고를 수 있는) 코드에서 만든다 (06 문서 4장 "AI
+ * 분석"). 프롬프트에는 코드와 한국어 라벨을 함께 주고, 세부 종류는 종류별로 묶는다.
  */
 public final class AnalysisPrompt {
 
@@ -43,7 +43,20 @@ public final class AnalysisPrompt {
       사진이 흐리거나 옷이 아니면 가장 가까운 값을 고르고 confidence를 낮게 준다.
       """;
 
+  /** 구조화 출력 스키마 이름 (OpenAI text.format.name) */
+  public static final String SCHEMA_NAME = "wardrobe_item";
+
   private AnalysisPrompt() {}
+
+  /** 사진 분석 요청: 시스템 지시 없이 프롬프트 + 허용 값 스키마. 목업 응답은 사진 해시로 만든다 */
+  public static AiJsonPrompt request(AiImage image, CodeSnapshot codes) {
+    return new AiJsonPrompt(
+        SCHEMA_NAME,
+        null,
+        prompt(codes),
+        schema(codes),
+        () -> MockSuggestions.plan(image.sha256(), codes));
+  }
 
   public static String prompt(CodeSnapshot codes) {
     List<CodeEntry> categories = codes.selectableCodes(CodeGroups.CATEGORY);
