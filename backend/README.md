@@ -45,7 +45,7 @@ cp .env.example .env   # 처음 한 번. 필요한 값만 채운다 (기본값�
 | `WEARLY_REFRESH_TTL` | `P30D` | Refresh 토큰 수명 |
 | `WEARLY_AI_PROVIDER` | `auto` | `mock` · `claude` · `auto`(키가 있으면 Claude) |
 | `WEARLY_AI_MODEL` | `claude-opus-5-5` | Claude 모델 ID |
-| `WEARLY_AI_DAILY_LIMIT` | `10` | 회원별 하루 AI 분석 횟수 (Asia/Seoul 날짜, 성공만 센다) |
+| `WEARLY_AI_DAILY_LIMIT` | `10` | 회원별 하루 AI 분석 횟수 (Asia/Seoul 날짜, 성공만 센다. 동시 요청에도 넘지 않는다) |
 | `WEARLY_AI_EFFORT` | `medium` | Claude `output_config.effort` (`low`~`max`) |
 | `WEARLY_AI_TIMEOUT` | `PT60S` | Claude 호출 제한 시간 |
 | `ANTHROPIC_API_KEY` | (없음) | Claude API 키. 서버에만 둔다 |
@@ -76,9 +76,11 @@ cp .env.example .env   # 처음 한 번. 필요한 값만 채운다 (기본값�
 | `ShortAccessTtlIntegrationTest` | Access 수명 1초로 띄워 실제 만료 후 refresh |
 | `ProfileIntegrationTest` | 저장 전 기본값(`DEFAULT_PROFILE`)·`onboarded:false`, PUT 저장과 이름 동기화, 검증 |
 | `WardrobeIntegrationTest` | CRUD·PATCH 병합, 남의 아이템 404, 카테고리·세부 종류 짝, 필터·정렬·검색(LIKE 이스케이프), 통계, bulk 순서·100개 제한·전부 아니면 전무, MyBatis TEXT[] 매핑 |
-| `AiAnalyzeIntegrationTest` | 목업 결정성, 일일 한도 429, 10MB 초과 413, 형식·파트 검증, MyBatis JSONB 매핑 |
+| `AiAnalyzeIntegrationTest` | 목업 결정성, 일일 한도 429, 동시 요청 8건 → 성공 3건(한도 3), 오래된 PENDING 제외, 10MB 초과 413, 형식·파트 검증, MyBatis JSONB 매핑 |
 | `AiFailureIntegrationTest` | 공급자 오류 502, 실패는 한도에 안 셈 |
 | `ClaudeAiProviderTest` 등 | Claude 요청 구성·응답 검증, 목업 짝 보장, 이미지 형식 판별 |
+| `JpaMyBatisTransactionIntegrationTest` | 트랜잭션 매니저·DataSource가 하나, 한 트랜잭션에서 JPA가 쓴 미커밋 값을 MyBatis가 읽고 롤백하면 함께 사라짐 |
+| `ErrorFormatIntegrationTest` | 방화벽이 거절한 URL 등 `/error`로 가는 오류도 계약 형식 |
 
 ## JPA와 MyBatis 분담
 
@@ -89,10 +91,18 @@ cp .env.example .env   # 처음 한 번. 필요한 값만 채운다 (기본값�
 | 회원·자격 증명·Refresh 토큰 | `User`, `LocalCredential`, `RefreshToken` | |
 | 프로필 | `UserProfile` (TEXT[]·SMALLINT[]는 `@JdbcTypeCode(SqlTypes.ARRAY)`, 알림 JSONB는 `SqlTypes.JSON`) | |
 | 옷장 | 등록·bulk·PATCH·삭제·단건 조회 (`WardrobeItem`) | 동적 필터 목록, `/wardrobe/stats` 집계 (`WardrobeQueryMapper.xml`) |
-| AI | 호출 기록 저장 (`AiAnalysisLog`, 결과 JSONB) | 일일 사용량 집계, 최근 기록 조회 (`AiUsageMapper.xml`) |
+| AI | 호출 기록 저장 (`AiAnalysisLog`, 결과 JSONB), 한도 확인 때 회원 행 잠금 | 일일 사용량 집계, 최근 기록 조회 (`AiUsageMapper.xml`) |
 
 - 매퍼 XML: `src/main/resources/mapper/*.xml`
 - TypeHandler (`app.wearly.common.mybatis`): `StringListArrayTypeHandler`(TEXT[] ↔ `List<String>`), `JsonbMapTypeHandler`(JSONB ↔ `Map`). 매퍼의 `resultMap`에서 `typeHandler`로 지정한다.
+
+### AI 일일 한도
+
+1. 회원 행을 잠근 트랜잭션(`SELECT ... FOR UPDATE`)에서 오늘 쓴 횟수를 MyBatis로 센다. 한도면 429.
+2. 남았으면 `tb_ai_analysis_log`에 `PENDING` 기록을 남겨 자리를 잡고 커밋한다.
+3. 공급자(Claude)는 트랜잭션 밖에서 부른다. 끝나면 `SUCCESS` 또는 `FAILED`로 바꾼다.
+
+센 횟수 = `SUCCESS` + 5분 안에 시작한 `PENDING`. 실패와 오래된 `PENDING`(서버가 중간에 죽은 경우)은 세지 않는다.
 
 ## 패키지 구조
 
