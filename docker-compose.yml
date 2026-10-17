@@ -1,0 +1,23 @@
+# 로컬 개발용 DB. 실행: docker compose up -d
+# 다른 프로젝트의 postgres 컨테이너와 겹치지 않도록 호스트 포트 5433을 쓴다.
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: wearly-postgres
+    environment:
+      POSTGRES_DB: wearly
+      POSTGRES_USER: wearly
+      POSTGRES_PASSWORD: wearly
+      TZ: Asia/Seoul
+    ports:
+      - "5433:5432"
+    volumes:
+      - wearly-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wearly -d wearly"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  wearly-pgdata:
