@@ -1,0 +1,14 @@
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+bin/
+
+# 비밀 값
+.env
+.env.*
+!.env.example

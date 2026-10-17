@@ -1,0 +1,4 @@
+# 운영 프로필: JWT 비밀 키는 기본값 없이 환경변수로만 받는다 (없으면 기동 실패)
+wearly:
+  jwt:
+    secret: ${WEARLY_JWT_SECRET}
