@@ -30,6 +30,11 @@ class CredentialPersistenceAdapter implements CredentialPort {
     }
 
     @Override
+    public Optional<LocalCredential> findByUserId(long userId) {
+        return credentials.findByUserId(userId).map(CredentialPersistenceAdapter::toDomain);
+    }
+
+    @Override
     public void create(LocalCredential c) {
         try {
             credentials.saveAndFlush(new LocalCredentialEntity(c.userId(), c.email(), c.passwordHash()));

@@ -111,6 +111,17 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public boolean passwordMatches(long userId, String rawPassword) {
+        Optional<LocalCredential> found = credentials.findByUserId(userId);
+        if (rawPassword == null || rawPassword.isEmpty() || found.isEmpty()) {
+            passwords.matches("wearly-reauth-dummy", dummyHash);
+            return false;
+        }
+        return passwords.matches(rawPassword, found.get().passwordHash());
+    }
+
+    @Override
     public void revokeAllRefreshTokens(long userId) {
         refreshTokens.revokeAllForUser(userId);
     }

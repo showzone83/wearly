@@ -13,7 +13,9 @@ import org.springframework.validation.annotation.Validated;
 /** wearly.* 설정. application.yml에서 환경변수로 덮어쓴다. */
 @Validated
 @ConfigurationProperties("wearly")
-public record WearlyProperties(@Valid @NotNull Jwt jwt, @Valid @NotNull Ai ai, @Valid @NotNull Cors cors, Admin admin) {
+public record WearlyProperties(@Valid @NotNull Jwt jwt, @Valid @NotNull Ai ai, @Valid @NotNull Cors cors, Admin admin,
+        /* WEARLY_SECRET_KEY: 웹 입력 AI 키를 암호화하는 마스터 키 (base64 32바이트). 없으면 웹 키 기능이 꺼진다 (07 문서 6장) */
+        String secretKey) {
 
     public Admin admin() {
         return admin == null ? new Admin(null, null, null) : admin;

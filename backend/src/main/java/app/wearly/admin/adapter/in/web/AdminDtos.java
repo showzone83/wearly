@@ -34,6 +34,24 @@ public final class AdminDtos {
         }
     }
 
+    /** PUT /admin/ai/providers/{id}/api-key. 키는 쓰기 전용 — toString에도 남기지 않는다 */
+    public record ApiKeyRequest(String apiKey, String currentPassword, Boolean verify) {
+
+        @Override
+        public String toString() {
+            return "ApiKeyRequest[apiKey=***, currentPassword=***, verify=" + verify + "]";
+        }
+    }
+
+    /** DELETE /admin/ai/providers/{id}/api-key */
+    public record ReauthRequest(String currentPassword) {
+
+        @Override
+        public String toString() {
+            return "ReauthRequest[currentPassword=***]";
+        }
+    }
+
     /** PUT /admin/codes/{group}/order */
     public record OrderRequest(List<String> codes) {
     }

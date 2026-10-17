@@ -53,9 +53,13 @@ public final class AdminViews {
     public record Today(long success, long failed) {
     }
 
-    /** 공급자 한 행. 키 값은 어디에도 없고 keyConfigured만 준다. usable = enabled + 모델 + 키 모두 갖춤 */
+    /**
+     * 공급자 한 행 (07 문서 4·6장). 키 값은 어디에도 없다. usable = enabled + 모델 + 키 모두 갖춤.
+     * keySource = DB | ENV | NONE (keyConfigured = keySource != NONE). keyLast4·keyUpdatedAt·keyUpdatedBy는 DB 키일 때만.
+     */
     public record ProviderView(String providerId, String type, String displayName, String model, String apiKeyEnv,
-            boolean keyConfigured, boolean enabled, int priority, Map<String, Object> options, boolean usable, Today today) {
+            boolean keyConfigured, boolean enabled, int priority, Map<String, Object> options, boolean usable, Today today,
+            String keySource, String keyLast4, String keyUpdatedAt, String keyUpdatedBy, boolean secretStoreEnabled) {
     }
 
     /** AI 기록 검색 조건 (쿼리 문자열 그대로) */

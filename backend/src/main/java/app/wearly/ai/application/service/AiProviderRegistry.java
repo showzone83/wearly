@@ -90,9 +90,13 @@ public class AiProviderRegistry implements AiStatusUseCase {
         if (!s.hasModel()) {
             throw new AiProviderException("MODEL_MISSING", "모델이 설정되지 않았어요.");
         }
-        String key = keys.find(s)
-                .orElseThrow(() -> new AiProviderException("KEY_MISSING", s.apiKeyEnv() + " 환경변수가 비어 있어요."));
-        return factory.create(s, key);
+        ApiKeyService.KeyState key = keys.state(s);
+        if (!key.choice().present()) {
+            throw new AiProviderException("KEY_MISSING", key.dbUnreadable()
+                    ? "웹에서 넣은 키를 복호화하지 못했어요 (WEARLY_SECRET_KEY를 확인하거나 키를 다시 넣어 주세요)."
+                    : s.apiKeyEnv() + " 환경변수가 비어 있어요.");
+        }
+        return factory.create(s, key.choice().value());
     }
 
     @Override
@@ -104,7 +108,8 @@ public class AiProviderRegistry implements AiStatusUseCase {
         }
         List<String> usableList = settings.findAllOrdered().stream()
                 .filter(this::usable)
-                .map(s -> s.providerId() + "(" + s.type() + ", model=" + s.model() + ", priority=" + s.priority() + ")")
+                .map(s -> s.providerId() + "(" + s.type() + ", model=" + s.model() + ", priority=" + s.priority()
+                        + ", key=" + keys.state(s).source() + ")")
                 .toList();
         if (usableList.isEmpty()) {
             log.warn("쓸 수 있는 AI 공급자가 없습니다. 사진 분석은 502 AI_UNAVAILABLE이 됩니다. "

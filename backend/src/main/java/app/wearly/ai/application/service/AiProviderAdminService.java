@@ -5,6 +5,13 @@ import app.wearly.ai.application.port.in.AiProviderInfo;
 import app.wearly.ai.application.port.in.CreateProviderCommand;
 import app.wearly.ai.application.port.in.ProviderTypeInfo;
 import app.wearly.ai.application.port.out.AiProviderPort;
+import app.wearly.ai.application.port.out.ApiKeyVerifierPort;
+import app.wearly.ai.application.port.out.ProviderSecretPort;
+import app.wearly.ai.application.port.out.SecretCipherPort;
+import app.wearly.ai.domain.AiProviderException;
+import app.wearly.ai.domain.AiProviderSelection;
+import app.wearly.ai.domain.ApiKeyRules;
+import app.wearly.ai.domain.ProviderSecret;
 import app.wearly.ai.domain.AiProviderRules;
 import app.wearly.ai.domain.AiProviderSetting;
 import app.wearly.ai.domain.AiProviderType;
@@ -13,24 +20,39 @@ import app.wearly.common.domain.FieldError;
 import app.wearly.common.domain.PatchBody;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
+import app.wearly.user.application.port.in.UserAccount;
+import app.wearly.user.application.port.in.UserUseCase;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 관리자 AI 공급자 관리 (07 문서 3·4장). 쓰기는 JPA */
+/** 관리자 AI 공급자 관리 (07 문서 3·4장)와 웹 입력 키 (6장). 쓰기는 JPA, 키는 AES-GCM으로 암호화해 저장한다 */
 @Service
 public class AiProviderAdminService implements AiProviderAdminUseCase {
 
     private final AiProviderPort settings;
     private final AiProviderRegistry registry;
+    private final ApiKeyService keys;
+    private final ProviderSecretPort secrets;
+    private final SecretCipherPort cipher;
+    private final ApiKeyVerifierPort verifier;
+    private final UserUseCase users;
     private final AiSettings aiSettings;
 
-    public AiProviderAdminService(AiProviderPort settings, AiProviderRegistry registry, AiSettings aiSettings) {
+    public AiProviderAdminService(AiProviderPort settings, AiProviderRegistry registry, ApiKeyService keys,
+            ProviderSecretPort secrets, SecretCipherPort cipher, ApiKeyVerifierPort verifier, UserUseCase users,
+            AiSettings aiSettings) {
         this.settings = settings;
         this.registry = registry;
+        this.keys = keys;
+        this.secrets = secrets;
+        this.cipher = cipher;
+        this.verifier = verifier;
+        this.users = users;
         this.aiSettings = aiSettings;
     }
 
@@ -159,11 +181,61 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
         AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
         AiProviderInfo before = info(s);
         settings.delete(providerId);
+        // 웹 키 행은 FK ON DELETE CASCADE로 함께 지워진다
+        keys.invalidate(providerId);
         return before;
     }
 
+    @Override
+    public void requireSecretStore() {
+        if (!keys.storeEnabled()) {
+            throw new ApiException(ErrorCode.SECRET_KEY_MISSING);
+        }
+    }
+
+    @Override
+    @Transactional
+    public KeyChange setKey(String providerId, String apiKey, boolean verify, long adminUserId) {
+        AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
+        requireSecretStore();
+        List<FieldError> errors = new ArrayList<>();
+        String key = ApiKeyRules.normalize(apiKey, errors);
+        ApiException.throwIfAny(errors);
+        if (verify) {
+            try {
+                verifier.verify(s, key);
+            } catch (AiProviderException e) {
+                // 어댑터가 키 조각을 지운 메시지에서 한 번 더 지운다
+                String reason = e.getMessage() == null ? e.reason() : e.getMessage().replace(key, "***");
+                throw new ApiException(ErrorCode.API_KEY_INVALID, "API 키를 확인하지 못했어요: " + reason);
+            }
+        }
+        AiProviderInfo before = info(s);
+        secrets.save(new ProviderSecret(providerId, cipher.seal(key, providerId), ApiKeyRules.last4(key), adminUserId,
+                null));
+        keys.invalidate(providerId);
+        return new KeyChange(before, info(s));
+    }
+
+    @Override
+    @Transactional
+    public Optional<KeyChange> deleteKey(String providerId) {
+        AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
+        AiProviderInfo before = info(s);
+        if (!secrets.delete(providerId)) {
+            return Optional.empty();
+        }
+        keys.invalidate(providerId);
+        return Optional.of(new KeyChange(before, info(s)));
+    }
+
     private AiProviderInfo info(AiProviderSetting s) {
-        return new AiProviderInfo(s.providerId(), s.type().name(), s.displayName(), s.model(), s.apiKeyEnv(),
-                registry.keyConfigured(s), s.enabled(), s.priority(), s.options(), registry.usable(s));
+        ApiKeyService.KeyState key = keys.state(s);
+        boolean configured = key.choice().present();
+        String updatedBy = key.updatedBy() == null ? null
+                : users.find(key.updatedBy()).map(UserAccount::email).orElse(null);
+        return new AiProviderInfo(s.providerId(), s.type().name(), s.displayName(), s.model(), s.apiKeyEnv(), configured,
+                s.enabled(), s.priority(), s.options(), AiProviderSelection.usable(s, configured), key.source().name(),
+                key.last4(), key.updatedAt(), updatedBy, keys.storeEnabled());
     }
 }

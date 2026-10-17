@@ -11,6 +11,8 @@ public interface CredentialPort {
 
     boolean existsByEmail(String email);
 
+    Optional<LocalCredential> findByUserId(long userId);
+
     /** 새 자격 증명. 같은 이메일이 동시에 들어오면 409 EMAIL_TAKEN */
     void create(LocalCredential credential);
 

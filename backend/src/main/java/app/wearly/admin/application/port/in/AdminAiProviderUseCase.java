@@ -23,6 +23,16 @@ public interface AdminAiProviderUseCase {
 
     Types types();
 
+    /**
+     * 웹 키 넣기·바꾸기 (07 문서 6장). 404 → 409 SECRET_KEY_MISSING → 403 REAUTH_FAILED(currentPassword) →
+     * 400 VALIDATION_FAILED(apiKey) → 400 API_KEY_INVALID(verify, 기본 true) 순서로 확인한다.
+     * 변경 이력 AI_PROVIDER_KEY_SET (before·after에 keySource·keyLast4만)
+     */
+    ProviderView setKey(long adminId, String providerId, String apiKey, String currentPassword, Boolean verify);
+
+    /** 웹 키 지우기 (환경변수 키로 되돌아감). 404 → 403 REAUTH_FAILED. 지운 키가 있을 때만 AI_PROVIDER_KEY_DELETE */
+    ProviderView deleteKey(long adminId, String providerId, String currentPassword);
+
     record Types(List<ProviderTypeInfo> types, boolean baseUrlAllowed, boolean mockMode) {
     }
 }

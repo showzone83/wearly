@@ -1,5 +1,7 @@
 package app.wearly.admin.adapter.in.web;
 
+import app.wearly.admin.adapter.in.web.AdminDtos.ApiKeyRequest;
+import app.wearly.admin.adapter.in.web.AdminDtos.ReauthRequest;
 import app.wearly.admin.adapter.in.web.AdminDtos.TypesResponse;
 import app.wearly.admin.application.port.in.AdminAiProviderUseCase;
 import app.wearly.admin.application.port.in.AdminDashboardUseCase;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -68,6 +71,21 @@ public class AdminAiController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@CurrentUser long adminId, @PathVariable String providerId) {
         providers.delete(adminId, providerId);
+    }
+
+    /** 웹 키 넣기·바꾸기 (쓰기 전용, 07 문서 6장) */
+    @PutMapping("/providers/{providerId}/api-key")
+    public ProviderView setKey(@CurrentUser long adminId, @PathVariable String providerId,
+            @RequestBody(required = false) ApiKeyRequest request) {
+        ApiKeyRequest r = request == null ? new ApiKeyRequest(null, null, null) : request;
+        return providers.setKey(adminId, providerId, r.apiKey(), r.currentPassword(), r.verify());
+    }
+
+    /** 웹 키 지우기 (환경변수 키로 되돌아감) */
+    @DeleteMapping("/providers/{providerId}/api-key")
+    public ProviderView deleteKey(@CurrentUser long adminId, @PathVariable String providerId,
+            @RequestBody(required = false) ReauthRequest request) {
+        return providers.deleteKey(adminId, providerId, request == null ? null : request.currentPassword());
     }
 
     @PostMapping(path = "/providers/{providerId}/test", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

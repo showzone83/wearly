@@ -28,6 +28,8 @@ import org.testcontainers.utility.DockerImageName;
         "OPENAI_API_KEY=",
         "GEMINI_API_KEY=",
         "TEST_CRUD_API_KEY=test-crud-key-value",
+        // 웹 키 마스터 키도 개발자 PC 값이 섞이지 않게 비워 둔다 (켜는 테스트는 따로 넣는다)
+        "WEARLY_SECRET_KEY=",
 })
 public abstract class IntegrationTestBase {
 

@@ -8,4 +8,6 @@ public interface LocalCredentialRepository extends JpaRepository<LocalCredential
     Optional<LocalCredentialEntity> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    Optional<LocalCredentialEntity> findByUserId(Long userId);
 }
