@@ -7,12 +7,14 @@
 - [`doc/07_관리자_사이트.md`](../doc/07_관리자_사이트.md) — 2차: 관리자 역할·관리자 API·AI 공급자(Claude·OpenAI·Gemini) 관리, 3차: 6장 AI 키 웹 입력(쓰기 전용 · 암호화 저장)
 - [`doc/08_백엔드_구조.md`](../doc/08_백엔드_구조.md) — 3차: 헥사고날 패키지 구조와 의존 규칙 (ArchUnit으로 검사), 4차: 5장 코드 스타일(Google Java Style)
 - [`doc/09_AI_코디_추천.md`](../doc/09_AI_코디_추천.md) — 4차: AI 코디 추천 API (`POST /outfits/recommendations`)
+- [`doc/12_디자인_테마.md`](../doc/12_디자인_테마.md) 3장 — 6차: 앱 설정(전체 사용자 테마) `GET /app/config`, `GET·PUT /admin/app/theme`
+- [`doc/13_옷_사용_중지.md`](../doc/13_옷_사용_중지.md) — 6차: 사용하지 않는 옷(`retire`·`restore`, `retired` 필터, 통계) · 완전 삭제
 
 | 항목 | 값 |
 |---|---|
 | Spring Boot | 4.1.1 (Java 21 toolchain, Gradle 9.8.1 wrapper, Kotlin DSL) |
 | 데이터 접근 | Spring Data JPA (Hibernate 7.4) + MyBatis (mybatis-spring-boot-starter 4.1.0) |
-| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V7) |
+| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V9) |
 | 인증 | Spring Security OAuth2 Resource Server, JWT HS256 (Nimbus) |
 | AI | Claude: Anthropic Java SDK 2.73.0 / OpenAI·Gemini: 각 사 REST API를 Spring `RestClient`로 (SDK 없음) |
 | 구조 | 헥사고날 (컨텍스트별 domain · application · adapter), 규칙은 ArchUnit 1.5.1 테스트 |
@@ -60,7 +62,7 @@ cd backend
 compose의 backend가 떠 있으면 8080이 겹치므로 먼저 `docker compose stop backend`.
 
 - 서버: `http://localhost:8080`, API 기본 경로 `/api/v1`, 상태 확인 `GET /actuator/health`
-- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
+- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움) → `V8__app_setting.sql`(6차: 앱 설정 `tb_app_setting`, 초기 테마 `nyang`) → `V9__wardrobe_item_retire.sql`(6차: 옷 사용 중지 컬럼 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스, 코드 그룹 `RETIRE_REASON` 5개)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
 - **AI 공급자 고르기** (07 문서 3장)
   - `bootRunMock`(`WEARLY_AI_PROVIDER=mock`)이면 언제나 목업. DB 설정은 무시한다.
   - 그 밖(`bootRun`, 기본 `db`)에는 `tb_ai_provider`에서 사용(`enabled`)·모델·키를 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패(시간 초과·HTTP 오류·응답 검증 실패)하면 다음 공급자로 넘어간다.
@@ -204,13 +206,37 @@ LC_ALL=C.UTF-8 ./gradlew check   # spotlessCheck + checkstyleMain + checkstyleTe
 | POST | `/admin/ai/providers/{id}/test` | multipart `image`. 사용 여부와 관계없이 한 번 호출, 한도에 안 셈, `feature=ADMIN_TEST`로 기록 |
 | GET | `/admin/ai/types` | 지원 `type`과 `options` 설명 |
 | GET | `/admin/ai/logs`, `/admin/ai/logs/{id}` | AI 기록 검색(`providerId`·`status`·`userEmail`·`feature`(`ITEM_ANALYZE`·`ADMIN_TEST`·`OUTFIT_RECOMMEND`)·`from`·`to`) / 결과 JSON 전체 |
-| GET·PATCH | `/admin/users`, `/admin/users/{id}` | 회원 검색(`q`·`status`·`role`) / `{ status?, role? }` (자기 자신은 못 내리고 못 정지) |
-| GET | `/admin/audit-logs` | 변경 이력 (`targetType` = `CODE`·`AI_PROVIDER`·`USER`) |
+| GET·PATCH | `/admin/users`, `/admin/users/{id}` | 회원 검색(`q`·`status`·`role`) / `{ status?, role? }` (자기 자신은 못 내리고 못 정지). `itemCount`는 사용 중인 옷, `retiredItemCount`는 사용 중지한 옷(6차) |
+| GET | `/admin/audit-logs` | 변경 이력 (`targetType` = `CODE`·`AI_PROVIDER`·`USER`·`APP_SETTING`) |
+| GET·PUT | `/admin/app/theme` | 6차: 전체 사용자 테마 `{ themeId, updatedAt, updatedBy }` / `{ themeId }`(`nyang`·`closeta`, 그 밖 400 `themeId`). 바뀌면 이력 `APP_THEME_UPDATE` |
 
 - 목록 응답은 `{ items, page, size, total }`, `page` 0부터, `size` 기본 20·최대 100.
 - 정지(`SUSPENDED`) 회원: 로그인 403 `ACCOUNT_SUSPENDED`(비밀번호가 맞을 때만), 남은 Access 토큰 401 `TOKEN_INVALID`, refresh 401 `REFRESH_INVALID`(정지할 때 Refresh 토큰을 모두 폐기).
 - 권한은 매 요청 DB의 역할로 판단한다 (JWT `role` 클레임은 표시용). 역할을 내리면 같은 토큰으로도 바로 403.
 - 모든 관리자 변경은 `tb_admin_audit_log`에 before/after로 남는다.
+
+## API 요약 (6차에서 더한 것)
+
+### 앱 설정 (12 문서 3장)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/v1/app/config` | **공개**. `{ themeId, version }`. `version`은 마지막으로 바꾼 시각(ISO, 밀리초), 바꾼 적이 없으면 `"initial"`. `ETag: "<version>"`, `If-None-Match`가 같으면 304, `Cache-Control: no-cache`. 만료된 토큰이 같이 와도 무시 |
+
+관리자 조회·변경(`/admin/app/theme`)은 위 관리자 표. 같은 테마로 PUT하면 아무것도 바꾸지 않는다(시각·이력 그대로). 처음 상태의 `updatedAt`·`updatedBy`는 `null`.
+
+### 옷 사용 중지 (13 문서)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/api/v1/wardrobe/items/{id}/retire` | `{ reason, memo? }` → 200 아이템. `reason`은 활성 `RETIRE_REASON` 코드, `memo`는 200자 이하(앞뒤 공백 제거, 빈 값은 null). 이미 사용 중지면 이유·메모만 바꾸고 시각은 그대로. 남의 옷·없는 옷은 입력 검증보다 먼저 404 |
+| POST | `/api/v1/wardrobe/items/{id}/restore` | 200 아이템. 사용 중이면 그대로 200 |
+| GET | `/api/v1/wardrobe/items?retired=` | `false`(기본, 사용 중만) · `true`(사용 중지만) · `all`. 그 밖은 400 `retired` |
+| DELETE | `/api/v1/wardrobe/items/{id}` | 완전 삭제 (그대로) |
+
+- 아이템 응답에 `retiredAt`(ISO 또는 null)·`retireReason`·`retireMemo`가 늘었다. 사용 중지한 옷도 단건 조회·PATCH가 된다. bulk 등록은 사용 중으로만 만든다.
+- `/wardrobe/stats`의 기존 숫자는 사용 중인 옷만 센다. 새 필드 `retired`(수), `retiredByReason: [{ reason, count }]`(많은 순, 같으면 코드 순).
+- AI 코디 추천 후보에서 빠지고, 고정·중심으로 주면 400 `VALIDATION_FAILED`("사용하지 않는 옷이에요."). 코드 삭제 가드(`CODE_IN_USE`)는 사용 중지한 옷도 센다(`retire_reason` 포함).
 
 ## 테스트
 
@@ -246,8 +272,11 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 | `ProviderApiKeyNoMasterKeyIntegrationTest` | 마스터 키 없음 409 `SECRET_KEY_MISSING`(비밀번호 확인보다 먼저), `secretStoreEnabled: false` |
 | `EnvApiKeyAdapterTest` | 서버 설정 키 찾기: `wearly.ai.keys.<이름>` → 같은 이름 속성·환경변수, 빈 값은 건너뜀, `*_API_KEY`가 아닌 이름 거부 (Spring 없음) |
 | `AesGcmSecretCipherTest` · `ApiKeyRulesTest` · `ApiKeyServiceTest` | 암호화 왕복·nonce 매번 다름·AAD/마스터 키/암호문이 다르면 실패·마스터 키 없음 WARN·형식 오류 ERROR, 키 형식·출처 우선순위, 복호화 캐시·무효화·복호화 실패 시 쓸 수 없음 (Spring 없음) |
+| `WardrobeRetireIntegrationTest` · `OutfitRetiredItemIntegrationTest` | (6차) 사용 중지 → 목록 `retired` 필터·다시 사용·시각 유지·PATCH, 통계(`retired`·`retiredByReason`), 완전 삭제와 차이, 남의 옷 404·입력 400, 비활성 이유 400·사용 중 코드 삭제 409, 회원 목록 `retiredItemCount`, DB CHECK, 코디 후보 제외·고정/중심 400·옷 부족 |
+| `AppConfigIntegrationTest` | (6차) `/app/config` 공개·형식·ETag 304·`no-cache`·틀린 토큰 무시·CORS `ETag` 노출, 관리자 GET·PUT, version 변경, 같은 값 PUT, 400·403·401, 변경 이력 `APP_THEME_UPDATE` |
+| `RetirementTest` · `ThemeSettingTest` · `AppSettingServiceTest` · `AdminAppThemeServiceTest` | (6차, Spring 없음) 사용 중지·다시 사용 규칙과 이유·메모 검증, 허용 테마·version, 테마 변경 저장·같은 값·400, 관리자 이메일·변경 이력 |
 | `HexagonalArchitectureTest` | 08 문서 3장·7장 규칙 19개 (ArchUnit): 의존 방향, 컨텍스트 사이는 `port.in`만, common·공유 커널은 컨텍스트를 모름, 출력 어댑터는 API 오류를 모름, `@Entity`·`@Mapper` 위치, 검증·Jackson 어노테이션은 웹 어댑터만, 컨트롤러는 `*Response`만 반환, 포트 DTO는 어댑터를 모름 |
-| `ApiResponseSnapshotTest` | (5차) 155개 요청의 응답(상태·헤더 일부·본문)을 `src/test/resources/snapshots/api-responses.json`과 비교. 토큰·시각·버전 등 매번 다른 값만 정규화한다. 응답 모양을 바꾸면 실패한다. 파일을 지우고 돌리면 다시 만든다 |
+| `ApiResponseSnapshotTest` | (5차, 6차에 새 필드로 갱신) 155개 요청의 응답(상태·헤더 일부·본문)을 `src/test/resources/snapshots/api-responses.json`과 비교. 토큰·시각·버전 등 매번 다른 값만 정규화한다. 응답 모양을 바꾸면 실패한다. 파일을 지우고 돌리면 다시 만든다 |
 | `*ServiceTest` (5차) | 서비스 단위 테스트(가짜 포트, Spring 없음): `AuthService`, `CodeManagementService`(색 짝·삭제 가드), `AdminUserService`(자기 정지 금지), `AdminAiService`(키 저장 순서), `AiCallRunner`(폴백·기록), `AiQuotaService`·`AiJsonGenerationService`(한도 예약), `WardrobeService` |
 | `AiQuotaConcurrencyIntegrationTest` | (5차) 12개 동시 예약·동시 사진 분석에서 한도 3개만 성공, 오래된 예약 무시 |
 | `CodeUsageSourceIntegrationTest` · `WardrobePatchIntegrationTest` · `AiLogSummaryMigrationTest` | (5차) 코드 사용 수를 옷장·프로필이 세는지, 옷장 PATCH 오류 모양, V7이 기존 기록 요약을 4차 문구대로 채우는지 |
@@ -315,13 +344,14 @@ app.wearly.common                  컨텍스트를 모른다 (ArchUnit)
 |---|---|---|---|
 | `auth` | `RefreshToken`(회전·재사용 판단), `RefreshTokens`, `LocalCredential`, `EmailTakenException` | `AuthUseCase`, `AuthenticationUseCase`, `AccountUseCase` | JPA(자격 증명·Refresh 토큰), security(BCrypt, JWT 발급). 보안 필터 체인은 `auth.config.SecurityConfig` |
 | `user` | `User`(이름·상태·역할 불변식), `UserStatus`, `UserRole`, `UserProfile`, `WorkType` | `UserUseCase`, `ProfileUseCase`, `ProfileCodeUsageUseCase` | JPA(회원·프로필), MyBatis(프로필 코드 사용 수) |
-| `wardrobe` | `WardrobeItem`, `ItemInput`, `ItemRules`(불변식), `ItemCodeValidator`, `WardrobeStatsRules` | `WardrobeUseCase`, `WardrobeStatsUseCase`, `ItemCodeUsageUseCase` | JPA(아이템 쓰기·단건), MyBatis(목록·통계·코드 사용 수) |
+| `wardrobe` | `WardrobeItem`, `ItemInput`, `ItemRules`(불변식), `ItemCodeValidator`, `WardrobeStatsRules`, `Retirement`·`RetireRules`(6차 사용 중지) | `WardrobeUseCase`, `WardrobeStatsUseCase`, `ItemCodeUsageUseCase` | JPA(아이템 쓰기·단건), MyBatis(목록·통계·코드 사용 수) |
 | `code` | `Code`, `CodeAttrs`, `CodeRules` (스냅샷·검증 정책은 공유 커널) | `CodeCatalog`, `CodeManagementUseCase`, `CodeUsageSource`(SPI: 옷장·프로필이 구현) | JPA(코드 쓰기), MyBatis(스냅샷 캐시) |
 | `ai` | `AiProviderSetting`, `AiProviderSelection`, `AiRunMode`, `AiProviderType`, `ApiKeyRules`, `AnalysisPrompt`, `AiJsonPrompt`, `AiSuggestionValidator` … | `AnalyzeImageUseCase`, `ProviderTestUseCase`, `AiProviderAdminUseCase`, `AiProviderKeyUseCase`, `AiStatusUseCase`, `JsonGenerationUseCase` | JPA(공급자·호출 기록·웹 키·한도 예약), MyBatis(사용량·한도 잠금), ai/*(공급자 모듈: Claude SDK·OpenAI·Gemini REST·목업·키 확인), env, crypto(AES-GCM), transaction |
 | `outfit` | `OutfitPool`, `OutfitPrompt`, `CandidateValidator`, `MockOutfitPlanner`, `OutfitRequest` … | `RecommendOutfitUseCase` (기능 이름 `OutfitFeatures`) | 없음 (옷장·프로필·코드는 각 입력 포트, 공급자는 ai의 `JsonGenerationUseCase`) |
-| `admin` | `AuditTargets`, `SearchText` | `AdminDashboardUseCase`, `AdminUserUseCase`, `AdminCodeUseCase`, `AdminAiProviderUseCase`, `EnsureAdminUseCase` | JPA(변경 이력 = `RecordAuditPort`), MyBatis(대시보드·목록 읽기 모델 → `port.out.dto`) |
+| `appsetting` | `AppThemes`(허용 테마), `ThemeSetting`(변경·version) | `AppSettingUseCase` | JPA(`tb_app_setting`). 관리자 변경은 admin의 `AdminAppThemeService`가 이 포트로 부르고 이력을 남긴다 (6차) |
+| `admin` | `AuditTargets`, `SearchText` | `AdminDashboardUseCase`, `AdminUserUseCase`, `AdminCodeUseCase`, `AdminAiProviderUseCase`, `AdminAppThemeUseCase`(6차), `EnsureAdminUseCase` | JPA(변경 이력 = `RecordAuditPort`), MyBatis(대시보드·목록 읽기 모델 → `port.out.dto`) |
 
 - 컨텍스트 사이는 상대 `port.in`(과 `port.in.dto`)으로만 부른다. 관리자 API는 admin 컨텍스트가 code·ai·user·auth 유스케이스를 부르고, 같은 트랜잭션에서 변경 이력을 남긴다. 외부 HTTP가 끼는 웹 키 저장은 트랜잭션을 나눈다(`AdminAiKeyWriter`).
 - 사진 분석 `POST /wardrobe/items/analyze`는 경로는 옷장이지만 ai 컨텍스트의 `AiAnalyzeController`가 받는다.
 - `MultipartFile`은 웹 어댑터에서 `ImageUpload`(byte[]·MIME)로, PATCH JSON은 웹 어댑터가 필드마다 `Patch`로 바꿔 `PatchCodeDto`·`PatchProviderDto`·`PatchUserDto`·`PatchItemDto`로 넘긴다.
-- 컨트롤러는 항상 `*Response`를 돌려준다. 응답 JSON은 5차 전과 바이트 단위로 같다(`ApiResponseSnapshotTest`).
+- 컨트롤러는 항상 `*Response`를 돌려준다. 응답 JSON은 5차 전과 바이트 단위로 같다(`ApiResponseSnapshotTest`). 6차에서 계약상 새 필드(아이템 `retiredAt`·`retireReason`·`retireMemo`, 통계 `retired`·`retiredByReason`, 회원 목록 `retiredItemCount`, 코드 그룹 `RETIRE_REASON`)와 변경 이력 `targetType` 오류 문구에 `APP_SETTING`이 더해져 스냅샷을 갱신했다.

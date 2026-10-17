@@ -6,6 +6,7 @@ import app.wearly.wardrobe.application.port.out.ItemFilter;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
 import app.wearly.wardrobe.application.port.out.dto.CodeCountDto;
 import app.wearly.wardrobe.application.port.out.dto.KeyCountDto;
+import app.wearly.wardrobe.domain.Retirement;
 import app.wearly.wardrobe.domain.WardrobeItem;
 import java.time.LocalDate;
 import java.util.List;
@@ -62,6 +63,16 @@ class WardrobeItemMybatisAdapter implements ItemQueryPort {
   }
 
   @Override
+  public long countRetired(long userId) {
+    return mapper.countRetired(userId);
+  }
+
+  @Override
+  public List<KeyCountDto> countRetiredByReason(long userId) {
+    return mapper.countRetiredByReason(userId);
+  }
+
+  @Override
   public List<CodeCountDto> countByCode() {
     return mapper.countByCode();
   }
@@ -87,6 +98,9 @@ class WardrobeItemMybatisAdapter implements ItemQueryPort {
         r.getBrand(),
         r.getWornCount(),
         r.getLastWornAt(),
-        r.getCreatedAt());
+        r.getCreatedAt(),
+        r.getRetiredAt() == null
+            ? null
+            : new Retirement(r.getRetiredAt(), r.getRetireReason(), r.getRetireMemo()));
   }
 }

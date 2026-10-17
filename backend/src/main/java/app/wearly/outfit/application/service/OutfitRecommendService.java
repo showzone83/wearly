@@ -28,17 +28,22 @@ import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.user.application.port.in.ProfileUseCase;
 import app.wearly.user.application.port.in.dto.ProfileTasteDto;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
+import app.wearly.wardrobe.application.port.in.dto.ItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 /**
  * AI 코디 추천 (09 문서). 옷장·프로필·코드는 각 컨텍스트의 입력 포트로 읽고, 공급자 호출·기록은 ai 컨텍스트의 JsonGenerationUseCase에 맡긴다.
  * 프롬프트·스키마·후보 검증은 이 컨텍스트(공급자와 무관)에 있다.
  *
- * <p>순서: 요청 검증 400 → 고정·중심 아이템 확인 400 → 옷 부족 400 WARDROBE_INSUFFICIENT → 일일 한도 429(ai가 예약) → 공급자 시도
- * → 모두 실패 502. AI를 부르기 전 단계에서 끝나면 기록을 남기지 않는다.
+ * <p>후보는 사용 중인 옷만 (사용 중지한 옷은 뺀다, 13 문서).
+ *
+ * <p>순서: 요청 검증 400 → 고정·중심 아이템 확인 400(사용 중지한 옷 포함) → 옷 부족 400 WARDROBE_INSUFFICIENT → 일일 한도 429(ai가
+ * 예약) → 공급자 시도 → 모두 실패 502. AI를 부르기 전 단계에서 끝나면 기록을 남기지 않는다.
  */
 @Service
 public class OutfitRecommendService implements RecommendOutfitUseCase {
@@ -66,8 +71,18 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
   public OutfitRecommendationDto recommend(long userId, RecommendOutfitDto command) {
     CodeSnapshot codes = catalog.current();
     OutfitRequest request = OutfitRequestValidator.validate(command, codes);
+    // 사용 중지한 옷은 후보에서 뺀다. 고정·중심으로 준 경우 400을 주려고 함께 읽는다 (13 문서 3장)
+    List<ItemDto> owned =
+        wardrobe.list(
+            new ItemSearchDto(userId, null, null, null, null, null, ItemSearchDto.RETIRED_ALL));
+    Set<String> retiredIds =
+        owned.stream()
+            .filter(v -> v.retiredAt() != null)
+            .map(v -> String.valueOf(v.id()))
+            .collect(Collectors.toSet());
     List<OutfitItem> items =
-        wardrobe.list(new ItemSearchDto(userId, null, null, null, null, null)).stream()
+        owned.stream()
+            .filter(v -> v.retiredAt() == null)
             .map(
                 v ->
                     OutfitItem.of(
@@ -85,7 +100,7 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
                         v.lastWornAt(),
                         codes))
             .toList();
-    ApiException.throwIfAny(OutfitPool.checkPins(request, items));
+    ApiException.throwIfAny(OutfitPool.checkPins(request, items, retiredIds));
     OutfitPool pool = OutfitPool.of(request, items);
     List<String> missing = pool.missing();
     if (!missing.isEmpty()) {

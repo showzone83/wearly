@@ -21,6 +21,9 @@ public class ItemRowDto {
   private int wornCount;
   private LocalDate lastWornAt;
   private Instant createdAt;
+  private Instant retiredAt;
+  private String retireReason;
+  private String retireMemo;
 
   public Long getId() {
     return id;
@@ -132,5 +135,29 @@ public class ItemRowDto {
 
   public void setCreatedAt(Instant createdAt) {
     this.createdAt = createdAt;
+  }
+
+  public Instant getRetiredAt() {
+    return retiredAt;
+  }
+
+  public void setRetiredAt(Instant retiredAt) {
+    this.retiredAt = retiredAt;
+  }
+
+  public String getRetireReason() {
+    return retireReason;
+  }
+
+  public void setRetireReason(String retireReason) {
+    this.retireReason = retireReason;
+  }
+
+  public String getRetireMemo() {
+    return retireMemo;
+  }
+
+  public void setRetireMemo(String retireMemo) {
+    this.retireMemo = retireMemo;
   }
 }

@@ -74,7 +74,15 @@ class AdminUserServiceTest {
               .map(
                   u ->
                       new UserListRowDto(
-                          u.id(), u.email(), u.name(), u.role(), u.status(), u.createdAt(), 0, 0))
+                          u.id(),
+                          u.email(),
+                          u.name(),
+                          u.role(),
+                          u.status(),
+                          u.createdAt(),
+                          0,
+                          0,
+                          0))
               .toList();
         }
 

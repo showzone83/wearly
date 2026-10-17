@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
-/** 옷장 아이템 (순수 도메인 모델) */
+/** 옷장 아이템 (순수 도메인 모델). 사용 중지(retirement)는 보유 상태(status)와 별개다 (13 문서) */
 public class WardrobeItem {
 
   private final Long id;
@@ -23,6 +23,7 @@ public class WardrobeItem {
   private int wornCount;
   private LocalDate lastWornAt;
   private final Instant createdAt;
+  private Retirement retirement;
 
   public WardrobeItem(
       Long id,
@@ -39,7 +40,8 @@ public class WardrobeItem {
       String brand,
       int wornCount,
       LocalDate lastWornAt,
-      Instant createdAt) {
+      Instant createdAt,
+      Retirement retirement) {
     this.id = id;
     this.userId = userId;
     this.name = name;
@@ -55,6 +57,7 @@ public class WardrobeItem {
     this.wornCount = wornCount;
     this.lastWornAt = lastWornAt;
     this.createdAt = createdAt;
+    this.retirement = retirement;
   }
 
   /** 아직 저장하지 않은 새 아이템 */
@@ -62,7 +65,7 @@ public class WardrobeItem {
     WardrobeItem item =
         new WardrobeItem(
             null, userId, null, null, null, null, null, List.of(), List.of(), 0, null, null, 0,
-            null, null);
+            null, null, null);
     item.apply(in);
     return item;
   }
@@ -85,6 +88,30 @@ public class WardrobeItem {
     this.brand = in.brand() == null || in.brand().isBlank() ? null : in.brand().strip();
     this.wornCount = in.wornCount() == null ? 0 : in.wornCount();
     this.lastWornAt = in.lastWornAt();
+  }
+
+  /**
+   * 사용하지 않는 옷으로 옮긴다. 이미 사용 중지면 이유·메모만 바꾸고 시각은 그대로 둔다. 메모는 앞뒤 공백을 지우고 빈 값은 null. 이유가 활성 코드인지는 유스케이스가
+   * RetireRules로 먼저 본다.
+   */
+  public void retire(String reason, String memo, Instant now) {
+    DomainValidationException.throwIfAny(RetireRules.validate(reason, memo));
+    Instant at = retirement == null ? now : retirement.at();
+    this.retirement = new Retirement(at, reason, RetireRules.memo(memo));
+  }
+
+  /** 다시 사용한다 (사용 중이면 그대로). 보유 상태는 바꾸지 않았으므로 원래 상태로 돌아온다 */
+  public void restore() {
+    this.retirement = null;
+  }
+
+  public boolean isRetired() {
+    return retirement != null;
+  }
+
+  /** 사용 중이면 null */
+  public Retirement retirement() {
+    return retirement;
   }
 
   /** PATCH 병합의 출발점: 저장된 값을 입력 모양으로 */

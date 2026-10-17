@@ -13,8 +13,11 @@ public final class CodeGroups {
   public static final String STYLE = "STYLE";
   public static final String ITEM_STATUS = "ITEM_STATUS";
 
+  /** 옷을 사용하지 않는 옷으로 옮긴 이유 (13 문서 2장). attrs 없음 */
+  public static final String RETIRE_REASON = "RETIRE_REASON";
+
   public static final List<String> ALL =
-      List.of(CATEGORY, SUB_TYPE, COLOR, PATTERN, SEASON, STYLE, ITEM_STATUS);
+      List.of(CATEGORY, SUB_TYPE, COLOR, PATTERN, SEASON, STYLE, ITEM_STATUS, RETIRE_REASON);
 
   private CodeGroups() {}
 }

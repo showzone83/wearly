@@ -1,6 +1,7 @@
 package app.wearly.wardrobe.adapter.out.persistence.jpa;
 
 import app.wearly.wardrobe.application.port.out.ItemPort;
+import app.wearly.wardrobe.domain.Retirement;
 import app.wearly.wardrobe.domain.WardrobeItem;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
@@ -41,6 +42,9 @@ class WardrobeItemJpaAdapter implements ItemPort {
         item.brand(),
         item.wornCount(),
         item.lastWornAt());
+    Retirement r = item.retirement();
+    e.retirement(
+        r == null ? null : r.at(), r == null ? null : r.reason(), r == null ? null : r.memo());
     return toDomain(items.saveAndFlush(e));
   }
 
@@ -66,6 +70,9 @@ class WardrobeItemJpaAdapter implements ItemPort {
         e.getBrand(),
         e.getWornCount(),
         e.getLastWornAt(),
-        e.getCreatedAt());
+        e.getCreatedAt(),
+        e.getRetiredAt() == null
+            ? null
+            : new Retirement(e.getRetiredAt(), e.getRetireReason(), e.getRetireMemo()));
   }
 }

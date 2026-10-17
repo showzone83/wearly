@@ -27,6 +27,8 @@ import java.util.Set;
  */
 public final class OutfitPool {
 
+  static final String RETIRED = "사용하지 않는 옷이에요.";
+
   private final OutfitRequest request;
   private final Map<String, OutfitItem> owned;
   private final Map<String, List<OutfitItem>> bySlot;
@@ -80,6 +82,16 @@ public final class OutfitPool {
    * @return 틀린 곳 (fieldErrors). 없으면 빈 목록
    */
   public static List<FieldError> checkPins(OutfitRequest request, List<OutfitItem> items) {
+    return checkPins(request, items, Set.of());
+  }
+
+  /**
+   * checkPins와 같고, 사용 중지한 옷(items에는 없음)을 고정·중심으로 주면 "사용하지 않는 옷이에요."로 알려 준다 (13 문서 3장).
+   *
+   * @param retiredIds 회원의 사용 중지한 옷 id
+   */
+  public static List<FieldError> checkPins(
+      OutfitRequest request, List<OutfitItem> items, Set<String> retiredIds) {
     Map<String, OutfitItem> byId = new LinkedHashMap<>();
     items.forEach(i -> byId.put(i.id(), i));
     List<FieldError> errors = new ArrayList<>();
@@ -90,7 +102,9 @@ public final class OutfitPool {
             (slot, id) -> {
               String field = "context.fixed." + slot;
               OutfitItem item = byId.get(id);
-              if (item == null) {
+              if (item == null && retiredIds.contains(id)) {
+                errors.add(new FieldError(field, RETIRED));
+              } else if (item == null) {
                 errors.add(new FieldError(field, "내 옷장에 없는 아이템이에요."));
               } else if (!slot.equals(item.slot())) {
                 errors.add(new FieldError(field, slot + " 칸에 넣을 수 없는 아이템이에요."));
@@ -101,7 +115,9 @@ public final class OutfitPool {
     String anchor = request.anchorItemId();
     if (anchor != null) {
       OutfitItem item = byId.get(anchor);
-      if (item == null) {
+      if (item == null && retiredIds.contains(anchor)) {
+        errors.add(new FieldError("context.anchorItemId", RETIRED));
+      } else if (item == null) {
         errors.add(new FieldError("context.anchorItemId", "내 옷장에 없는 아이템이에요."));
       } else if (item.slot() == null) {
         errors.add(new FieldError("context.anchorItemId", "코디에 넣을 수 없는 종류예요."));

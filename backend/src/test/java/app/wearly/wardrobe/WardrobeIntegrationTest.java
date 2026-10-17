@@ -216,7 +216,8 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
     // MyBatis 매퍼가 TEXT[]를 List로 읽는다
     List<ItemRowDto> rows =
         mapper.findItems(
-            new ItemFilter(Long.parseLong(s.userId()), "TOP", null, null, null, "name"));
+            new ItemFilter(
+                Long.parseLong(s.userId()), "TOP", null, null, null, "name", Boolean.FALSE));
     assertThat(rows).extracting(ItemRowDto::getStyles).containsOnly(List.of("NEAT"));
     assertThat(rows).extracting(ItemRowDto::getSeasons).containsOnly(List.of("SPRING", "FALL"));
   }

@@ -138,7 +138,8 @@ public class AdminDashboardService implements AdminDashboardUseCase {
   public PageDto<AuditLogDto> auditLogs(String targetType, PagingDto paging) {
     String tt = SearchText.blankToNull(targetType);
     if (tt != null && !AuditTargets.ALL.contains(tt)) {
-      throw ApiException.validation("targetType", "CODE, AI_PROVIDER, USER 중 하나여야 해요.");
+      throw ApiException.validation(
+          "targetType", "CODE, AI_PROVIDER, USER, APP_SETTING 중 하나여야 해요.");
     }
     List<AuditLogDto> items =
         queries.findAuditLogs(tt, paging.size(), paging.offset()).stream()

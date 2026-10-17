@@ -15,7 +15,10 @@ import java.util.List;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** tb_wardrobe_item JPA 엔티티 (쓰기·단건 조회). seasons·styles는 TEXT[] */
+/**
+ * tb_wardrobe_item JPA 엔티티 (쓰기·단건 조회). seasons·styles는 TEXT[], 사용 중지는
+ * retired_at·retire_reason·retire_memo
+ */
 @Entity
 @Table(name = "tb_wardrobe_item")
 public class WardrobeItemEntity {
@@ -66,6 +69,15 @@ public class WardrobeItemEntity {
   @Column(name = "last_worn_at")
   private LocalDate lastWornAt;
 
+  @Column(name = "retired_at")
+  private Instant retiredAt;
+
+  @Column(name = "retire_reason", length = 30)
+  private String retireReason;
+
+  @Column(name = "retire_memo", length = 200)
+  private String retireMemo;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -115,6 +127,25 @@ public class WardrobeItemEntity {
     this.brand = brand;
     this.wornCount = wornCount;
     this.lastWornAt = lastWornAt;
+  }
+
+  /** 사용 중지 상태 (13 문서). 사용 중이면 세 값 모두 null */
+  public void retirement(Instant retiredAt, String retireReason, String retireMemo) {
+    this.retiredAt = retiredAt;
+    this.retireReason = retireReason;
+    this.retireMemo = retireMemo;
+  }
+
+  public Instant getRetiredAt() {
+    return retiredAt;
+  }
+
+  public String getRetireReason() {
+    return retireReason;
+  }
+
+  public String getRetireMemo() {
+    return retireMemo;
   }
 
   public Long getId() {

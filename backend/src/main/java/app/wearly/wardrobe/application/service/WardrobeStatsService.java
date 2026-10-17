@@ -7,6 +7,7 @@ import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.wardrobe.application.port.in.WardrobeStatsUseCase;
 import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto;
 import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.ColorCount;
+import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.ReasonCount;
 import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.StyleCount;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
 import app.wearly.wardrobe.application.port.out.dto.KeyCountDto;
@@ -19,7 +20,9 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** /wardrobe/stats 집계 (MyBatis). 날짜 기준은 Asia/Seoul */
+/**
+ * /wardrobe/stats 집계 (MyBatis). 날짜 기준은 Asia/Seoul. 사용 중지한 옷은 retired·retiredByReason에만 센다 (13 문서)
+ */
 @Service
 public class WardrobeStatsService implements WardrobeStatsUseCase {
 
@@ -66,8 +69,23 @@ public class WardrobeStatsService implements WardrobeStatsUseCase {
             .stream()
             .toList();
 
+    long retired = queries.countRetired(userId);
+    List<ReasonCount> retiredByReason =
+        queries.countRetiredByReason(userId).stream()
+            .map(r -> new ReasonCount(r.key(), r.count()))
+            .toList();
+
     return new WardrobeStatsDto(
-        total, byCategory, byColor, byStyle, byStatus, worn, utilization, sleeping);
+        total,
+        byCategory,
+        byColor,
+        byStyle,
+        byStatus,
+        worn,
+        utilization,
+        sleeping,
+        retired,
+        retiredByReason);
   }
 
   private static List<KeyCount> counts(List<KeyCountDto> rows) {

@@ -80,7 +80,10 @@
 
     <select id="findUsers" resultType="app.wearly.admin.application.port.out.dto.UserListRowDto">
         SELECT u.user_id AS id, u.email, u.name, u.role, u.status, u.created_at,
-               (SELECT count(*) FROM tb_wardrobe_item i WHERE i.user_id = u.user_id) AS item_count,
+               (SELECT count(*) FROM tb_wardrobe_item i
+                 WHERE i.user_id = u.user_id AND i.retired_at IS NULL) AS item_count,
+               (SELECT count(*) FROM tb_wardrobe_item i
+                 WHERE i.user_id = u.user_id AND i.retired_at IS NOT NULL) AS retired_item_count,
                (SELECT count(*) FROM tb_ai_analysis_log l
                  WHERE l.user_id = u.user_id AND l.feature = 'ITEM_ANALYZE' AND l.status = 'SUCCESS'
                    AND l.created_at &gt;= #{todayFrom} AND l.created_at &lt; #{todayTo}) AS ai_today

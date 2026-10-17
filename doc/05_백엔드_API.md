@@ -46,6 +46,7 @@
 2차에서 더한 테이블: `tb_code_group`·`tb_code`(06 문서 2장), `tb_ai_provider`·`tb_admin_audit_log`, `tb_user.role`(07 문서 2·3장).
 3차에서 더한 테이블: `tb_ai_provider_secret`(웹 입력 AI 키의 AES-256-GCM 암호문, 07 문서 6장).
 4차: `tb_ai_analysis_log.feature` CHECK에 `OUTFIT_RECOMMEND`(AI 코디 추천, 이미지 칸은 NULL)를 더하고, 한도 집계 인덱스를 `(user_id, feature, created_at) WHERE status = 'SUCCESS'`로 바꿨다 (09 문서).
+6차(2026-10-17): `V8__app_setting.sql` — `tb_app_setting`(앱 전체 설정, 초기값 `theme` = `{"themeId":"nyang"}`, 12 문서 3장). `V9__wardrobe_item_retire.sql` — `tb_wardrobe_item`에 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스 `ix_wardrobe_item_in_use (user_id) WHERE retired_at IS NULL`, CHECK `ck_wardrobe_item_retired`(사용 중지면 시각·이유가 함께 있다), 코드 그룹 `RETIRE_REASON` 5개(13 문서 2장).
 
 모든 이름은 소문자 snake_case, 접두사 `tb_`. PK는 `BIGINT GENERATED ALWAYS AS IDENTITY`. 시각은 `TIMESTAMPTZ`, 날짜는 `DATE`. 회원 삭제 시 모든 하위 데이터는 `ON DELETE CASCADE`로 지운다.
 
@@ -57,7 +58,7 @@
 | `tb_refresh_token` | `token_hash`(SHA-256 hex) UNIQUE, `family_id` UUID, `expires_at`, `revoked_at`, `replaced_by_id` | O |
 | `tb_user_profile` | 앱 `Profile` + `onboarded`. 배열은 `TEXT[]`/`SMALLINT[]`, 알림은 `JSONB` | O |
 | `tb_user_style` | 취향 학습 점수 (`style_code`, `preference_score`) | 테이블만 |
-| `tb_wardrobe_item` | 옷장 아이템. `seasons`·`styles`는 `TEXT[]`, `ai_suggestion JSONB` | O |
+| `tb_wardrobe_item` | 옷장 아이템. `seasons`·`styles`는 `TEXT[]`, `ai_suggestion JSONB`. 사용 중지는 `retired_at`(NULL이면 사용 중)·`retire_reason`·`retire_memo` | O |
 | `tb_item_image` | 아이템 이미지 URL | 테이블만 |
 | `tb_outfit` / `tb_outfit_item` | 코디 헤더(점수·`breakdown JSONB`·`context JSONB`) / 구성(`item_role` = 슬롯) | 테이블만 |
 | `tb_outfit_feedback` | LIKE·DISLIKE, `reasons JSONB` | 테이블만 |
@@ -66,6 +67,7 @@
 | `tb_look_diagnosis` | 진단 (`axes JSONB`, `swap JSONB`) | 테이블만 |
 | `tb_wardrobe_report` | 옷장 분석 리포트 (`report JSONB`) | 테이블만 |
 | `tb_ai_analysis_log` | AI 호출 기록: 공급자·모델·상태·지연·토큰 수·결과. 일일 한도와 '코디당 AI 비용' 지표에 쓴다 | O |
+| `tb_app_setting` | 앱 전체 설정. `setting_key` PK, `value JSONB`, `updated_by`(관리자, 탈퇴하면 NULL), `updated_at`(바꾼 적 없으면 NULL) | O (12 문서) |
 
 열거형 값은 앱 `mobile/src/data/types.ts`의 문자열을 그대로 `VARCHAR`로 저장한다 (`CHECK` 제약 권장). 단, 옷 속성 7개 그룹은 2차부터 CHECK 대신 코드 테이블로 서버가 검증한다 (06 문서). 코디 칸(`item_role`)에 `DRESS`가 들어갔다.
 
@@ -74,7 +76,7 @@
 - 기본 경로 `/api/v1`, JSON, UTF-8. 필드는 camelCase.
 - **ID는 JSON에서 문자열**이다 (`"id": "42"`). 앱의 기존 문자열 ID와 맞추고 JS 정수 한계를 피한다.
 - 날짜는 `YYYY-MM-DD`, 시각은 ISO-8601 UTC (`2026-10-17T03:00:00Z`).
-- 인증: `Authorization: Bearer <accessToken>`. 공개 경로는 `/api/v1/auth/**`, `GET /api/v1/codes`(2차), `/actuator/health`뿐이다. `/api/v1/admin/**`는 `ADMIN`만 (07 문서).
+- 인증: `Authorization: Bearer <accessToken>`. 공개 경로는 `/api/v1/auth/**`, `GET /api/v1/codes`(2차), `GET /api/v1/app/config`(6차, 12 문서), `/actuator/health`뿐이다. `/api/v1/admin/**`는 `ADMIN`만 (07 문서).
 - CORS: `http://localhost:8081`, `http://localhost:19006`, `http://127.0.0.1:8081` 허용 (Expo 웹), 관리자 사이트 `http://localhost:5173`(2차).
 
 ### 오류 응답
@@ -170,14 +172,18 @@ interface ProfileDto {
 
 | 메서드 | 경로 | 요청 | 응답 | 구현 |
 |---|---|---|---|---|
-| GET | `/wardrobe/items` | 쿼리 `category`, `status`, `color`, `q`(이름·브랜드 부분 일치), `sort`(`recent` 기본 · `worn` · `name`) | `{ items: ItemDto[] }` | MyBatis 동적 SQL |
+| GET | `/wardrobe/items` | 쿼리 `category`, `status`, `color`, `q`(이름·브랜드 부분 일치), `sort`(`recent` 기본 · `worn` · `name`), `retired`(`false` 기본 = 사용 중인 옷만 · `true` = 사용 중지한 옷만 · `all`, 그 밖은 400) | `{ items: ItemDto[] }` | MyBatis 동적 SQL |
 | GET | `/wardrobe/items/{id}` | — | `ItemDto` | JPA |
 | POST | `/wardrobe/items` | `ItemInput` | 201 `ItemDto` | JPA |
 | POST | `/wardrobe/items/bulk` | `{ items: ItemInput[] }` (최대 100) | 201 `{ items: ItemDto[] }` 요청 순서대로 | JPA |
 | PATCH | `/wardrobe/items/{id}` | `Partial<ItemInput>` | `ItemDto` | JPA |
-| DELETE | `/wardrobe/items/{id}` | — | 204 | JPA |
+| DELETE | `/wardrobe/items/{id}` | — | 204. **완전 삭제** (13 문서) | JPA |
+| POST | `/wardrobe/items/{id}/retire` | `{ reason, memo? }` | `ItemDto`. 이미 사용 중지면 이유·메모만 바꾸고 시각은 그대로 | JPA |
+| POST | `/wardrobe/items/{id}/restore` | — | `ItemDto`. 사용 중이면 그대로 200 | JPA |
 | GET | `/wardrobe/stats` | — | `WardrobeStats` | MyBatis 집계 |
 | POST | `/wardrobe/items/analyze` | multipart, 파트 이름 `image` (jpeg·png·webp·heic, 10MB) | `AnalyzeResponse` | AI 공급자 |
+
+**사용하지 않는 옷** (6차, 계약 13 문서): `retire`의 `reason`은 활성 `RETIRE_REASON` 코드, `memo`는 앞뒤 공백을 지운 뒤 200자 이하(빈 메모는 `null`로 저장). 틀리면 400 `VALIDATION_FAILED`(`reason`·`memo`), 남의 옷·없는 옷은 입력보다 먼저 404. 사용 중지는 보유 상태(`status`)와 별개이고, 사용 중지한 옷도 단건 조회·PATCH·완전 삭제가 된다. 통계는 사용 중인 옷만 세고 `retired`·`retiredByReason`을 따로 준다. AI 코디 추천 후보에서 빠지며, 고정(`context.fixed`)·중심(`context.anchorItemId`)으로 주면 400 `VALIDATION_FAILED`("사용하지 않는 옷이에요."). 코드 삭제 가드(`CODE_IN_USE`)는 사용 중지한 옷도 센다.
 
 2차부터 `Category`·`SubType`·`ColorKey`·`Pattern`·`Season`·`StyleTag`·보유 상태는 **코드 문자열**이다. 허용 값·검증 규칙(새 값은 활성 코드만, PATCH에서 안 바꾼 비활성 값은 통과, subType의 parent = category)은 06 문서 4장을 따른다. `WardrobeStats.byCategory`·`byStatus`의 키는 활성 코드 전부 + 아이템이 있는 비활성 코드다.
 
@@ -198,9 +204,13 @@ interface ItemDto {
   wornCount: number;
   lastWornAt?: string | null;  // YYYY-MM-DD
   createdAt: string;
+  retiredAt: string | null;     // 6차: 사용 중지 시각 (ISO). null이면 사용 중
+  retireReason: string | null;  // RETIRE_REASON 코드
+  retireMemo: string | null;
 }
-type ItemInput = Omit<ItemDto, 'id' | 'createdAt'> & { wornCount?: number; lastWornAt?: string | null };
+type ItemInput = Omit<ItemDto, 'id' | 'createdAt' | 'retiredAt' | 'retireReason' | 'retireMemo'> & { wornCount?: number; lastWornAt?: string | null };
 
+// retired·retiredByReason 말고는 사용 중인 옷만 센다 (6차)
 interface WardrobeStats {
   total: number;
   byCategory: Record<Category, number>;
@@ -210,6 +220,8 @@ interface WardrobeStats {
   wornLast30Days: number;     // 최근 30일 안에 입은 아이템 수
   utilization30d: number;     // wornLast30Days / total, 0~1, 소수 둘째 자리
   sleeping: string[];         // 60일 넘게 안 입었거나 한 번도 안 입은 아이템 id (최대 10)
+  retired: number;            // 6차: 사용 중지한 옷 수
+  retiredByReason: { reason: string; count: number }[];  // 이유별, 많은 순 (같으면 코드 순)
 }
 
 interface AnalyzeResponse {
@@ -231,6 +243,21 @@ interface AnalyzeResponse {
 ```
 
 서버는 `category`와 `subType`의 짝이 맞는지 검증한다. 짝은 2차부터 코드 테이블의 SUB_TYPE `parent`를 따른다 (06 문서).
+
+### 앱 설정 (6차, 계약 12 문서 3장)
+
+| 메서드 | 경로 | 권한 | 요청 | 응답 |
+|---|---|---|---|---|
+| GET | `/app/config` | 공개 | — | `{ themeId, version }`. `ETag: "<version>"`, `Cache-Control: no-cache`, `If-None-Match`가 같으면 304 (코드 API와 같음) |
+| GET | `/admin/app/theme` | ADMIN | — | `{ themeId, updatedAt, updatedBy }` |
+| PUT | `/admin/app/theme` | ADMIN | `{ themeId }` | 위와 같은 모양. 변경 이력 `APP_THEME_UPDATE` |
+
+- `themeId`는 `nyang`·`closeta`. 그 밖(빈 값·대소문자 다름 포함)은 400 `VALIDATION_FAILED`(`themeId`).
+- `version`은 마지막으로 바꾼 시각(ISO-8601 UTC, 밀리초, = `updatedAt`). **바꾼 적이 없으면 `"initial"`**.
+- 처음 상태에서 `updatedAt`·`updatedBy`는 `null`. `updatedBy`는 바꾼 관리자 이메일(탈퇴하면 `null`).
+- 지금과 같은 테마로 PUT하면 아무것도 바꾸지 않고(시각·관리자 그대로, 이력 없음) 지금 상태를 200으로 돌려준다.
+- 변경 이력: `targetType = APP_SETTING`, `targetId = theme`, `before`·`after` = `{ "themeId": ... }`. `GET /admin/audit-logs?targetType=APP_SETTING`.
+- 공개 경로라 만료되거나 틀린 `Authorization` 헤더가 같이 와도 무시하고 200을 준다.
 
 ## 7. AI 분석
 
@@ -282,3 +309,4 @@ api.wardrobe.analyze(file)                   // file: Blob | { uri, name, type }
 - 짧은 Access 수명(`WEARLY_ACCESS_TTL=PT3S`)과 낮은 AI 한도(`WEARLY_AI_DAILY_LIMIT=3`), `WEARLY_AI_PROVIDER=mock`으로 띄워 만료·갱신·한도를 실제로 확인한다.
 - 개발용 `backend/config/application-local.yml`(실제 AI 키·관리자 계정·마스터 키)은 읽지 않는다 (`WEARLY_LOCAL_CONFIG`를 없는 경로로 준다). DB는 compose의 `db`(`wearly-postgres`)를 쓴다.
 - 시나리오는 `mobile/src/api/client.ts`를 그대로 import해 앱과 같은 코드로 서버를 부른다.
+- 6차의 앱 설정·옷 사용 중지 시나리오(30~37)는 앱 모듈을 거치지 않고 원시 HTTP로만 서버 계약을 확인한다 (`harness/README.md`).

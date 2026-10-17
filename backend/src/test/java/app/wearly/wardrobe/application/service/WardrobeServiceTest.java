@@ -14,14 +14,17 @@ import app.wearly.wardrobe.application.port.in.dto.CreateItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
 import app.wearly.wardrobe.application.port.in.dto.PatchItemDto;
+import app.wearly.wardrobe.application.port.in.dto.RetireItemDto;
 import app.wearly.wardrobe.application.port.out.ItemFilter;
 import app.wearly.wardrobe.application.port.out.ItemPort;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
 import app.wearly.wardrobe.application.port.out.dto.CodeCountDto;
 import app.wearly.wardrobe.application.port.out.dto.KeyCountDto;
 import app.wearly.wardrobe.domain.WardrobeItem;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -33,6 +36,8 @@ import org.junit.jupiter.api.Test;
 class WardrobeServiceTest {
 
   static final long USER = 7L;
+
+  static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-17T01:02:03.456Z"), ZoneOffset.UTC);
 
   /** navy는 비활성 (이미 저장된 값이면 그대로 둘 수 있다) */
   final CodeSnapshot codes = TestCodes.withInactive("COLOR:navy");
@@ -66,7 +71,8 @@ class WardrobeServiceTest {
                   item.brand(),
                   item.wornCount(),
                   item.lastWornAt(),
-                  Instant.EPOCH);
+                  Instant.EPOCH,
+                  item.retirement());
           rows.put(id, saved);
           return saved;
         }
@@ -121,6 +127,16 @@ class WardrobeServiceTest {
         }
 
         @Override
+        public long countRetired(long userId) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<KeyCountDto> countRetiredByReason(long userId) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<CodeCountDto> countByCode() {
           throw new UnsupportedOperationException();
         }
@@ -131,12 +147,13 @@ class WardrobeServiceTest {
         }
       };
 
-  final WardrobeService service = new WardrobeService(items, queries, () -> codes);
+  final WardrobeService service = new WardrobeService(items, queries, () -> codes, CLOCK);
 
   @Test
   void 목록_필터는_모르는_값만_거부하고_비활성_코드는_허용한다() {
     assertThatThrownBy(
-            () -> service.list(new ItemSearchDto(USER, "HAT", null, "fuchsia", null, "price")))
+            () ->
+                service.list(new ItemSearchDto(USER, "HAT", null, "fuchsia", null, "price", null)))
         .isInstanceOfSatisfying(
             ApiException.class,
             e ->
@@ -145,7 +162,7 @@ class WardrobeServiceTest {
                     .containsExactly("category", "color", "sort"));
     assertThat(filters).isEmpty();
 
-    service.list(new ItemSearchDto(USER, " TOP ", "", "navy", " 100%_셔츠 ", null));
+    service.list(new ItemSearchDto(USER, " TOP ", "", "navy", " 100%_셔츠 ", null, null));
     assertThat(filters)
         .singleElement()
         .satisfies(
@@ -230,6 +247,76 @@ class WardrobeServiceTest {
             ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
     assertThatThrownBy(() -> service.delete(99L, id)).isInstanceOf(ApiException.class);
     assertThat(rows).containsKey(id);
+  }
+
+  @Test
+  void 목록은_기본으로_사용_중인_옷만_보고_retired로_고를_수_있다() {
+    service.list(new ItemSearchDto(USER, null, null, null, null, null, null));
+    service.list(new ItemSearchDto(USER, null, null, null, null, null, " true "));
+    service.list(new ItemSearchDto(USER, null, null, null, null, null, "all"));
+    service.list(new ItemSearchDto(USER, null, null, null, null, null, "false"));
+    assertThat(filters)
+        .extracting(ItemFilter::retired)
+        .containsExactly(Boolean.FALSE, Boolean.TRUE, null, Boolean.FALSE);
+
+    assertThatThrownBy(
+            () -> service.list(new ItemSearchDto(USER, null, null, null, null, null, "yes")))
+        .isInstanceOfSatisfying(
+            ApiException.class,
+            e ->
+                assertThat(e.fieldErrors())
+                    .extracting(FieldError::field)
+                    .containsExactly("retired"));
+  }
+
+  @Test
+  void 사용_중지는_아이템을_먼저_찾고_이유_코드를_검증한_뒤_저장한다() {
+    long id = givenItemWithColor("white");
+
+    assertThatThrownBy(() -> service.retire(99L, id, new RetireItemDto("BAD", null)))
+        .isInstanceOfSatisfying(
+            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+    assertThatThrownBy(() -> service.retire(USER, id, new RetireItemDto("LOST", "x".repeat(201))))
+        .isInstanceOfSatisfying(
+            ApiException.class,
+            e ->
+                assertThat(e.fieldErrors())
+                    .extracting(FieldError::field)
+                    .containsExactlyInAnyOrder("reason", "memo"));
+    assertThatThrownBy(() -> service.retire(USER, id, null))
+        .isInstanceOfSatisfying(
+            ApiException.class,
+            e ->
+                assertThat(e.fieldErrors())
+                    .extracting(FieldError::field)
+                    .containsExactly("reason"));
+    assertThat(rows.get(id).isRetired()).isFalse();
+
+    ItemDto retired = service.retire(USER, id, new RetireItemDto("DONATED", " 기부 "));
+    assertThat(retired.retiredAt()).isEqualTo(CLOCK.instant());
+    assertThat(retired.retireReason()).isEqualTo("DONATED");
+    assertThat(retired.retireMemo()).isEqualTo("기부");
+    assertThat(retired.status()).isEqualTo("OWNED");
+
+    ItemDto restored = service.restore(USER, id);
+    assertThat(restored.retiredAt()).isNull();
+    assertThat(restored.retireReason()).isNull();
+    assertThat(restored.retireMemo()).isNull();
+    assertThat(rows.get(id).isRetired()).isFalse();
+    // 사용 중이면 그대로 200
+    assertThat(service.restore(USER, id).retiredAt()).isNull();
+    assertThatThrownBy(() -> service.restore(99L, id)).isInstanceOf(ApiException.class);
+  }
+
+  @Test
+  void 사용_중지한_옷도_PATCH로_고칠_수_있다() {
+    long id = givenItemWithColor("white");
+    service.retire(USER, id, new RetireItemDto("NOT_WORN", null));
+
+    ItemDto patched = service.patch(USER, id, patch(Patch.of("기록용 이름"), Patch.absent()));
+
+    assertThat(patched.name()).isEqualTo("기록용 이름");
+    assertThat(patched.retireReason()).isEqualTo("NOT_WORN");
   }
 
   private long givenItemWithColor(String color) {

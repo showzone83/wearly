@@ -5,7 +5,10 @@ import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto;
 import java.util.List;
 import java.util.Map;
 
-/** GET /wardrobe/stats (05 문서 6장). sleeping은 아이템 ID 문자열 */
+/**
+ * GET /wardrobe/stats (05 문서 6장, 13 문서 3장). sleeping은 아이템 ID 문자열. retired·retiredByReason 말고는 사용 중인
+ * 옷만 센다
+ */
 public record WardrobeStatsResponse(
     long total,
     Map<String, Long> byCategory,
@@ -14,11 +17,15 @@ public record WardrobeStatsResponse(
     Map<String, Long> byStatus,
     long wornLast30Days,
     double utilization30d,
-    List<String> sleeping) {
+    List<String> sleeping,
+    long retired,
+    List<ReasonCount> retiredByReason) {
 
   public record ColorCount(String color, long count) {}
 
   public record StyleCount(String style, long count) {}
+
+  public record ReasonCount(String reason, long count) {}
 
   public static WardrobeStatsResponse from(WardrobeStatsDto d) {
     return new WardrobeStatsResponse(
@@ -29,6 +36,8 @@ public record WardrobeStatsResponse(
         d.byStatus(),
         d.wornLast30Days(),
         d.utilization30d(),
-        d.sleeping().stream().map(Ids::format).toList());
+        d.sleeping().stream().map(Ids::format).toList(),
+        d.retired(),
+        d.retiredByReason().stream().map(r -> new ReasonCount(r.reason(), r.count())).toList());
   }
 }

@@ -144,6 +144,7 @@ public class AdminUserService implements AdminUserUseCase {
         r.status(),
         r.createdAt(),
         r.itemCount(),
+        r.retiredItemCount(),
         r.aiToday());
   }
 }

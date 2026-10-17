@@ -10,20 +10,23 @@ import app.wearly.wardrobe.application.port.in.dto.CreateItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
 import app.wearly.wardrobe.application.port.in.dto.PatchItemDto;
+import app.wearly.wardrobe.application.port.in.dto.RetireItemDto;
 import app.wearly.wardrobe.application.port.out.ItemFilter;
 import app.wearly.wardrobe.application.port.out.ItemPort;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
 import app.wearly.wardrobe.domain.ItemCodeValidator;
 import app.wearly.wardrobe.domain.ItemInput;
 import app.wearly.wardrobe.domain.ItemRules;
+import app.wearly.wardrobe.domain.RetireRules;
 import app.wearly.wardrobe.domain.WardrobeItem;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 옷장 쓰기·단건 조회(JPA)와 목록 조회(MyBatis) */
+/** 옷장 쓰기·단건 조회(JPA)와 목록 조회(MyBatis), 사용 중지·다시 사용 (13 문서) */
 @Service
 public class WardrobeService implements WardrobeUseCase {
 
@@ -32,11 +35,13 @@ public class WardrobeService implements WardrobeUseCase {
   private final ItemPort items;
   private final ItemQueryPort queries;
   private final CodeCatalog catalog;
+  private final Clock clock;
 
-  public WardrobeService(ItemPort items, ItemQueryPort queries, CodeCatalog catalog) {
+  public WardrobeService(ItemPort items, ItemQueryPort queries, CodeCatalog catalog, Clock clock) {
     this.items = items;
     this.queries = queries;
     this.catalog = catalog;
+    this.clock = clock;
   }
 
   @Override
@@ -52,6 +57,7 @@ public class WardrobeService implements WardrobeUseCase {
     if (!SORTS.contains(sortKey)) {
       errors.add(new FieldError("sort", "recent, worn, name 중 하나여야 해요."));
     }
+    Boolean retired = retiredFilter(q.retired(), errors);
     ApiException.throwIfAny(errors);
     String query = blankToNull(q.q());
     return queries
@@ -62,7 +68,8 @@ public class WardrobeService implements WardrobeUseCase {
                 statusCode,
                 colorCode,
                 query == null ? null : query.strip(),
-                sortKey))
+                sortKey,
+                retired))
         .stream()
         .map(ItemDto::from)
         .toList();
@@ -141,6 +148,28 @@ public class WardrobeService implements WardrobeUseCase {
     items.delete(find(userId, itemId));
   }
 
+  @Override
+  @Transactional
+  public ItemDto retire(long userId, long itemId, RetireItemDto input) {
+    WardrobeItem item = find(userId, itemId);
+    String reason = input == null ? null : input.reason();
+    String memo = input == null ? null : input.memo();
+    ApiException.throwIfAny(RetireRules.validate(catalog.current(), reason, memo));
+    item.retire(reason, memo, clock.instant());
+    return ItemDto.from(items.save(item));
+  }
+
+  @Override
+  @Transactional
+  public ItemDto restore(long userId, long itemId) {
+    WardrobeItem item = find(userId, itemId);
+    if (!item.isRetired()) {
+      return ItemDto.from(item);
+    }
+    item.restore();
+    return ItemDto.from(items.save(item));
+  }
+
   private WardrobeItem find(long userId, long itemId) {
     return items.find(userId, itemId).orElseThrow(ApiException::notFound);
   }
@@ -156,6 +185,23 @@ public class WardrobeService implements WardrobeUseCase {
       return null;
     }
     return value.strip();
+  }
+
+  /** retired 쿼리: 없으면 false(사용 중인 옷만), true(사용 중지한 옷만), all(전부 → null) */
+  private static Boolean retiredFilter(String raw, List<FieldError> errors) {
+    String value = blankToNull(raw);
+    if (value == null) {
+      return Boolean.FALSE;
+    }
+    return switch (value.strip()) {
+      case "false" -> Boolean.FALSE;
+      case "true" -> Boolean.TRUE;
+      case ItemSearchDto.RETIRED_ALL -> null;
+      default -> {
+        errors.add(new FieldError("retired", "false, true, all 중 하나여야 해요."));
+        yield Boolean.FALSE;
+      }
+    };
   }
 
   private static String blankToNull(String s) {

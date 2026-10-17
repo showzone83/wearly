@@ -6,7 +6,10 @@ import app.wearly.wardrobe.application.port.in.dto.ItemDto;
 import java.time.LocalDate;
 import java.util.List;
 
-/** 05 문서 6장 ItemDto (앱 WardrobeItem에서 imageUri를 뺀 모양). ID는 문자열, createdAt은 ISO-8601 UTC */
+/**
+ * 05 문서 6장 ItemDto (앱 WardrobeItem에서 imageUri를 뺀 모양). ID는 문자열, createdAt·retiredAt은 ISO-8601 UTC.
+ * 사용 중이면 retiredAt·retireReason·retireMemo가 null (13 문서 3장)
+ */
 public record ItemResponse(
     String id,
     String name,
@@ -21,7 +24,10 @@ public record ItemResponse(
     String brand,
     int wornCount,
     LocalDate lastWornAt,
-    String createdAt) {
+    String createdAt,
+    String retiredAt,
+    String retireReason,
+    String retireMemo) {
 
   public static ItemResponse from(ItemDto d) {
     return new ItemResponse(
@@ -38,6 +44,9 @@ public record ItemResponse(
         d.brand(),
         d.wornCount(),
         d.lastWornAt(),
-        Times.iso(d.createdAt()));
+        Times.iso(d.createdAt()),
+        Times.iso(d.retiredAt()),
+        d.retireReason(),
+        d.retireMemo());
   }
 }

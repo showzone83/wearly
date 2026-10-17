@@ -173,58 +173,58 @@
   "profile.get.default" : {
     "status" : 200,
     "body" : {
-      "name" : "스냅A",
+      "colors" : [ "navy", "beige", "white" ],
       "dressCodes" : [ "BIZ_CASUAL" ],
       "moods" : [ "NEAT", "MINIMAL" ],
-      "colors" : [ "navy", "beige", "white" ],
-      "workType" : "WEEKDAY",
-      "workDays" : [ 1, 2, 3, 4, 5 ],
-      "workRule" : true,
-      "offRule" : true,
+      "name" : "스냅A",
       "notify" : {
         "morning" : true,
         "evening" : true,
         "dMinus1" : true
       },
-      "onboarded" : false
+      "offRule" : true,
+      "onboarded" : false,
+      "workDays" : [ 1, 2, 3, 4, 5 ],
+      "workRule" : true,
+      "workType" : "WEEKDAY"
     }
   },
   "profile.put" : {
     "status" : 200,
     "body" : {
-      "name" : "스냅에이",
+      "colors" : [ "navy", "white" ],
       "dressCodes" : [ "FORMAL", "CASUAL" ],
       "moods" : [ "CLASSIC", "NEAT" ],
-      "colors" : [ "navy", "white" ],
-      "workType" : "CUSTOM",
-      "workDays" : [ 1, 3, 5 ],
-      "workRule" : false,
-      "offRule" : true,
+      "name" : "스냅에이",
       "notify" : {
         "morning" : true,
         "evening" : false,
         "dMinus1" : true
       },
-      "onboarded" : true
+      "offRule" : true,
+      "onboarded" : true,
+      "workDays" : [ 1, 3, 5 ],
+      "workRule" : false,
+      "workType" : "CUSTOM"
     }
   },
   "profile.get" : {
     "status" : 200,
     "body" : {
-      "name" : "스냅에이",
+      "colors" : [ "navy", "white" ],
       "dressCodes" : [ "FORMAL", "CASUAL" ],
       "moods" : [ "CLASSIC", "NEAT" ],
-      "colors" : [ "navy", "white" ],
-      "workType" : "CUSTOM",
-      "workDays" : [ 1, 3, 5 ],
-      "workRule" : false,
-      "offRule" : true,
+      "name" : "스냅에이",
       "notify" : {
         "morning" : true,
         "evening" : false,
         "dMinus1" : true
       },
-      "onboarded" : true
+      "offRule" : true,
+      "onboarded" : true,
+      "workDays" : [ 1, 3, 5 ],
+      "workRule" : false,
+      "workType" : "CUSTOM"
     }
   },
   "profile.put.badEnum" : {
@@ -293,45 +293,45 @@
   "profile.put.notOnboarded" : {
     "status" : 200,
     "body" : {
-      "name" : "스냅에이",
+      "colors" : [ "navy", "white" ],
       "dressCodes" : [ "FORMAL", "CASUAL" ],
       "moods" : [ "CLASSIC", "NEAT" ],
-      "colors" : [ "navy", "white" ],
-      "workType" : "CUSTOM",
-      "workDays" : [ 1, 3, 5 ],
-      "workRule" : false,
-      "offRule" : true,
+      "name" : "스냅에이",
       "notify" : {
         "morning" : true,
         "evening" : false,
         "dMinus1" : true
       },
-      "onboarded" : false
+      "offRule" : true,
+      "onboarded" : false,
+      "workDays" : [ 1, 3, 5 ],
+      "workRule" : false,
+      "workType" : "CUSTOM"
     }
   },
   "profile.put.restore" : {
     "status" : 200,
     "body" : {
-      "name" : "스냅에이",
+      "colors" : [ "navy", "white" ],
       "dressCodes" : [ "FORMAL", "CASUAL" ],
       "moods" : [ "CLASSIC", "NEAT" ],
-      "colors" : [ "navy", "white" ],
-      "workType" : "CUSTOM",
-      "workDays" : [ 1, 3, 5 ],
-      "workRule" : false,
-      "offRule" : true,
+      "name" : "스냅에이",
       "notify" : {
         "morning" : true,
         "evening" : false,
         "dMinus1" : true
       },
-      "onboarded" : true
+      "offRule" : true,
+      "onboarded" : true,
+      "workDays" : [ 1, 3, 5 ],
+      "workRule" : false,
+      "workType" : "CUSTOM"
     }
   },
   "codes" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#102",
+      "version" : "<version>#107",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -1412,12 +1412,51 @@
             "recommendable" : false
           }
         } ]
+      }, {
+        "group" : "RETIRE_REASON",
+        "name" : "사용 중지 이유",
+        "codes" : [ {
+          "code" : "NOT_WORN",
+          "label" : "안 입어요",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "DISCARDED",
+          "label" : "버렸어요",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "DONATED",
+          "label" : "기부했어요",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "SOLD",
+          "label" : "팔았어요",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "ETC",
+          "label" : "기타",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : { }
+        } ]
       } ]
     }
   },
   "codes.notModified" : {
     "status" : 304,
-    "etag" : "<version>#102",
+    "etag" : "<version>#107",
     "cacheControl" : "no-cache"
   },
   "wardrobe.create" : {
@@ -1436,7 +1475,10 @@
       "brand" : "브랜드",
       "wornCount" : 4,
       "lastWornAt" : "<today>",
-      "createdAt" : "<instant>"
+      "createdAt" : "<instant>",
+      "retiredAt" : null,
+      "retireReason" : null,
+      "retireMemo" : null
     }
   },
   "wardrobe.create.invalid" : {
@@ -1528,7 +1570,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "3",
         "name" : "차콜 슬랙스",
@@ -1543,7 +1588,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "4",
         "name" : "베이지 와이드",
@@ -1558,7 +1606,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "5",
         "name" : "블랙 셔츠 원피스",
@@ -1573,7 +1624,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "6",
         "name" : "네이비 블레이저",
@@ -1588,7 +1642,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "7",
         "name" : "블랙 로퍼",
@@ -1603,7 +1660,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "8",
         "name" : "화이트 스니커즈",
@@ -1618,7 +1678,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "9",
         "name" : "브라운 토트",
@@ -1633,7 +1696,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "10",
         "name" : "핑크 블라우스",
@@ -1648,7 +1714,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : "2020-01-01",
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       } ]
     }
   },
@@ -1693,7 +1762,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : "2020-01-01",
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "9",
         "name" : "브라운 토트",
@@ -1708,7 +1780,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "8",
         "name" : "화이트 스니커즈",
@@ -1723,7 +1798,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "7",
         "name" : "블랙 로퍼",
@@ -1738,7 +1816,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "6",
         "name" : "네이비 블레이저",
@@ -1753,7 +1834,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "5",
         "name" : "블랙 셔츠 원피스",
@@ -1768,7 +1852,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "4",
         "name" : "베이지 와이드",
@@ -1783,7 +1870,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "3",
         "name" : "차콜 슬랙스",
@@ -1798,7 +1888,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "2",
         "name" : "화이트 셔츠",
@@ -1813,7 +1906,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "1",
         "name" : "네이비 니트",
@@ -1828,7 +1924,10 @@
         "brand" : "브랜드",
         "wornCount" : 4,
         "lastWornAt" : "<today>",
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       } ]
     }
   },
@@ -1849,7 +1948,10 @@
         "brand" : "브랜드",
         "wornCount" : 4,
         "lastWornAt" : "<today>",
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "2",
         "name" : "화이트 셔츠",
@@ -1864,7 +1966,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       } ]
     }
   },
@@ -1885,7 +1990,10 @@
         "brand" : "브랜드",
         "wornCount" : 4,
         "lastWornAt" : "<today>",
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       }, {
         "id" : "6",
         "name" : "네이비 블레이저",
@@ -1900,7 +2008,10 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       } ]
     }
   },
@@ -1921,7 +2032,10 @@
         "brand" : "브랜드",
         "wornCount" : 4,
         "lastWornAt" : "<today>",
-        "createdAt" : "<instant>"
+        "createdAt" : "<instant>",
+        "retiredAt" : null,
+        "retireReason" : null,
+        "retireMemo" : null
       } ]
     }
   },
@@ -1968,7 +2082,10 @@
       "brand" : "브랜드",
       "wornCount" : 4,
       "lastWornAt" : "<today>",
-      "createdAt" : "<instant>"
+      "createdAt" : "<instant>",
+      "retiredAt" : null,
+      "retireReason" : null,
+      "retireMemo" : null
     }
   },
   "wardrobe.get.notFound" : {
@@ -2005,7 +2122,10 @@
       "brand" : null,
       "wornCount" : 4,
       "lastWornAt" : "<today>",
-      "createdAt" : "<instant>"
+      "createdAt" : "<instant>",
+      "retiredAt" : null,
+      "retireReason" : null,
+      "retireMemo" : null
     }
   },
   "wardrobe.patch.typeError" : {
@@ -2153,7 +2273,9 @@
       },
       "wornLast30Days" : 1,
       "utilization30d" : 0.1,
-      "sleeping" : [ "2", "3", "4", "5", "6", "7", "8", "9", "10" ]
+      "sleeping" : [ "2", "3", "4", "5", "6", "7", "8", "9", "10" ],
+      "retired" : 0,
+      "retiredByReason" : [ ]
     }
   },
   "wardrobe.delete" : {
@@ -2590,6 +2712,7 @@
         "status" : "ACTIVE",
         "createdAt" : "<instant>",
         "itemCount" : 0,
+        "retiredItemCount" : 0,
         "aiToday" : 0
       }, {
         "id" : "2",
@@ -2599,6 +2722,7 @@
         "status" : "ACTIVE",
         "createdAt" : "<instant>",
         "itemCount" : 10,
+        "retiredItemCount" : 0,
         "aiToday" : 3
       }, {
         "id" : "1",
@@ -2608,6 +2732,7 @@
         "status" : "ACTIVE",
         "createdAt" : "<instant>",
         "itemCount" : 0,
+        "retiredItemCount" : 0,
         "aiToday" : 0
       } ],
       "page" : 0,
@@ -2626,6 +2751,7 @@
         "status" : "ACTIVE",
         "createdAt" : "<instant>",
         "itemCount" : 10,
+        "retiredItemCount" : 0,
         "aiToday" : 3
       } ],
       "page" : 1,
@@ -2644,6 +2770,7 @@
         "status" : "ACTIVE",
         "createdAt" : "<instant>",
         "itemCount" : 0,
+        "retiredItemCount" : 0,
         "aiToday" : 0
       } ],
       "page" : 0,
@@ -2685,6 +2812,7 @@
       "status" : "SUSPENDED",
       "createdAt" : "<instant>",
       "itemCount" : 0,
+      "retiredItemCount" : 0,
       "aiToday" : 0
     }
   },
@@ -2716,6 +2844,7 @@
       "status" : "ACTIVE",
       "createdAt" : "<instant>",
       "itemCount" : 0,
+      "retiredItemCount" : 0,
       "aiToday" : 0
     }
   },
@@ -2780,6 +2909,7 @@
       "status" : "ACTIVE",
       "createdAt" : "<instant>",
       "itemCount" : 0,
+      "retiredItemCount" : 0,
       "aiToday" : 0
     }
   },
@@ -2793,6 +2923,7 @@
       "status" : "ACTIVE",
       "createdAt" : "<instant>",
       "itemCount" : 0,
+      "retiredItemCount" : 0,
       "aiToday" : 0
     }
   },
@@ -2808,7 +2939,7 @@
   "admin.codes" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#102",
+      "version" : "<version>#107",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -3998,6 +4129,51 @@
           },
           "usageCount" : 0
         } ]
+      }, {
+        "group" : "RETIRE_REASON",
+        "name" : "사용 중지 이유",
+        "description" : "옷을 사용하지 않는 옷으로 옮긴 이유. attrs 없음",
+        "codes" : [ {
+          "code" : "NOT_WORN",
+          "label" : "안 입어요",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "DISCARDED",
+          "label" : "버렸어요",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "DONATED",
+          "label" : "기부했어요",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "SOLD",
+          "label" : "팔았어요",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "ETC",
+          "label" : "기타",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        } ]
       } ]
     }
   },
@@ -4177,7 +4353,7 @@
   "admin.codes.reorder" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#104",
+      "version" : "<version>#109",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -5392,6 +5568,51 @@
           },
           "usageCount" : 0
         } ]
+      }, {
+        "group" : "RETIRE_REASON",
+        "name" : "사용 중지 이유",
+        "description" : "옷을 사용하지 않는 옷으로 옮긴 이유. attrs 없음",
+        "codes" : [ {
+          "code" : "NOT_WORN",
+          "label" : "안 입어요",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "DISCARDED",
+          "label" : "버렸어요",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "DONATED",
+          "label" : "기부했어요",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "SOLD",
+          "label" : "팔았어요",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "ETC",
+          "label" : "기타",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        } ]
       } ]
     }
   },
@@ -5441,7 +5662,7 @@
   "codes.afterAdmin" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#103",
+      "version" : "<version>#108",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -6532,6 +6753,45 @@
           "attrs" : {
             "recommendable" : false
           }
+        } ]
+      }, {
+        "group" : "RETIRE_REASON",
+        "name" : "사용 중지 이유",
+        "codes" : [ {
+          "code" : "NOT_WORN",
+          "label" : "안 입어요",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "DISCARDED",
+          "label" : "버렸어요",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "DONATED",
+          "label" : "기부했어요",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "SOLD",
+          "label" : "팔았어요",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "ETC",
+          "label" : "기타",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : { }
         } ]
       } ]
     }
@@ -8258,7 +8518,7 @@
       "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "targetType",
-        "message" : "CODE, AI_PROVIDER, USER 중 하나여야 해요."
+        "message" : "CODE, AI_PROVIDER, USER, APP_SETTING 중 하나여야 해요."
       } ]
     }
   },

@@ -87,6 +87,21 @@ npm run typecheck                             # 하네스 + mobile/src/api 타�
 
 19~21은 Access 수명 3초가 필요해서 `--external`에서는 건너뛴다.
 
+### 앱 설정 · 옷 사용 중지 (6차, 원시 HTTP)
+
+계약 12 문서 3장·13 문서. 앱 API 모듈을 거치지 않고 `raw()`와 `src/lib/rawUser.ts`(가입·관리자 로그인, `TOKEN_EXPIRED`면 다시 로그인해 한 번 더)로만 확인한다. 번호는 `--list` 기준.
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 30 | 앱 설정 | `GET /app/config` 토큰 없이(틀린 토큰도) 200, `{ themeId, version }`만, `ETag: "<version>"`·`Cache-Control: no-cache`, 같은 ETag 304·다른 ETag 200, PUT은 401, CORS `ETag` 노출 |
+| 31 | 앱 설정 | (관리자) 일반 회원 403·토큰 없이 401, GET 형식(처음엔 `updatedAt`·`updatedBy` null), 400(`dark`·빈 본문·`NYANG`) `themeId`, PUT으로 바꾸면 `updatedBy` = 관리자 이메일·`/app/config` version = `updatedAt`·옛 ETag 200·새 ETag 304, 같은 값 PUT은 그대로·이력 없음, 이력 `APP_THEME_UPDATE`(`APP_SETTING`/`theme`, before·after `{themeId}`), 원래 테마로 되돌림 |
+| 32 | 옷 사용 중지 | `/codes`에 `RETIRE_REASON` 5개(라벨·attrs 없음) |
+| 33 | 옷 사용 중지 | retire 응답 필드(메모 앞뒤 공백 제거·보유 상태 유지), 목록 기본·`retired=false`에서 빠지고 `true`·`all`에 보임, 모르는 `retired` 400, 다시 retire는 시각 유지, PATCH 가능, restore(사용 중이어도 200) |
+| 34 | 옷 사용 중지 | 통계: total·byCategory·byStatus·byColor·활용률·sleeping은 사용 중인 옷만, `retired`·`retiredByReason`(많은 순), restore 뒤 다시 계산 |
+| 35 | 옷 사용 중지 | 완전 삭제는 `retired=all`에도 없고 404, 사용 중지 옷은 남음, 남의 옷 retire·restore 404(입력이 틀려도 404 먼저), 401, 모르는 이유+메모 201자 400(`reason`·`memo`), 이유 없음 400, 메모 200자는 됨 |
+| 36 | 옷 사용 중지 | (관리자) 새 이유 코드로 retire → 사용 중 코드 삭제 409 `CODE_IN_USE` → 비활성화하면 retire 400(`reason`), 회원 목록 `itemCount`·`retiredItemCount`, 정리 |
+| 37 | 옷 사용 중지 | AI 코디 추천(목업): 후보에 사용 중지 옷 없음, 고정·중심으로 주면 400("사용하지 않는 옷이에요.") |
+
 refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 요청을 기록해 센다. `tokenStore`도 감싸서 `set`·`clear` 횟수를 센다.
 
 ### 계약에 정해지지 않아 하네스가 고른 기대값
@@ -130,9 +145,10 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 |---|---|
 | `run.sh` | DB 준비 → 백엔드 기동·종료 → 러너 실행 |
 | `src/main.ts` | 러너. 인자 해석, 시나리오 실행, 결과 표 |
-| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`ai`·`tokens`·`account`) |
+| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`) |
 | `src/lib/session.ts` | 앱 모듈로 클라이언트 만들기, 요청·토큰 저장·`onAuthLost` 기록 |
 | `src/lib/http.ts` | 원시 요청과 오류 본문 형식 검사 |
+| `src/lib/rawUser.ts` | 앱 모듈 없이 가입·관리자 로그인한 세션 (`TOKEN_EXPIRED`면 다시 로그인) |
 | `src/lib/assert.ts` | 검사 함수, 기대값·실제값을 담는 실패 |
 | `src/lib/fixtures.ts` | 아이템 입력, 기본 프로필 사본, 서울 기준 날짜 |
 | `src/lib/png.ts` | 단색 PNG 생성 |

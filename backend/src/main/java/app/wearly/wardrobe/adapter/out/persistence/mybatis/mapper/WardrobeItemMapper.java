@@ -30,9 +30,13 @@ public interface WardrobeItemMapper {
   List<Long> findSleepingIds(
       @Param("userId") long userId, @Param("before") LocalDate before, @Param("limit") int limit);
 
-  /** 모든 회원의 아이템이 쓰는 코드별 개수 (코드 값을 담는 컬럼 7개) */
+  long countRetired(@Param("userId") long userId);
+
+  List<KeyCountDto> countRetiredByReason(@Param("userId") long userId);
+
+  /** 모든 회원의 아이템이 쓰는 코드별 개수 (코드 값을 담는 컬럼 8개, 사용 중지한 옷 포함) */
   List<CodeCountDto> countByCode();
 
-  /** 이 코드를 쓰는 아이템 수 (모든 회원) */
+  /** 이 코드를 쓰는 아이템 수 (모든 회원, 사용 중지한 옷 포함) */
   long countUsing(@Param("group") String group, @Param("code") String code);
 }

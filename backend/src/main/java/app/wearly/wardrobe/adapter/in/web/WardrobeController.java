@@ -5,6 +5,7 @@ import app.wearly.common.web.PathIds;
 import app.wearly.wardrobe.adapter.in.web.request.BulkItemsRequest;
 import app.wearly.wardrobe.adapter.in.web.request.ItemRequest;
 import app.wearly.wardrobe.adapter.in.web.request.PatchItemRequest;
+import app.wearly.wardrobe.adapter.in.web.request.RetireItemRequest;
 import app.wearly.wardrobe.adapter.in.web.response.ItemListResponse;
 import app.wearly.wardrobe.adapter.in.web.response.ItemResponse;
 import app.wearly.wardrobe.adapter.in.web.response.WardrobeStatsResponse;
@@ -55,9 +56,10 @@ public class WardrobeController {
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String color,
       @RequestParam(required = false) String q,
-      @RequestParam(required = false) String sort) {
+      @RequestParam(required = false) String sort,
+      @RequestParam(required = false) String retired) {
     return ItemListResponse.from(
-        wardrobe.list(new ItemSearchDto(userId, category, status, color, q, sort)));
+        wardrobe.list(new ItemSearchDto(userId, category, status, color, q, sort, retired)));
   }
 
   @GetMapping("/items/{id}")
@@ -86,6 +88,26 @@ public class WardrobeController {
             userId, PathIds.parse(id), PatchItemRequest.read(patch, jsonMapper, validator)));
   }
 
+  /** 사용하지 않는 옷으로 옮기기 (13 문서 3장). 본문이 없으면 reason 필수 오류 */
+  @PostMapping("/items/{id}/retire")
+  public ItemResponse retire(
+      @CurrentUser long userId,
+      @PathVariable String id,
+      @RequestBody(required = false) RetireItemRequest request) {
+    return ItemResponse.from(
+        wardrobe.retire(
+            userId,
+            PathIds.parse(id),
+            request == null ? new RetireItemRequest(null, null).toDto() : request.toDto()));
+  }
+
+  /** 다시 사용하기. 사용 중이면 그대로 200 */
+  @PostMapping("/items/{id}/restore")
+  public ItemResponse restore(@CurrentUser long userId, @PathVariable String id) {
+    return ItemResponse.from(wardrobe.restore(userId, PathIds.parse(id)));
+  }
+
+  /** 완전 삭제 (되돌릴 수 없다) */
   @DeleteMapping("/items/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void delete(@CurrentUser long userId, @PathVariable String id) {

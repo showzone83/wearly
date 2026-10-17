@@ -182,6 +182,26 @@ class OutfitPromptTest {
   }
 
   @Test
+  void 사용_중지한_옷을_고정_중심으로_주면_사용하지_않는_옷이라고_알려_준다() {
+    // 사용 중지한 옷(99, 98)은 후보 목록(wardrobe)에 없고 retiredIds로만 온다 (13 문서 3장)
+    assertThat(
+            OutfitPool.checkPins(
+                request(Map.of("TOP", "99"), "98", Set.of(), List.of(), 5),
+                wardrobe(),
+                Set.of("99", "98")))
+        .extracting(e -> e.field() + "=" + e.message())
+        .containsExactly("context.fixed.TOP=사용하지 않는 옷이에요.", "context.anchorItemId=사용하지 않는 옷이에요.");
+    // 내 옷이 아닌 id는 그대로 "없는 아이템"
+    assertThat(
+            OutfitPool.checkPins(
+                request(Map.of("TOP", "999"), null, Set.of(), List.of(), 5),
+                wardrobe(),
+                Set.of("99")))
+        .singleElement()
+        .satisfies(e -> assertThat(e.message()).contains("없는"));
+  }
+
+  @Test
   void 목업은_규칙에_맞는_후보를_결정적으로_만든다() {
     OutfitPool pool = OutfitPool.of(request(Map.of(), "6", Set.of(), List.of(), 5), wardrobe());
     Map<String, Object> a = MockOutfitPlanner.plan(pool);

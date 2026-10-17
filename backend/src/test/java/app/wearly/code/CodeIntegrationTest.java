@@ -27,7 +27,14 @@ public class CodeIntegrationTest extends IntegrationTestBase {
     body.get("groups").forEach(g -> groups.add(g.get("group").asString()));
     assertThat(groups)
         .containsExactly(
-            "CATEGORY", "SUB_TYPE", "COLOR", "PATTERN", "SEASON", "STYLE", "ITEM_STATUS");
+            "CATEGORY",
+            "SUB_TYPE",
+            "COLOR",
+            "PATTERN",
+            "SEASON",
+            "STYLE",
+            "ITEM_STATUS",
+            "RETIRE_REASON");
 
     JsonNode category = body.get("groups").get(0);
     assertThat(category.get("name").asString()).isEqualTo("종류");

@@ -8,9 +8,11 @@ import type { Ctx, Scenario } from './scenario';
 import { accountScenarios } from './scenarios/account';
 import { aiScenarios } from './scenarios/ai';
 import { adminScenarios } from './scenarios/admin';
+import { appSettingScenarios } from './scenarios/appSettings';
 import { authScenarios } from './scenarios/auth';
 import { codeScenarios } from './scenarios/codes';
 import { profileScenarios } from './scenarios/profile';
+import { retireScenarios } from './scenarios/retire';
 import { tokenScenarios } from './scenarios/tokens';
 import { wardrobeScenarios } from './scenarios/wardrobe';
 
@@ -23,6 +25,8 @@ const ALL: Scenario[] = [
   ...tokenScenarios,
   ...accountScenarios,
   ...adminScenarios,
+  ...appSettingScenarios,
+  ...retireScenarios,
 ];
 
 type Status = 'PASS' | 'FAIL' | 'SKIP';

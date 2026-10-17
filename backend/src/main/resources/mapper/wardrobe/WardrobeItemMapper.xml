@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!-- 옷장 읽기 전용 조회: 동적 필터 목록, /wardrobe/stats 집계, 코드 사용 수 (code 컨텍스트가 CodeUsageSource로 묻는다) -->
+<!-- 옷장 읽기 전용 조회: 동적 필터 목록, /wardrobe/stats 집계, 코드 사용 수 (code 컨텍스트가 CodeUsageSource로 묻는다).
+     통계는 사용 중인 옷(retired_at IS NULL)만 센다. 코드 사용 수는 사용 중지한 옷도 센다 (doc/13_옷_사용_중지.md 3장) -->
 <mapper namespace="app.wearly.wardrobe.adapter.out.persistence.mybatis.mapper.WardrobeItemMapper">
 
     <resultMap id="itemRow" type="app.wearly.wardrobe.adapter.out.persistence.mybatis.dto.ItemRowDto">
@@ -18,14 +19,23 @@
         <result property="wornCount" column="worn_count"/>
         <result property="lastWornAt" column="last_worn_at"/>
         <result property="createdAt" column="created_at"/>
+        <result property="retiredAt" column="retired_at"/>
+        <result property="retireReason" column="retire_reason"/>
+        <result property="retireMemo" column="retire_memo"/>
     </resultMap>
 
 
     <select id="findItems" parameterType="app.wearly.wardrobe.application.port.out.ItemFilter" resultMap="itemRow">
         SELECT item_id, name, category, sub_type, color, pattern, seasons, styles, formality, status, brand,
-               worn_count, last_worn_at, created_at
+               worn_count, last_worn_at, created_at, retired_at, retire_reason, retire_memo
           FROM tb_wardrobe_item
          WHERE user_id = #{userId}
+        <if test="retired != null and retired">
+           AND retired_at IS NOT NULL
+        </if>
+        <if test="retired != null and !retired">
+           AND retired_at IS NULL
+        </if>
         <if test="category != null">
            AND category = #{category}
         </if>
@@ -54,13 +64,14 @@
     </select>
 
     <select id="countAll" resultType="long">
-        SELECT count(*) FROM tb_wardrobe_item WHERE user_id = #{userId}
+        SELECT count(*) FROM tb_wardrobe_item WHERE user_id = #{userId} AND retired_at IS NULL
     </select>
 
     <select id="countByCategory" resultType="app.wearly.wardrobe.application.port.out.dto.KeyCountDto">
         SELECT category AS key, count(*) AS count
           FROM tb_wardrobe_item
          WHERE user_id = #{userId}
+           AND retired_at IS NULL
          GROUP BY category
     </select>
 
@@ -68,6 +79,7 @@
         SELECT color AS key, count(*) AS count
           FROM tb_wardrobe_item
          WHERE user_id = #{userId}
+           AND retired_at IS NULL
          GROUP BY color
          ORDER BY count DESC, color ASC
     </select>
@@ -78,6 +90,7 @@
           FROM tb_wardrobe_item i
          CROSS JOIN LATERAL unnest(i.styles) AS s(style)
          WHERE i.user_id = #{userId}
+           AND i.retired_at IS NULL
          GROUP BY s.style
          ORDER BY count DESC, s.style ASC
     </select>
@@ -86,6 +99,7 @@
         SELECT status AS key, count(*) AS count
           FROM tb_wardrobe_item
          WHERE user_id = #{userId}
+           AND retired_at IS NULL
          GROUP BY status
     </select>
 
@@ -93,6 +107,7 @@
         SELECT count(*)
           FROM tb_wardrobe_item
          WHERE user_id = #{userId}
+           AND retired_at IS NULL
            AND last_worn_at &gt;= #{since}
     </select>
 
@@ -101,12 +116,27 @@
         SELECT item_id
           FROM tb_wardrobe_item
          WHERE user_id = #{userId}
+           AND retired_at IS NULL
            AND (last_worn_at IS NULL OR last_worn_at &lt; #{before})
          ORDER BY last_worn_at ASC NULLS FIRST, created_at ASC, item_id ASC
          LIMIT #{limit}
     </select>
 
-    <!-- 코드 값을 담는 컬럼 7개 (category·sub_type·color·pattern·status 한 값, seasons·styles 배열).
+    <select id="countRetired" resultType="long">
+        SELECT count(*) FROM tb_wardrobe_item WHERE user_id = #{userId} AND retired_at IS NOT NULL
+    </select>
+
+    <select id="countRetiredByReason" resultType="app.wearly.wardrobe.application.port.out.dto.KeyCountDto">
+        SELECT retire_reason AS key, count(*) AS count
+          FROM tb_wardrobe_item
+         WHERE user_id = #{userId}
+           AND retired_at IS NOT NULL
+         GROUP BY retire_reason
+         ORDER BY count DESC, retire_reason ASC
+    </select>
+
+    <!-- 코드 값을 담는 컬럼 8개 (category·sub_type·color·pattern·status·retire_reason 한 값, seasons·styles 배열).
+         사용 중지한 옷도 센다 (데이터가 남아 있으므로).
          컬럼을 늘리면 여기와 countUsing에 함께 넣는다 (코드 삭제 가드가 이 쿼리로만 사용 여부를 본다) -->
     <select id="countByCode" resultType="app.wearly.wardrobe.application.port.out.dto.CodeCountDto">
         SELECT 'CATEGORY' AS group_code, category AS code, count(*) AS count FROM tb_wardrobe_item GROUP BY category
@@ -122,6 +152,8 @@
         SELECT 'SEASON', s.v, count(*) FROM tb_wardrobe_item i CROSS JOIN LATERAL unnest(i.seasons) AS s(v) GROUP BY s.v
         UNION ALL
         SELECT 'STYLE', s.v, count(*) FROM tb_wardrobe_item i CROSS JOIN LATERAL unnest(i.styles) AS s(v) GROUP BY s.v
+        UNION ALL
+        SELECT 'RETIRE_REASON', retire_reason, count(*) FROM tb_wardrobe_item WHERE retire_reason IS NOT NULL GROUP BY retire_reason
     </select>
 
     <select id="countUsing" resultType="long">
@@ -135,6 +167,7 @@
             <when test="group == 'ITEM_STATUS'">WHERE status = #{code}</when>
             <when test="group == 'SEASON'">WHERE #{code} = ANY (seasons)</when>
             <when test="group == 'STYLE'">WHERE #{code} = ANY (styles)</when>
+            <when test="group == 'RETIRE_REASON'">WHERE retire_reason = #{code}</when>
             <otherwise>WHERE FALSE</otherwise>
         </choose>
     </select>
