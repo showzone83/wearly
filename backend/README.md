@@ -118,6 +118,7 @@ wearly:
 | `WEARLY_AI_OUTFIT_DAILY_LIMIT` | `wearly.ai.outfit-daily-limit` | `20` | 회원별 하루 AI 코디 추천 횟수 (사진 분석과 따로 센다, Asia/Seoul 날짜, 성공만) |
 | `WEARLY_AI_TIMEOUT` | `wearly.ai.timeout` | `PT60S` | 공급자 호출 제한 시간 기본값. 공급자 `options.timeoutSeconds`가 있으면 그 값 |
 | `WEARLY_AI_ALLOW_BASE_URL` | `wearly.ai.allow-base-url` | `false` | `true`일 때만 공급자 `options.baseUrl`(API 주소 바꾸기)을 허용. 키가 다른 주소로 갈 수 있어 운영에서는 끈다 |
+| (환경변수 없음) | `wearly.ai.model-catalog.<CLAUDE\|OPENAI\|GEMINI>` | `application.yml`의 Claude 3개 | 공급자 종류별 내장 모델 목록 `[{ id, display-name, recommended }]`. 관리자 모델 드롭다운이 키가 없거나 제공사 목록을 받지 못했을 때 보여 주고, 제공사 목록에서도 같은 ID에 추천 표시를 붙인다. 종류 이름은 대소문자 무시, 모르는 종류·형식이 틀린 ID는 시작 실패 (doc/07 4장) |
 | `ANTHROPIC_API_KEY` | `wearly.ai.keys.ANTHROPIC_API_KEY` | (없음) | Claude 키. 처음 상태의 `claude` 행이 가리키는 이름. yml 값이 먼저 |
 | `OPENAI_API_KEY` | `wearly.ai.keys.OPENAI_API_KEY` | (없음) | OpenAI 키. `openai` 행이 가리키는 이름 |
 | `GEMINI_API_KEY` | `wearly.ai.keys.GEMINI_API_KEY` | (없음) | Gemini 키. `gemini` 행이 가리키는 이름 |
@@ -280,7 +281,10 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 | `CodeIntegrationTest` | `/codes` 형식·ETag 304·공개, 새 코드(DRESS·JEANS·denim·FLORAL…)로 등록, 모르는 코드·비활성 코드·parent 불일치 400, PATCH에서 안 바꾼 비활성 필드 통과, 비활성 종류의 하위 세부 종류, 통계 키 |
 | `AdminCodeIntegrationTest` | 관리자 권한 403·401, 코드 CRUD·검증·순서·사용 중 삭제 409·pairs 양방향·캐시 갱신(version 변경)·변경 이력 |
 | `AdminAiProviderIntegrationTest` | 공급자 초기값·CRUD·`keyConfigured`·`usable`·검증(서버 설정 키 이름·options)·키 값 비노출·변경 이력 |
-| `ProviderApiKeyIntegrationTest` | (마스터 키 있음) 웹 키 저장·교체·삭제, 키 출처 ENV→DB→ENV·NONE→DB, 암호문·nonce, 시험 분석이 DB 키로 호출, 재확인 403, 형식 400, verify(가짜 OpenAI·Gemini·Claude 서버의 모델 목록 경로·헤더) 실패 400, 공급자 삭제 시 비밀 행 삭제, 변경 이력 내용, 서버 출력·응답·이력에 키 0건 |
+| `ProviderApiKeyIntegrationTest` | (마스터 키 있음) 웹 키 저장·교체·삭제, 키 출처 ENV→DB→ENV·NONE→DB, 암호문·nonce, 시험 분석이 DB 키로 호출, 재확인 403, 형식 400, verify(가짜 OpenAI·Gemini·Claude 서버의 모델 목록 경로·헤더) 실패 400, 공급자 삭제 시 비밀 행 삭제, 웹 키를 넣거나 지우면 모델 목록 캐시를 비우고 새 키로 다시 받음(8차), 변경 이력 내용, 서버 출력·응답·이력에 키 0건 |
+| `AdminProviderModelsIntegrationTest` | (8차) 모델 목록 API: 키 없음 `NO_API_KEY` + 내장 목록(제공사를 부르지 않음), 가짜 OpenAI 서버로 LIVE(거르기·`createdAt`·Bearer 헤더)·10분 캐시·`refresh=true`·변경 이력 없음, 가짜 Claude·Gemini 서버, 일반 회원 403·토큰 없음 401·없는 공급자 404, `/admin/ai/types`의 `models` |
+| `AiModelListServiceTest` | (8차, Spring 없음·가짜 포트) 키 없음·없는 공급자 404, 추천 붙이기와 10분 캐시, 키가 바뀌면(지문) 다시 받기·`invalidate`, 실패하면 내장 목록 + `MODEL_LIST_FAILED`(키·응답 원문이 로그에 없음)·사유별 문구 |
+| `ModelListRulesTest` · `ModelListModulesTest` | (8차) OpenAI·Gemini 거르기, `models/` 접두사 제거, 추천·정렬, 키 지문 / 가짜 HTTP로 Claude(SDK, 폐기 모델 제외)·OpenAI·Gemini(`nextPageToken` 따라가기, 같은 토큰이면 멈춤)의 요청과 응답 파싱·오류 사유 |
 | `ProviderApiKeyNoMasterKeyIntegrationTest` | 마스터 키 없음 409 `SECRET_KEY_MISSING`(비밀번호 확인보다 먼저), `secretStoreEnabled: false` |
 | `EnvApiKeyAdapterTest` | 서버 설정 키 찾기: `wearly.ai.keys.<이름>` → 같은 이름 속성·환경변수, 빈 값은 건너뜀, `*_API_KEY`가 아닌 이름 거부 (Spring 없음) |
 | `AesGcmSecretCipherTest` · `ApiKeyRulesTest` · `ApiKeyServiceTest` | 암호화 왕복·nonce 매번 다름·AAD/마스터 키/암호문이 다르면 실패·마스터 키 없음 WARN·형식 오류 ERROR, 키 형식·출처 우선순위, 복호화 캐시·무효화·복호화 실패 시 쓸 수 없음 (Spring 없음) |

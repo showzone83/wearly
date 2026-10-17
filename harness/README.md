@@ -89,20 +89,28 @@ npm run typecheck                             # 하네스 + mobile/src/api 타�
 
 19~21은 Access 수명 3초가 필요해서 `--external`에서는 건너뛴다.
 
+### 관리자 AI 공급자 모델 목록 (8차, 원시 HTTP)
+
+계약 07 문서 4장 "모델 목록". 번호는 `--list` 기준이다. 하네스는 실제 제공사를 부르지 않는다: 값이 없는 키 이름(`HARNESS_MISSING_API_KEY`)으로 공급자를 만들어 내장 목록만 확인하고, 끝나면 공급자를 지운다.
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 29 | 관리자 | (관리자) 키 없는 공급자의 `GET /admin/ai/providers/{id}/models`(`refresh=true` 포함) → 200 `source: CATALOG`·`error.code: NO_API_KEY`·문구, `fetchedAt` ISO 시각, 내장 목록이 비어 있지 않고 추천이 맨 앞·`createdAt` null·`claude-sonnet-5-5` 추천, `GET /admin/ai/types`의 `CLAUDE.models`, 일반 회원 403 `FORBIDDEN`, 없는 공급자 404 `NOT_FOUND` |
+
 ### 앱 설정 · 옷 사용 중지 (6차, 원시 HTTP)
 
 계약 12 문서 3장·13 문서. 앱 API 모듈을 거치지 않고 `raw()`와 `src/lib/rawUser.ts`(가입·관리자 로그인, `TOKEN_EXPIRED`면 다시 로그인해 한 번 더)로만 확인한다. 번호는 `--list` 기준.
 
 | # | 분류 | 확인하는 것 |
 |---|---|---|
-| 30 | 앱 설정 | `GET /app/config` 토큰 없이(틀린 토큰도) 200, `{ themeId, version }`만, `ETag: "<version>"`·`Cache-Control: no-cache`, 같은 ETag 304·다른 ETag 200, PUT은 401, CORS `ETag` 노출 |
-| 31 | 앱 설정 | (관리자) 일반 회원 403·토큰 없이 401, GET 형식(처음엔 `updatedAt`·`updatedBy` null), 400(`dark`·빈 본문·`NYANG`) `themeId`, PUT으로 바꾸면 `updatedBy` = 관리자 이메일·`/app/config` version = `updatedAt`·옛 ETag 200·새 ETag 304, 같은 값 PUT은 그대로·이력 없음, 이력 `APP_THEME_UPDATE`(`APP_SETTING`/`theme`, before·after `{themeId}`), 원래 테마로 되돌림 |
-| 32 | 옷 사용 중지 | `/codes`에 `RETIRE_REASON` 5개(라벨·attrs 없음) |
-| 33 | 옷 사용 중지 | retire 응답 필드(메모 앞뒤 공백 제거·보유 상태 유지), 목록 기본·`retired=false`에서 빠지고 `true`·`all`에 보임, 모르는 `retired` 400, 다시 retire는 시각 유지, PATCH 가능, restore(사용 중이어도 200) |
-| 34 | 옷 사용 중지 | 통계: total·byCategory·byStatus·byColor·활용률·sleeping은 사용 중인 옷만, `retired`·`retiredByReason`(많은 순), restore 뒤 다시 계산 |
-| 35 | 옷 사용 중지 | 완전 삭제는 `retired=all`에도 없고 404, 사용 중지 옷은 남음, 남의 옷 retire·restore 404(입력이 틀려도 404 먼저), 401, 모르는 이유+메모 201자 400(`reason`·`memo`), 이유 없음 400, 메모 200자는 됨 |
-| 36 | 옷 사용 중지 | (관리자) 새 이유 코드로 retire → 사용 중 코드 삭제 409 `CODE_IN_USE` → 비활성화하면 retire 400(`reason`), 회원 목록 `itemCount`·`retiredItemCount`, 정리 |
-| 37 | 옷 사용 중지 | AI 코디 추천(목업): 후보에 사용 중지 옷 없음, 고정·중심으로 주면 400("사용하지 않는 옷이에요.") |
+| 31 | 앱 설정 | `GET /app/config` 토큰 없이(틀린 토큰도) 200, `{ themeId, version }`만, `ETag: "<version>"`·`Cache-Control: no-cache`, 같은 ETag 304·다른 ETag 200, PUT은 401, CORS `ETag` 노출 |
+| 32 | 앱 설정 | (관리자) 일반 회원 403·토큰 없이 401, GET 형식(처음엔 `updatedAt`·`updatedBy` null), 400(`dark`·빈 본문·`NYANG`) `themeId`, PUT으로 바꾸면 `updatedBy` = 관리자 이메일·`/app/config` version = `updatedAt`·옛 ETag 200·새 ETag 304, 같은 값 PUT은 그대로·이력 없음, 이력 `APP_THEME_UPDATE`(`APP_SETTING`/`theme`, before·after `{themeId}`), 원래 테마로 되돌림 |
+| 33 | 옷 사용 중지 | `/codes`에 `RETIRE_REASON` 5개(라벨·attrs 없음) |
+| 34 | 옷 사용 중지 | retire 응답 필드(메모 앞뒤 공백 제거·보유 상태 유지), 목록 기본·`retired=false`에서 빠지고 `true`·`all`에 보임, 모르는 `retired` 400, 다시 retire는 시각 유지, PATCH 가능, restore(사용 중이어도 200) |
+| 35 | 옷 사용 중지 | 통계: total·byCategory·byStatus·byColor·활용률·sleeping은 사용 중인 옷만, `retired`·`retiredByReason`(많은 순), restore 뒤 다시 계산 |
+| 36 | 옷 사용 중지 | 완전 삭제는 `retired=all`에도 없고 404, 사용 중지 옷은 남음, 남의 옷 retire·restore 404(입력이 틀려도 404 먼저), 401, 모르는 이유+메모 201자 400(`reason`·`memo`), 이유 없음 400, 메모 200자는 됨 |
+| 37 | 옷 사용 중지 | (관리자) 새 이유 코드로 retire → 사용 중 코드 삭제 409 `CODE_IN_USE` → 비활성화하면 retire 400(`reason`), 회원 목록 `itemCount`·`retiredItemCount`, 정리 |
+| 38 | 옷 사용 중지 | AI 코디 추천(목업): 후보에 사용 중지 옷 없음, 고정·중심으로 주면 400("사용하지 않는 옷이에요.") |
 
 ### 로그인 세션 (doc/16, 원시 HTTP)
 
@@ -110,10 +118,10 @@ Refresh 토큰·세션이 Valkey로 옮겨 가면서 Access 토큰에 `sid`가 �
 
 | # | 분류 | 확인하는 것 |
 |---|---|---|
-| 38 | 로그인 세션 | (관리자) `GET /admin/sessions?q=` 항목 키 12개, `X-Wearly-Client`·`X-Forwarded-For` 첫 값·User-Agent가 세션에 남음, 헤더 없는 Node fetch는 `APP`, lastSeenAt 최신순, `client=WEB` 필터·`TV` 400, 내 세션만 `current`, `GET /admin/users/{id}/sessions`(세션 + 이력 `LOGIN`), 대시보드 `activeSessions`·`activeUsers24h` |
-| 39 | 로그인 세션 | (관리자) `DELETE /admin/sessions/{sid}` 204 → 그 기기 다음 요청 401 `TOKEN_INVALID`, refresh 401 `REFRESH_INVALID`, 다른 기기 refresh는 200, 이미 끊긴 세션 404, 내 현재 세션 400(`sessionId`), 이력 `SESSION_REVOKE`·로그인 이력 `FORCED_LOGOUT` |
-| 40 | 로그인 세션 | (관리자) `DELETE /admin/users/{id}/sessions` 204 → 모든 기기 401·refresh 실패, 목록에서 사라짐, 다시 로그인은 됨, 자기 자신 400, 없는 회원 404, 이력 `USER_SESSIONS_REVOKE`(`before.sessionCount`) |
-| 41 | 로그인 세션 | 로그아웃하면 그 세션의 Access 토큰도 바로 401 `TOKEN_INVALID`, 다른 세션은 그대로, 일반 회원의 세션 API 403 |
+| 39 | 로그인 세션 | (관리자) `GET /admin/sessions?q=` 항목 키 12개, `X-Wearly-Client`·`X-Forwarded-For` 첫 값·User-Agent가 세션에 남음, 헤더 없는 Node fetch는 `APP`, lastSeenAt 최신순, `client=WEB` 필터·`TV` 400, 내 세션만 `current`, `GET /admin/users/{id}/sessions`(세션 + 이력 `LOGIN`), 대시보드 `activeSessions`·`activeUsers24h` |
+| 40 | 로그인 세션 | (관리자) `DELETE /admin/sessions/{sid}` 204 → 그 기기 다음 요청 401 `TOKEN_INVALID`, refresh 401 `REFRESH_INVALID`, 다른 기기 refresh는 200, 이미 끊긴 세션 404, 내 현재 세션 400(`sessionId`), 이력 `SESSION_REVOKE`·로그인 이력 `FORCED_LOGOUT` |
+| 41 | 로그인 세션 | (관리자) `DELETE /admin/users/{id}/sessions` 204 → 모든 기기 401·refresh 실패, 목록에서 사라짐, 다시 로그인은 됨, 자기 자신 400, 없는 회원 404, 이력 `USER_SESSIONS_REVOKE`(`before.sessionCount`) |
+| 42 | 로그인 세션 | 로그아웃하면 그 세션의 Access 토큰도 바로 401 `TOKEN_INVALID`, 다른 세션은 그대로, 일반 회원의 세션 API 403 |
 
 refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 요청을 기록해 센다. `tokenStore`도 감싸서 `set`·`clear` 횟수를 센다.
 

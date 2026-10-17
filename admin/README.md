@@ -27,6 +27,7 @@ docker로 띄우기: 저장소 루트에서 `docker compose up -d --build`를 �
 npm run build        # tsc -b + vite build → dist/
 npm run lint         # 코드 규칙 검사. import 순서·빈 줄은 npm run lint -- --fix로 고친다
 npm run test:lint-rules   # 로컬 ESLint 규칙(eslint-rules/)과 import 그룹 설정 단위 테스트
+npm run test:unit        # 화면 없이 도는 순수 함수 테스트(tests/*.test.mjs: modelPicker, userAgent)
 ```
 
 ## 관리자 계정 만들기
@@ -50,7 +51,7 @@ wearly:
 |---|---|
 | 대시보드 | 회원 수(7일 신규), 아이템 수, 오늘 AI 호출·실패, 공급자별 7일 통계, 지금 쓸 수 있는 공급자 순서 |
 | 코드 관리 | 그룹 탭(종류·세부 종류·색상·패턴·계절·스타일·보유 상태), 표(코드·라벨·상위·속성·순서값·사용·사용 수), 위·아래 버튼으로 순서 바꾸기, 사용 스위치(비활성화), 추가·수정 패널, 삭제(사용 중이면 409 → 비활성화 안내) |
-| AI 공급자 | 목록(키 출처·사용 가능 여부·오늘 성공/실패), 사용 켜기/끄기, 우선순위 위·아래, 추가·수정(종류·모델·서버 설정 키 이름·우선순위·옵션), **API 키 웹 입력**, 삭제, **시험 분석** |
+| AI 공급자 | 목록(키 출처·사용 가능 여부·오늘 성공/실패), 사용 켜기/끄기, 우선순위 위·아래, 추가·수정(종류·**모델 드롭다운**·서버 설정 키 이름·우선순위·옵션), **API 키 웹 입력**, 삭제, **시험 분석** |
 | AI 분석 기록 | 공급자·상태·회원 이메일·기간 필터, 표, 행을 누르면 결과 JSON 전체 |
 | 회원 | 이메일·이름 검색, 상태·역할 필터, 정지·해제, 관리자 지정·해제 (자기 자신은 정지·해제 불가) |
 | 앱 설정 | **테마**(doc/12 3·6장): 냥깨비·Closeta 카드(이름·설명·색 견본 18개·작은 앱 화면 미리보기·마스코트 6자세), 현재 적용 중 배지, 마지막 변경 시각·관리자, "이 테마로 바꾸기" → 확인 대화상자 → `PUT /admin/app/theme`. 사용자가 앱을 다시 열거나 앱으로 돌아오면 반영된다. 백엔드가 아직 API를 모르면(404) 안내를 띄우고 미리보기만 보여 준다 |
@@ -67,6 +68,17 @@ wearly:
 ### API 키 웹 입력 (doc/07 6장)
 
 공급자 이름(또는 '수정'·'키 관리')을 눌러 패널을 열면 맨 위에 **API 키** 영역이 있다. 지금 쓰는 키의 출처를 보여 준다: 웹 입력(`••••abcd` · 넣은 시각 · 넣은 관리자) / 서버 설정 키(`ANTHROPIC_API_KEY` 등, 백엔드 `application-local.yml`의 `wearly.ai.keys.*` 또는 같은 이름 환경변수) / 없음. **키 입력·교체**를 누르고 키를 붙여 넣은 뒤 내 비밀번호를 다시 입력하면, 서버가 키를 AES-256-GCM으로 암호화해 DB에 저장하고 그때부터 서버 설정 키보다 웹 키를 먼저 쓴다(서버 재시작 불필요). "저장 전 유효성 확인"(기본 켬)은 저장하기 전에 그 키로 각 사 모델 목록을 한 번 조회한다. **웹 키 삭제(서버 설정 키로 되돌리기)**는 비밀번호 확인 후 웹 키를 지운다. 서버에 마스터 키(`wearly.secret-key`)가 없으면 입력 버튼이 꺼지고 서버 설정 키만 쓴다. 보안: 키는 쓰기 전용이라 저장한 뒤 다시 볼 수 없다(마지막 4자만 보임). 화면은 키를 React 상태에 두지 않고, 저장 버튼을 누른 순간 한 번 읽어 JSON 본문으로만 보낸 뒤 성공·실패와 관계없이 입력칸을 바로 비운다. URL·쿼리 문자열·`sessionStorage`·`localStorage`·쿼리 캐시·콘솔에 키를 남기지 않는다(mutation은 `gcTime: 0` + 끝나면 `reset()`). 공용 PC라면 붙여 넣은 뒤 클립보드도 비운다.
+
+### 모델 드롭다운 (doc/07 4장 "모델 목록")
+
+공급자 패널의 모델 칸은 `pages/providers/ModelPicker.tsx`다. 저장된 공급자는 `GET /admin/ai/providers/{id}/models`(`useProviderModels`), 저장 전(추가 중이거나 종류를 바꾼 중)은 `GET /admin/ai/types`의 `models`를 쓴다.
+
+- 검색할 수 있는 목록: 화면 이름 + 작은 ID + "추천" 배지. ↑↓ · Enter · Esc. 맨 아래 "직접 입력…"을 고르면 입력칸이 되고 "목록에서 고르기"로 돌아온다.
+- 지금 값이 목록에 없으면 직접 입력 상태로 시작하고 "목록에 없는 모델" 배지와 "새 모델·프리뷰면 그대로 저장할 수 있어요" 안내를 보인다(서버는 형식만 검증). 목록이 비면 직접 입력만 된다.
+- 출처 문구: `LIVE` "제공사에서 받은 목록 · 3분 전" + **새로 받기**(`refresh=true`), `CATALOG` "내장 목록(키가 없거나 목록을 받지 못했어요: …)", 저장 전 "내장 목록(저장한 뒤 키가 있으면 제공사 목록을 받을 수 있어요)".
+- 키를 저장·삭제하거나 공급자를 저장하면 모델 목록 쿼리(`['ai', 'models']`)를 무효화한다.
+- 서버가 404를 주거나 `types`에 `models`가 없으면(옛 서버) 예전처럼 텍스트 입력칸을 쓴다.
+- 순수 함수(`lib/modelPicker.ts`: 처음 모드, "목록에 없음" 판단, 검색, 출처 문구, 키보드 이동)는 `tests/modelPicker.test.mjs`로 확인한다.
 
 ### 시험 분석
 
@@ -90,8 +102,8 @@ admin/
     components/            Layout(왼쪽 메뉴), ui(버튼·표·패널 등), Garment(일러스트·색 칩), Toaster(토스트 표시),
                            Mascot(마스코트 PNG), ThemePreview(색 견본·작은 앱 화면)
     lib/                   queryClient(React Query 캐시), garment(앱 일러스트 데이터 래퍼), appTheme(앱 테마·마스코트 데이터 래퍼),
-                           queries(TanStack Query 키·훅), format, providerTypes
-    pages/                 Dashboard · codes/ · providers/(ApiKeySection = API 키 웹 입력) · AiLogs · Users · AppTheme · AuditLogs · Login
+                           queries(TanStack Query 키·훅), format, providerTypes, modelPicker(모델 드롭다운의 순수 함수)
+    pages/                 Dashboard · codes/ · providers/(ApiKeySection = API 키 웹 입력, ModelPicker = 모델 드롭다운) · AiLogs · Users · AppTheme · AuditLogs · Login
 ```
 
 ### 토큰
