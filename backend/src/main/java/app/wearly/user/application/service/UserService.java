@@ -1,10 +1,14 @@
 package app.wearly.user.application.service;
 
+import app.wearly.common.domain.DomainValidationException;
+import app.wearly.common.domain.FieldError;
 import app.wearly.common.error.ApiException;
-import app.wearly.user.application.port.in.UserAccount;
 import app.wearly.user.application.port.in.UserUseCase;
+import app.wearly.user.application.port.in.dto.UserAccountDto;
 import app.wearly.user.application.port.out.UserPort;
 import app.wearly.user.domain.User;
+import app.wearly.user.domain.UserRole;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,28 +24,33 @@ public class UserService implements UserUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public Optional<UserAccount> find(long userId) {
+  public Optional<UserAccountDto> find(long userId) {
     return users.findById(userId).map(UserService::toAccount);
   }
 
   @Override
   @Transactional(readOnly = true)
-  public UserAccount get(long userId) {
+  public UserAccountDto get(long userId) {
     return find(userId).orElseThrow(ApiException::notFound);
   }
 
   @Override
   @Transactional
-  public UserAccount create(String email, String name, String role) {
-    return toAccount(users.save(User.newUser(email, name, role)));
+  public UserAccountDto create(String email, String name, String role) {
+    UserRole r =
+        UserRole.parse(role)
+            .orElseThrow(
+                () ->
+                    new DomainValidationException(
+                        List.of(new FieldError("role", "USER 또는 ADMIN이어야 해요."))));
+    return toAccount(users.save(User.newUser(email, name, r)));
   }
 
   @Override
   @Transactional
-  public UserAccount changeAccess(long userId, String status, String role) {
+  public UserAccountDto changeAccess(long userId, String status, String role) {
     User user = users.findById(userId).orElseThrow(ApiException::notFound);
-    user.changeStatus(status);
-    user.changeRole(role);
+    user.changeAccess(status, role);
     return toAccount(users.save(user));
   }
 
@@ -51,7 +60,8 @@ public class UserService implements UserUseCase {
     users.deleteById(userId);
   }
 
-  static UserAccount toAccount(User u) {
-    return new UserAccount(u.id(), u.email(), u.name(), u.role(), u.status(), u.createdAt());
+  static UserAccountDto toAccount(User u) {
+    return new UserAccountDto(
+        u.id(), u.email(), u.name(), u.role().name(), u.status().name(), u.createdAt());
   }
 }

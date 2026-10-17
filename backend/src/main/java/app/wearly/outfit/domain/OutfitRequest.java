@@ -1,5 +1,6 @@
 package app.wearly.outfit.domain;
 
+import app.wearly.sharedkernel.code.Seasons;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -62,18 +63,18 @@ public record OutfitRequest(
     /** 기온에 맞는 계절 (SEASON 코드) */
     public List<String> seasons() {
       if (temp >= 24) {
-        return List.of("SUMMER");
+        return List.of(Seasons.SUMMER);
       }
       if (temp >= 17) {
-        return List.of("SPRING", "FALL", "SUMMER");
+        return List.of(Seasons.SPRING, Seasons.FALL, Seasons.SUMMER);
       }
       if (temp >= 9) {
-        return List.of("SPRING", "FALL");
+        return List.of(Seasons.SPRING, Seasons.FALL);
       }
       if (temp >= 4) {
-        return List.of("FALL", "WINTER");
+        return List.of(Seasons.FALL, Seasons.WINTER);
       }
-      return List.of("WINTER");
+      return List.of(Seasons.WINTER);
     }
 
     /** 몸에 걸치는 옷(상의·하의·원피스·아우터) 보온(warmth) 합의 목표 */

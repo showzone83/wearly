@@ -2,6 +2,7 @@ package app.wearly.user.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.wearly.sharedkernel.code.DressCode;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

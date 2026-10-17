@@ -2,14 +2,15 @@ package app.wearly.wardrobe.adapter.in.web;
 
 import app.wearly.common.web.CurrentUser;
 import app.wearly.common.web.PathIds;
-import app.wearly.wardrobe.adapter.in.web.WardrobeDtos.BulkRequest;
-import app.wearly.wardrobe.adapter.in.web.WardrobeDtos.ItemList;
-import app.wearly.wardrobe.adapter.in.web.WardrobeDtos.ItemRequest;
-import app.wearly.wardrobe.application.port.in.ItemView;
-import app.wearly.wardrobe.application.port.in.ListItemsQuery;
-import app.wearly.wardrobe.application.port.in.WardrobeStats;
+import app.wearly.wardrobe.adapter.in.web.request.BulkItemsRequest;
+import app.wearly.wardrobe.adapter.in.web.request.ItemRequest;
+import app.wearly.wardrobe.adapter.in.web.request.PatchItemRequest;
+import app.wearly.wardrobe.adapter.in.web.response.ItemListResponse;
+import app.wearly.wardrobe.adapter.in.web.response.ItemResponse;
+import app.wearly.wardrobe.adapter.in.web.response.WardrobeStatsResponse;
 import app.wearly.wardrobe.application.port.in.WardrobeStatsUseCase;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
+import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
 import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import org.springframework.http.HttpStatus;
@@ -48,40 +49,41 @@ public class WardrobeController {
   }
 
   @GetMapping("/items")
-  public ItemList list(
+  public ItemListResponse list(
       @CurrentUser long userId,
       @RequestParam(required = false) String category,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String color,
       @RequestParam(required = false) String q,
       @RequestParam(required = false) String sort) {
-    return new ItemList(
-        wardrobe.list(new ListItemsQuery(userId, category, status, color, q, sort)));
+    return ItemListResponse.from(
+        wardrobe.list(new ItemSearchDto(userId, category, status, color, q, sort)));
   }
 
   @GetMapping("/items/{id}")
-  public ItemView get(@CurrentUser long userId, @PathVariable String id) {
-    return wardrobe.get(userId, PathIds.parse(id));
+  public ItemResponse get(@CurrentUser long userId, @PathVariable String id) {
+    return ItemResponse.from(wardrobe.get(userId, PathIds.parse(id)));
   }
 
   @PostMapping("/items")
   @ResponseStatus(HttpStatus.CREATED)
-  public ItemView create(@CurrentUser long userId, @Valid @RequestBody ItemRequest input) {
-    return wardrobe.create(userId, input.toInput());
+  public ItemResponse create(@CurrentUser long userId, @Valid @RequestBody ItemRequest input) {
+    return ItemResponse.from(wardrobe.create(userId, input.toDto()));
   }
 
   @PostMapping("/items/bulk")
   @ResponseStatus(HttpStatus.CREATED)
-  public ItemList bulk(@CurrentUser long userId, @Valid @RequestBody BulkRequest request) {
-    return new ItemList(
-        wardrobe.bulkCreate(userId, request.items().stream().map(ItemRequest::toInput).toList()));
+  public ItemListResponse bulk(
+      @CurrentUser long userId, @Valid @RequestBody BulkItemsRequest request) {
+    return ItemListResponse.from(wardrobe.bulkCreate(userId, request.toDto()));
   }
 
   @PatchMapping("/items/{id}")
-  public ItemView patch(
+  public ItemResponse patch(
       @CurrentUser long userId, @PathVariable String id, @RequestBody JsonNode patch) {
-    return wardrobe.patch(
-        userId, PathIds.parse(id), new JsonItemPatch(patch, jsonMapper, validator));
+    return ItemResponse.from(
+        wardrobe.patch(
+            userId, PathIds.parse(id), PatchItemRequest.read(patch, jsonMapper, validator)));
   }
 
   @DeleteMapping("/items/{id}")
@@ -91,7 +93,7 @@ public class WardrobeController {
   }
 
   @GetMapping("/stats")
-  public WardrobeStats stats(@CurrentUser long userId) {
-    return stats.stats(userId);
+  public WardrobeStatsResponse stats(@CurrentUser long userId) {
+    return WardrobeStatsResponse.from(stats.stats(userId));
   }
 }

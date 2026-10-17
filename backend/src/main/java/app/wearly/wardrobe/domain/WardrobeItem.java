@@ -1,5 +1,6 @@
 package app.wearly.wardrobe.domain;
 
+import app.wearly.common.domain.DomainValidationException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -67,10 +68,11 @@ public class WardrobeItem {
   }
 
   /**
-   * 모든 값을 덮어쓴다 (등록과 PATCH 병합 결과 저장에 같이 쓴다). 이름·브랜드는 앞뒤 공백을 지우고 빈 브랜드는 null, 계절·스타일은 중복을 없앤다(순서 유지),
-   * 착용 수가 없으면 0.
+   * 모든 값을 덮어쓴다 (등록과 PATCH 병합 결과 저장에 같이 쓴다). 불변식(ItemRules)을 어기면 DomainValidationException. 이름·브랜드는
+   * 앞뒤 공백을 지우고 빈 브랜드는 null, 계절·스타일은 중복을 없앤다(순서 유지), 착용 수가 없으면 0.
    */
   public void apply(ItemInput in) {
+    DomainValidationException.throwIfAny(ItemRules.validate(in, ""));
     this.name = in.name().strip();
     this.category = in.category();
     this.subType = in.subType();

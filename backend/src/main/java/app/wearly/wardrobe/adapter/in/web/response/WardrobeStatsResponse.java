@@ -1,0 +1,34 @@
+package app.wearly.wardrobe.adapter.in.web.response;
+
+import app.wearly.common.web.Ids;
+import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto;
+import java.util.List;
+import java.util.Map;
+
+/** GET /wardrobe/stats (05 문서 6장). sleeping은 아이템 ID 문자열 */
+public record WardrobeStatsResponse(
+    long total,
+    Map<String, Long> byCategory,
+    List<ColorCount> byColor,
+    List<StyleCount> byStyle,
+    Map<String, Long> byStatus,
+    long wornLast30Days,
+    double utilization30d,
+    List<String> sleeping) {
+
+  public record ColorCount(String color, long count) {}
+
+  public record StyleCount(String style, long count) {}
+
+  public static WardrobeStatsResponse from(WardrobeStatsDto d) {
+    return new WardrobeStatsResponse(
+        d.total(),
+        d.byCategory(),
+        d.byColor().stream().map(c -> new ColorCount(c.color(), c.count())).toList(),
+        d.byStyle().stream().map(s -> new StyleCount(s.style(), s.count())).toList(),
+        d.byStatus(),
+        d.wornLast30Days(),
+        d.utilization30d(),
+        d.sleeping().stream().map(Ids::format).toList());
+  }
+}

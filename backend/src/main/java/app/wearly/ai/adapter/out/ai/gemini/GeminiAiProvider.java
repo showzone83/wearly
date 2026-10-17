@@ -1,19 +1,16 @@
 package app.wearly.ai.adapter.out.ai.gemini;
 
 import app.wearly.ai.adapter.out.ai.HttpCall;
+import app.wearly.ai.adapter.out.ai.JsonObjectParser;
 import app.wearly.ai.adapter.out.ai.Secrets;
-import app.wearly.ai.adapter.out.ai.SuggestionParser;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.domain.AiImage;
 import app.wearly.ai.domain.AiJsonPrompt;
 import app.wearly.ai.domain.AiJsonResult;
 import app.wearly.ai.domain.AiProviderException;
-import app.wearly.ai.domain.AiResult;
-import app.wearly.ai.domain.AiSuggestion;
-import app.wearly.ai.domain.AnalysisPrompt;
 import app.wearly.ai.domain.ProviderDefaults;
-import app.wearly.common.domain.code.CodeSnapshot;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,7 +59,7 @@ public class GeminiAiProvider implements AiModelPort {
   private final Double temperature;
   private final String schemaField;
   private final JsonMapper json;
-  private final SuggestionParser parser;
+  private final JsonObjectParser parser;
 
   public GeminiAiProvider(
       String id,
@@ -74,7 +71,7 @@ public class GeminiAiProvider implements AiModelPort {
       Double temperature,
       String schemaField,
       JsonMapper json,
-      SuggestionParser parser) {
+      JsonObjectParser parser) {
     this.id = id;
     this.model = model;
     this.apiKey = apiKey;
@@ -101,15 +98,10 @@ public class GeminiAiProvider implements AiModelPort {
     return model.startsWith("models/") ? model : "models/" + model;
   }
 
+  /** 지시문은 systemInstruction, 사용자 parts = [inlineData(사진이 있을 때), text], 스키마는 schemaField 필드로 */
   @Override
-  public AiResult analyze(AiImage image, CodeSnapshot codes) {
-    return toResult(send(requestBody(image, codes)), codes);
-  }
-
-  /** 이미지 없는 구조화 JSON: systemInstruction + user text, 스키마는 사진 분석과 같은 필드(schemaField)로 */
-  @Override
-  public AiJsonResult generateJson(AiJsonPrompt prompt) {
-    JsonNode root = send(jsonRequestBody(prompt));
+  public AiJsonResult generateJson(AiJsonPrompt prompt, AiImage image) {
+    JsonNode root = send(requestBody(prompt, image));
     Usage usage = usage(root);
     return new AiJsonResult(
         parser.parseObject(outputText(root)),
@@ -140,12 +132,23 @@ public class GeminiAiProvider implements AiModelPort {
     return root;
   }
 
-  Map<String, Object> jsonRequestBody(AiJsonPrompt prompt) {
+  Map<String, Object> requestBody(AiJsonPrompt prompt, AiImage image) {
+    List<Map<String, Object>> parts = new ArrayList<>();
+    if (image != null) {
+      Map<String, Object> inlineData = new LinkedHashMap<>();
+      inlineData.put("mimeType", image.mediaType());
+      inlineData.put("data", Base64.getEncoder().encodeToString(image.bytes()));
+      parts.add(Map.of("inlineData", inlineData));
+    }
+    parts.add(Map.of("text", prompt.prompt()));
     Map<String, Object> content = new LinkedHashMap<>();
     content.put("role", "user");
-    content.put("parts", List.of(Map.of("text", prompt.prompt())));
+    content.put("parts", parts);
     Map<String, Object> body = new LinkedHashMap<>();
-    body.put("systemInstruction", Map.of("parts", List.of(Map.of("text", prompt.instructions()))));
+    if (prompt.instructions() != null) {
+      body.put(
+          "systemInstruction", Map.of("parts", List.of(Map.of("text", prompt.instructions()))));
+    }
     body.put("contents", List.of(content));
     body.put("generationConfig", generationConfig(prompt.schema()));
     return body;
@@ -166,29 +169,6 @@ public class GeminiAiProvider implements AiModelPort {
       config.put("temperature", temperature);
     }
     return config;
-  }
-
-  Map<String, Object> requestBody(AiImage image, CodeSnapshot codes) {
-    Map<String, Object> inlineData = new LinkedHashMap<>();
-    inlineData.put("mimeType", image.mediaType());
-    inlineData.put("data", Base64.getEncoder().encodeToString(image.bytes()));
-    Map<String, Object> content = new LinkedHashMap<>();
-    content.put("role", "user");
-    content.put(
-        "parts",
-        List.of(Map.of("inlineData", inlineData), Map.of("text", AnalysisPrompt.prompt(codes))));
-
-    Map<String, Object> body = new LinkedHashMap<>();
-    body.put("contents", List.of(content));
-    body.put("generationConfig", generationConfig(AnalysisPrompt.schema(codes)));
-    return body;
-  }
-
-  AiResult toResult(JsonNode root, CodeSnapshot codes) {
-    AiSuggestion suggestion = parser.parse(outputText(root), codes);
-    Usage usage = usage(root);
-    return new AiResult(
-        suggestion, root.path("modelVersion").asString(model), usage.input(), usage.output());
   }
 
   /** 차단·잘림을 걸러 내고 생각(thought)이 아닌 text를 이어 붙인다 */

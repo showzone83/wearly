@@ -1,17 +1,13 @@
 package app.wearly.ai.adapter.out.ai.claude;
 
+import app.wearly.ai.adapter.out.ai.JsonObjectParser;
 import app.wearly.ai.adapter.out.ai.Secrets;
-import app.wearly.ai.adapter.out.ai.SuggestionParser;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.domain.AiImage;
 import app.wearly.ai.domain.AiJsonPrompt;
 import app.wearly.ai.domain.AiJsonResult;
 import app.wearly.ai.domain.AiProviderException;
-import app.wearly.ai.domain.AiResult;
-import app.wearly.ai.domain.AiSuggestion;
-import app.wearly.ai.domain.AnalysisPrompt;
 import app.wearly.ai.domain.ProviderDefaults;
-import app.wearly.common.domain.code.CodeSnapshot;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.core.JsonValue;
 import com.anthropic.errors.AnthropicException;
@@ -32,8 +28,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Claude 공급자 (Anthropic Java SDK). 사진(base64)과 허용 값 목록을 주고 구조화된 JSON 출력(output_config.format)으로
- * 받는다. 스키마의 enum이 1차로 값을 막고, SuggestionParser가 서버에서 한 번 더 검증한다.
+ * Claude 공급자 (Anthropic Java SDK). 사진(base64, 선택)과 프롬프트를 주고 구조화된 JSON 출력(output_config.format)으로
+ * 받는다. 무엇을 묻고 어떻게 검증할지는 호출한 쪽이 정한다 (사진 분석은 도메인 AnalysisPrompt·AiSuggestionValidator).
  */
 public class ClaudeAiProvider implements AiModelPort {
 
@@ -51,7 +47,7 @@ public class ClaudeAiProvider implements AiModelPort {
   private final String model;
   private final OutputConfig.Effort effort;
   private final long maxTokens;
-  private final SuggestionParser parser;
+  private final JsonObjectParser parser;
   private final String apiKey;
 
   public ClaudeAiProvider(
@@ -60,7 +56,7 @@ public class ClaudeAiProvider implements AiModelPort {
       String model,
       String effort,
       long maxTokens,
-      SuggestionParser parser,
+      JsonObjectParser parser,
       String apiKey) {
     this.id = id;
     this.client = client;
@@ -81,19 +77,17 @@ public class ClaudeAiProvider implements AiModelPort {
     return model;
   }
 
+  /**
+   * 사진이 있으면 user 메시지 = [image(base64), text], 없으면 text만. 지시문이 있으면 system. 구조화 출력은
+   * output_config.format = 호출한 쪽의 스키마
+   */
   @Override
-  public AiResult analyze(AiImage image, CodeSnapshot codes) {
-    if (!SUPPORTED_MEDIA_TYPES.contains(image.mediaType())) {
+  public AiJsonResult generateJson(AiJsonPrompt prompt, AiImage image) {
+    if (image != null && !SUPPORTED_MEDIA_TYPES.contains(image.mediaType())) {
       throw new AiProviderException(
           "UNSUPPORTED_MEDIA", "Claude가 받지 않는 형식이에요: " + image.mediaType());
     }
-    return toResult(send(buildParams(image, codes)), codes);
-  }
-
-  /** 이미지 없는 구조화 JSON: system + user 텍스트, output_config.format = 호출한 쪽의 스키마 */
-  @Override
-  public AiJsonResult generateJson(AiJsonPrompt prompt) {
-    Message message = send(buildJsonParams(prompt));
+    Message message = send(buildParams(prompt, image));
     return new AiJsonResult(
         parser.parseObject(outputText(message)),
         message.model().asString(),
@@ -115,13 +109,27 @@ public class ClaudeAiProvider implements AiModelPort {
     }
   }
 
-  MessageCreateParams buildJsonParams(AiJsonPrompt prompt) {
-    return MessageCreateParams.builder()
-        .model(model)
-        .maxTokens(maxTokens)
-        .system(prompt.instructions())
-        .addUserMessage(prompt.prompt())
-        .outputConfig(
+  MessageCreateParams buildParams(AiJsonPrompt prompt, AiImage image) {
+    MessageCreateParams.Builder b = MessageCreateParams.builder().model(model).maxTokens(maxTokens);
+    if (prompt.instructions() != null) {
+      b.system(prompt.instructions());
+    }
+    if (image == null) {
+      b.addUserMessage(prompt.prompt());
+    } else {
+      ImageBlockParam imageBlock =
+          ImageBlockParam.builder()
+              .source(
+                  Base64ImageSource.builder()
+                      .mediaType(Base64ImageSource.MediaType.of(image.mediaType()))
+                      .data(Base64.getEncoder().encodeToString(image.bytes()))
+                      .build())
+              .build();
+      TextBlockParam text = TextBlockParam.builder().text(prompt.prompt()).build();
+      b.addUserMessageOfBlockParams(
+          List.of(ContentBlockParam.ofImage(imageBlock), ContentBlockParam.ofText(text)));
+    }
+    return b.outputConfig(
             OutputConfig.builder()
                 .effort(effort)
                 .format(JsonOutputFormat.builder().schema(schema(prompt.schema())).build())
@@ -129,41 +137,6 @@ public class ClaudeAiProvider implements AiModelPort {
         .putAdditionalHeader("anthropic-beta", FALLBACK_BETA)
         .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
         .build();
-  }
-
-  MessageCreateParams buildParams(AiImage image, CodeSnapshot codes) {
-    ImageBlockParam imageBlock =
-        ImageBlockParam.builder()
-            .source(
-                Base64ImageSource.builder()
-                    .mediaType(Base64ImageSource.MediaType.of(image.mediaType()))
-                    .data(Base64.getEncoder().encodeToString(image.bytes()))
-                    .build())
-            .build();
-    TextBlockParam prompt = TextBlockParam.builder().text(AnalysisPrompt.prompt(codes)).build();
-    return MessageCreateParams.builder()
-        .model(model)
-        .maxTokens(maxTokens)
-        .addUserMessageOfBlockParams(
-            List.of(ContentBlockParam.ofImage(imageBlock), ContentBlockParam.ofText(prompt)))
-        .outputConfig(
-            OutputConfig.builder()
-                .effort(effort)
-                .format(
-                    JsonOutputFormat.builder().schema(schema(AnalysisPrompt.schema(codes))).build())
-                .build())
-        .putAdditionalHeader("anthropic-beta", FALLBACK_BETA)
-        .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
-        .build();
-  }
-
-  AiResult toResult(Message message, CodeSnapshot codes) {
-    AiSuggestion suggestion = parser.parse(outputText(message), codes);
-    return new AiResult(
-        suggestion,
-        message.model().asString(),
-        message.usage().inputTokens(),
-        message.usage().outputTokens());
   }
 
   /** 거절·잘림을 걸러 내고 text 블록을 이어 붙인다 */

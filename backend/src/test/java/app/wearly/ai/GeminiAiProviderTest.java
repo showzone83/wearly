@@ -3,13 +3,13 @@ package app.wearly.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import app.wearly.ai.adapter.out.ai.SuggestionParser;
+import app.wearly.ai.adapter.out.ai.JsonObjectParser;
 import app.wearly.ai.adapter.out.ai.gemini.GeminiAiProvider;
 import app.wearly.ai.domain.AiImage;
 import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiResult;
 import app.wearly.ai.domain.AnalysisPrompt;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.support.FakeHttpServer;
 import app.wearly.support.TestCodes;
 import java.time.Duration;
@@ -55,7 +55,7 @@ class GeminiAiProviderTest {
         null,
         schemaField,
         JSON,
-        new SuggestionParser(JSON));
+        new JsonObjectParser(JSON));
   }
 
   @Test

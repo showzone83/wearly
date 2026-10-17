@@ -1,5 +1,7 @@
 package app.wearly.outfit.domain;
 
+import app.wearly.sharedkernel.code.DressCode;
+import app.wearly.sharedkernel.code.Slots;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,15 +13,15 @@ import java.util.Map;
  */
 public final class OutfitCodes {
 
-  /** 코디 칸 (06 문서 5장). 칸 순서도 이 순서 */
-  public static final String TOP = "TOP";
+  /** 코디 칸 (06 문서 5장, 공유 커널 Slots). 칸 순서도 이 순서 */
+  public static final String TOP = Slots.TOP;
 
-  public static final String BOTTOM = "BOTTOM";
-  public static final String DRESS = "DRESS";
-  public static final String OUTER = "OUTER";
-  public static final String SHOES = "SHOES";
-  public static final String BAG = "BAG";
-  public static final List<String> SLOTS = List.of(TOP, BOTTOM, DRESS, OUTER, SHOES, BAG);
+  public static final String BOTTOM = Slots.BOTTOM;
+  public static final String DRESS = Slots.DRESS;
+  public static final String OUTER = Slots.OUTER;
+  public static final String SHOES = Slots.SHOES;
+  public static final String BAG = Slots.BAG;
+  public static final List<String> SLOTS = Slots.ALL;
 
   /** 상황: 라벨과 기대 격식(1~3) */
   public record Occasion(String label, double formality) {}
@@ -46,14 +48,10 @@ public final class OutfitCodes {
           "COMFY", new Mood("편안", List.of("CASUAL", "SPORTY")),
           "CHIC", new Mood("세련", List.of("MINIMAL", "CLASSIC", "FEMININE")));
 
-  /** 격식(드레스 코드): 라벨과 단계(1~3) */
+  /** 격식(드레스 코드, 공유 커널 DressCode): 라벨과 단계(1~3) */
   public record Formality(String label, int level) {}
 
-  public static final Map<String, Formality> FORMALITIES =
-      ordered(
-          "CASUAL", new Formality("편한 데일리", 1),
-          "BIZ_CASUAL", new Formality("비즈니스 캐주얼", 2),
-          "FORMAL", new Formality("포멀", 3));
+  public static final Map<String, Formality> FORMALITIES = formalities();
 
   public static final Map<String, String> TIMES_OF_DAY =
       ordered("AM", "오전", "PM", "오후", "EVENING", "저녁");
@@ -62,6 +60,14 @@ public final class OutfitCodes {
       ordered("SUNNY", "맑음", "CLOUDY", "흐림", "RAIN", "비");
 
   private OutfitCodes() {}
+
+  private static Map<String, Formality> formalities() {
+    Map<String, Formality> out = new LinkedHashMap<>();
+    for (DressCode d : DressCode.values()) {
+      out.put(d.name(), new Formality(d.label(), d.level()));
+    }
+    return Collections.unmodifiableMap(out);
+  }
 
   @SuppressWarnings("unchecked")
   private static <V> Map<String, V> ordered(Object... keyValues) {

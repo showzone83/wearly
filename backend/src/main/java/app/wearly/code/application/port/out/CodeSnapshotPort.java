@@ -1,6 +1,6 @@
 package app.wearly.code.application.port.out;
 
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 
 /** 코드 스냅샷 읽기 (MyBatis + 메모리 캐시) */
 public interface CodeSnapshotPort {

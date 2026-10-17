@@ -1,30 +1,31 @@
 package app.wearly.ai.application.service;
 
 import app.wearly.ai.application.port.in.AnalyzeImageUseCase;
-import app.wearly.ai.application.port.in.AnalyzeResult;
-import app.wearly.ai.application.port.in.ProviderTestResult;
+import app.wearly.ai.application.port.in.JsonOutputHandler;
 import app.wearly.ai.application.port.in.ProviderTestUseCase;
-import app.wearly.ai.application.port.out.AiCallLogPort;
+import app.wearly.ai.application.port.in.dto.AiSuggestionDto;
+import app.wearly.ai.application.port.in.dto.AnalyzeResultDto;
+import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.application.port.out.AiProviderPort;
-import app.wearly.ai.application.port.out.AiUsagePort;
 import app.wearly.ai.domain.AiCallRecord;
 import app.wearly.ai.domain.AiImage;
 import app.wearly.ai.domain.AiImages;
 import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiProviderSetting;
-import app.wearly.ai.domain.AiResult;
 import app.wearly.ai.domain.AiSettings;
+import app.wearly.ai.domain.AiSuggestion;
+import app.wearly.ai.domain.AiSuggestionValidator;
+import app.wearly.ai.domain.AnalysisPrompt;
 import app.wearly.ai.domain.ImageTypes;
 import app.wearly.code.application.port.in.CodeCatalog;
-import app.wearly.common.domain.ImageUpload;
-import app.wearly.common.domain.Zones;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.common.application.ImageUpload;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
-import java.time.Clock;
-import java.time.LocalDate;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -43,74 +44,61 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   private final AiProviderRegistry registry;
   private final AiProviderPort providers;
   private final CodeCatalog catalog;
-  private final AiUsagePort usage;
-  private final AiCallLogPort logs;
+  private final AiQuotaService quota;
+  private final AiCallRunner runner;
   private final AiSettings settings;
-  private final Clock clock;
 
   public AiAnalysisService(
       AiProviderRegistry registry,
       AiProviderPort providers,
       CodeCatalog catalog,
-      AiUsagePort usage,
-      AiCallLogPort logs,
-      AiSettings settings,
-      Clock clock) {
+      AiQuotaService quota,
+      AiCallRunner runner,
+      AiSettings settings) {
     this.registry = registry;
     this.providers = providers;
     this.catalog = catalog;
-    this.usage = usage;
-    this.logs = logs;
+    this.quota = quota;
+    this.runner = runner;
     this.settings = settings;
-    this.clock = clock;
   }
 
   @Override
-  public AnalyzeResult analyze(long userId, ImageUpload upload) {
+  public AnalyzeResultDto analyze(long userId, ImageUpload upload) {
     AiImage image = readImage(upload);
 
     int limit = settings.dailyLimit();
-    long used = usedToday(userId);
-    if (used >= limit) {
-      throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED);
-    }
-
-    List<AiModelPort> candidates = registry.candidates();
-    if (candidates.isEmpty()) {
-      log.warn("AI 분석 불가: 쓸 수 있는 AI 공급자가 없음 (관리자 화면에서 공급자·모델·키 환경변수를 확인)");
-      throw new ApiException(ErrorCode.AI_UNAVAILABLE);
-    }
-    CodeSnapshot codes = catalog.current();
-    for (AiModelPort provider : candidates) {
-      Attempt attempt = call(provider, image, codes);
-      if (attempt.result() != null) {
-        logs.save(
-            AiCallRecord.success(
-                userId,
-                AiCallRecord.FEATURE_ITEM_ANALYZE,
-                provider.name(),
-                attempt.result(),
-                attempt.latencyMs(),
-                image));
-        int remaining = (int) Math.max(0, limit - (used + 1));
-        return new AnalyzeResult(
-            attempt.result().suggestion(), provider.name(), attempt.result().model(), remaining);
+    AiQuotaService.Reservation reservation =
+        quota
+            .reserve(userId, AiCallRecord.FEATURE_ITEM_ANALYZE, limit)
+            .orElseThrow(() -> new ApiException(ErrorCode.AI_LIMIT_EXCEEDED));
+    try {
+      List<AiModelPort> candidates = registry.candidates();
+      if (candidates.isEmpty()) {
+        log.warn("AI 분석 불가: 쓸 수 있는 AI 공급자가 없음 (관리자 화면에서 공급자·모델·키 환경변수를 확인)");
+        throw new ApiException(ErrorCode.AI_UNAVAILABLE);
       }
-      logs.save(
-          AiCallRecord.failure(
+      CodeSnapshot codes = catalog.current();
+      AiCallRunner.Call call =
+          new AiCallRunner.Call(
               userId,
               AiCallRecord.FEATURE_ITEM_ANALYZE,
-              provider.name(),
-              provider.model(),
-              attempt.errorCode(),
-              attempt.latencyMs(),
-              image));
+              AnalysisPrompt.request(image, codes),
+              image);
+      AiCallRunner.Attempt<AiSuggestion> ok =
+          runner
+              .first(candidates, call, json -> suggestion(json, codes))
+              .orElseThrow(() -> new ApiException(ErrorCode.AI_UNAVAILABLE));
+      int remaining = (int) Math.max(0, limit - reservation.used());
+      return new AnalyzeResultDto(
+          AiSuggestionDto.from(ok.value()), ok.provider(), ok.model(), remaining);
+    } finally {
+      quota.release(reservation);
     }
-    throw new ApiException(ErrorCode.AI_UNAVAILABLE);
   }
 
   @Override
-  public ProviderTestResult test(long adminUserId, String providerId, ImageUpload upload) {
+  public ProviderTestResultDto test(long adminUserId, String providerId, ImageUpload upload) {
     AiProviderSetting setting = providers.findById(providerId).orElseThrow(ApiException::notFound);
     AiImage image = readImage(upload);
     AiModelPort provider;
@@ -118,76 +106,55 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
       provider = registry.forTest(setting);
     } catch (AiProviderException e) {
       // 모델·키가 없으면 호출하지 않는다 (기록도 남기지 않음)
-      return new ProviderTestResult(
+      return new ProviderTestResultDto(
           false, null, e.reason(), e.getMessage(), 0, null, null, setting.model());
     }
-    Attempt attempt = call(provider, image, catalog.current());
-    if (attempt.result() != null) {
-      AiResult r = attempt.result();
-      logs.save(
-          AiCallRecord.success(
-              adminUserId,
-              AiCallRecord.FEATURE_ADMIN_TEST,
-              provider.name(),
-              r,
-              attempt.latencyMs(),
-              image));
-      return new ProviderTestResult(
+    CodeSnapshot codes = catalog.current();
+    AiCallRunner.Attempt<AiSuggestion> a =
+        runner.attempt(
+            provider,
+            new AiCallRunner.Call(
+                adminUserId,
+                AiCallRecord.FEATURE_ADMIN_TEST,
+                AnalysisPrompt.request(image, codes),
+                image),
+            json -> suggestion(json, codes));
+    if (a.ok()) {
+      return new ProviderTestResultDto(
           true,
-          r.suggestion(),
+          AiSuggestionDto.from(a.value()),
           null,
           null,
-          attempt.latencyMs(),
-          r.inputTokens(),
-          r.outputTokens(),
-          r.model());
+          a.latencyMs(),
+          a.inputTokens(),
+          a.outputTokens(),
+          a.model());
     }
-    logs.save(
-        AiCallRecord.failure(
-            adminUserId,
-            AiCallRecord.FEATURE_ADMIN_TEST,
-            provider.name(),
-            provider.model(),
-            attempt.errorCode(),
-            attempt.latencyMs(),
-            image));
-    return new ProviderTestResult(
-        false,
-        null,
-        attempt.errorCode(),
-        attempt.errorMessage(),
-        attempt.latencyMs(),
-        null,
-        null,
-        provider.model());
+    return new ProviderTestResultDto(
+        false, null, a.errorCode(), a.errorMessage(), a.latencyMs(), null, null, provider.model());
   }
 
-  private record Attempt(AiResult result, String errorCode, String errorMessage, int latencyMs) {}
+  /** 사진 분석 응답 검증 (도메인 규칙). 규칙 위반은 INVALID_OUTPUT으로 기록하고 다음 공급자로 */
+  private static JsonOutputHandler.Accepted<AiSuggestion> suggestion(
+      Map<String, Object> json, CodeSnapshot codes) {
+    AiSuggestion s = AiSuggestionValidator.validate(json, codes);
+    return new JsonOutputHandler.Accepted<>(s, s, summary(s));
+  }
 
-  private static Attempt call(AiModelPort provider, AiImage image, CodeSnapshot codes) {
-    long started = System.nanoTime();
-    try {
-      AiResult result = provider.analyze(image, codes);
-      return new Attempt(result, null, null, elapsedMs(started));
-    } catch (AiProviderException e) {
-      log.warn(
-          "AI 분석 실패 provider={} reason={} message={}", provider.name(), e.reason(), e.getMessage());
-      return new Attempt(null, e.reason(), e.getMessage(), elapsedMs(started));
-    } catch (RuntimeException e) {
-      log.error("AI 분석 중 예상하지 못한 오류 provider={} type={}", provider.name(), e.getClass().getName());
-      return new Attempt(
-          null, "UNEXPECTED", "예상하지 못한 오류: " + e.getClass().getSimpleName(), elapsedMs(started));
-    }
+  /** 관리자 AI 기록 목록의 요약: "네이비 울 니트 · TOP/KNIT · navy" (4차까지 관리자 서비스가 만들던 문구와 같다) */
+  static String summary(AiSuggestion s) {
+    return Objects.toString(s.name(), "")
+        + " · "
+        + s.category()
+        + "/"
+        + s.subType()
+        + " · "
+        + s.color();
   }
 
   /** 오늘(한국 시간) 성공한 사진 분석 수 (관리자 시험 분석 제외) */
   public long usedToday(long userId) {
-    LocalDate today = Zones.today(clock);
-    return usage.countSuccess(
-        userId,
-        AiCallRecord.FEATURE_ITEM_ANALYZE,
-        Zones.startOf(today),
-        Zones.startOf(today.plusDays(1)));
+    return quota.successToday(userId, AiCallRecord.FEATURE_ITEM_ANALYZE);
   }
 
   /** 검사 순서: 파트 없음·빈 파일 → 10MB 초과 → 읽기 실패 → 형식 */
@@ -207,10 +174,6 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
             .orElseThrow(
                 () -> ApiException.validation("image", "jpeg, png, webp, heic 사진만 올릴 수 있어요."));
     return new AiImage(bytes, mediaType, sha256(bytes));
-  }
-
-  private static int elapsedMs(long startedNanos) {
-    return (int) ((System.nanoTime() - startedNanos) / 1_000_000);
   }
 
   public static String sha256(byte[] bytes) {

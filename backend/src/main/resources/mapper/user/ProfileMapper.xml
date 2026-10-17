@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 프로필 집계: 코드 사용 수 (code 컨텍스트가 CodeUsageSource로 묻는다).
+     코드 값을 담는 칸: colors = COLOR, moods = STYLE. 칸을 늘리면 두 쿼리에 함께 넣는다 -->
+<mapper namespace="app.wearly.user.adapter.out.persistence.mybatis.mapper.ProfileMapper">
+
+    <select id="countByCode" resultType="app.wearly.user.application.port.out.dto.CodeCountDto">
+        SELECT 'COLOR' AS group_code, c.v AS code, count(*) AS count
+          FROM tb_user_profile p CROSS JOIN LATERAL unnest(p.colors) AS c(v) GROUP BY c.v
+        UNION ALL
+        SELECT 'STYLE', m.v, count(*) FROM tb_user_profile p CROSS JOIN LATERAL unnest(p.moods) AS m(v) GROUP BY m.v
+    </select>
+
+    <select id="countUsing" resultType="long">
+        SELECT count(*)
+          FROM tb_user_profile
+        <choose>
+            <when test="group == 'COLOR'">WHERE #{code} = ANY (colors)</when>
+            <when test="group == 'STYLE'">WHERE #{code} = ANY (moods)</when>
+            <otherwise>WHERE FALSE</otherwise>
+        </choose>
+    </select>
+</mapper>

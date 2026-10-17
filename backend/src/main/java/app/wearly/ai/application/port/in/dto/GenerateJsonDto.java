@@ -1,0 +1,22 @@
+package app.wearly.ai.application.port.in.dto;
+
+import java.util.Map;
+import java.util.function.Supplier;
+
+/**
+ * 구조화 JSON 생성 요청. 스키마·목업 응답은 JSON으로 바꿀 수 있는 자바 값(Map·List·String·Number·Boolean·null)으로 준다.
+ *
+ * @param feature 기록·한도에 쓰는 기능 이름 (호출한 쪽이 정한다, 영문 대문자·숫자·밑줄)
+ * @param schemaName 구조화 출력 스키마 이름 (영문·숫자·밑줄)
+ * @param dailyLimit 회원별 하루 성공 횟수 한도 (이 기능만 센다)
+ * @param mockOutput 목업 실행(WEARLY_AI_PROVIDER=mock)에서 목업 공급자가 돌려줄 결정적 응답. 목업일 때만 부른다
+ */
+public record GenerateJsonDto(
+    long userId,
+    String feature,
+    int dailyLimit,
+    String schemaName,
+    String instructions,
+    String prompt,
+    Map<String, Object> schema,
+    Supplier<Map<String, Object>> mockOutput) {}

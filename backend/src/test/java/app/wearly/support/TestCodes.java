@@ -1,8 +1,8 @@
 package app.wearly.support;
 
-import app.wearly.common.domain.code.CodeEntry;
-import app.wearly.common.domain.code.CodeGroupEntry;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeEntry;
+import app.wearly.sharedkernel.code.CodeGroupEntry;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

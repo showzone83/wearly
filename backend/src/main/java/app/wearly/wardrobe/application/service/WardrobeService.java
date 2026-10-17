@@ -2,18 +2,20 @@ package app.wearly.wardrobe.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
-import app.wearly.wardrobe.application.port.in.ItemPatch;
-import app.wearly.wardrobe.application.port.in.ItemView;
-import app.wearly.wardrobe.application.port.in.ListItemsQuery;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
+import app.wearly.wardrobe.application.port.in.dto.CreateItemDto;
+import app.wearly.wardrobe.application.port.in.dto.ItemDto;
+import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
+import app.wearly.wardrobe.application.port.in.dto.PatchItemDto;
 import app.wearly.wardrobe.application.port.out.ItemFilter;
 import app.wearly.wardrobe.application.port.out.ItemPort;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
 import app.wearly.wardrobe.domain.ItemCodeValidator;
 import app.wearly.wardrobe.domain.ItemInput;
+import app.wearly.wardrobe.domain.ItemRules;
 import app.wearly.wardrobe.domain.WardrobeItem;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +41,7 @@ public class WardrobeService implements WardrobeUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public List<ItemView> list(ListItemsQuery q) {
+  public List<ItemDto> list(ItemSearchDto q) {
     List<FieldError> errors = new ArrayList<>();
     CodeSnapshot codes = catalog.current();
     // 필터는 저장된 값을 찾는 것이라 비활성 코드도 허용한다. 모르는 값만 400
@@ -52,57 +54,85 @@ public class WardrobeService implements WardrobeUseCase {
     }
     ApiException.throwIfAny(errors);
     String query = blankToNull(q.q());
-    String pattern = query == null ? null : "%" + escapeLike(query.strip()) + "%";
     return queries
         .findItems(
-            new ItemFilter(q.userId(), categoryCode, statusCode, colorCode, pattern, sortKey))
+            new ItemFilter(
+                q.userId(),
+                categoryCode,
+                statusCode,
+                colorCode,
+                query == null ? null : query.strip(),
+                sortKey))
         .stream()
-        .map(ItemView::of)
+        .map(ItemDto::from)
         .toList();
   }
 
   @Override
   @Transactional(readOnly = true)
-  public ItemView get(long userId, long itemId) {
-    return ItemView.of(find(userId, itemId));
+  public ItemDto get(long userId, long itemId) {
+    return ItemDto.from(find(userId, itemId));
   }
 
   @Override
   @Transactional
-  public ItemView create(long userId, ItemInput input) {
+  public ItemDto create(long userId, CreateItemDto dto) {
+    ItemInput input = dto.toInput();
+    ApiException.throwIfAny(ItemRules.validate(input, ""));
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, null, "", errors);
     ApiException.throwIfAny(errors);
-    return ItemView.of(items.save(WardrobeItem.create(userId, input)));
+    return ItemDto.from(items.save(WardrobeItem.create(userId, input)));
   }
 
   @Override
   @Transactional
-  public List<ItemView> bulkCreate(long userId, List<ItemInput> inputs) {
+  public List<ItemDto> bulkCreate(long userId, List<CreateItemDto> dtos) {
+    List<ItemInput> inputs = dtos.stream().map(CreateItemDto::toInput).toList();
     CodeSnapshot codes = catalog.current();
+    List<FieldError> invalid = new ArrayList<>();
+    for (int i = 0; i < inputs.size(); i++) {
+      invalid.addAll(ItemRules.validate(inputs.get(i), "items[" + i + "]."));
+    }
+    ApiException.throwIfAny(invalid);
     List<FieldError> errors = new ArrayList<>();
     for (int i = 0; i < inputs.size(); i++) {
       ItemCodeValidator.validate(codes, inputs.get(i), null, "items[" + i + "].", errors);
     }
     ApiException.throwIfAny(errors);
-    List<ItemView> created = new ArrayList<>(inputs.size());
+    List<ItemDto> created = new ArrayList<>(inputs.size());
     for (ItemInput input : inputs) {
-      created.add(ItemView.of(items.save(WardrobeItem.create(userId, input))));
+      created.add(ItemDto.from(items.save(WardrobeItem.create(userId, input))));
     }
     return created;
   }
 
   @Override
   @Transactional
-  public ItemView patch(long userId, long itemId, ItemPatch patch) {
+  public ItemDto patch(long userId, long itemId, PatchItemDto patch) {
     WardrobeItem item = find(userId, itemId);
+    ApiException.throwIfAny(patch.inputErrors());
     ItemInput previous = item.toInput();
-    ItemInput input = patch.applyTo(previous);
+    ItemInput input =
+        new ItemInput(
+            patch.name().orElse(previous.name()),
+            patch.category().orElse(previous.category()),
+            patch.subType().orElse(previous.subType()),
+            patch.color().orElse(previous.color()),
+            patch.pattern().orElse(previous.pattern()),
+            patch.seasons().orElse(previous.seasons()),
+            patch.styles().orElse(previous.styles()),
+            patch.formality().orElse(previous.formality()),
+            patch.status().orElse(previous.status()),
+            patch.brand().orElse(previous.brand()),
+            patch.wornCount().orElse(previous.wornCount()),
+            patch.lastWornAt().orElse(previous.lastWornAt()));
+    ApiException.throwIfAny(ItemRules.validate(input, ""));
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, previous, "", errors);
     ApiException.throwIfAny(errors);
     item.apply(input);
-    return ItemView.of(items.save(item));
+    return ItemDto.from(items.save(item));
   }
 
   @Override
@@ -130,9 +160,5 @@ public class WardrobeService implements WardrobeUseCase {
 
   private static String blankToNull(String s) {
     return s == null || s.isBlank() ? null : s;
-  }
-
-  static String escapeLike(String s) {
-    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
 }

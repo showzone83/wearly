@@ -1,19 +1,16 @@
 package app.wearly.ai.adapter.out.ai.openai;
 
 import app.wearly.ai.adapter.out.ai.HttpCall;
+import app.wearly.ai.adapter.out.ai.JsonObjectParser;
 import app.wearly.ai.adapter.out.ai.Secrets;
-import app.wearly.ai.adapter.out.ai.SuggestionParser;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.domain.AiImage;
 import app.wearly.ai.domain.AiJsonPrompt;
 import app.wearly.ai.domain.AiJsonResult;
 import app.wearly.ai.domain.AiProviderException;
-import app.wearly.ai.domain.AiResult;
-import app.wearly.ai.domain.AiSuggestion;
-import app.wearly.ai.domain.AnalysisPrompt;
 import app.wearly.ai.domain.ProviderDefaults;
-import app.wearly.common.domain.code.CodeSnapshot;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,14 +23,13 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * OpenAI 공급자: Responses API(POST {baseUrl}/responses)를 RestClient로 직접 부른다. 요청 형식은 OpenAI 공식 OpenAPI
  * 명세(openai/openai-openapi)의 CreateResponse를 따른다. - 입력: user 메시지 content = [input_text(프롬프트),
- * input_image(data URL, detail)] - 구조화 출력: text.format = { type: json_schema, name, schema, strict:
- * true } - 결과: output[].type=message → content[].type=output_text의 text, refusal이면 거절 - 토큰:
- * usage.input_tokens / usage.output_tokens
+ * input_image(data URL, detail, 사진이 있을 때)], 지시문은 instructions - 구조화 출력: text.format = { type:
+ * json_schema, name, schema, strict: true } - 결과: output[].type=message →
+ * content[].type=output_text의 text, refusal이면 거절 - 토큰: usage.input_tokens / usage.output_tokens
  */
 public class OpenAiProvider implements AiModelPort {
 
   public static final String DEFAULT_BASE_URL = ProviderDefaults.OPENAI_BASE_URL;
-  static final String SCHEMA_NAME = "wardrobe_item";
   static final int DEFAULT_MAX_OUTPUT_TOKENS = ProviderDefaults.OPENAI_MAX_OUTPUT_TOKENS;
 
   private final String id;
@@ -44,7 +40,7 @@ public class OpenAiProvider implements AiModelPort {
   private final Double temperature;
   private final String detail;
   private final JsonMapper json;
-  private final SuggestionParser parser;
+  private final JsonObjectParser parser;
 
   public OpenAiProvider(
       String id,
@@ -56,7 +52,7 @@ public class OpenAiProvider implements AiModelPort {
       Double temperature,
       String detail,
       JsonMapper json,
-      SuggestionParser parser) {
+      JsonObjectParser parser) {
     this.id = id;
     this.model = model;
     this.apiKey = apiKey;
@@ -78,15 +74,10 @@ public class OpenAiProvider implements AiModelPort {
     return model;
   }
 
+  /** 지시문은 instructions, 사용자 입력은 input_text(+ 사진이면 input_image), text.format = 호출한 쪽의 스키마 */
   @Override
-  public AiResult analyze(AiImage image, CodeSnapshot codes) {
-    return toResult(send(requestBody(image, codes)), codes);
-  }
-
-  /** 이미지 없는 구조화 JSON: instructions + user input_text, text.format = 호출한 쪽의 스키마 */
-  @Override
-  public AiJsonResult generateJson(AiJsonPrompt prompt) {
-    JsonNode root = send(jsonRequestBody(prompt));
+  public AiJsonResult generateJson(AiJsonPrompt prompt, AiImage image) {
+    JsonNode root = send(requestBody(prompt, image));
     JsonNode usage = root.path("usage");
     return new AiJsonResult(
         parser.parseObject(outputText(root)),
@@ -117,19 +108,36 @@ public class OpenAiProvider implements AiModelPort {
     return root;
   }
 
-  Map<String, Object> jsonRequestBody(AiJsonPrompt prompt) {
+  Map<String, Object> requestBody(AiJsonPrompt prompt, AiImage image) {
+    List<Map<String, Object>> content = new ArrayList<>();
+    content.add(Map.of("type", "input_text", "text", prompt.prompt()));
+    if (image != null) {
+      Map<String, Object> imagePart = new LinkedHashMap<>();
+      imagePart.put("type", "input_image");
+      imagePart.put(
+          "image_url",
+          "data:"
+              + image.mediaType()
+              + ";base64,"
+              + Base64.getEncoder().encodeToString(image.bytes()));
+      imagePart.put("detail", detail);
+      content.add(imagePart);
+    }
     Map<String, Object> message = new LinkedHashMap<>();
     message.put("role", "user");
-    message.put("content", List.of(Map.of("type", "input_text", "text", prompt.prompt())));
+    message.put("content", content);
     Map<String, Object> body = new LinkedHashMap<>();
     body.put("model", model);
-    body.put("instructions", prompt.instructions());
+    if (prompt.instructions() != null) {
+      body.put("instructions", prompt.instructions());
+    }
     body.put("input", List.of(message));
     body.put("text", Map.of("format", format(prompt.schemaName(), prompt.schema())));
     body.put("max_output_tokens", maxOutputTokens);
     if (temperature != null) {
       body.put("temperature", temperature);
     }
+    // 입력·결과를 OpenAI 쪽에 30일 보관하지 않는다 (기본값 true)
     body.put("store", false);
     return body;
   }
@@ -141,45 +149,6 @@ public class OpenAiProvider implements AiModelPort {
     format.put("schema", schema);
     format.put("strict", true);
     return format;
-  }
-
-  Map<String, Object> requestBody(AiImage image, CodeSnapshot codes) {
-    String dataUrl =
-        "data:"
-            + image.mediaType()
-            + ";base64,"
-            + Base64.getEncoder().encodeToString(image.bytes());
-    Map<String, Object> imagePart = new LinkedHashMap<>();
-    imagePart.put("type", "input_image");
-    imagePart.put("image_url", dataUrl);
-    imagePart.put("detail", detail);
-    Map<String, Object> message = new LinkedHashMap<>();
-    message.put("role", "user");
-    message.put(
-        "content",
-        List.of(Map.of("type", "input_text", "text", AnalysisPrompt.prompt(codes)), imagePart));
-
-    Map<String, Object> body = new LinkedHashMap<>();
-    body.put("model", model);
-    body.put("input", List.of(message));
-    body.put("text", Map.of("format", format(SCHEMA_NAME, AnalysisPrompt.schema(codes))));
-    body.put("max_output_tokens", maxOutputTokens);
-    if (temperature != null) {
-      body.put("temperature", temperature);
-    }
-    // 분석 결과를 OpenAI 쪽에 30일 보관하지 않는다 (기본값 true)
-    body.put("store", false);
-    return body;
-  }
-
-  AiResult toResult(JsonNode root, CodeSnapshot codes) {
-    AiSuggestion suggestion = parser.parse(outputText(root), codes);
-    JsonNode usage = root.path("usage");
-    return new AiResult(
-        suggestion,
-        root.path("model").asString(model),
-        longOrNull(usage, "input_tokens"),
-        longOrNull(usage, "output_tokens"));
   }
 
   /** 미완료·실패·거절을 걸러 내고 output_text를 이어 붙인다 */

@@ -1,6 +1,6 @@
 package app.wearly.common.web;
 
-import app.wearly.common.domain.ImageUpload;
+import app.wearly.common.application.ImageUpload;
 import java.io.IOException;
 import org.springframework.web.multipart.MultipartFile;
 

@@ -1,12 +1,12 @@
 package app.wearly.outfit.application.service;
 
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
-import app.wearly.outfit.application.port.in.RecommendOutfitCommand;
+import app.wearly.outfit.application.port.in.dto.RecommendOutfitDto;
 import app.wearly.outfit.domain.OutfitCodes;
 import app.wearly.outfit.domain.OutfitRequest;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -31,12 +31,12 @@ final class OutfitRequestValidator {
 
   private OutfitRequestValidator() {}
 
-  static OutfitRequest validate(RecommendOutfitCommand cmd, CodeSnapshot codes) {
+  static OutfitRequest validate(RecommendOutfitDto cmd, CodeSnapshot codes) {
     List<FieldError> errors = new ArrayList<>();
     if (cmd == null || cmd.context() == null) {
       throw ApiException.validation("context", "필수 값이에요.");
     }
-    RecommendOutfitCommand.Context c = cmd.context();
+    RecommendOutfitDto.Context c = cmd.context();
     final LocalDate date = date("context.date", c.date(), errors);
     final String occasion =
         oneOf("context.occasion", c.occasion(), OutfitCodes.OCCASIONS.keySet(), errors);
@@ -109,7 +109,7 @@ final class OutfitRequestValidator {
   }
 
   private static OutfitRequest.Weather weather(
-      RecommendOutfitCommand.Weather w, List<FieldError> errors) {
+      RecommendOutfitDto.Weather w, List<FieldError> errors) {
     if (w == null) {
       return null;
     }
@@ -196,7 +196,7 @@ final class OutfitRequestValidator {
   }
 
   private static List<OutfitRequest.RecentOutfit> recent(
-      List<RecommendOutfitCommand.Recent> raw, List<FieldError> errors) {
+      List<RecommendOutfitDto.Recent> raw, List<FieldError> errors) {
     if (raw == null) {
       return List.of();
     }
@@ -206,7 +206,7 @@ final class OutfitRequestValidator {
     }
     List<OutfitRequest.RecentOutfit> out = new ArrayList<>();
     for (int i = 0; i < raw.size(); i++) {
-      RecommendOutfitCommand.Recent r = raw.get(i);
+      RecommendOutfitDto.Recent r = raw.get(i);
       String field = "recent[" + i + "]";
       if (r == null) {
         errors.add(new FieldError(field, "필수 값이에요."));

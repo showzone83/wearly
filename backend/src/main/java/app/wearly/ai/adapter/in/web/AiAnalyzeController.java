@@ -1,7 +1,7 @@
 package app.wearly.ai.adapter.in.web;
 
+import app.wearly.ai.adapter.in.web.response.AnalyzeResponse;
 import app.wearly.ai.application.port.in.AnalyzeImageUseCase;
-import app.wearly.ai.application.port.in.AnalyzeResult;
 import app.wearly.common.web.CurrentUser;
 import app.wearly.common.web.Uploads;
 import org.springframework.http.MediaType;
@@ -23,9 +23,9 @@ public class AiAnalyzeController {
   }
 
   @PostMapping(path = "/items/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public AnalyzeResult analyze(
+  public AnalyzeResponse analyze(
       @CurrentUser long userId,
       @RequestPart(name = "image", required = false) MultipartFile image) {
-    return analyze.analyze(userId, Uploads.of(image));
+    return AnalyzeResponse.from(analyze.analyze(userId, Uploads.of(image)));
   }
 }

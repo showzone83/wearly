@@ -1,8 +1,8 @@
 package app.wearly.code.domain;
 
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Pattern;

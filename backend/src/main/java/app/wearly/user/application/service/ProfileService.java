@@ -2,13 +2,14 @@ package app.wearly.user.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.code.CodeChecks;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
-import app.wearly.user.application.port.in.ProfileData;
-import app.wearly.user.application.port.in.ProfileTaste;
+import app.wearly.sharedkernel.code.CodeChecks;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.user.application.port.in.ProfileUseCase;
+import app.wearly.user.application.port.in.dto.ProfileDto;
+import app.wearly.user.application.port.in.dto.ProfileTasteDto;
+import app.wearly.user.application.port.in.dto.UpdateProfileDto;
 import app.wearly.user.application.port.out.ProfilePort;
 import app.wearly.user.application.port.out.UserPort;
 import app.wearly.user.domain.User;
@@ -34,26 +35,26 @@ public class ProfileService implements ProfileUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public ProfileData get(long userId) {
+  public ProfileDto get(long userId) {
     User user = users.findById(userId).orElseThrow(ApiException::notFound);
-    return new ProfileData(
+    return ProfileDto.of(
         user.name(), profiles.findByUserId(userId).orElseGet(UserProfile::defaults));
   }
 
   @Override
   @Transactional(readOnly = true)
-  public ProfileTaste taste(long userId) {
-    UserProfile p = get(userId).profile();
-    return new ProfileTaste(
+  public ProfileTasteDto taste(long userId) {
+    ProfileDto p = get(userId);
+    return new ProfileTasteDto(
         p.dressCodes().stream().map(Enum::name).toList(), p.moods(), p.colors());
   }
 
   @Override
   @Transactional
-  public ProfileData put(long userId, ProfileData data) {
+  public ProfileDto put(long userId, UpdateProfileDto data) {
     final User user = users.findById(userId).orElseThrow(ApiException::notFound);
     Optional<UserProfile> saved = profiles.findByUserId(userId);
-    UserProfile in = data.profile();
+    UserProfile in = data.toProfile();
     // 새로 고르는 색·취향은 활성 코드만. 이미 저장돼 있던 값은 비활성이어도 둔다
     CodeSnapshot codes = catalog.current();
     List<FieldError> errors = new ArrayList<>();
@@ -76,6 +77,6 @@ public class ProfileService implements ProfileUseCase {
     users.save(user);
     UserProfile profile = in.normalized();
     profiles.save(userId, profile);
-    return new ProfileData(user.name(), profile);
+    return ProfileDto.of(user.name(), profile);
   }
 }

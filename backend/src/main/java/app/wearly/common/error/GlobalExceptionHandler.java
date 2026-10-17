@@ -1,5 +1,6 @@
 package app.wearly.common.error;
 
+import app.wearly.common.domain.DomainValidationException;
 import app.wearly.common.domain.FieldError;
 import jakarta.validation.ConstraintViolationException;
 import java.util.ArrayList;
@@ -31,6 +32,12 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(ApiException.class)
   ResponseEntity<ErrorResponse> handleApi(ApiException e) {
     return respond(e.code(), e.getMessage(), e.fieldErrors());
+  }
+
+  /** 도메인 불변식 위반 (H2: 웹 Bean Validation을 거치지 않은 입력도 도메인이 막는다) */
+  @ExceptionHandler(DomainValidationException.class)
+  ResponseEntity<ErrorResponse> handleDomain(DomainValidationException e) {
+    return validation(e.errors());
   }
 
   /**

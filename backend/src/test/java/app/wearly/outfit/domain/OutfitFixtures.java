@@ -1,6 +1,6 @@
 package app.wearly.outfit.domain;
 
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.support.TestCodes;
 import java.time.LocalDate;
 import java.util.ArrayList;

@@ -1,19 +1,20 @@
 package app.wearly.auth.application.service;
 
 import app.wearly.auth.application.port.in.AccountUseCase;
-import app.wearly.auth.application.port.in.AuthResult;
 import app.wearly.auth.application.port.in.AuthUseCase;
 import app.wearly.auth.application.port.in.AuthenticationUseCase;
-import app.wearly.auth.application.port.in.LoginCommand;
-import app.wearly.auth.application.port.in.SignupCommand;
+import app.wearly.auth.application.port.in.dto.AuthResultDto;
+import app.wearly.auth.application.port.in.dto.LoginDto;
+import app.wearly.auth.application.port.in.dto.SignupDto;
 import app.wearly.auth.application.port.out.AccessTokenIssuer;
 import app.wearly.auth.application.port.out.CredentialPort;
 import app.wearly.auth.application.port.out.PasswordHasher;
+import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
-import app.wearly.user.application.port.in.UserAccount;
 import app.wearly.user.application.port.in.UserUseCase;
+import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.time.Clock;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -50,21 +51,19 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
 
   @Override
   @Transactional
-  public AuthResult signup(SignupCommand req) {
+  public AuthResultDto signup(SignupDto req) {
     String email = LocalCredential.normalizeEmail(req.email());
     if (credentials.existsByEmail(email)) {
       throw new ApiException(ErrorCode.EMAIL_TAKEN);
     }
-    // 동시에 같은 이메일로 가입하면 자격 증명 저장에서 409 EMAIL_TAKEN (영속성 어댑터가 바꾼다)
-    UserAccount user = users.create(email, req.name().strip(), UserAccount.ROLE_USER);
-    credentials.create(
-        new LocalCredential(null, user.id(), email, passwords.encode(req.password())));
+    UserAccountDto user = users.create(email, req.name().strip(), UserAccountDto.ROLE_USER);
+    saveCredential(new LocalCredential(null, user.id(), email, passwords.encode(req.password())));
     return issueTokens(user);
   }
 
   @Override
   @Transactional
-  public AuthResult login(LoginCommand req) {
+  public AuthResultDto login(LoginDto req) {
     Optional<LocalCredential> found =
         credentials.findByEmail(LocalCredential.normalizeEmail(req.email()));
     if (found.isEmpty()) {
@@ -75,7 +74,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
     if (!passwords.matches(req.password(), credential.passwordHash())) {
       throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
     }
-    UserAccount user = users.get(credential.userId());
+    UserAccountDto user = users.get(credential.userId());
     // 비밀번호가 맞을 때만 정지 여부를 알린다 (07 문서 2장)
     if (!user.isActive()) {
       throw new ApiException(ErrorCode.ACCOUNT_SUSPENDED);
@@ -86,12 +85,12 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
 
   @Override
   @Transactional(noRollbackFor = ApiException.class)
-  public AuthResult refresh(String rawRefreshToken) {
+  public AuthResultDto refresh(String rawRefreshToken) {
     RefreshTokenService.Issued next = refreshTokens.rotate(rawRefreshToken);
-    UserAccount user =
+    UserAccountDto user =
         users
             .find(next.token().userId())
-            .filter(UserAccount::isActive)
+            .filter(UserAccountDto::isActive)
             .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_INVALID));
     return toResult(user, next.rawToken());
   }
@@ -103,7 +102,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
 
   @Override
   public Optional<String> activeUserRole(long userId) {
-    return users.find(userId).filter(UserAccount::isActive).map(UserAccount::role);
+    return users.find(userId).filter(UserAccountDto::isActive).map(UserAccountDto::role);
   }
 
   @Override
@@ -115,9 +114,18 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
   @Override
   @Transactional
   public long createAccount(String email, String rawPassword, String name, String role) {
-    UserAccount user = users.create(email, name, role);
-    credentials.create(new LocalCredential(null, user.id(), email, passwords.encode(rawPassword)));
+    UserAccountDto user = users.create(email, name, role);
+    saveCredential(new LocalCredential(null, user.id(), email, passwords.encode(rawPassword)));
     return user.id();
+  }
+
+  /** 동시에 같은 이메일로 가입하면 고유 제약에 걸린다 → 409 EMAIL_TAKEN (트랜잭션은 롤백되어 회원도 남지 않는다) */
+  private void saveCredential(LocalCredential credential) {
+    try {
+      credentials.create(credential);
+    } catch (EmailTakenException e) {
+      throw new ApiException(ErrorCode.EMAIL_TAKEN);
+    }
   }
 
   @Override
@@ -136,13 +144,13 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
     refreshTokens.revokeAllForUser(userId);
   }
 
-  private AuthResult issueTokens(UserAccount user) {
+  private AuthResultDto issueTokens(UserAccountDto user) {
     RefreshTokenService.Issued refresh = refreshTokens.issueNewFamily(user.id());
     return toResult(user, refresh.rawToken());
   }
 
-  private AuthResult toResult(UserAccount user, String rawRefreshToken) {
-    return new AuthResult(
+  private AuthResultDto toResult(UserAccountDto user, String rawRefreshToken) {
+    return new AuthResultDto(
         accessTokens.issue(user.id(), user.role()),
         accessTokens.accessTtlSeconds(),
         rawRefreshToken,

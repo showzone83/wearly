@@ -12,6 +12,7 @@ public interface JsonOutputHandler<T> {
    * 받아들인 결과.
    *
    * @param logResult tb_ai_analysis_log.result에 남길 값 (JSON으로 바꿀 수 있는 자바 값)
+   * @param summary 관리자 AI 기록 목록에 보일 한 줄 요약 (result_summary). 결과 모양을 아는 호출자가 만든다 (L6)
    */
-  record Accepted<T>(T value, Object logResult) {}
+  record Accepted<T>(T value, Object logResult, String summary) {}
 }

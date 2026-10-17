@@ -1,10 +1,14 @@
 package app.wearly.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.tngtech.archunit.core.domain.Dependency;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaParameterizedType;
+import com.tngtech.archunit.core.domain.JavaType;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -12,16 +16,24 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.http.ResponseEntity;
 
 /**
- * 08 문서 3장 규칙을 테스트로 강제한다 (Spring 없이 바이트코드만 본다). - domain: 자바 표준과 common.domain만 - application:
- * 어댑터·JPA·MyBatis·Jackson·Spring Web을 모른다. Spring은 @Service·@Transactional만 - adapter.in: 출력
- * 포트·유스케이스 구현·출력 어댑터를 직접 부르지 않는다 - adapter.out: 유스케이스 구현·입력 어댑터를 부르지 않는다 - 컨텍스트 사이 의존은 상대 컨텍스트의
- * application.port.in만
+ * 08 문서 3장·7장 규칙을 테스트로 강제한다 (Spring 없이 바이트코드만 본다).
+ *
+ * <ul>
+ *   <li>domain: 자바 표준, common.domain, 공유 커널(sharedkernel)만
+ *   <li>application: 어댑터·JPA·MyBatis·Jackson·Spring Web을 모른다. Spring은 @Service·@Transactional만
+ *   <li>adapter.in: 출력 포트·유스케이스 구현·출력 어댑터를 직접 부르지 않는다. adapter.out: 유스케이스 구현·입력 어댑터·API 오류를 모른다
+ *   <li>컨텍스트 사이 의존은 상대 컨텍스트의 application.port.in만. common·sharedkernel은 컨텍스트를 모른다
+ *   <li>7장: @Entity는 persistence.jpa, @Mapper는 persistence.mybatis.mapper, 검증·Jackson 어노테이션은
+ *       adapter.in.web, 컨트롤러는 web.response 타입만 돌려준다, 포트 DTO는 어댑터를 모른다
+ * </ul>
  */
 @AnalyzeClasses(packages = "app.wearly", importOptions = ImportOption.DoNotIncludeTests.class)
 class HexagonalArchitectureTest {
@@ -38,7 +50,11 @@ class HexagonalArchitectureTest {
           .resideInAPackage("app.wearly..domain..")
           .should()
           .onlyDependOnClassesThat()
-          .resideInAnyPackage("java..", "app.wearly.common.domain..", "app.wearly.*.domain..")
+          .resideInAnyPackage(
+              "java..",
+              "app.wearly.common.domain..",
+              "app.wearly.sharedkernel..",
+              "app.wearly.*.domain..")
           .because("도메인 모델·규칙은 순수 자바다 (Spring·JPA·MyBatis·Jackson 어노테이션 없음)");
 
   @ArchTest
@@ -103,6 +119,16 @@ class HexagonalArchitectureTest {
           .resideInAnyPackage("app.wearly.*.application.service..", "app.wearly.*.adapter.in..");
 
   @ArchTest
+  static final ArchRule 출력_어댑터는_API_오류를_모른다 =
+      noClasses()
+          .that()
+          .resideInAPackage("app.wearly.*.adapter.out..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("app.wearly.common.error..")
+          .because("저장·외부 호출 실패는 도메인·애플리케이션 예외로 던지고 서비스가 API 오류로 바꾼다 (L1)");
+
+  @ArchTest
   static final ArchRule 컨텍스트_사이에는_입력_포트로만_의존한다 =
       classes()
           .that()
@@ -120,20 +146,87 @@ class HexagonalArchitectureTest {
           .resideInAnyPackage("java..", "app.wearly.common.domain..");
 
   @ArchTest
+  static final ArchRule 공유_커널은_자바_표준과_common_domain만_쓴다 =
+      classes()
+          .that()
+          .resideInAPackage("app.wearly.sharedkernel..")
+          .should()
+          .onlyDependOnClassesThat()
+          .resideInAnyPackage("java..", "app.wearly.common.domain..", "app.wearly.sharedkernel..")
+          .because("공유 커널은 불변 값·조회 메서드·공유 정책만 둔다 (M8)");
+
+  @ArchTest
+  static final ArchRule common은_컨텍스트를_모른다 =
+      noClasses()
+          .that()
+          .resideInAnyPackage("app.wearly.common..", "app.wearly.sharedkernel..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage(
+              CONTEXTS.stream().map(c -> "app.wearly." + c + "..").toArray(String[]::new))
+          .because("컨텍스트에 속한 설정(보안·AI·코디)은 각 컨텍스트의 config 패키지에 둔다 (M8)");
+
+  @ArchTest
   static final ArchRule JPA_엔티티는_영속성_어댑터에만 =
       classes()
           .that()
           .areAnnotatedWith("jakarta.persistence.Entity")
           .should()
-          .resideInAPackage("app.wearly.*.adapter.out.persistence..");
+          .resideInAPackage("app.wearly.*.adapter.out.persistence.jpa..");
 
   @ArchTest
-  static final ArchRule MyBatis_매퍼는_조회_어댑터에만 =
+  static final ArchRule 검증_Jackson_어노테이션은_웹_어댑터에만 =
+      noClasses()
+          .that()
+          .resideOutsideOfPackages("app.wearly.*.adapter.in.web..", "app.wearly.common.config..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage(
+              "jakarta.validation.constraints..", "com.fasterxml.jackson.annotation..")
+          .orShould()
+          .dependOnClassesThat()
+          .haveFullyQualifiedName("jakarta.validation.Valid")
+          .because(
+              "요청·응답 JSON 모양과 입력 검증은 웹 어댑터의 일이다 (08 문서 7장)."
+                  + " 저장용 JSON 변환은 영속성 어댑터가 JsonMapper로 한다."
+                  + " 예외: 시작 설정 값 검증(common.config.WearlyProperties)");
+
+  @ArchTest
+  static final ArchRule 컨트롤러는_응답_타입만_돌려준다 =
+      methods()
+          .that()
+          .areDeclaredInClassesThat()
+          .areAnnotatedWith("org.springframework.web.bind.annotation.RestController")
+          .and()
+          .arePublic()
+          .should(returnWebResponseTypes());
+
+  @ArchTest
+  static final ArchRule 포트_DTO는_어댑터를_모른다 =
+      noClasses()
+          .that()
+          .resideInAnyPackage(
+              "app.wearly.*.application.port.in.dto..", "app.wearly.*.application.port.out.dto..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("app.wearly.*.adapter..");
+
+  @ArchTest
+  static final ArchRule 출력_포트_DTO는_입력_포트_DTO를_모른다 =
+      noClasses()
+          .that()
+          .resideInAPackage("app.wearly.*.application.port.out.dto..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("app.wearly.*.application.port.in.dto..");
+
+  @ArchTest
+  static final ArchRule MyBatis_매퍼는_MyBatis_어댑터의_mapper에만 =
       classes()
           .that()
           .areAnnotatedWith("org.apache.ibatis.annotations.Mapper")
           .should()
-          .resideInAPackage("app.wearly.*.adapter.out.query..");
+          .resideInAPackage("app.wearly.*.adapter.out.persistence.mybatis.mapper..");
 
   @ArchTest
   static final ArchRule 컨트롤러는_웹_어댑터에만 =
@@ -181,6 +274,38 @@ class HexagonalArchitectureTest {
           if (!target.startsWith("app.wearly." + to.get() + ".application.port.in.")) {
             events.add(SimpleConditionEvent.violated(d, d.getDescription()));
           }
+        }
+      }
+    };
+  }
+
+  /** 반환 타입이 adapter.in.web.response 타입, 그 컬렉션·ResponseEntity, 또는 void */
+  private static ArchCondition<JavaMethod> returnWebResponseTypes() {
+    return new ArchCondition<>("adapter.in.web.response 타입(또는 그 컬렉션·ResponseEntity·void)을 돌려준다") {
+      @Override
+      public void check(JavaMethod method, ConditionEvents events) {
+        JavaType type = method.getReturnType();
+        JavaClass raw = type.toErasure();
+        if (raw.getName().equals("void")) {
+          return;
+        }
+        if (raw.isAssignableTo(Collection.class) || raw.isEquivalentTo(ResponseEntity.class)) {
+          if (!(type instanceof JavaParameterizedType p) || p.getActualTypeArguments().isEmpty()) {
+            events.add(SimpleConditionEvent.violated(method, method.getFullName() + " 타입 인자가 없다"));
+            return;
+          }
+          JavaClass arg = p.getActualTypeArguments().getFirst().toErasure();
+          if (raw.isEquivalentTo(ResponseEntity.class)
+              && arg.getName().equals(Void.class.getName())) {
+            return;
+          }
+          raw = arg;
+        }
+        if (!raw.getPackageName()
+            .matches("app\\.wearly\\.\\w+\\.adapter\\.in\\.web\\.response.*")) {
+          events.add(
+              SimpleConditionEvent.violated(
+                  method, method.getFullName() + "이(가) " + raw.getName() + "을(를) 돌려준다"));
         }
       }
     };

@@ -1,21 +1,24 @@
 package app.wearly.code.application.service;
 
-import app.wearly.code.application.port.in.CodeInfo;
 import app.wearly.code.application.port.in.CodeManagementUseCase;
-import app.wearly.code.application.port.in.CreateCodeCommand;
+import app.wearly.code.application.port.in.CodeUsageSource;
+import app.wearly.code.application.port.in.dto.CodeChangeDto;
+import app.wearly.code.application.port.in.dto.CodeDto;
+import app.wearly.code.application.port.in.dto.CodeUsageCountDto;
+import app.wearly.code.application.port.in.dto.CreateCodeDto;
+import app.wearly.code.application.port.in.dto.PatchCodeDto;
 import app.wearly.code.application.port.out.CodePort;
 import app.wearly.code.application.port.out.CodeSnapshotPort;
-import app.wearly.code.application.port.out.CodeUsagePort;
 import app.wearly.code.domain.Code;
 import app.wearly.code.domain.CodeAttrs;
 import app.wearly.code.domain.CodeRules;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.PatchBody;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,31 +29,38 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 관리자 코드 관리 (07 문서 4장). 쓰기는 JPA(CodePort), 사용 수 집계는 MyBatis(CodeUsagePort). 바꾸면 커밋 뒤 코드 캐시를 다시
- * 읽는다(/codes version이 바뀜).
+ * 관리자 코드 관리 (07 문서 4장). 쓰기는 JPA(CodePort). 사용 수는 코드를 쓰는 컨텍스트(옷장·프로필)에 CodeUsageSource로 묻는다 (code는
+ * 다른 컨텍스트의 테이블을 읽지 않는다, H1). 바꾸면 커밋 뒤 코드 캐시를 다시 읽는다(/codes version이 바뀜).
  */
 @Service
 public class CodeManagementService implements CodeManagementUseCase {
 
   private final CodePort codes;
-  private final CodeUsagePort usage;
+  private final List<CodeUsageSource> sources;
   private final CodeSnapshotPort snapshots;
 
-  public CodeManagementService(CodePort codes, CodeUsagePort usage, CodeSnapshotPort snapshots) {
+  public CodeManagementService(
+      CodePort codes, List<CodeUsageSource> sources, CodeSnapshotPort snapshots) {
     this.codes = codes;
-    this.usage = usage;
+    this.sources = sources.stream().sorted(Comparator.comparing(CodeUsageSource::kind)).toList();
     this.snapshots = snapshots;
   }
 
   @Override
   @Transactional(readOnly = true)
   public Map<String, Long> itemUsage() {
-    return usage.itemUsage();
+    Map<String, Long> usage = new HashMap<>();
+    for (CodeUsageSource s : sources(CodeUsageSource.Kind.ITEM)) {
+      for (CodeUsageCountDto c : s.countByCode()) {
+        usage.merge(CodeRules.target(c.group(), c.code()), c.count(), Long::sum);
+      }
+    }
+    return usage;
   }
 
   @Override
   @Transactional
-  public CodeInfo create(String group, CreateCodeCommand req) {
+  public CodeDto create(String group, CreateCodeDto req) {
     CodeSnapshot snapshot = requireGroup(group);
     if (req == null) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
@@ -75,7 +85,6 @@ public class CodeManagementService implements CodeManagementUseCase {
                 sortOrder,
                 req.active() == null || req.active(),
                 attrs));
-    codes.flush();
     if (CodeGroups.COLOR.equals(group)) {
       syncPairs(code, List.of(), CodeAttrs.pairsOf(attrs));
     }
@@ -85,61 +94,40 @@ public class CodeManagementService implements CodeManagementUseCase {
 
   @Override
   @Transactional
-  public Change patch(String group, String code, PatchBody body) {
+  public CodeChangeDto patch(String group, String code, PatchCodeDto patch) {
     final CodeSnapshot snapshot = requireGroup(group);
     Code entity = codes.find(group, code).orElseThrow(ApiException::notFound);
-    if (body == null || !body.isObject()) {
+    if (patch == null) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
-    final CodeInfo before = info(entity);
+    final CodeDto before = info(entity);
     List<FieldError> errors = new ArrayList<>();
-    if (body.has("code") && !code.equals(body.string("code"))) {
+    if (patch.code().present() && !code.equals(patch.code().value())) {
       errors.add(new FieldError("code", "코드는 바꿀 수 없어요."));
     }
-    String label = entity.label();
-    if (body.has("label")) {
-      label = CodeRules.label(body.isString("label") ? body.string("label") : null, errors);
-    }
-    String parent = entity.parentCode();
-    if (body.has("parent")) {
-      String raw =
-          body.isNull("parent") ? null : body.isString("parent") ? body.string("parent") : "";
-      parent = CodeRules.parent(group, raw, snapshot, errors);
-    }
-    int sortOrder = entity.sortOrder();
-    if (body.has("sortOrder")) {
-      if (body.isInt("sortOrder")) {
-        sortOrder = body.intValue("sortOrder");
-      } else {
-        errors.add(new FieldError("sortOrder", "정수여야 해요."));
-      }
-    }
-    boolean active = entity.active();
-    if (body.has("active")) {
-      if (body.isBoolean("active")) {
-        active = body.bool("active");
-      } else {
-        errors.add(new FieldError("active", "true 또는 false여야 해요."));
-      }
-    }
+    String label =
+        patch.label().present() ? CodeRules.label(patch.label().value(), errors) : entity.label();
+    String parent =
+        patch.parent().present()
+            ? CodeRules.parent(group, patch.parent().value(), snapshot, errors)
+            : entity.parentCode();
+    int sortOrder = patch.sortOrder().apply("sortOrder", entity.sortOrder(), errors);
+    boolean active = patch.active().apply("active", entity.active(), errors);
     Map<String, Object> attrs = entity.attrs();
-    if (body.has("attrs")) {
-      if (!body.isObject("attrs")) {
-        errors.add(new FieldError("attrs", "JSON 객체여야 해요."));
-      } else {
-        attrs = CodeAttrs.validate(group, body.object("attrs"), code, snapshot, errors);
-      }
+    if (patch.attrs().invalid()) {
+      errors.add(new FieldError("attrs", patch.attrs().error()));
+    } else if (patch.attrs().present()) {
+      attrs = CodeAttrs.validate(group, patch.attrs().value(), code, snapshot, errors);
     }
     ApiException.throwIfAny(errors);
     List<String> oldPairs = CodeAttrs.pairsOf(entity.attrs());
     entity.update(label, parent, sortOrder, active, attrs);
     final Code saved = codes.save(entity);
-    codes.flush();
     if (CodeGroups.COLOR.equals(group)) {
       syncPairs(code, oldPairs, CodeAttrs.pairsOf(attrs));
     }
     snapshots.refreshAfterCommit();
-    return new Change(before, info(saved));
+    return new CodeChangeDto(before, info(saved));
   }
 
   @Override
@@ -156,40 +144,37 @@ public class CodeManagementService implements CodeManagementUseCase {
     for (int i = 0; i < order.size(); i++) {
       byCode.get(order.get(i)).moveTo((i + 1) * 10);
     }
-    codes.saveAllAndFlush(all);
+    codes.saveAll(all);
     snapshots.refreshAfterCommit();
     return before;
   }
 
   @Override
   @Transactional
-  public CodeInfo delete(String group, String code) {
+  public CodeDto delete(String group, String code) {
     requireGroup(group);
-    Code entity = codes.find(group, code).orElseThrow(ApiException::notFound);
-    long items = usage.countItemsUsing(group, code);
-    long profiles = usage.countProfilesUsing(group, code);
+    final Code entity = codes.find(group, code).orElseThrow(ApiException::notFound);
+    List<String> reasons = new ArrayList<>();
+    for (CodeUsageSource s : sources) {
+      long n = s.countUsing(group, code);
+      if (n > 0) {
+        reasons.add(s.kind().label() + " " + n + "개");
+      }
+    }
     long children =
         CodeGroups.CATEGORY.equals(group) ? codes.countChildren(CodeGroups.SUB_TYPE, code) : 0;
-    if (items > 0 || profiles > 0 || children > 0) {
-      List<String> reasons = new ArrayList<>();
-      if (items > 0) {
-        reasons.add("아이템 " + items + "개");
-      }
-      if (profiles > 0) {
-        reasons.add("프로필 " + profiles + "개");
-      }
-      if (children > 0) {
-        reasons.add("하위 세부 종류 " + children + "개");
-      }
+    if (children > 0) {
+      reasons.add("하위 세부 종류 " + children + "개");
+    }
+    if (!reasons.isEmpty()) {
       throw new ApiException(
           ErrorCode.CODE_IN_USE, String.join(", ", reasons) + "에서 쓰고 있어 삭제할 수 없어요. 대신 비활성화해 주세요.");
     }
-    final CodeInfo before = info(entity);
+    final CodeDto before = info(entity);
     if (CodeGroups.COLOR.equals(group)) {
       syncPairs(code, CodeAttrs.pairsOf(entity.attrs()), List.of());
     }
     codes.delete(entity);
-    codes.flush();
     snapshots.refreshAfterCommit();
     return before;
   }
@@ -215,7 +200,6 @@ public class CodeManagementService implements CodeManagementUseCase {
         codes.save(other);
       }
     }
-    codes.flush();
   }
 
   private CodeSnapshot requireGroup(String group) {
@@ -226,8 +210,8 @@ public class CodeManagementService implements CodeManagementUseCase {
     return s;
   }
 
-  private CodeInfo info(Code c) {
-    return new CodeInfo(
+  private CodeDto info(Code c) {
+    return new CodeDto(
         c.groupCode(),
         c.code(),
         c.label(),
@@ -235,6 +219,17 @@ public class CodeManagementService implements CodeManagementUseCase {
         c.sortOrder(),
         c.active(),
         c.attrs(),
-        usage.countItemsUsing(c.groupCode(), c.code()));
+        countItemsUsing(c.groupCode(), c.code()));
+  }
+
+  /** 관리자 화면의 usageCount = 이 코드를 쓰는 아이템 수 (07 문서 4장) */
+  private long countItemsUsing(String group, String code) {
+    return sources(CodeUsageSource.Kind.ITEM).stream()
+        .mapToLong(s -> s.countUsing(group, code))
+        .sum();
+  }
+
+  private List<CodeUsageSource> sources(CodeUsageSource.Kind kind) {
+    return sources.stream().filter(s -> s.kind() == kind).toList();
   }
 }

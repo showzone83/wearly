@@ -1,8 +1,9 @@
 package app.wearly.code.domain;
 
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.Slots;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,9 +48,8 @@ public final class CodeAttrs {
     switch (group) {
       case CodeGroups.CATEGORY -> {
         Object slot = in.get("slot");
-        if (slot != null && !(slot instanceof String s && CodeGroups.SLOTS.contains(s))) {
-          errors.add(
-              new FieldError("attrs.slot", String.join("·", CodeGroups.SLOTS) + " 또는 null이어야 해요."));
+        if (slot != null && !(slot instanceof String s && Slots.ALL.contains(s))) {
+          errors.add(new FieldError("attrs.slot", String.join("·", Slots.ALL) + " 또는 null이어야 해요."));
         }
         out.put("slot", slot);
       }

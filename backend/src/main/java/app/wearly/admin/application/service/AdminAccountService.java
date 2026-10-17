@@ -4,8 +4,8 @@ import app.wearly.admin.application.port.in.EnsureAdminUseCase;
 import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.auth.application.port.in.AccountUseCase;
-import app.wearly.user.application.port.in.UserAccount;
 import app.wearly.user.application.port.in.UserUseCase;
+import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -45,31 +45,31 @@ public class AdminAccountService implements EnsureAdminUseCase {
     }
     Optional<Long> found = accounts.findUserIdByEmail(email);
     if (found.isPresent()) {
-      UserAccount user = users.get(found.get());
+      UserAccountDto user = users.get(found.get());
       if (!user.isAdmin()) {
         String before = user.role();
-        users.changeAccess(user.id(), user.status(), UserAccount.ROLE_ADMIN);
+        users.changeAccess(user.id(), user.status(), UserAccountDto.ROLE_ADMIN);
         audit.record(
             user.id(),
             "ADMIN_BOOTSTRAP_PROMOTE",
             AuditTargets.USER,
             Long.toString(user.id()),
             Map.of("role", before),
-            Map.of("role", UserAccount.ROLE_ADMIN));
+            Map.of("role", UserAccountDto.ROLE_ADMIN));
         log.info("관리자 계정: 기존 회원 {}을(를) ADMIN으로 올림", email);
       } else {
         log.info("관리자 계정: {} (이미 ADMIN)", email);
       }
       return user.id();
     }
-    long id = accounts.createAccount(email, password, name, UserAccount.ROLE_ADMIN);
+    long id = accounts.createAccount(email, password, name, UserAccountDto.ROLE_ADMIN);
     audit.record(
         id,
         "ADMIN_BOOTSTRAP_CREATE",
         AuditTargets.USER,
         Long.toString(id),
         null,
-        Map.of("email", email, "name", name, "role", UserAccount.ROLE_ADMIN));
+        Map.of("email", email, "name", name, "role", UserAccountDto.ROLE_ADMIN));
     log.info("관리자 계정: {} 새로 만듦", email);
     return id;
   }

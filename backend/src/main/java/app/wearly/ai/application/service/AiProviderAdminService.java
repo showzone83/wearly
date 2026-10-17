@@ -1,9 +1,14 @@
 package app.wearly.ai.application.service;
 
 import app.wearly.ai.application.port.in.AiProviderAdminUseCase;
-import app.wearly.ai.application.port.in.AiProviderInfo;
-import app.wearly.ai.application.port.in.CreateProviderCommand;
-import app.wearly.ai.application.port.in.ProviderTypeInfo;
+import app.wearly.ai.application.port.in.AiProviderKeyUseCase;
+import app.wearly.ai.application.port.in.dto.AiProviderDto;
+import app.wearly.ai.application.port.in.dto.CreateProviderDto;
+import app.wearly.ai.application.port.in.dto.KeyChangeDto;
+import app.wearly.ai.application.port.in.dto.PatchProviderDto;
+import app.wearly.ai.application.port.in.dto.ProviderCatalogDto;
+import app.wearly.ai.application.port.in.dto.ProviderTypeDto;
+import app.wearly.ai.application.port.in.dto.VerifiedKeyDto;
 import app.wearly.ai.application.port.out.AiProviderPort;
 import app.wearly.ai.application.port.out.ApiKeyVerifierPort;
 import app.wearly.ai.application.port.out.ProviderSecretPort;
@@ -17,11 +22,10 @@ import app.wearly.ai.domain.AiSettings;
 import app.wearly.ai.domain.ApiKeyRules;
 import app.wearly.ai.domain.ProviderSecret;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.PatchBody;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
-import app.wearly.user.application.port.in.UserAccount;
 import app.wearly.user.application.port.in.UserUseCase;
+import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** 관리자 AI 공급자 관리 (07 문서 3·4장)와 웹 입력 키 (6장). 쓰기는 JPA, 키는 AES-GCM으로 암호화해 저장한다 */
 @Service
-public class AiProviderAdminService implements AiProviderAdminUseCase {
+public class AiProviderAdminService implements AiProviderAdminUseCase, AiProviderKeyUseCase {
 
   private final AiProviderPort settings;
   private final AiProviderRegistry registry;
@@ -64,28 +68,32 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public List<AiProviderInfo> list() {
+  public List<AiProviderDto> list() {
     return settings.findAllOrdered().stream().map(this::info).toList();
   }
 
   @Override
   @Transactional(readOnly = true)
-  public AiProviderInfo get(String providerId) {
+  public AiProviderDto get(String providerId) {
     return info(settings.findById(providerId).orElseThrow(ApiException::notFound));
   }
 
   @Override
-  public List<ProviderTypeInfo> types() {
+  public ProviderCatalogDto catalog() {
+    return new ProviderCatalogDto(types(), aiSettings.allowBaseUrl(), registry.isMockMode());
+  }
+
+  private static List<ProviderTypeDto> types() {
     return Arrays.stream(AiProviderType.values())
         .map(
             t ->
-                new ProviderTypeInfo(
+                new ProviderTypeDto(
                     t.name(),
                     t.description(),
                     t.options().stream()
                         .map(
                             o ->
-                                new ProviderTypeInfo.Option(
+                                new ProviderTypeDto.Option(
                                     o.name(),
                                     o.kind(),
                                     o.description(),
@@ -98,18 +106,8 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
   }
 
   @Override
-  public boolean baseUrlAllowed() {
-    return aiSettings.allowBaseUrl();
-  }
-
-  @Override
-  public boolean mockMode() {
-    return registry.isMockMode();
-  }
-
-  @Override
   @Transactional
-  public AiProviderInfo create(CreateProviderCommand req) {
+  public AiProviderDto create(CreateProviderDto req) {
     if (req == null) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
@@ -151,55 +149,34 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
 
   @Override
   @Transactional
-  public AiProviderInfo patch(String providerId, PatchBody body) {
+  public AiProviderDto patch(String providerId, PatchProviderDto patch) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
-    if (body == null || !body.isObject()) {
+    if (patch == null) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
     List<FieldError> errors = new ArrayList<>();
-    if (body.has("providerId") && !providerId.equals(body.string("providerId"))) {
+    if (patch.providerId().present() && !providerId.equals(patch.providerId().value())) {
       errors.add(new FieldError("providerId", "공급자 ID는 바꿀 수 없어요."));
     }
     final AiProviderType type =
-        body.has("type") ? AiProviderRules.type(body.text("type"), errors) : s.type();
+        patch.type().present() ? AiProviderRules.type(patch.type().value(), errors) : s.type();
     final String displayName =
-        body.has("displayName")
-            ? AiProviderRules.displayName(body.text("displayName"), errors)
+        patch.displayName().present()
+            ? AiProviderRules.displayName(patch.displayName().value(), errors)
             : s.displayName();
     final String model =
-        body.has("model") ? AiProviderRules.model(body.text("model"), errors) : s.model();
+        patch.model().present() ? AiProviderRules.model(patch.model().value(), errors) : s.model();
     final String apiKeyEnv =
-        body.has("apiKeyEnv")
-            ? AiProviderRules.apiKeyEnv(body.text("apiKeyEnv"), errors)
+        patch.apiKeyEnv().present()
+            ? AiProviderRules.apiKeyEnv(patch.apiKeyEnv().value(), errors)
             : s.apiKeyEnv();
-    boolean enabled = s.enabled();
-    if (body.has("enabled")) {
-      if (body.isBoolean("enabled")) {
-        enabled = body.bool("enabled");
-      } else {
-        errors.add(new FieldError("enabled", "true 또는 false여야 해요."));
-      }
+    boolean enabled = patch.enabled().apply("enabled", s.enabled(), errors);
+    int priority = patch.priority().apply("priority", s.priority(), errors);
+    if (patch.priority().present() && !patch.priority().invalid() && !validPriority(priority)) {
+      errors.add(new FieldError("priority", "0~10000 정수여야 해요."));
+      priority = s.priority();
     }
-    int priority = s.priority();
-    if (body.has("priority")) {
-      if (body.isInt("priority")
-          && body.intValue("priority") >= 0
-          && body.intValue("priority") <= 10000) {
-        priority = body.intValue("priority");
-      } else {
-        errors.add(new FieldError("priority", "0~10000 정수여야 해요."));
-      }
-    }
-    Map<String, Object> options = s.options();
-    if (body.has("options")) {
-      if (body.isNull("options")) {
-        options = Map.of();
-      } else if (!body.isObject("options")) {
-        errors.add(new FieldError("options", "JSON 객체여야 해요."));
-      } else {
-        options = body.object("options");
-      }
-    }
+    Map<String, Object> options = patch.options().apply("options", s.options(), errors);
     if (type != null) {
       errors.addAll(type.validate(options, aiSettings.allowBaseUrl()));
     }
@@ -220,25 +197,25 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
 
   @Override
   @Transactional
-  public AiProviderInfo delete(String providerId) {
+  public AiProviderDto delete(String providerId) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
-    AiProviderInfo before = info(s);
+    AiProviderDto before = info(s);
     settings.delete(providerId);
     // 웹 키 행은 FK ON DELETE CASCADE로 함께 지워진다
     keys.invalidate(providerId);
     return before;
   }
 
-  @Override
-  public void requireSecretStore() {
+  /** 마스터 키(WEARLY_SECRET_KEY)가 없으면 409 SECRET_KEY_MISSING */
+  private void requireSecretStore() {
     if (!keys.storeEnabled()) {
       throw new ApiException(ErrorCode.SECRET_KEY_MISSING);
     }
   }
 
+  /** 트랜잭션 없이: 공급자 HTTP 호출 동안 DB 연결을 잡지 않는다 (M6) */
   @Override
-  @Transactional
-  public KeyChange setKey(String providerId, String apiKey, boolean verify, long adminUserId) {
+  public VerifiedKeyDto checkKey(String providerId, String apiKey, boolean verify) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
     requireSecretStore();
     List<FieldError> errors = new ArrayList<>();
@@ -253,34 +230,51 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
         throw new ApiException(ErrorCode.API_KEY_INVALID, "API 키를 확인하지 못했어요: " + reason);
       }
     }
-    AiProviderInfo before = info(s);
-    secrets.save(
-        new ProviderSecret(
-            providerId, cipher.seal(key, providerId), ApiKeyRules.last4(key), adminUserId, null));
-    keys.invalidate(providerId);
-    return new KeyChange(before, info(s));
+    return new VerifiedKeyDto(providerId, key);
   }
 
   @Override
   @Transactional
-  public Optional<KeyChange> deleteKey(String providerId) {
+  public KeyChangeDto saveKey(VerifiedKeyDto verified, long adminUserId) {
+    String providerId = verified.providerId();
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
-    AiProviderInfo before = info(s);
+    requireSecretStore();
+    AiProviderDto before = info(s);
+    secrets.save(
+        new ProviderSecret(
+            providerId,
+            cipher.seal(verified.key(), providerId),
+            ApiKeyRules.last4(verified.key()),
+            adminUserId,
+            null));
+    keys.invalidate(providerId);
+    return new KeyChangeDto(before, info(s));
+  }
+
+  @Override
+  @Transactional
+  public Optional<KeyChangeDto> deleteKey(String providerId) {
+    AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
+    AiProviderDto before = info(s);
     if (!secrets.delete(providerId)) {
       return Optional.empty();
     }
     keys.invalidate(providerId);
-    return Optional.of(new KeyChange(before, info(s)));
+    return Optional.of(new KeyChangeDto(before, info(s)));
   }
 
-  private AiProviderInfo info(AiProviderSetting s) {
+  private static boolean validPriority(int priority) {
+    return priority >= 0 && priority <= 10000;
+  }
+
+  private AiProviderDto info(AiProviderSetting s) {
     ApiKeyService.KeyState key = keys.state(s);
     boolean configured = key.choice().present();
     String updatedBy =
         key.updatedBy() == null
             ? null
-            : users.find(key.updatedBy()).map(UserAccount::email).orElse(null);
-    return new AiProviderInfo(
+            : users.find(key.updatedBy()).map(UserAccountDto::email).orElse(null);
+    return new AiProviderDto(
         s.providerId(),
         s.type().name(),
         s.displayName(),
