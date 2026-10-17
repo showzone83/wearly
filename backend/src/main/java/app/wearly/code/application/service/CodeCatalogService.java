@@ -9,14 +9,14 @@ import org.springframework.stereotype.Service;
 @Service
 public class CodeCatalogService implements CodeCatalog {
 
-    private final CodeSnapshotPort snapshots;
+  private final CodeSnapshotPort snapshots;
 
-    public CodeCatalogService(CodeSnapshotPort snapshots) {
-        this.snapshots = snapshots;
-    }
+  public CodeCatalogService(CodeSnapshotPort snapshots) {
+    this.snapshots = snapshots;
+  }
 
-    @Override
-    public CodeSnapshot current() {
-        return snapshots.current();
-    }
+  @Override
+  public CodeSnapshot current() {
+    return snapshots.current();
+  }
 }

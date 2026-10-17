@@ -24,42 +24,45 @@ import tools.jackson.databind.json.JsonMapper;
 @RequestMapping("/api/v1/admin")
 public class AdminController {
 
-    private final AdminDashboardUseCase logs;
-    private final AdminUserUseCase users;
-    private final JsonMapper jsonMapper;
+  private final AdminDashboardUseCase logs;
+  private final AdminUserUseCase users;
+  private final JsonMapper jsonMapper;
 
-    public AdminController(AdminDashboardUseCase logs, AdminUserUseCase users, JsonMapper jsonMapper) {
-        this.logs = logs;
-        this.users = users;
-        this.jsonMapper = jsonMapper;
-    }
+  public AdminController(
+      AdminDashboardUseCase logs, AdminUserUseCase users, JsonMapper jsonMapper) {
+    this.logs = logs;
+    this.users = users;
+    this.jsonMapper = jsonMapper;
+  }
 
-    @GetMapping("/dashboard")
-    public DashboardView dashboard() {
-        return logs.dashboard();
-    }
+  @GetMapping("/dashboard")
+  public DashboardView dashboard() {
+    return logs.dashboard();
+  }
 
-    @GetMapping("/users")
-    public Page<AdminUserView> users(
-            @RequestParam(required = false) String q,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String role,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size) {
-        return users.list(q, status, role, Page.paging(page, size));
-    }
+  @GetMapping("/users")
+  public Page<AdminUserView> users(
+      @RequestParam(required = false) String q,
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false) String role,
+      @RequestParam(required = false) Integer page,
+      @RequestParam(required = false) Integer size) {
+    return users.list(q, status, role, Page.paging(page, size));
+  }
 
-    @PatchMapping("/users/{id}")
-    public AdminUserView patchUser(@CurrentUser long adminId, @PathVariable String id,
-            @RequestBody(required = false) JsonNode body) {
-        return users.patch(adminId, PathIds.parse(id), new JsonPatchBody(body, jsonMapper));
-    }
+  @PatchMapping("/users/{id}")
+  public AdminUserView patchUser(
+      @CurrentUser long adminId,
+      @PathVariable String id,
+      @RequestBody(required = false) JsonNode body) {
+    return users.patch(adminId, PathIds.parse(id), new JsonPatchBody(body, jsonMapper));
+  }
 
-    @GetMapping("/audit-logs")
-    public Page<AuditView> auditLogs(
-            @RequestParam(required = false) String targetType,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size) {
-        return logs.auditLogs(targetType, Page.paging(page, size));
-    }
+  @GetMapping("/audit-logs")
+  public Page<AuditView> auditLogs(
+      @RequestParam(required = false) String targetType,
+      @RequestParam(required = false) Integer page,
+      @RequestParam(required = false) Integer size) {
+    return logs.auditLogs(targetType, Page.paging(page, size));
+  }
 }

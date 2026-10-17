@@ -21,39 +21,52 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ProfileService implements ProfileUseCase {
 
-    private final UserPort users;
-    private final ProfilePort profiles;
-    private final CodeCatalog catalog;
+  private final UserPort users;
+  private final ProfilePort profiles;
+  private final CodeCatalog catalog;
 
-    public ProfileService(UserPort users, ProfilePort profiles, CodeCatalog catalog) {
-        this.users = users;
-        this.profiles = profiles;
-        this.catalog = catalog;
-    }
+  public ProfileService(UserPort users, ProfilePort profiles, CodeCatalog catalog) {
+    this.users = users;
+    this.profiles = profiles;
+    this.catalog = catalog;
+  }
 
-    @Override
-    @Transactional(readOnly = true)
-    public ProfileData get(long userId) {
-        User user = users.findById(userId).orElseThrow(ApiException::notFound);
-        return new ProfileData(user.name(), profiles.findByUserId(userId).orElseGet(UserProfile::defaults));
-    }
+  @Override
+  @Transactional(readOnly = true)
+  public ProfileData get(long userId) {
+    User user = users.findById(userId).orElseThrow(ApiException::notFound);
+    return new ProfileData(
+        user.name(), profiles.findByUserId(userId).orElseGet(UserProfile::defaults));
+  }
 
-    @Override
-    @Transactional
-    public ProfileData put(long userId, ProfileData data) {
-        User user = users.findById(userId).orElseThrow(ApiException::notFound);
-        Optional<UserProfile> saved = profiles.findByUserId(userId);
-        UserProfile in = data.profile();
-        // 새로 고르는 색·취향은 활성 코드만. 이미 저장돼 있던 값은 비활성이어도 둔다
-        CodeSnapshot codes = catalog.current();
-        List<FieldError> errors = new ArrayList<>();
-        CodeChecks.many(codes, CodeGroups.STYLE, "moods", in.moods(), saved.map(UserProfile::moods).orElse(null), errors);
-        CodeChecks.many(codes, CodeGroups.COLOR, "colors", in.colors(), saved.map(UserProfile::colors).orElse(null), errors);
-        ApiException.throwIfAny(errors);
-        user.rename(data.name().strip());
-        users.save(user);
-        UserProfile profile = in.normalized();
-        profiles.save(userId, profile);
-        return new ProfileData(user.name(), profile);
-    }
+  @Override
+  @Transactional
+  public ProfileData put(long userId, ProfileData data) {
+    User user = users.findById(userId).orElseThrow(ApiException::notFound);
+    Optional<UserProfile> saved = profiles.findByUserId(userId);
+    UserProfile in = data.profile();
+    // 새로 고르는 색·취향은 활성 코드만. 이미 저장돼 있던 값은 비활성이어도 둔다
+    CodeSnapshot codes = catalog.current();
+    List<FieldError> errors = new ArrayList<>();
+    CodeChecks.many(
+        codes,
+        CodeGroups.STYLE,
+        "moods",
+        in.moods(),
+        saved.map(UserProfile::moods).orElse(null),
+        errors);
+    CodeChecks.many(
+        codes,
+        CodeGroups.COLOR,
+        "colors",
+        in.colors(),
+        saved.map(UserProfile::colors).orElse(null),
+        errors);
+    ApiException.throwIfAny(errors);
+    user.rename(data.name().strip());
+    users.save(user);
+    UserProfile profile = in.normalized();
+    profiles.save(userId, profile);
+    return new ProfileData(user.name(), profile);
+  }
 }

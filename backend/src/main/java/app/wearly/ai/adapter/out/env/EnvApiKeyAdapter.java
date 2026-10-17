@@ -13,18 +13,18 @@ import org.springframework.stereotype.Component;
 @Component
 class EnvApiKeyAdapter implements ApiKeyEnvPort {
 
-    private final Environment environment;
+  private final Environment environment;
 
-    EnvApiKeyAdapter(Environment environment) {
-        this.environment = environment;
-    }
+  EnvApiKeyAdapter(Environment environment) {
+    this.environment = environment;
+  }
 
-    @Override
-    public Optional<String> resolve(String envName) {
-        if (!AiProviderRules.validEnvName(envName)) {
-            return Optional.empty();
-        }
-        String value = environment.getProperty(envName);
-        return value == null || value.isBlank() ? Optional.empty() : Optional.of(value.strip());
+  @Override
+  public Optional<String> resolve(String envName) {
+    if (!AiProviderRules.validEnvName(envName)) {
+      return Optional.empty();
     }
+    String value = environment.getProperty(envName);
+    return value == null || value.isBlank() ? Optional.empty() : Optional.of(value.strip());
+  }
 }

@@ -10,15 +10,15 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ApplicationSettingsConfig {
 
-    @Bean
-    TokenPolicy tokenPolicy(WearlyProperties properties) {
-        return new TokenPolicy(properties.jwt().refreshTtl());
-    }
+  @Bean
+  TokenPolicy tokenPolicy(WearlyProperties properties) {
+    return new TokenPolicy(properties.jwt().refreshTtl());
+  }
 
-    /** WEARLY_AI_PROVIDER가 틀리면 여기서 시작이 멈춘다 (AiProviderFailureAnalyzer가 안내) */
-    @Bean
-    AiSettings aiSettings(WearlyProperties properties) {
-        WearlyProperties.Ai ai = properties.ai();
-        return new AiSettings(AiRunMode.isMock(ai.provider()), ai.dailyLimit(), ai.allowBaseUrl());
-    }
+  /** WEARLY_AI_PROVIDER가 틀리면 여기서 시작이 멈춘다 (AiProviderFailureAnalyzer가 안내) */
+  @Bean
+  AiSettings aiSettings(WearlyProperties properties) {
+    WearlyProperties.Ai ai = properties.ai();
+    return new AiSettings(AiRunMode.isMock(ai.provider()), ai.dailyLimit(), ai.allowBaseUrl());
+  }
 }

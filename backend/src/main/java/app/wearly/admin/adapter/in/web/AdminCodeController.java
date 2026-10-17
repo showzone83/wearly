@@ -26,43 +26,51 @@ import tools.jackson.databind.json.JsonMapper;
 @RequestMapping("/api/v1/admin/codes")
 public class AdminCodeController {
 
-    private final AdminCodeUseCase service;
-    private final JsonMapper jsonMapper;
+  private final AdminCodeUseCase service;
+  private final JsonMapper jsonMapper;
 
-    public AdminCodeController(AdminCodeUseCase service, JsonMapper jsonMapper) {
-        this.service = service;
-        this.jsonMapper = jsonMapper;
-    }
+  public AdminCodeController(AdminCodeUseCase service, JsonMapper jsonMapper) {
+    this.service = service;
+    this.jsonMapper = jsonMapper;
+  }
 
-    @GetMapping
-    public AdminCodesView list() {
-        return service.list();
-    }
+  @GetMapping
+  public AdminCodesView list() {
+    return service.list();
+  }
 
-    @PostMapping("/{group}")
-    @ResponseStatus(HttpStatus.CREATED)
-    public AdminCodeView create(@CurrentUser long adminId, @PathVariable String group,
-            @RequestBody(required = false) CreateCodeCommand request) {
-        return service.create(adminId, group, request);
-    }
+  @PostMapping("/{group}")
+  @ResponseStatus(HttpStatus.CREATED)
+  public AdminCodeView create(
+      @CurrentUser long adminId,
+      @PathVariable String group,
+      @RequestBody(required = false) CreateCodeCommand request) {
+    return service.create(adminId, group, request);
+  }
 
-    /** /{group}/order가 /{group}/{code}보다 먼저 맞도록 PUT으로만 둔다 (PATCH·DELETE에는 order 경로가 없다) */
-    @PutMapping("/{group}/order")
-    public AdminCodesView reorder(@CurrentUser long adminId, @PathVariable String group,
-            @RequestBody(required = false) OrderRequest request) {
-        service.reorder(adminId, group, request == null ? null : request.codes());
-        return service.list();
-    }
+  /** /{group}/order가 /{group}/{code}보다 먼저 맞도록 PUT으로만 둔다 (PATCH·DELETE에는 order 경로가 없다) */
+  @PutMapping("/{group}/order")
+  public AdminCodesView reorder(
+      @CurrentUser long adminId,
+      @PathVariable String group,
+      @RequestBody(required = false) OrderRequest request) {
+    service.reorder(adminId, group, request == null ? null : request.codes());
+    return service.list();
+  }
 
-    @PatchMapping("/{group}/{code}")
-    public AdminCodeView patch(@CurrentUser long adminId, @PathVariable String group, @PathVariable String code,
-            @RequestBody(required = false) JsonNode body) {
-        return service.patch(adminId, group, code, new JsonPatchBody(body, jsonMapper));
-    }
+  @PatchMapping("/{group}/{code}")
+  public AdminCodeView patch(
+      @CurrentUser long adminId,
+      @PathVariable String group,
+      @PathVariable String code,
+      @RequestBody(required = false) JsonNode body) {
+    return service.patch(adminId, group, code, new JsonPatchBody(body, jsonMapper));
+  }
 
-    @DeleteMapping("/{group}/{code}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@CurrentUser long adminId, @PathVariable String group, @PathVariable String code) {
-        service.delete(adminId, group, code);
-    }
+  @DeleteMapping("/{group}/{code}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void delete(
+      @CurrentUser long adminId, @PathVariable String group, @PathVariable String code) {
+    service.delete(adminId, group, code);
+  }
 }

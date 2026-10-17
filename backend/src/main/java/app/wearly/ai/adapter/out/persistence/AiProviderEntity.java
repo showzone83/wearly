@@ -17,100 +17,105 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "tb_ai_provider")
 public class AiProviderEntity {
 
-    @Id
-    @Column(name = "provider_id", length = 30)
-    private String providerId;
+  @Id
+  @Column(name = "provider_id", length = 30)
+  private String providerId;
 
-    @Column(name = "type", nullable = false, length = 20)
-    private String type;
+  @Column(name = "type", nullable = false, length = 20)
+  private String type;
 
-    @Column(name = "display_name", nullable = false, length = 50)
-    private String displayName;
+  @Column(name = "display_name", nullable = false, length = 50)
+  private String displayName;
 
-    @Column(name = "model", length = 100)
-    private String model;
+  @Column(name = "model", length = 100)
+  private String model;
 
-    @Column(name = "api_key_env", nullable = false, length = 100)
-    private String apiKeyEnv;
+  @Column(name = "api_key_env", nullable = false, length = 100)
+  private String apiKeyEnv;
 
-    @Column(name = "enabled", nullable = false)
-    private boolean enabled;
+  @Column(name = "enabled", nullable = false)
+  private boolean enabled;
 
-    @Column(name = "priority", nullable = false)
-    private int priority;
+  @Column(name = "priority", nullable = false)
+  private int priority;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "options", nullable = false)
-    private Map<String, Object> options;
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(name = "options", nullable = false)
+  private Map<String, Object> options;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+  @Column(name = "created_at", nullable = false, updatable = false)
+  private Instant createdAt;
 
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+  @Column(name = "updated_at", nullable = false)
+  private Instant updatedAt;
 
-    protected AiProviderEntity() {
-    }
+  protected AiProviderEntity() {}
 
-    public AiProviderEntity(String providerId) {
-        this.providerId = providerId;
-    }
+  public AiProviderEntity(String providerId) {
+    this.providerId = providerId;
+  }
 
-    @PrePersist
-    void onCreate() {
-        createdAt = Instant.now();
-        updatedAt = createdAt;
-    }
+  @PrePersist
+  void onCreate() {
+    createdAt = Instant.now();
+    updatedAt = createdAt;
+  }
 
-    @PreUpdate
-    void onUpdate() {
-        updatedAt = Instant.now();
-    }
+  @PreUpdate
+  void onUpdate() {
+    updatedAt = Instant.now();
+  }
 
-    public void update(String type, String displayName, String model, String apiKeyEnv, boolean enabled,
-            int priority, Map<String, Object> options) {
-        this.type = type;
-        this.displayName = displayName;
-        this.model = model;
-        this.apiKeyEnv = apiKeyEnv;
-        this.enabled = enabled;
-        this.priority = priority;
-        this.options = new LinkedHashMap<>(options);
-    }
+  public void update(
+      String type,
+      String displayName,
+      String model,
+      String apiKeyEnv,
+      boolean enabled,
+      int priority,
+      Map<String, Object> options) {
+    this.type = type;
+    this.displayName = displayName;
+    this.model = model;
+    this.apiKeyEnv = apiKeyEnv;
+    this.enabled = enabled;
+    this.priority = priority;
+    this.options = new LinkedHashMap<>(options);
+  }
 
-    public String getProviderId() {
-        return providerId;
-    }
+  public String getProviderId() {
+    return providerId;
+  }
 
-    public String getType() {
-        return type;
-    }
+  public String getType() {
+    return type;
+  }
 
-    public String getDisplayName() {
-        return displayName;
-    }
+  public String getDisplayName() {
+    return displayName;
+  }
 
-    public String getModel() {
-        return model;
-    }
+  public String getModel() {
+    return model;
+  }
 
-    public String getApiKeyEnv() {
-        return apiKeyEnv;
-    }
+  public String getApiKeyEnv() {
+    return apiKeyEnv;
+  }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
+  public boolean isEnabled() {
+    return enabled;
+  }
 
-    public int getPriority() {
-        return priority;
-    }
+  public int getPriority() {
+    return priority;
+  }
 
-    public Map<String, Object> getOptions() {
-        return options == null ? Map.of() : options;
-    }
+  public Map<String, Object> getOptions() {
+    return options == null ? Map.of() : options;
+  }
 
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
+  public Instant getUpdatedAt() {
+    return updatedAt;
+  }
 }

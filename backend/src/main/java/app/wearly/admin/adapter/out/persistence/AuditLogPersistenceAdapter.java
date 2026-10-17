@@ -12,22 +12,28 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 class AuditLogPersistenceAdapter implements RecordAuditPort {
 
-    private final AuditLogRepository logs;
-    private final JsonMapper jsonMapper;
+  private final AuditLogRepository logs;
+  private final JsonMapper jsonMapper;
 
-    AuditLogPersistenceAdapter(AuditLogRepository logs, JsonMapper jsonMapper) {
-        this.logs = logs;
-        this.jsonMapper = jsonMapper;
-    }
+  AuditLogPersistenceAdapter(AuditLogRepository logs, JsonMapper jsonMapper) {
+    this.logs = logs;
+    this.jsonMapper = jsonMapper;
+  }
 
-    @Override
-    @Transactional(propagation = Propagation.MANDATORY)
-    public void record(Long adminUserId, String action, String targetType, String targetId, Object before, Object after) {
-        logs.save(new AuditLogEntity(adminUserId, action, targetType, targetId, toMap(before), toMap(after)));
-    }
+  @Override
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void record(
+      Long adminUserId,
+      String action,
+      String targetType,
+      String targetId,
+      Object before,
+      Object after) {
+    logs.save(
+        new AuditLogEntity(adminUserId, action, targetType, targetId, toMap(before), toMap(after)));
+  }
 
-    private Map<String, Object> toMap(Object value) {
-        return value == null ? null : jsonMapper.convertValue(value, new TypeReference<>() {
-        });
-    }
+  private Map<String, Object> toMap(Object value) {
+    return value == null ? null : jsonMapper.convertValue(value, new TypeReference<>() {});
+  }
 }

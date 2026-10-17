@@ -11,16 +11,19 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = "wearly.jwt.access-ttl=PT1S")
 class ShortAccessTtlIntegrationTest extends IntegrationTestBase {
 
-    @Test
-    void 수명이_지나면_TOKEN_EXPIRED이고_refresh로_새_토큰을_받는다() throws InterruptedException {
-        Session s = signup();
-        api().get("/api/v1/users/me", s.accessToken()).expect(200);
+  @Test
+  void 수명이_지나면_TOKEN_EXPIRED이고_refresh로_새_토큰을_받는다() throws InterruptedException {
+    Session s = signup();
+    api().get("/api/v1/users/me", s.accessToken()).expect(200);
 
-        Thread.sleep(1500);
-        api().get("/api/v1/users/me", s.accessToken()).expectError(401, "TOKEN_EXPIRED");
+    Thread.sleep(1500);
+    api().get("/api/v1/users/me", s.accessToken()).expectError(401, "TOKEN_EXPIRED");
 
-        Session renewed = TestApi.session(
-                api().post("/api/v1/auth/refresh", null, Map.of("refreshToken", s.refreshToken())).expect(200));
-        api().get("/api/v1/users/me", renewed.accessToken()).expect(200);
-    }
+    Session renewed =
+        TestApi.session(
+            api()
+                .post("/api/v1/auth/refresh", null, Map.of("refreshToken", s.refreshToken()))
+                .expect(200));
+    api().get("/api/v1/users/me", renewed.accessToken()).expect(200);
+  }
 }

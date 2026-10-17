@@ -8,16 +8,16 @@ import org.springframework.data.repository.query.Param;
 
 public interface CodeRepository extends JpaRepository<CodeEntity, Long> {
 
-    Optional<CodeEntity> findByGroupCodeAndCode(String groupCode, String code);
+  Optional<CodeEntity> findByGroupCodeAndCode(String groupCode, String code);
 
-    List<CodeEntity> findByGroupCodeOrderBySortOrderAscIdAsc(String groupCode);
+  List<CodeEntity> findByGroupCodeOrderBySortOrderAscIdAsc(String groupCode);
 
-    List<CodeEntity> findByGroupCodeAndCodeIn(String groupCode, List<String> codes);
+  List<CodeEntity> findByGroupCodeAndCodeIn(String groupCode, List<String> codes);
 
-    boolean existsByGroupCodeAndCode(String groupCode, String code);
+  boolean existsByGroupCodeAndCode(String groupCode, String code);
 
-    long countByGroupCodeAndParentCode(String groupCode, String parentCode);
+  long countByGroupCodeAndParentCode(String groupCode, String parentCode);
 
-    @Query("select coalesce(max(c.sortOrder), 0) from CodeEntity c where c.groupCode = :group")
-    int maxSortOrder(@Param("group") String group);
+  @Query("select coalesce(max(c.sortOrder), 0) from CodeEntity c where c.groupCode = :group")
+  int maxSortOrder(@Param("group") String group);
 }

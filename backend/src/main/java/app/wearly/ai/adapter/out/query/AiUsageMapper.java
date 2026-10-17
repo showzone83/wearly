@@ -9,9 +9,10 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface AiUsageMapper {
 
-    /** [from, to) 구간의 성공 호출 수 */
-    long countSuccess(@Param("userId") long userId, @Param("from") Instant from, @Param("to") Instant to);
+  /** [from, to) 구간의 성공 호출 수 */
+  long countSuccess(
+      @Param("userId") long userId, @Param("from") Instant from, @Param("to") Instant to);
 
-    /** 최근 기록 (운영 확인·테스트용) */
-    List<AiLogRow> findRecent(@Param("userId") long userId, @Param("limit") int limit);
+  /** 최근 기록 (운영 확인·테스트용) */
+  List<AiLogRow> findRecent(@Param("userId") long userId, @Param("limit") int limit);
 }

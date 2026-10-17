@@ -10,5 +10,4 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 @Target(ElementType.PARAMETER)
 @Retention(RetentionPolicy.RUNTIME)
 @AuthenticationPrincipal(expression = "T(java.lang.Long).parseLong(subject)")
-public @interface CurrentUser {
-}
+public @interface CurrentUser {}

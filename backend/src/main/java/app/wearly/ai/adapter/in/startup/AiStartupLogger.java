@@ -9,14 +9,14 @@ import org.springframework.stereotype.Component;
 @Component
 class AiStartupLogger {
 
-    private final AiStatusUseCase status;
+  private final AiStatusUseCase status;
 
-    AiStartupLogger(AiStatusUseCase status) {
-        this.status = status;
-    }
+  AiStartupLogger(AiStatusUseCase status) {
+    this.status = status;
+  }
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void onReady() {
-        status.logStartupStatus();
-    }
+  @EventListener(ApplicationReadyEvent.class)
+  public void onReady() {
+    status.logStartupStatus();
+  }
 }

@@ -3,40 +3,40 @@ package app.wearly.code.adapter.out.query;
 /** MyBatis로 읽은 코드 그룹 행 */
 public class CodeGroupRow {
 
-    private String groupCode;
-    private String name;
-    private String description;
-    private int sortOrder;
+  private String groupCode;
+  private String name;
+  private String description;
+  private int sortOrder;
 
-    public String getGroupCode() {
-        return groupCode;
-    }
+  public String getGroupCode() {
+    return groupCode;
+  }
 
-    public void setGroupCode(String groupCode) {
-        this.groupCode = groupCode;
-    }
+  public void setGroupCode(String groupCode) {
+    this.groupCode = groupCode;
+  }
 
-    public String getName() {
-        return name;
-    }
+  public String getName() {
+    return name;
+  }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+  public void setName(String name) {
+    this.name = name;
+  }
 
-    public String getDescription() {
-        return description;
-    }
+  public String getDescription() {
+    return description;
+  }
 
-    public void setDescription(String description) {
-        this.description = description;
-    }
+  public void setDescription(String description) {
+    this.description = description;
+  }
 
-    public int getSortOrder() {
-        return sortOrder;
-    }
+  public int getSortOrder() {
+    return sortOrder;
+  }
 
-    public void setSortOrder(int sortOrder) {
-        this.sortOrder = sortOrder;
-    }
+  public void setSortOrder(int sortOrder) {
+    this.sortOrder = sortOrder;
+  }
 }

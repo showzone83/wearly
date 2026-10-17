@@ -13,74 +13,73 @@ import java.time.Instant;
 @Table(name = "tb_ai_provider_secret")
 public class ProviderSecretEntity {
 
-    @Id
-    @Column(name = "provider_id", length = 30)
-    private String providerId;
+  @Id
+  @Column(name = "provider_id", length = 30)
+  private String providerId;
 
-    @Column(name = "ciphertext", nullable = false)
-    private byte[] ciphertext;
+  @Column(name = "ciphertext", nullable = false)
+  private byte[] ciphertext;
 
-    @Column(name = "nonce", nullable = false)
-    private byte[] nonce;
+  @Column(name = "nonce", nullable = false)
+  private byte[] nonce;
 
-    @Column(name = "key_version", nullable = false)
-    private short keyVersion;
+  @Column(name = "key_version", nullable = false)
+  private short keyVersion;
 
-    @Column(name = "last4", nullable = false, length = 4)
-    private String last4;
+  @Column(name = "last4", nullable = false, length = 4)
+  private String last4;
 
-    @Column(name = "updated_by")
-    private Long updatedBy;
+  @Column(name = "updated_by")
+  private Long updatedBy;
 
-    @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt;
+  @Column(name = "updated_at", nullable = false)
+  private Instant updatedAt;
 
-    protected ProviderSecretEntity() {
-    }
+  protected ProviderSecretEntity() {}
 
-    public ProviderSecretEntity(String providerId) {
-        this.providerId = providerId;
-    }
+  public ProviderSecretEntity(String providerId) {
+    this.providerId = providerId;
+  }
 
-    @PrePersist
-    @PreUpdate
-    void touch() {
-        updatedAt = Instant.now();
-    }
+  @PrePersist
+  @PreUpdate
+  void touch() {
+    updatedAt = Instant.now();
+  }
 
-    void apply(byte[] ciphertext, byte[] nonce, short keyVersion, String last4, Long updatedBy) {
-        this.ciphertext = ciphertext;
-        this.nonce = nonce;
-        this.keyVersion = keyVersion;
-        this.last4 = last4;
-        this.updatedBy = updatedBy;
-    }
+  void apply(byte[] ciphertext, byte[] nonce, short keyVersion, String last4, Long updatedBy) {
+    this.ciphertext = ciphertext;
+    this.nonce = nonce;
+    this.keyVersion = keyVersion;
+    this.last4 = last4;
+    this.updatedBy = updatedBy;
+  }
 
-    public String getProviderId() {
-        return providerId;
-    }
+  public String getProviderId() {
+    return providerId;
+  }
 
-    public byte[] getCiphertext() {
-        return ciphertext;
-    }
+  public byte[] getCiphertext() {
+    return ciphertext;
+  }
 
-    public byte[] getNonce() {
-        return nonce;
-    }
+  public byte[] getNonce() {
+    return nonce;
+  }
 
-    public short getKeyVersion() {
-        return keyVersion;
-    }
+  public short getKeyVersion() {
+    return keyVersion;
+  }
 
-    public String getLast4() {
-        return last4;
-    }
+  public String getLast4() {
+    return last4;
+  }
 
-    public Long getUpdatedBy() {
-        return updatedBy;
-    }
+  public Long getUpdatedBy() {
+    return updatedBy;
+  }
 
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
+  public Instant getUpdatedAt() {
+    return updatedAt;
+  }
 }
