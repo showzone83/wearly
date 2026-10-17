@@ -1,8 +1,9 @@
 package app.wearly.admin.application.service;
 
 import app.wearly.admin.application.port.in.AdminUserUseCase;
-import app.wearly.admin.application.port.in.dto.AdminViews.AdminUserView;
+import app.wearly.admin.application.port.in.dto.AdminUserDto;
 import app.wearly.admin.application.port.in.dto.PageDto;
+import app.wearly.admin.application.port.in.dto.PagingDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.AdminQueryPort.UserFilter;
 import app.wearly.admin.application.port.out.AdminRows.UserRow;
@@ -11,9 +12,7 @@ import app.wearly.admin.domain.AuditTargets;
 import app.wearly.admin.domain.SearchText;
 import app.wearly.auth.application.port.in.AccountUseCase;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.Ids;
 import app.wearly.common.domain.PatchBody;
-import app.wearly.common.domain.Times;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.ApiException;
 import app.wearly.user.application.port.in.UserUseCase;
@@ -56,7 +55,7 @@ public class AdminUserService implements AdminUserUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public PageDto<AdminUserView> list(String q, String status, String role, PageDto.Paging paging) {
+  public PageDto<AdminUserDto> list(String q, String status, String role, PagingDto paging) {
     String st = SearchText.blankToNull(status);
     if (st != null && !STATUSES.contains(st)) {
       throw ApiException.validation("status", "ACTIVE 또는 SUSPENDED여야 해요.");
@@ -71,9 +70,9 @@ public class AdminUserService implements AdminUserUseCase {
     return page(filter, paging);
   }
 
-  private PageDto<AdminUserView> page(UserFilter filter, PageDto.Paging paging) {
+  private PageDto<AdminUserDto> page(UserFilter filter, PagingDto paging) {
     LocalDate today = Zones.today(clock);
-    List<AdminUserView> items =
+    List<AdminUserDto> items =
         queries
             .findUsers(
                 filter,
@@ -89,7 +88,7 @@ public class AdminUserService implements AdminUserUseCase {
 
   @Override
   @Transactional
-  public AdminUserView patch(long adminId, long userId, PatchBody body) {
+  public AdminUserDto patch(long adminId, long userId, PatchBody body) {
     UserAccountDto user = users.get(userId);
     if (body == null || !body.isObject()) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
@@ -127,9 +126,7 @@ public class AdminUserService implements AdminUserUseCase {
     }
     audit.record(
         adminId, "USER_UPDATE", AuditTargets.USER, Long.toString(userId), before, state(after));
-    return page(new UserFilter(userId, null, null, null), new PageDto.Paging(0, 1))
-        .items()
-        .getFirst();
+    return page(new UserFilter(userId, null, null, null), new PagingDto(0, 1)).items().getFirst();
   }
 
   private static Map<String, Object> state(UserAccountDto u) {
@@ -140,15 +137,8 @@ public class AdminUserService implements AdminUserUseCase {
     return m;
   }
 
-  private static AdminUserView toView(UserRow r) {
-    return new AdminUserView(
-        Ids.format(r.id),
-        r.email,
-        r.name,
-        r.role,
-        r.status,
-        Times.iso(r.createdAt),
-        r.itemCount,
-        r.aiToday);
+  private static AdminUserDto toView(UserRow r) {
+    return new AdminUserDto(
+        r.id, r.email, r.name, r.role, r.status, r.createdAt, r.itemCount, r.aiToday);
   }
 }

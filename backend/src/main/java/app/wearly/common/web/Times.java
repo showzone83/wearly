@@ -1,4 +1,4 @@
-package app.wearly.common.domain;
+package app.wearly.common.web;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

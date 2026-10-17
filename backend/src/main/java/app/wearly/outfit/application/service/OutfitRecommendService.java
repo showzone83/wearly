@@ -11,6 +11,7 @@ import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.outfit.application.port.in.RecommendOutfitUseCase;
+import app.wearly.outfit.application.port.in.dto.OutfitCandidateDto;
 import app.wearly.outfit.application.port.in.dto.OutfitRecommendationDto;
 import app.wearly.outfit.application.port.in.dto.RecommendOutfitDto;
 import app.wearly.outfit.domain.CandidateValidator;
@@ -69,7 +70,7 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
             .map(
                 v ->
                     OutfitItem.of(
-                        v.id(),
+                        String.valueOf(v.id()),
                         v.name(),
                         v.category(),
                         v.subType(),
@@ -119,7 +120,10 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
     }
     int remaining = (int) Math.max(0, limit - (used + 1));
     return new OutfitRecommendationDto(
-        result.value(), result.provider(), result.model(), remaining);
+        result.value().stream().map(OutfitCandidateDto::from).toList(),
+        result.provider(),
+        result.model(),
+        remaining);
   }
 
   /** 후보 검증. 남은 후보가 0개면 거부해 다음 공급자로 넘어간다 */

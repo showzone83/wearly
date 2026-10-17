@@ -1,10 +1,10 @@
 package app.wearly.auth.adapter.in.web;
 
-import app.wearly.auth.adapter.in.web.AuthDtos.AuthResponse;
-import app.wearly.auth.adapter.in.web.AuthDtos.LoginRequest;
-import app.wearly.auth.adapter.in.web.AuthDtos.LogoutRequest;
-import app.wearly.auth.adapter.in.web.AuthDtos.RefreshRequest;
-import app.wearly.auth.adapter.in.web.AuthDtos.SignupRequest;
+import app.wearly.auth.adapter.in.web.request.LoginRequest;
+import app.wearly.auth.adapter.in.web.request.LogoutRequest;
+import app.wearly.auth.adapter.in.web.request.RefreshRequest;
+import app.wearly.auth.adapter.in.web.request.SignupRequest;
+import app.wearly.auth.adapter.in.web.response.AuthResponse;
 import app.wearly.auth.application.port.in.AuthUseCase;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -27,12 +27,12 @@ public class AuthController {
   @PostMapping("/signup")
   @ResponseStatus(HttpStatus.CREATED)
   public AuthResponse signup(@Valid @RequestBody SignupRequest request) {
-    return AuthResponse.from(authService.signup(request.toCommand()));
+    return AuthResponse.from(authService.signup(request.toDto()));
   }
 
   @PostMapping("/login")
   public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-    return AuthResponse.from(authService.login(request.toCommand()));
+    return AuthResponse.from(authService.login(request.toDto()));
   }
 
   @PostMapping("/refresh")

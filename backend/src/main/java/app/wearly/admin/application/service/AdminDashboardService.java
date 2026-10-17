@@ -1,14 +1,15 @@
 package app.wearly.admin.application.service;
 
 import app.wearly.admin.application.port.in.AdminDashboardUseCase;
-import app.wearly.admin.application.port.in.dto.AdminViews.AiLogDetailView;
-import app.wearly.admin.application.port.in.dto.AdminViews.AiLogSearch;
-import app.wearly.admin.application.port.in.dto.AdminViews.AiLogView;
-import app.wearly.admin.application.port.in.dto.AdminViews.AiToday;
-import app.wearly.admin.application.port.in.dto.AdminViews.AuditView;
-import app.wearly.admin.application.port.in.dto.AdminViews.DashboardView;
-import app.wearly.admin.application.port.in.dto.AdminViews.ProviderStatView;
+import app.wearly.admin.application.port.in.dto.AiLogDetailDto;
+import app.wearly.admin.application.port.in.dto.AiLogDto;
+import app.wearly.admin.application.port.in.dto.AiLogSearchDto;
+import app.wearly.admin.application.port.in.dto.AuditLogDto;
+import app.wearly.admin.application.port.in.dto.DashboardDto;
+import app.wearly.admin.application.port.in.dto.DashboardDto.AiTodayDto;
+import app.wearly.admin.application.port.in.dto.DashboardDto.ProviderUsageDto;
 import app.wearly.admin.application.port.in.dto.PageDto;
+import app.wearly.admin.application.port.in.dto.PagingDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.AdminQueryPort.AiLogFilter;
 import app.wearly.admin.application.port.out.AdminRows.AiCounts;
@@ -18,8 +19,6 @@ import app.wearly.admin.application.port.out.AdminRows.Counts;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.admin.domain.SearchText;
 import app.wearly.ai.application.port.in.AiFeatures;
-import app.wearly.common.domain.Ids;
-import app.wearly.common.domain.Times;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.ApiException;
 import java.time.Clock;
@@ -51,17 +50,17 @@ public class AdminDashboardService implements AdminDashboardUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public DashboardView dashboard() {
+  public DashboardDto dashboard() {
     Instant now = clock.instant();
     Instant weekAgo = now.minus(Duration.ofDays(7));
     LocalDate today = Zones.today(clock);
     Counts c = queries.counts(weekAgo);
     AiCounts ai = queries.aiCounts(Zones.startOf(today), Zones.startOf(today.plusDays(1)));
-    List<ProviderStatView> byProvider =
+    List<ProviderUsageDto> byProvider =
         queries.providerStats(weekAgo, now.plusSeconds(1)).stream()
             .map(
                 r ->
-                    new ProviderStatView(
+                    new ProviderUsageDto(
                         r.providerId,
                         r.success,
                         r.failed,
@@ -69,13 +68,17 @@ public class AdminDashboardService implements AdminDashboardUseCase {
                         r.inputTokens == null ? 0 : r.inputTokens,
                         r.outputTokens == null ? 0 : r.outputTokens))
             .toList();
-    return new DashboardView(
-        c.users, c.newUsers7d, c.items, new AiToday(ai.total, ai.success, ai.failed), byProvider);
+    return new DashboardDto(
+        c.users,
+        c.newUsers7d,
+        c.items,
+        new AiTodayDto(ai.total, ai.success, ai.failed),
+        byProvider);
   }
 
   @Override
   @Transactional(readOnly = true)
-  public PageDto<AiLogView> aiLogs(AiLogSearch search, PageDto.Paging paging) {
+  public PageDto<AiLogDto> aiLogs(AiLogSearchDto search, PagingDto paging) {
     String st = SearchText.blankToNull(search.status());
     if (st != null && !STATUSES.contains(st)) {
       throw ApiException.validation("status", "SUCCESS 또는 FAILED여야 해요.");
@@ -93,7 +96,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
             ft,
             time("from", search.from(), false),
             time("to", search.to(), true));
-    List<AiLogView> items =
+    List<AiLogDto> items =
         queries.findAiLogs(filter, paging.size(), paging.offset()).stream()
             .map(AdminDashboardService::toView)
             .toList();
@@ -102,15 +105,15 @@ public class AdminDashboardService implements AdminDashboardUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public AiLogDetailView aiLog(long id) {
+  public AiLogDetailDto aiLog(long id) {
     AiLogRow r = queries.findAiLog(id);
     if (r == null) {
       throw ApiException.notFound();
     }
-    return new AiLogDetailView(
-        Ids.format(r.id),
-        Times.iso(r.createdAt),
-        Ids.format(r.userId),
+    return new AiLogDetailDto(
+        r.id,
+        r.createdAt,
+        r.userId,
         r.userEmail,
         r.feature,
         r.providerId,
@@ -127,23 +130,23 @@ public class AdminDashboardService implements AdminDashboardUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public PageDto<AuditView> auditLogs(String targetType, PageDto.Paging paging) {
+  public PageDto<AuditLogDto> auditLogs(String targetType, PagingDto paging) {
     String tt = SearchText.blankToNull(targetType);
     if (tt != null && !AuditTargets.ALL.contains(tt)) {
       throw ApiException.validation("targetType", "CODE, AI_PROVIDER, USER 중 하나여야 해요.");
     }
-    List<AuditView> items =
+    List<AuditLogDto> items =
         queries.findAuditLogs(tt, paging.size(), paging.offset()).stream()
             .map(AdminDashboardService::toView)
             .toList();
     return new PageDto<>(items, paging.page(), paging.size(), queries.countAuditLogs(tt));
   }
 
-  private static AiLogView toView(AiLogRow r) {
-    return new AiLogView(
-        Ids.format(r.id),
-        Times.iso(r.createdAt),
-        Ids.format(r.userId),
+  private static AiLogDto toView(AiLogRow r) {
+    return new AiLogDto(
+        r.id,
+        r.createdAt,
+        r.userId,
         r.userEmail,
         r.feature,
         r.providerId,
@@ -157,17 +160,17 @@ public class AdminDashboardService implements AdminDashboardUseCase {
         r.errorCode);
   }
 
-  private static AuditView toView(AuditRow r) {
-    return new AuditView(
-        Ids.format(r.id),
-        Ids.format(r.adminUserId),
+  private static AuditLogDto toView(AuditRow r) {
+    return new AuditLogDto(
+        r.id,
+        r.adminUserId,
         r.adminEmail,
         r.action,
         r.targetType,
         r.targetId,
         r.before,
         r.after,
-        Times.iso(r.createdAt));
+        r.createdAt);
   }
 
   /** 결과 요약: 사진 분석 "네이비 울 니트 · TOP/KNIT · navy", 코디 추천 "코디 후보 3개" */

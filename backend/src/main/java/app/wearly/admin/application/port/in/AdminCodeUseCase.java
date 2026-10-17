@@ -1,7 +1,7 @@
 package app.wearly.admin.application.port.in;
 
-import app.wearly.admin.application.port.in.dto.AdminViews.AdminCodeView;
-import app.wearly.admin.application.port.in.dto.AdminViews.AdminCodesView;
+import app.wearly.admin.application.port.in.dto.AdminCodesDto;
+import app.wearly.admin.application.port.in.dto.AdminCodesDto.AdminCodeDto;
 import app.wearly.code.application.port.in.dto.CreateCodeDto;
 import app.wearly.common.domain.PatchBody;
 import java.util.List;
@@ -10,14 +10,14 @@ import java.util.List;
 public interface AdminCodeUseCase {
 
   /** /codes 모양 + 그룹 description, 코드별 usageCount */
-  AdminCodesView list();
+  AdminCodesDto list();
 
-  AdminCodeView create(long adminId, String group, CreateCodeDto command);
+  AdminCodeDto create(long adminId, String group, CreateCodeDto command);
 
   /** 보낸 순서대로 sortOrder 10, 20, …. 응답(GET /admin/codes 모양)은 커밋 뒤 다시 읽은 list()로 만든다 */
   void reorder(long adminId, String group, List<String> codes);
 
-  AdminCodeView patch(long adminId, String group, String code, PatchBody body);
+  AdminCodeDto patch(long adminId, String group, String code, PatchBody body);
 
   void delete(long adminId, String group, String code);
 }

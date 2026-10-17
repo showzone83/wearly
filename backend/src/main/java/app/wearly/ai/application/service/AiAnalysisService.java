@@ -2,6 +2,7 @@ package app.wearly.ai.application.service;
 
 import app.wearly.ai.application.port.in.AnalyzeImageUseCase;
 import app.wearly.ai.application.port.in.ProviderTestUseCase;
+import app.wearly.ai.application.port.in.dto.AiSuggestionDto;
 import app.wearly.ai.application.port.in.dto.AnalyzeResultDto;
 import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
 import app.wearly.ai.application.port.out.AiCallLogPort;
@@ -17,7 +18,7 @@ import app.wearly.ai.domain.AiResult;
 import app.wearly.ai.domain.AiSettings;
 import app.wearly.ai.domain.ImageTypes;
 import app.wearly.code.application.port.in.CodeCatalog;
-import app.wearly.common.domain.ImageUpload;
+import app.wearly.common.application.ImageUpload;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
@@ -94,7 +95,10 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
                 image));
         int remaining = (int) Math.max(0, limit - (used + 1));
         return new AnalyzeResultDto(
-            attempt.result().suggestion(), provider.name(), attempt.result().model(), remaining);
+            AiSuggestionDto.from(attempt.result().suggestion()),
+            provider.name(),
+            attempt.result().model(),
+            remaining);
       }
       logs.save(
           AiCallRecord.failure(
@@ -134,7 +138,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
               image));
       return new ProviderTestResultDto(
           true,
-          r.suggestion(),
+          AiSuggestionDto.from(r.suggestion()),
           null,
           null,
           attempt.latencyMs(),

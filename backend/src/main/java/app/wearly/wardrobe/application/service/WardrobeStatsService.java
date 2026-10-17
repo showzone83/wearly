@@ -1,14 +1,13 @@
 package app.wearly.wardrobe.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
-import app.wearly.common.domain.Ids;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.domain.code.CodeGroups;
 import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.wardrobe.application.port.in.WardrobeStatsUseCase;
 import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto;
-import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.CountByColor;
-import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.CountByStyle;
+import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.ColorCount;
+import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.StyleCount;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
 import app.wearly.wardrobe.domain.WardrobeStatsRules;
 import java.time.Clock;
@@ -44,28 +43,23 @@ public class WardrobeStatsService implements WardrobeStatsUseCase {
     Map<String, Long> byStatus =
         WardrobeStatsRules.keyed(codes, CodeGroups.ITEM_STATUS, queries.countByStatus(userId));
 
-    List<CountByColor> byColor =
-        queries.countByColor(userId).stream()
-            .map(r -> new CountByColor(r.key(), r.count()))
-            .toList();
-    List<CountByStyle> byStyle =
-        queries.countByStyle(userId).stream()
-            .map(r -> new CountByStyle(r.key(), r.count()))
-            .toList();
+    List<ColorCount> byColor =
+        queries.countByColor(userId).stream().map(r -> new ColorCount(r.key(), r.count())).toList();
+    List<StyleCount> byStyle =
+        queries.countByStyle(userId).stream().map(r -> new StyleCount(r.key(), r.count())).toList();
 
     // 오늘을 포함한 최근 30일: today-29 ~ today
     long worn =
         queries.countWornSince(userId, today.minusDays(WardrobeStatsRules.WORN_WINDOW_DAYS - 1));
     double utilization = WardrobeStatsRules.utilization(worn, total);
     // 60일 넘게 안 입음: 마지막 착용일이 today-60보다 이전
-    List<String> sleeping =
+    List<Long> sleeping =
         queries
             .findSleepingIds(
                 userId,
                 today.minusDays(WardrobeStatsRules.SLEEPING_DAYS),
                 WardrobeStatsRules.SLEEPING_LIMIT)
             .stream()
-            .map(Ids::format)
             .toList();
 
     return new WardrobeStatsDto(

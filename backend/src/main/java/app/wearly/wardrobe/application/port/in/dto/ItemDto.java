@@ -1,14 +1,13 @@
 package app.wearly.wardrobe.application.port.in.dto;
 
-import app.wearly.common.domain.Ids;
-import app.wearly.common.domain.Times;
 import app.wearly.wardrobe.domain.WardrobeItem;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
-/** 05 문서 6장 ItemDto (앱 WardrobeItem에서 imageUri를 뺀 모양). 속성 값은 코드 문자열 (06 문서) */
+/** 옷장 아이템 한 벌 (유스케이스 출력). 속성 값은 코드 문자열 (06 문서), ID·시각은 자바 타입 그대로 */
 public record ItemDto(
-    String id,
+    Long id,
     String name,
     String category,
     String subType,
@@ -21,11 +20,11 @@ public record ItemDto(
     String brand,
     int wornCount,
     LocalDate lastWornAt,
-    String createdAt) {
+    Instant createdAt) {
 
-  public static ItemDto of(WardrobeItem e) {
+  public static ItemDto from(WardrobeItem e) {
     return new ItemDto(
-        Ids.format(e.id()),
+        e.id(),
         e.name(),
         e.category(),
         e.subType(),
@@ -38,6 +37,6 @@ public record ItemDto(
         e.brand(),
         e.wornCount(),
         e.lastWornAt(),
-        Times.iso(e.createdAt()));
+        e.createdAt());
   }
 }

@@ -1,11 +1,12 @@
 package app.wearly.admin.adapter.in.web;
 
+import app.wearly.admin.adapter.in.web.response.AdminUserResponse;
+import app.wearly.admin.adapter.in.web.response.AuditLogResponse;
+import app.wearly.admin.adapter.in.web.response.DashboardResponse;
+import app.wearly.admin.adapter.in.web.response.PageResponse;
 import app.wearly.admin.application.port.in.AdminDashboardUseCase;
 import app.wearly.admin.application.port.in.AdminUserUseCase;
-import app.wearly.admin.application.port.in.dto.AdminViews.AdminUserView;
-import app.wearly.admin.application.port.in.dto.AdminViews.AuditView;
-import app.wearly.admin.application.port.in.dto.AdminViews.DashboardView;
-import app.wearly.admin.application.port.in.dto.PageDto;
+import app.wearly.admin.application.port.in.dto.PagingDto;
 import app.wearly.common.web.CurrentUser;
 import app.wearly.common.web.JsonPatchBody;
 import app.wearly.common.web.PathIds;
@@ -36,33 +37,36 @@ public class AdminController {
   }
 
   @GetMapping("/dashboard")
-  public DashboardView dashboard() {
-    return logs.dashboard();
+  public DashboardResponse dashboard() {
+    return DashboardResponse.from(logs.dashboard());
   }
 
   @GetMapping("/users")
-  public PageDto<AdminUserView> users(
+  public PageResponse<AdminUserResponse> users(
       @RequestParam(required = false) String q,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String role,
       @RequestParam(required = false) Integer page,
       @RequestParam(required = false) Integer size) {
-    return users.list(q, status, role, PageDto.paging(page, size));
+    return PageResponse.from(
+        users.list(q, status, role, PagingDto.of(page, size)), AdminUserResponse::from);
   }
 
   @PatchMapping("/users/{id}")
-  public AdminUserView patchUser(
+  public AdminUserResponse patchUser(
       @CurrentUser long adminId,
       @PathVariable String id,
       @RequestBody(required = false) JsonNode body) {
-    return users.patch(adminId, PathIds.parse(id), new JsonPatchBody(body, jsonMapper));
+    return AdminUserResponse.from(
+        users.patch(adminId, PathIds.parse(id), new JsonPatchBody(body, jsonMapper)));
   }
 
   @GetMapping("/audit-logs")
-  public PageDto<AuditView> auditLogs(
+  public PageResponse<AuditLogResponse> auditLogs(
       @RequestParam(required = false) String targetType,
       @RequestParam(required = false) Integer page,
       @RequestParam(required = false) Integer size) {
-    return logs.auditLogs(targetType, PageDto.paging(page, size));
+    return PageResponse.from(
+        logs.auditLogs(targetType, PagingDto.of(page, size)), AuditLogResponse::from);
   }
 }

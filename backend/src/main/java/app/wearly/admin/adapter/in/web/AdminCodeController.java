@@ -1,10 +1,10 @@
 package app.wearly.admin.adapter.in.web;
 
-import app.wearly.admin.adapter.in.web.AdminDtos.OrderRequest;
+import app.wearly.admin.adapter.in.web.request.CreateCodeRequest;
+import app.wearly.admin.adapter.in.web.request.OrderRequest;
+import app.wearly.admin.adapter.in.web.response.AdminCodeResponse;
+import app.wearly.admin.adapter.in.web.response.AdminCodesResponse;
 import app.wearly.admin.application.port.in.AdminCodeUseCase;
-import app.wearly.admin.application.port.in.dto.AdminViews.AdminCodeView;
-import app.wearly.admin.application.port.in.dto.AdminViews.AdminCodesView;
-import app.wearly.code.application.port.in.dto.CreateCodeDto;
 import app.wearly.common.web.CurrentUser;
 import app.wearly.common.web.JsonPatchBody;
 import org.springframework.http.HttpStatus;
@@ -35,36 +35,38 @@ public class AdminCodeController {
   }
 
   @GetMapping
-  public AdminCodesView list() {
-    return service.list();
+  public AdminCodesResponse list() {
+    return AdminCodesResponse.from(service.list());
   }
 
   @PostMapping("/{group}")
   @ResponseStatus(HttpStatus.CREATED)
-  public AdminCodeView create(
+  public AdminCodeResponse create(
       @CurrentUser long adminId,
       @PathVariable String group,
-      @RequestBody(required = false) CreateCodeDto request) {
-    return service.create(adminId, group, request);
+      @RequestBody(required = false) CreateCodeRequest request) {
+    return AdminCodeResponse.from(
+        service.create(adminId, group, request == null ? null : request.toDto()));
   }
 
   /** /{group}/order가 /{group}/{code}보다 먼저 맞도록 PUT으로만 둔다 (PATCH·DELETE에는 order 경로가 없다) */
   @PutMapping("/{group}/order")
-  public AdminCodesView reorder(
+  public AdminCodesResponse reorder(
       @CurrentUser long adminId,
       @PathVariable String group,
       @RequestBody(required = false) OrderRequest request) {
     service.reorder(adminId, group, request == null ? null : request.codes());
-    return service.list();
+    return AdminCodesResponse.from(service.list());
   }
 
   @PatchMapping("/{group}/{code}")
-  public AdminCodeView patch(
+  public AdminCodeResponse patch(
       @CurrentUser long adminId,
       @PathVariable String group,
       @PathVariable String code,
       @RequestBody(required = false) JsonNode body) {
-    return service.patch(adminId, group, code, new JsonPatchBody(body, jsonMapper));
+    return AdminCodeResponse.from(
+        service.patch(adminId, group, code, new JsonPatchBody(body, jsonMapper)));
   }
 
   @DeleteMapping("/{group}/{code}")

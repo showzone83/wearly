@@ -7,6 +7,7 @@ import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
 import app.wearly.wardrobe.application.port.in.ItemPatch;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
+import app.wearly.wardrobe.application.port.in.dto.CreateItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
 import app.wearly.wardrobe.application.port.out.ItemFilter;
@@ -57,28 +58,30 @@ public class WardrobeService implements WardrobeUseCase {
         .findItems(
             new ItemFilter(q.userId(), categoryCode, statusCode, colorCode, pattern, sortKey))
         .stream()
-        .map(ItemDto::of)
+        .map(ItemDto::from)
         .toList();
   }
 
   @Override
   @Transactional(readOnly = true)
   public ItemDto get(long userId, long itemId) {
-    return ItemDto.of(find(userId, itemId));
+    return ItemDto.from(find(userId, itemId));
   }
 
   @Override
   @Transactional
-  public ItemDto create(long userId, ItemInput input) {
+  public ItemDto create(long userId, CreateItemDto dto) {
+    ItemInput input = dto.toInput();
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, null, "", errors);
     ApiException.throwIfAny(errors);
-    return ItemDto.of(items.save(WardrobeItem.create(userId, input)));
+    return ItemDto.from(items.save(WardrobeItem.create(userId, input)));
   }
 
   @Override
   @Transactional
-  public List<ItemDto> bulkCreate(long userId, List<ItemInput> inputs) {
+  public List<ItemDto> bulkCreate(long userId, List<CreateItemDto> dtos) {
+    List<ItemInput> inputs = dtos.stream().map(CreateItemDto::toInput).toList();
     CodeSnapshot codes = catalog.current();
     List<FieldError> errors = new ArrayList<>();
     for (int i = 0; i < inputs.size(); i++) {
@@ -87,7 +90,7 @@ public class WardrobeService implements WardrobeUseCase {
     ApiException.throwIfAny(errors);
     List<ItemDto> created = new ArrayList<>(inputs.size());
     for (ItemInput input : inputs) {
-      created.add(ItemDto.of(items.save(WardrobeItem.create(userId, input))));
+      created.add(ItemDto.from(items.save(WardrobeItem.create(userId, input))));
     }
     return created;
   }
@@ -102,7 +105,7 @@ public class WardrobeService implements WardrobeUseCase {
     ItemCodeValidator.validate(catalog.current(), input, previous, "", errors);
     ApiException.throwIfAny(errors);
     item.apply(input);
-    return ItemDto.of(items.save(item));
+    return ItemDto.from(items.save(item));
   }
 
   @Override

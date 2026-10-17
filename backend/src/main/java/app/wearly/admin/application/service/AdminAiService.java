@@ -1,8 +1,9 @@
 package app.wearly.admin.application.service;
 
 import app.wearly.admin.application.port.in.AdminAiProviderUseCase;
-import app.wearly.admin.application.port.in.dto.AdminViews.ProviderView;
-import app.wearly.admin.application.port.in.dto.AdminViews.Today;
+import app.wearly.admin.application.port.in.dto.AdminProviderDto;
+import app.wearly.admin.application.port.in.dto.AdminProviderDto.TodayDto;
+import app.wearly.admin.application.port.in.dto.ProviderTypesDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.AdminRows.ProviderStat;
 import app.wearly.admin.application.port.out.RecordAuditPort;
@@ -13,16 +14,14 @@ import app.wearly.ai.application.port.in.dto.AiProviderDto;
 import app.wearly.ai.application.port.in.dto.CreateProviderDto;
 import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
 import app.wearly.auth.application.port.in.AccountUseCase;
-import app.wearly.common.domain.ImageUpload;
+import app.wearly.common.application.ImageUpload;
 import app.wearly.common.domain.PatchBody;
-import app.wearly.common.domain.Times;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,51 +59,68 @@ public class AdminAiService implements AdminAiProviderUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public List<ProviderView> list() {
-    Map<String, Today> today = today();
+  public List<AdminProviderDto> list() {
+    Map<String, TodayDto> today = today();
     return providers.list().stream()
-        .map(p -> view(p, today.getOrDefault(p.providerId(), new Today(0, 0))))
+        .map(p -> view(p, today.getOrDefault(p.providerId(), TodayDto.NONE)))
         .toList();
   }
 
   @Override
-  public Types types() {
-    return new Types(providers.types(), providers.baseUrlAllowed(), providers.mockMode());
+  public ProviderTypesDto types() {
+    return new ProviderTypesDto(
+        providers.types(), providers.baseUrlAllowed(), providers.mockMode());
   }
 
   @Override
   @Transactional
-  public ProviderView create(long adminId, CreateProviderDto command) {
-    ProviderView after = view(providers.create(command), new Today(0, 0));
+  public AdminProviderDto create(long adminId, CreateProviderDto command) {
+    AdminProviderDto after = view(providers.create(command), TodayDto.NONE);
     audit.record(
-        adminId, "AI_PROVIDER_CREATE", AuditTargets.AI_PROVIDER, after.providerId(), null, after);
+        adminId,
+        "AI_PROVIDER_CREATE",
+        AuditTargets.AI_PROVIDER,
+        after.providerId(),
+        null,
+        AuditSnapshots.provider(after));
     return after;
   }
 
   @Override
   @Transactional
-  public ProviderView patch(long adminId, String providerId, PatchBody body) {
+  public AdminProviderDto patch(long adminId, String providerId, PatchBody body) {
     AiProviderDto current = providers.get(providerId);
-    Map<String, Today> today = today();
-    Today t = today.getOrDefault(providerId, new Today(0, 0));
-    ProviderView before = view(current, t);
-    ProviderView after = view(providers.patch(providerId, body), t);
+    Map<String, TodayDto> today = today();
+    TodayDto t = today.getOrDefault(providerId, TodayDto.NONE);
+    AdminProviderDto before = view(current, t);
+    AdminProviderDto after = view(providers.patch(providerId, body), t);
     audit.record(
-        adminId, "AI_PROVIDER_UPDATE", AuditTargets.AI_PROVIDER, providerId, before, after);
+        adminId,
+        "AI_PROVIDER_UPDATE",
+        AuditTargets.AI_PROVIDER,
+        providerId,
+        AuditSnapshots.provider(before),
+        AuditSnapshots.provider(after));
     return after;
   }
 
   @Override
   @Transactional
   public void delete(long adminId, String providerId) {
-    ProviderView before = view(providers.delete(providerId), new Today(0, 0));
-    audit.record(adminId, "AI_PROVIDER_DELETE", AuditTargets.AI_PROVIDER, providerId, before, null);
+    AdminProviderDto before = view(providers.delete(providerId), TodayDto.NONE);
+    audit.record(
+        adminId,
+        "AI_PROVIDER_DELETE",
+        AuditTargets.AI_PROVIDER,
+        providerId,
+        AuditSnapshots.provider(before),
+        null);
   }
 
   /** 키 확인(verify)은 외부 호출이라 트랜잭션 안에서 몇 초 걸릴 수 있다 (관리자만, 드묾) */
   @Override
   @Transactional
-  public ProviderView setKey(
+  public AdminProviderDto setKey(
       long adminId, String providerId, String apiKey, String currentPassword, Boolean verify) {
     providers.get(providerId);
     providers.requireSecretStore();
@@ -118,12 +134,12 @@ public class AdminAiService implements AdminAiProviderUseCase {
         providerId,
         keyState(change.before()),
         keyState(change.after()));
-    return view(change.after(), today().getOrDefault(providerId, new Today(0, 0)));
+    return view(change.after(), today().getOrDefault(providerId, TodayDto.NONE));
   }
 
   @Override
   @Transactional
-  public ProviderView deleteKey(long adminId, String providerId, String currentPassword) {
+  public AdminProviderDto deleteKey(long adminId, String providerId, String currentPassword) {
     providers.get(providerId);
     reauthenticate(adminId, currentPassword);
     Optional<AiProviderAdminUseCase.KeyChange> change = providers.deleteKey(providerId);
@@ -140,7 +156,7 @@ public class AdminAiService implements AdminAiProviderUseCase {
         change
             .map(AiProviderAdminUseCase.KeyChange::after)
             .orElseGet(() -> providers.get(providerId));
-    return view(after, today().getOrDefault(providerId, new Today(0, 0)));
+    return view(after, today().getOrDefault(providerId, TodayDto.NONE));
   }
 
   /** 요청한 관리자의 비밀번호를 다시 확인한다 (틀리거나 비면 403 REAUTH_FAILED) */
@@ -150,12 +166,8 @@ public class AdminAiService implements AdminAiProviderUseCase {
     }
   }
 
-  /** 키 변경 이력에는 출처와 끝 4자만 남긴다 */
   private static Map<String, Object> keyState(AiProviderDto p) {
-    Map<String, Object> m = new LinkedHashMap<>();
-    m.put("keySource", p.keySource());
-    m.put("keyLast4", p.keyLast4());
-    return m;
+    return AuditSnapshots.providerKey(p.keySource(), p.keyLast4());
   }
 
   @Override
@@ -163,8 +175,8 @@ public class AdminAiService implements AdminAiProviderUseCase {
     return tester.test(adminId, providerId, image);
   }
 
-  private static ProviderView view(AiProviderDto p, Today today) {
-    return new ProviderView(
+  private static AdminProviderDto view(AiProviderDto p, TodayDto today) {
+    return new AdminProviderDto(
         p.providerId(),
         p.type(),
         p.displayName(),
@@ -178,18 +190,18 @@ public class AdminAiService implements AdminAiProviderUseCase {
         today,
         p.keySource(),
         p.keyLast4(),
-        Times.iso(p.keyUpdatedAt()),
+        p.keyUpdatedAt(),
         p.keyUpdatedBy(),
         p.secretStoreEnabled());
   }
 
   /** 오늘(한국 시간) 공급자별 호출 수 (사진 분석 + 시험 분석) */
-  private Map<String, Today> today() {
+  private Map<String, TodayDto> today() {
     LocalDate day = Zones.today(clock);
-    Map<String, Today> out = new HashMap<>();
+    Map<String, TodayDto> out = new HashMap<>();
     for (ProviderStat r :
         queries.providerStats(Zones.startOf(day), Zones.startOf(day.plusDays(1)))) {
-      out.put(r.providerId, new Today(r.success, r.failed));
+      out.put(r.providerId, new TodayDto(r.success, r.failed));
     }
     return out;
   }

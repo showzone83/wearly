@@ -3,7 +3,7 @@ package app.wearly.wardrobe.adapter.in.web;
 import app.wearly.common.domain.FieldError;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
-import app.wearly.wardrobe.adapter.in.web.WardrobeDtos.ItemRequest;
+import app.wearly.wardrobe.adapter.in.web.request.ItemRequest;
 import app.wearly.wardrobe.application.port.in.ItemPatch;
 import app.wearly.wardrobe.domain.ItemInput;
 import jakarta.validation.ConstraintViolation;

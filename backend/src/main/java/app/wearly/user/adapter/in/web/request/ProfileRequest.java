@@ -1,8 +1,8 @@
-package app.wearly.user.adapter.in.web;
+package app.wearly.user.adapter.in.web.request;
 
-import app.wearly.user.application.port.in.dto.ProfileDto;
+import app.wearly.user.application.port.in.dto.ProfileDto.NotifyDto;
+import app.wearly.user.application.port.in.dto.UpdateProfileDto;
 import app.wearly.user.domain.DressCode;
-import app.wearly.user.domain.UserProfile;
 import app.wearly.user.domain.WorkType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -13,8 +13,8 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * 앱 Profile과 같은 모양 + onboarded (05 문서 6장). moods는 STYLE 코드, colors는 COLOR 코드 (06 문서). 필드 이름 notify가
- * Object.notify()와 겹쳐 record로 만들 수 없어 일반 클래스로 둔다.
+ * PUT /users/me/profile 본문: 앱 Profile과 같은 모양 + onboarded (05 문서 6장). moods는 STYLE 코드, colors는 COLOR
+ * 코드 (06 문서). 필드 이름 notify가 Object.notify()와 겹쳐 record로 만들 수 없어 일반 클래스로 둔다.
  */
 public class ProfileRequest {
 
@@ -55,29 +55,6 @@ public class ProfileRequest {
 
   public ProfileRequest() {}
 
-  public ProfileRequest(
-      String name,
-      List<DressCode> dressCodes,
-      List<String> moods,
-      List<String> colors,
-      WorkType workType,
-      List<Integer> workDays,
-      Boolean workRule,
-      Boolean offRule,
-      Notify notify,
-      Boolean onboarded) {
-    this.name = name;
-    this.dressCodes = dressCodes;
-    this.moods = moods;
-    this.colors = colors;
-    this.workType = workType;
-    this.workDays = workDays;
-    this.workRule = workRule;
-    this.offRule = offRule;
-    this.notify = notify;
-    this.onboarded = onboarded;
-  }
-
   /** dMinus1은 앱과 맞춘 JSON 필드 이름이라 그대로 쓴다 (Checkstyle 이름 규칙 예외) */
   @SuppressWarnings("checkstyle:RecordComponentName")
   public record Notify(
@@ -85,37 +62,19 @@ public class ProfileRequest {
       @NotNull(message = "필수 값이에요.") Boolean evening,
       @NotNull(message = "필수 값이에요.") Boolean dMinus1) {}
 
-  /** 응답: 저장된(또는 기본값) 프로필 */
-  public static ProfileRequest from(ProfileDto data) {
-    UserProfile p = data.profile();
-    UserProfile.Notify n = p.notifications();
-    return new ProfileRequest(
-        data.name(),
-        p.dressCodes(),
-        p.moods(),
-        p.colors(),
-        p.workType(),
-        p.workDays(),
-        p.workRule(),
-        p.offRule(),
-        new Notify(n.morning(), n.evening(), n.dayBefore()),
-        p.onboarded());
-  }
-
-  /** PUT 요청 → 유스케이스 값. onboarded가 빠지면 저장과 함께 온보딩을 마친 것으로 본다 */
-  public ProfileDto toData() {
-    return new ProfileDto(
+  /** PUT 요청 → 유스케이스 입력. onboarded가 빠지면 저장과 함께 온보딩을 마친 것으로 본다 */
+  public UpdateProfileDto toDto() {
+    return new UpdateProfileDto(
         name,
-        new UserProfile(
-            dressCodes,
-            moods,
-            colors,
-            workType,
-            workDays,
-            workRule,
-            offRule,
-            new UserProfile.Notify(notify.morning(), notify.evening(), notify.dMinus1()),
-            onboarded == null || onboarded));
+        dressCodes,
+        moods,
+        colors,
+        workType,
+        workDays,
+        workRule,
+        offRule,
+        new NotifyDto(notify.morning(), notify.evening(), notify.dMinus1()),
+        onboarded == null || onboarded);
   }
 
   public String getName() {

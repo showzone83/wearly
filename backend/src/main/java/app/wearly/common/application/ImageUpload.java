@@ -1,4 +1,4 @@
-package app.wearly.common.domain;
+package app.wearly.common.application;
 
 /**
  * 웹 어댑터가 받은 업로드 사진 (multipart 파트를 byte[]와 선언된 MIME으로 바꾼 값). 검사(비었는지·크기·형식)는 유스케이스가 정해진 순서대로 한다. 읽지

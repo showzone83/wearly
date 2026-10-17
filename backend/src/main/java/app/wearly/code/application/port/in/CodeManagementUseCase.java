@@ -1,5 +1,6 @@
 package app.wearly.code.application.port.in;
 
+import app.wearly.code.application.port.in.dto.CodeChangeDto;
 import app.wearly.code.application.port.in.dto.CodeDto;
 import app.wearly.code.application.port.in.dto.CreateCodeDto;
 import app.wearly.common.domain.PatchBody;
@@ -19,13 +20,11 @@ public interface CodeManagementUseCase {
   CodeDto create(String group, CreateCodeDto command);
 
   /** 보낸 필드만 바꾼다. attrs를 보내면 attrs 전체를 바꾼다. 코드 문자열은 못 바꾼다 */
-  Change patch(String group, String code, PatchBody body);
+  CodeChangeDto patch(String group, String code, PatchBody body);
 
   /** 보낸 순서대로 sortOrder를 10, 20, …으로. @return 바뀌기 전 코드 순서 */
   List<String> reorder(String group, List<String> order);
 
   /** 쓰는 아이템·프로필(·하위 세부 종류)이 있으면 409 CODE_IN_USE. @return 지우기 전 모습 */
   CodeDto delete(String group, String code);
-
-  record Change(CodeDto before, CodeDto after) {}
 }

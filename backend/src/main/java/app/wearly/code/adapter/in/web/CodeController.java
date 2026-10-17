@@ -1,6 +1,6 @@
 package app.wearly.code.adapter.in.web;
 
-import app.wearly.code.adapter.in.web.CodeDtos.CodesResponse;
+import app.wearly.code.adapter.in.web.response.CodesResponse;
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.code.CodeSnapshot;
 import org.springframework.http.CacheControl;
@@ -31,6 +31,6 @@ public class CodeController {
     if (request.checkNotModified(etag)) {
       return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).cacheControl(cache).build();
     }
-    return ResponseEntity.ok().eTag(etag).cacheControl(cache).body(CodeDtos.from(snapshot));
+    return ResponseEntity.ok().eTag(etag).cacheControl(cache).body(CodesResponse.from(snapshot));
   }
 }

@@ -1,6 +1,7 @@
 package app.wearly.code.application.service;
 
 import app.wearly.code.application.port.in.CodeManagementUseCase;
+import app.wearly.code.application.port.in.dto.CodeChangeDto;
 import app.wearly.code.application.port.in.dto.CodeDto;
 import app.wearly.code.application.port.in.dto.CreateCodeDto;
 import app.wearly.code.application.port.out.CodePort;
@@ -85,7 +86,7 @@ public class CodeManagementService implements CodeManagementUseCase {
 
   @Override
   @Transactional
-  public Change patch(String group, String code, PatchBody body) {
+  public CodeChangeDto patch(String group, String code, PatchBody body) {
     final CodeSnapshot snapshot = requireGroup(group);
     Code entity = codes.find(group, code).orElseThrow(ApiException::notFound);
     if (body == null || !body.isObject()) {
@@ -139,7 +140,7 @@ public class CodeManagementService implements CodeManagementUseCase {
       syncPairs(code, oldPairs, CodeAttrs.pairsOf(attrs));
     }
     snapshots.refreshAfterCommit();
-    return new Change(before, info(saved));
+    return new CodeChangeDto(before, info(saved));
   }
 
   @Override

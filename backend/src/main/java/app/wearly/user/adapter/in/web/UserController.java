@@ -1,6 +1,9 @@
 package app.wearly.user.adapter.in.web;
 
 import app.wearly.common.web.CurrentUser;
+import app.wearly.user.adapter.in.web.request.ProfileRequest;
+import app.wearly.user.adapter.in.web.response.ProfileResponse;
+import app.wearly.user.adapter.in.web.response.UserResponse;
 import app.wearly.user.application.port.in.ProfileUseCase;
 import app.wearly.user.application.port.in.UserUseCase;
 import jakarta.validation.Valid;
@@ -26,8 +29,8 @@ public class UserController {
   }
 
   @GetMapping
-  public UserDto me(@CurrentUser long userId) {
-    return UserDto.from(users.get(userId));
+  public UserResponse me(@CurrentUser long userId) {
+    return UserResponse.from(users.get(userId));
   }
 
   @DeleteMapping
@@ -37,13 +40,13 @@ public class UserController {
   }
 
   @GetMapping("/profile")
-  public ProfileRequest profile(@CurrentUser long userId) {
-    return ProfileRequest.from(profiles.get(userId));
+  public ProfileResponse profile(@CurrentUser long userId) {
+    return ProfileResponse.from(profiles.get(userId));
   }
 
   @PutMapping("/profile")
-  public ProfileRequest putProfile(
+  public ProfileResponse putProfile(
       @CurrentUser long userId, @Valid @RequestBody ProfileRequest profile) {
-    return ProfileRequest.from(profiles.put(userId, profile.toData()));
+    return ProfileResponse.from(profiles.put(userId, profile.toDto()));
   }
 }
