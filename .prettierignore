@@ -1,0 +1,10 @@
+# 백엔드는 Google Java Style (doc/08 5장), 문서·생성물은 Prettier 대상 아님
+backend/
+doc/
+**/node_modules/
+**/dist/
+**/build/
+**/.expo/
+*.md
+*.json
+!.prettierrc.json

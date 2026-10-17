@@ -7,6 +7,13 @@
   "eslint.workingDirectories": [{ "mode": "auto" }],
   "eslint.validate": ["javascript", "typescript", "typescriptreact"],
 
+  // 프론트 포맷: 저장소 루트 .prettierrc.json (작은따옴표, 120자). 저장할 때 Prettier → ESLint 자동 수정 순서
+  "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode", "editor.formatOnSave": true },
+  "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode", "editor.formatOnSave": true },
+  "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode", "editor.formatOnSave": true },
+  "[css]": { "editor.defaultFormatter": "esbenp.prettier-vscode", "editor.formatOnSave": true },
+  "prettier.requireConfig": true,
+
   // 백엔드: Google Java Style (doc/08 5장). 저장할 때 포맷 + import 정리
   "java.format.settings.url": "https://raw.githubusercontent.com/google/styleguide/gh-pages/eclipse-java-google-style.xml",
   "java.format.settings.profile": "GoogleStyle",
