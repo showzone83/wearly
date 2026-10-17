@@ -334,6 +334,22 @@ function eligibleBySlot(input: EngineInput): Record<Slot, WardrobeItem[]> {
   return out;
 }
 
+/**
+ * "최근 착용 아이템 제외"로 후보에서 빠지는 아이템 id (ctx.excludeRecent일 때만).
+ * 엔진의 후보 풀과 같은 규칙이다: 옷 칸(상의·하의·원피스·아우터)만, 3일 안에 입은 옷,
+ * 고정·중심 아이템은 빼지 않고, 상의·하의가 모두 최근에 입은 옷이면 그 칸은 빼지 않는다.
+ * AI 코디 추천 요청의 excludeItemIds로 보낸다(doc/09 3장).
+ */
+export function recentExclusions(input: EngineInput): string[] {
+  if (!input.ctx.excludeRecent) return [];
+  const kept = new Set(Object.values(eligibleBySlot(input)).flat().map((i) => i.id));
+  const all = eligibleBySlot({ ...input, ctx: { ...input.ctx, excludeRecent: false } });
+  return Object.values(all)
+    .flat()
+    .filter((i) => !kept.has(i.id))
+    .map((i) => i.id);
+}
+
 function differsBy(a: OutfitItems, b: OutfitItems): number {
   return (['TOP', 'BOTTOM', 'DRESS', 'OUTER', 'SHOES'] as Slot[]).filter((k) => a[k] !== b[k]).length;
 }

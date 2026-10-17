@@ -1,23 +1,43 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { Chip, ChipGroup } from '@/components/Chip';
 import { condIcon, Icon } from '@/components/Icon';
 import { ItemThumb } from '@/components/ItemThumb';
 import { Button, Label, notify, Row, Screen, Serif } from '@/components/ui';
 import { FORMALITY_LABEL, MOOD_LABEL, OCCASION_LABEL, PLAN_OCCASIONS, TIME_LABEL, WEEKDAY_SHORT, WORK_OCCASIONS } from '@/data/constants';
-import type { ColorKey, Formality, Mood, Occasion, RecommendContext, StyleTag, TimeOfDay } from '@/data/types';
+import type { ColorKey, Formality, Mood, Occasion, Outfit, RecommendContext, StyleTag, TimeOfDay } from '@/data/types';
+import type { RecommendSource } from '@/lib/aiOutfits';
+import { requestAiOutfits, ruleOutfits, type AiPhase } from '@/lib/aiRecommend';
 import { activeCodes, colorLabel, isActiveCode, isRecommendable, styleLabel, withCurrent } from '@/lib/codes';
 import { dayContext } from '@/lib/context';
 import { addDays, diffDays, fromKey, longLabel, todayKey } from '@/lib/date';
-import { canRecommend, recommend, slotOf } from '@/lib/recommend';
+import { canRecommend, slotOf } from '@/lib/recommend';
 import { COND_LABEL, FEEL_PRESETS, forecast, hasForecast, manualWeather } from '@/lib/weather';
 import { useCodesVersion } from '@/store/useCodes';
-import { engineInput, useStore } from '@/store/useStore';
+import { useStore } from '@/store/useStore';
 import { colors } from '@/theme';
 
 type Mode = 'TODAY' | 'PLAN';
+
+/** AI 추천 진행 단계 (doc/09 5장) */
+const PHASES: { key: AiPhase; label: string }[] = [
+  { key: 'look', label: '옷장을 살펴보는 중' },
+  { key: 'pick', label: '조합을 고르는 중' },
+  { key: 'score', label: '점수를 매기는 중' },
+];
+/** '옷장을 살펴보는 중'을 보여 주는 최소 시간 */
+const LOOK_MS = 700;
+/** 결과가 온 뒤 '점수를 매기는 중'을 보여 주는 시간 */
+const SCORE_MS = 450;
+
+type Failure =
+  | { kind: 'limit'; message: string }
+  | { kind: 'insufficient'; missing: string }
+  | { kind: 'error'; message: string };
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function planFormality(o: Occasion): Formality {
   if (o === 'INTERVIEW' || o === 'WEDDING') return 'FORMAL';
@@ -70,34 +90,84 @@ export default function Coordi() {
   const todayWeather = forecast(today);
   const anchorable = items.filter((i) => isRecommendable(i.status) && slotOf(i.category) !== null);
 
-  const submit = () => {
-    const ctx: RecommendContext =
-      mode === 'TODAY'
-        ? { occasion, mood, formality, weather: todayWeather, anchorItemId: anchor, excludeRecent, avoidColors: avoid, date: today }
-        : {
-            occasion: planOcc,
-            mood: planMood(concepts),
-            formality: planFormality(planOcc),
-            concepts,
-            weather: planWeather,
-            anchorItemId: anchor,
-            avoidColors: avoid,
-            date: planDate,
-          };
-    const outfits = recommend(engineInput(ctx), 3);
-    if (outfits.length === 0) {
-      notify('추천할 수 없어요', '조건에 맞는 옷이 부족해요. 피하고 싶은 색이나 고정 아이템을 줄여 보세요.');
-      return;
-    }
+  /** 지금 화면 조건 (오늘 코디: 오늘 예보 · 예정일 코디: 그날 예보 또는 직접 고른 기온) */
+  const buildCtx = (): RecommendContext =>
+    mode === 'TODAY'
+      ? { occasion, mood, formality, weather: todayWeather, anchorItemId: anchor, excludeRecent, avoidColors: avoid, date: today }
+      : {
+          occasion: planOcc,
+          mood: planMood(concepts),
+          formality: planFormality(planOcc),
+          concepts,
+          weather: planWeather,
+          anchorItemId: anchor,
+          avoidColors: avoid,
+          date: planDate,
+        };
+
+  const openResult = (outfits: Outfit[], source: RecommendSource) => {
     setDraft({
       mode,
       outfits,
+      source,
       plan:
         mode === 'PLAN'
           ? { date: planDate, timeOfDay: time, title: OCCASION_LABEL[planOcc], occasion: planOcc, concepts, weather: planWeather, memo: memo.trim() || undefined }
           : undefined,
     });
     router.push('/result');
+  };
+
+  // AI 추천 진행·오류 (null이면 조건 입력 화면)
+  const [phase, setPhase] = useState<number | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
+  /** 취소하거나 다시 누르면 늦게 온 결과를 버린다 */
+  const runRef = useRef(0);
+
+  const reset = () => {
+    runRef.current++;
+    setPhase(null);
+    setFailure(null);
+  };
+
+  /** "코디 추천 받기": 서버 AI 후보 → 엔진 점수 → 상위 3개 */
+  const submit = async () => {
+    const run = ++runRef.current;
+    const live = () => runRef.current === run;
+    const ctx = buildCtx();
+    setFailure(null);
+    setPhase(0);
+    const started = Date.now();
+    const toPick = setTimeout(() => live() && setPhase((p) => (p === null ? p : Math.max(p, 1))), LOOK_MS);
+    const outcome = await requestAiOutfits(ctx, {
+      plan: mode === 'PLAN' ? { timeOfDay: time, memo } : undefined,
+      onPhase: (p) => {
+        if (p === 'score' && live()) setPhase(2);
+      },
+    });
+    clearTimeout(toPick);
+    if (!live()) return;
+
+    if (outcome.kind === 'ok') {
+      if (outcome.source.method === 'AI') await wait(Math.max(SCORE_MS, LOOK_MS - (Date.now() - started)));
+      if (!live()) return;
+      openResult(outcome.outfits, outcome.source);
+      reset();
+      return;
+    }
+    setPhase(null);
+    setFailure(outcome);
+  };
+
+  /** 규칙 엔진 추천 (AI 실패·한도 초과 때 사용자가 고른다) */
+  const submitRule = () => {
+    const outfits = ruleOutfits(buildCtx());
+    if (outfits.length === 0) {
+      notify('추천할 수 없어요', '조건에 맞는 옷이 부족해요. 피하고 싶은 색이나 고정 아이템을 줄여 보세요.');
+      return;
+    }
+    openResult(outfits, { method: 'RULE' });
+    reset();
   };
 
   const planDates = Array.from({ length: 60 }, (_, i) => addDays(today, i + 1));
@@ -109,17 +179,25 @@ export default function Coordi() {
           <Text style={s.title}>AI 코디</Text>
         </View>
       }
-      footer={ready.ok ? <Button title="코디 추천 받기" variant="green" icon={<Icon name="sparkle" color="#fff" size={18} />} onPress={submit} /> : undefined}
+      footer={
+        ready.ok && phase === null && !failure ? (
+          <Button title="코디 추천 받기" variant="green" icon={<Icon name="sparkle" color="#fff" size={18} />} onPress={() => void submit()} />
+        ) : undefined
+      }
     >
       <View style={s.segment}>
         {(['TODAY', 'PLAN'] as Mode[]).map((m) => (
-          <Pressable key={m} onPress={() => setMode(m)} style={[s.segItem, mode === m && s.segOn]}>
+          <Pressable key={m} onPress={() => setMode(m)} disabled={phase !== null} style={[s.segItem, mode === m && s.segOn]}>
             <Text style={[s.segText, mode === m && { color: colors.ink, fontWeight: '800' }]}>{m === 'TODAY' ? '오늘 코디' : '예정일 코디'}</Text>
           </Pressable>
         ))}
       </View>
 
-      {!ready.ok ? (
+      {phase !== null ? (
+        <AiProgress phase={phase} onCancel={reset} />
+      ) : failure ? (
+        <FailurePanel failure={failure} onRule={submitRule} onRetry={() => void submit()} onBack={reset} />
+      ) : !ready.ok ? (
         <View style={{ paddingTop: 40, alignItems: 'center', gap: 14 }}>
           <Text style={{ color: colors.sub, textAlign: 'center', lineHeight: 21 }}>
             코디를 만들려면 {ready.missing.join(', ')}이(가) 필요해요.{'\n'}(원피스 한 벌로도 시작할 수 있어요) 옷장에 먼저 등록해 주세요.
@@ -226,6 +304,73 @@ export default function Coordi() {
   );
 }
 
+/** AI 추천 진행 표시: 옷장을 살펴보는 중 → 조합을 고르는 중 → 점수를 매기는 중 */
+function AiProgress({ phase, onCancel }: { phase: number; onCancel: () => void }) {
+  return (
+    <View style={s.panel}>
+      <ActivityIndicator color={colors.green} />
+      <Serif style={s.panelTitle}>AI가 내 옷장에서{'\n'}코디를 고르고 있어요</Serif>
+      <Text style={s.panelSub}>보통 몇 초 걸려요</Text>
+      <View style={{ gap: 12, marginTop: 22, alignSelf: 'center' }}>
+        {PHASES.map((p, i) => {
+          const done = i < phase;
+          const active = i === phase;
+          return (
+            <Row key={p.key} style={{ gap: 10 }}>
+              {active ? (
+                <ActivityIndicator size="small" color={colors.green} style={{ width: 18 }} />
+              ) : (
+                <Icon name="check" size={18} color={done ? colors.green : colors.line} />
+              )}
+              <Text style={{ color: done || active ? colors.ink : colors.faint, fontWeight: active ? '800' : '600', fontSize: 15 }}>{p.label}</Text>
+            </Row>
+          );
+        })}
+      </View>
+      <Pressable onPress={onCancel} hitSlop={10} style={{ marginTop: 30 }} accessibilityRole="button">
+        <Text style={s.link}>취소</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/** AI 추천 오류: 한도 · 옷 모자람 · 그 밖의 실패 (doc/09 5장) */
+function FailurePanel({
+  failure,
+  onRule,
+  onRetry,
+  onBack,
+}: {
+  failure: Failure;
+  onRule: () => void;
+  onRetry: () => void;
+  onBack: () => void;
+}) {
+  const title =
+    failure.kind === 'limit' ? '오늘 AI 코디 추천을 모두 썼어요' : failure.kind === 'insufficient' ? '코디를 만들 옷이 모자라요' : 'AI 추천을 받지 못했어요';
+  const body =
+    failure.kind === 'limit'
+      ? `${failure.message}\n규칙 엔진 추천은 횟수 제한 없이 쓸 수 있어요.`
+      : failure.kind === 'insufficient'
+        ? `${failure.missing}\n추천에 쓸 수 있는 옷(세탁·수선 중 제외)으로 상의와 하의(또는 원피스), 신발이 있어야 해요.`
+        : failure.message;
+  return (
+    <View style={s.panel}>
+      <Serif style={s.panelTitle}>{title}</Serif>
+      <Text style={[s.panelSub, { lineHeight: 21 }]}>{body}</Text>
+      <View style={{ gap: 10, marginTop: 26, alignSelf: 'stretch' }}>
+        {failure.kind === 'insufficient' ? (
+          <Button title="옷 등록하기" icon={<Icon name="plus" color="#fff" size={18} />} onPress={() => router.push('/item/new')} />
+        ) : (
+          <Button title="규칙 엔진으로 추천 받기" variant="green" onPress={onRule} />
+        )}
+        {failure.kind === 'error' && <Button title="AI 추천 다시 시도" variant="outline" onPress={onRetry} />}
+        <Button title="조건 다시 고르기" variant="ghost" onPress={onBack} />
+      </View>
+    </View>
+  );
+}
+
 function AnchorPicker({
   items,
   value,
@@ -287,5 +432,9 @@ const s = StyleSheet.create({
   weatherBoxText: { color: colors.green, fontWeight: '700', fontSize: 14 },
   anchor: { width: 76, borderWidth: 1, borderColor: 'transparent', padding: 3 },
   anchorName: { fontSize: 11, color: colors.ink, marginTop: 4 },
+  panel: { alignItems: 'center', paddingTop: 36, paddingHorizontal: 4 },
+  panelTitle: { fontSize: 22, lineHeight: 32, marginTop: 16, textAlign: 'center' },
+  panelSub: { color: colors.sub, fontSize: 14, marginTop: 10, textAlign: 'center' },
+  link: { color: colors.green, fontWeight: '700', textDecorationLine: 'underline' },
   input: { height: 48, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, fontSize: 15, color: colors.ink },
 });

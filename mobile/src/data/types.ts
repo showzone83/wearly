@@ -93,6 +93,11 @@ export interface Outfit {
   breakdown: ScoreBreakdown;
   reasons: string[];
   context: RecommendContext;
+  /**
+   * AI 코디 추천(doc/09)으로 받은 후보일 때 AI가 쓴 이유와 예상 점수(0~100, 참고용).
+   * 점수·breakdown·reasons는 항상 앱 엔진이 매긴 값이다. 한 칸을 교체하면 엔진이 새로 평가하므로 이 값은 빠진다.
+   */
+  ai?: { reason: string; scores?: { color: number; occasion: number; weather: number; taste: number; diversity: number } };
 }
 
 export type FeedbackType = 'LIKE' | 'DISLIKE';

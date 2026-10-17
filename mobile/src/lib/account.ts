@@ -96,6 +96,23 @@ export async function refreshAccount(): Promise<void> {
 }
 
 /**
+ * 옷장만 서버 목록으로 다시 맞춘다 (AI 코디 추천 후보에 기기에 없는 옷이 섞였을 때 등).
+ * @returns 맞췄으면 true. 게스트 모드이거나 실패하면 false
+ */
+export async function syncWardrobe(): Promise<boolean> {
+  if (!isAccountMode()) return false;
+  try {
+    const list = await api.wardrobe.list();
+    if (!isAccountMode()) return false;
+    applyServerItems(list.items);
+    return true;
+  } catch (e) {
+    console.warn('[account] 옷장 동기화 실패', e);
+    return false;
+  }
+}
+
+/**
  * 앱 시작 시 세션 복구. _layout이 화면을 그리기 전에 기다린다.
  * - 계정 모드: 토큰이 없으면 로그인 화면으로, 있으면 백그라운드로 /users/me와 옷장을 동기화
  * - 새 설치인데 Keychain에 토큰이 남아 있으면(iOS 재설치) 그 계정으로 복구

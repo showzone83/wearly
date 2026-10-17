@@ -13,6 +13,7 @@ import type {
   SavedOutfit,
   WardrobeItem,
 } from '@/data/types';
+import type { RecommendSource } from '@/lib/aiOutfits';
 import { addDays, diffDays, todayKey } from '@/lib/date';
 import type { EngineInput } from '@/lib/recommend';
 import { buildSampleHistory } from '@/lib/sample';
@@ -22,6 +23,8 @@ export interface Draft {
   mode: 'TODAY' | 'PLAN';
   outfits: Outfit[];
   plan?: Omit<PlannedEvent, 'id' | 'outfit'>;
+  /** 추천 방식(AI·규칙)과 AI 공급자·모델·남은 횟수. 없으면 규칙 추천 */
+  source?: RecommendSource;
 }
 
 export type AuthMode = 'guest' | 'account';

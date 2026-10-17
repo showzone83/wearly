@@ -15,6 +15,8 @@ import type {
   ItemInput,
   ItemListResponse,
   LoginRequest,
+  OutfitRecommendRequest,
+  OutfitRecommendResponse,
   ProfileDto,
   RNFile,
   SignupRequest,
@@ -32,6 +34,8 @@ export interface ApiClientOptions {
   timeoutMs?: number;
   /** AI 분석 요청 시간 제한(ms). 기본 60초 */
   analyzeTimeoutMs?: number;
+  /** AI 코디 추천 요청 시간 제한(ms). 기본 60초 */
+  recommendTimeoutMs?: number;
   /** 테스트용 fetch 교체 */
   fetch?: typeof fetch;
 }
@@ -118,6 +122,7 @@ export function createApiClient(options: ApiClientOptions) {
   const doFetch: typeof fetch = options.fetch ?? ((input, init) => fetch(input, init));
   const defaultTimeout = options.timeoutMs ?? 15_000;
   const analyzeTimeout = options.analyzeTimeoutMs ?? 60_000;
+  const recommendTimeout = options.recommendTimeoutMs ?? 60_000;
 
   /** 진행 중인 갱신. 동시에 여러 요청이 만료돼도 /auth/refresh는 한 번만 보낸다 (single-flight) */
   let refreshing: Promise<Tokens> | null = null;
@@ -337,6 +342,21 @@ export function createApiClient(options: ApiClientOptions) {
         const form = () => analyzeForm(file);
         form(); // 잘못된 입력은 요청 전에 바로 알린다
         return request<AnalyzeResponse>('POST', '/wardrobe/items/analyze', { auth: true, form, timeoutMs: analyzeTimeout });
+      },
+    },
+    outfits: {
+      /**
+       * AI 코디 후보 (doc/09 3장). 서버가 AI로 후보를 골라 검증한 뒤 돌려준다. 점수는 앱 엔진이 다시 매긴다.
+       * 오류: 400 WARDROBE_INSUFFICIENT(옷 모자람) · 429 AI_LIMIT_EXCEEDED · 502 AI_UNAVAILABLE
+       */
+      async recommend(req: OutfitRecommendRequest): Promise<OutfitRecommendResponse> {
+        const res = await request<OutfitRecommendResponse>('POST', '/outfits/recommendations', {
+          auth: true,
+          json: req,
+          timeoutMs: recommendTimeout,
+        });
+        if (!res || !Array.isArray(res.candidates)) throw new ApiError(200, 'HTTP_ERROR', '추천 응답 형식이 달라요.');
+        return res;
       },
     },
   };

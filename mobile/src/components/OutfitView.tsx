@@ -70,12 +70,12 @@ export function OutfitBoard({ outfit, compact }: { outfit: Outfit; compact?: boo
   );
 }
 
-export function ReasonBox({ reasons }: { reasons: string[] }) {
+export function ReasonBox({ reasons, title = '추천 이유' }: { reasons: string[]; title?: string }) {
   if (reasons.length === 0) return null;
   return (
     <View style={styles.reason}>
       <Text style={styles.reasonText}>
-        <Text style={styles.reasonHead}>추천 이유 </Text>
+        <Text style={styles.reasonHead}>{title} </Text>
         {reasons.join('. ')}.
       </Text>
     </View>

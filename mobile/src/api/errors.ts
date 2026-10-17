@@ -14,6 +14,8 @@ export type ApiErrorCode =
   | 'IMAGE_TOO_LARGE'
   | 'AI_LIMIT_EXCEEDED'
   | 'AI_UNAVAILABLE'
+  /** 추천 가능한 옷이 모자라 코디를 만들 수 없음. message에 모자란 칸 (doc/09 3장) */
+  | 'WARDROBE_INSUFFICIENT'
   /** 서버에 닿지 못함 (연결 실패·시간 초과) */
   | 'NETWORK'
   /** 응답이 계약 형식이 아님 (JSON이 아닌 오류 본문 등) */

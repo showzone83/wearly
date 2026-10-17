@@ -145,6 +145,94 @@ export interface AnalyzeResponse {
   remainingToday: number;
 }
 
+// ── AI 코디 추천 (doc/09_AI_코디_추천.md 3장) ──
+
+/** 코디 칸. 코디는 TOP+BOTTOM 또는 DRESS 하나로 몸판을 채우고 SHOES는 필수 */
+export type OutfitSlot = 'TOP' | 'BOTTOM' | 'DRESS' | 'OUTER' | 'SHOES' | 'BAG';
+/** 칸별 아이템 id */
+export type OutfitSlotItems = Partial<Record<OutfitSlot, string>>;
+
+export type OutfitOccasion =
+  | 'COMMUTE'
+  | 'MEETING'
+  | 'FIELD'
+  | 'DINNER'
+  | 'DAILY'
+  | 'INTERVIEW'
+  | 'WEDDING'
+  | 'DATE'
+  | 'TRAVEL'
+  | 'GATHERING';
+export type OutfitMood = 'NEAT' | 'COMFY' | 'CHIC';
+export type OutfitTimeOfDay = 'AM' | 'PM' | 'EVENING';
+
+export interface OutfitWeatherDto {
+  temp: number;
+  min: number;
+  max: number;
+  /** 0~100 */
+  rainProb: number;
+  cond: 'SUNNY' | 'CLOUDY' | 'RAIN';
+}
+
+export interface OutfitRecommendContext {
+  /** YYYY-MM-DD */
+  date: string;
+  occasion: OutfitOccasion;
+  mood: OutfitMood;
+  formality: DressCode;
+  weather?: OutfitWeatherDto;
+  /** 꼭 넣을 중심 아이템 */
+  anchorItemId?: string;
+  /** 칸 고정 */
+  fixed?: OutfitSlotItems;
+  /** 피하고 싶은 COLOR 코드 */
+  avoidColors?: ColorKey[];
+  /** 예정일 컨셉 (STYLE 코드) */
+  concepts?: StyleTag[];
+  timeOfDay?: OutfitTimeOfDay;
+  /** 예정일 메모 (200자 이하) */
+  memo?: string;
+}
+
+export interface OutfitRecommendRequest {
+  context: OutfitRecommendContext;
+  /** 최근 착용 제외 등 앱이 계산한 제외 목록 */
+  excludeItemIds?: string[];
+  /** 최근 7일 코디 (착용 기록은 기기에만 있어서 앱이 보낸다) */
+  recent?: { date: string; items: OutfitSlotItems }[];
+  /** 앱 affinity > 0 */
+  likedItemIds?: string[];
+  /** 앱 affinity < 0 */
+  dislikedItemIds?: string[];
+  /** 후보 수. 기본 5, 1~6 */
+  count?: number;
+}
+
+/** AI가 매긴 0~100 예상 점수 (참고용. 화면 점수는 앱 엔진이 다시 매긴다) */
+export interface OutfitAiScores {
+  color: number;
+  occasion: number;
+  weather: number;
+  taste: number;
+  diversity: number;
+}
+
+export interface OutfitCandidateDto {
+  items: OutfitSlotItems;
+  /** 한국어 한두 문장 (80자 이하) */
+  reason: string;
+  aiScores: OutfitAiScores;
+}
+
+export interface OutfitRecommendResponse {
+  candidates: OutfitCandidateDto[];
+  provider: AiProvider;
+  model: string | null;
+  /** 코디 추천 남은 횟수 */
+  remainingToday: number;
+}
+
 // ── 코드 (doc/06_코드_관리.md 4장) ──
 
 /** 코드 그룹. 서버가 새 그룹을 더해도 받을 수 있게 string도 허용한다 */

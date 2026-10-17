@@ -3,9 +3,11 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { OutfitBoard, OutfitItemRows, ReasonBox } from '@/components/OutfitView';
-import { Button, Header, Row, Screen, Serif } from '@/components/ui';
+import { Icon } from '@/components/Icon';
+import { Badge, Button, Header, Row, Screen, Serif } from '@/components/ui';
 import { FORMALITY_LABEL, MOOD_LABEL, OCCASION_LABEL } from '@/data/constants';
 import type { Outfit, ScoreBreakdown } from '@/data/types';
+import { providerLabel, type RecommendSource } from '@/lib/aiOutfits';
 import { styleLabel } from '@/lib/codes';
 import { newId } from '@/lib/context';
 import { longLabel, todayKey } from '@/lib/date';
@@ -59,6 +61,7 @@ export default function Result() {
     <Screen header={<Header title="추천 결과" />} footer={<Button title={draft.mode === 'PLAN' ? `코디 ${index + 1} 캘린더에 저장` : `코디 ${index + 1}을 오늘 코디로 저장`} onPress={save} />}>
       <Text style={s.kicker}>{kicker}</Text>
       <Serif style={s.title}>내 옷으로 만든 {outfits.length}가지 코디</Serif>
+      <SourceLine source={draft.source} />
 
       <View style={s.tabs}>
         {outfits.map((o, i) => (
@@ -69,8 +72,17 @@ export default function Result() {
         ))}
       </View>
 
+      {current.ai && (
+        <View style={s.aiBox}>
+          <Row style={{ gap: 6 }}>
+            <Icon name="sparkle" size={16} color={colors.green} />
+            <Text style={s.aiHead}>AI 추천 이유</Text>
+          </Row>
+          <Text style={s.aiText}>{current.ai.reason}</Text>
+        </View>
+      )}
       <OutfitBoard outfit={current} />
-      <ReasonBox reasons={current.reasons} />
+      <ReasonBox reasons={current.reasons} title={current.ai ? '점수 근거' : '추천 이유'} />
 
       {/* 점수 근거: 기획서 p.24 초기 점수 모델 */}
       <View style={s.breakdown}>
@@ -94,9 +106,39 @@ export default function Result() {
   );
 }
 
+/** 추천 방식 배지: "AI 추천 · 공급자" 또는 "규칙 추천" + 남은 횟수 (doc/09 5장) */
+function SourceLine({ source }: { source?: RecommendSource }) {
+  if (source?.method === 'AI') {
+    return (
+      <View style={{ marginTop: 10, gap: 4 }}>
+        <Row style={{ gap: 8, flexWrap: 'wrap' }}>
+          <Badge tone="green">{`AI 추천 · ${providerLabel(source.provider)}`}</Badge>
+          {source.model ? <Text style={s.sourceNote}>{source.model}</Text> : null}
+        </Row>
+        <Text style={s.remaining}>
+          AI가 고른 후보를 웨어리 점수 기준으로 다시 매겼어요 · 오늘 남은 AI 코디 추천 {source.remainingToday}회
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View style={{ marginTop: 10, gap: 4 }}>
+      <Row>
+        <Badge>규칙 추천</Badge>
+      </Row>
+      {source?.note ? <Text style={s.sourceNote}>{source.note}</Text> : null}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   kicker: { color: colors.green, fontSize: 12, fontWeight: '700', letterSpacing: 1, marginTop: 6 },
   title: { fontSize: 24, marginTop: 6 },
+  sourceNote: { fontSize: 12, color: colors.sub },
+  remaining: { fontSize: 12, color: colors.green, fontWeight: '700', lineHeight: 18 },
+  aiBox: { backgroundColor: colors.greenSoft, borderLeftWidth: 3, borderLeftColor: colors.green, padding: 14, marginBottom: 14, gap: 6 },
+  aiHead: { color: colors.green, fontWeight: '800', fontSize: 13 },
+  aiText: { color: colors.ink, fontSize: 15, lineHeight: 22, fontWeight: '600' },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.line, marginTop: 18, marginBottom: 16 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10 },
   tabOn: { borderBottomWidth: 2, borderBottomColor: colors.green, marginBottom: -1 },
