@@ -94,7 +94,6 @@ public final class CodeAttrs {
     return out;
   }
 
-  @SuppressWarnings("unchecked")
   public static List<String> pairsOf(Map<String, Object> attrs) {
     Object v = attrs == null ? null : attrs.get("pairs");
     if (v instanceof List<?> list) {
