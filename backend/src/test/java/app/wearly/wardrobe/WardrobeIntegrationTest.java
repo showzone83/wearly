@@ -6,9 +6,9 @@ import app.wearly.config.ClockConfig;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
+import app.wearly.support.TestItems;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -79,7 +79,7 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
         api().patch("/api/v1/wardrobe/items/" + id, s.accessToken(), Map.of("category", "BOTTOM", "subType", "WIDE"))
                 .expect(200);
         api().patch("/api/v1/wardrobe/items/" + id, s.accessToken(), "{\"name\":null}").expectError(400, "VALIDATION_FAILED");
-        api().patch("/api/v1/wardrobe/items/" + id, s.accessToken(), "{\"color\":\"pink\"}")
+        api().patch("/api/v1/wardrobe/items/" + id, s.accessToken(), "{\"color\":\"rainbow\"}")
                 .expectError(400, "VALIDATION_FAILED");
         api().patch("/api/v1/wardrobe/items/" + id, s.accessToken(), "{\"formality\":4}")
                 .expectError(400, "VALIDATION_FAILED");
@@ -162,7 +162,7 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
                 .containsExactly("화이트 셔츠");
         assertThat(names(api().get("/api/v1/wardrobe/items?category=&q=", t))).hasSize(3);
 
-        Resp bad = api().get("/api/v1/wardrobe/items?category=HAT&sort=price&color=pink&status=GONE", t)
+        Resp bad = api().get("/api/v1/wardrobe/items?category=HAT&sort=price&color=rainbow&status=GONE", t)
                 .expectError(400, "VALIDATION_FAILED");
         assertThat(bad.body().get("fieldErrors").findValuesAsString("field"))
                 .containsExactlyInAnyOrder("category", "sort", "color", "status");
@@ -180,8 +180,9 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
         Resp empty = api().get("/api/v1/wardrobe/stats", t).expect(200);
         assertThat(empty.body().get("total").asLong()).isZero();
         assertThat(empty.body().get("utilization30d").asDouble()).isZero();
+        // 활성 CATEGORY 코드 전부가 0으로 들어간다 (원피스 포함, 코드 순서)
         assertThat(empty.body().get("byCategory").toString())
-                .isEqualTo("{\"TOP\":0,\"BOTTOM\":0,\"OUTER\":0,\"SHOES\":0,\"BAG\":0,\"ACC\":0}");
+                .startsWith("{\"TOP\":0,\"BOTTOM\":0,\"DRESS\":0,\"OUTER\":0,\"SHOES\":0,\"BAG\":0,\"ACC\":0");
         assertThat(empty.body().get("byStatus").toString()).isEqualTo("{\"OWNED\":0,\"LAUNDRY\":0,\"REPAIR\":0}");
 
         List<Map<String, Object>> inputs = List.of(
@@ -201,7 +202,7 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
         JsonNode st = api().get("/api/v1/wardrobe/stats", t).expect(200).body();
         assertThat(st.get("total").asLong()).isEqualTo(6);
         assertThat(st.get("byCategory").toString())
-                .isEqualTo("{\"TOP\":2,\"BOTTOM\":1,\"OUTER\":1,\"SHOES\":1,\"BAG\":0,\"ACC\":1}");
+                .startsWith("{\"TOP\":2,\"BOTTOM\":1,\"DRESS\":0,\"OUTER\":1,\"SHOES\":1,\"BAG\":0,\"ACC\":1");
         assertThat(st.get("byColor").toString()).isEqualTo(
                 "[{\"color\":\"black\",\"count\":2},{\"color\":\"white\",\"count\":2},"
                         + "{\"color\":\"camel\",\"count\":1},{\"color\":\"navy\",\"count\":1}]");
@@ -263,17 +264,7 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
     }
 
     static Map<String, Object> item(String name, String category, String subType, String color) {
-        Map<String, Object> m = new HashMap<>();
-        m.put("name", name);
-        m.put("category", category);
-        m.put("subType", subType);
-        m.put("color", color);
-        m.put("pattern", "SOLID");
-        m.put("seasons", List.of("SPRING", "FALL"));
-        m.put("styles", List.of("NEAT"));
-        m.put("formality", 2);
-        m.put("status", "OWNED");
-        return m;
+        return TestItems.item(name, category, subType, color);
     }
 
     private static Map<String, Object> withWorn(Map<String, Object> m, LocalDate lastWorn, List<String> styles) {

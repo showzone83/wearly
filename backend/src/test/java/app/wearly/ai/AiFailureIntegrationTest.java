@@ -3,10 +3,12 @@ package app.wearly.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi.Session;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -15,7 +17,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class AiFailureIntegrationTest extends IntegrationTestBase {
 
     @MockitoBean
-    AiProvider provider;
+    AiProviderRegistry registry;
 
     @Autowired
     AiAnalysisService service;
@@ -25,9 +27,11 @@ class AiFailureIntegrationTest extends IntegrationTestBase {
 
     @Test
     void 공급자_오류는_502이고_실패_기록만_남는다() {
-        when(provider.name()).thenReturn("claude");
+        AiProvider provider = mock(AiProvider.class);
+        when(provider.id()).thenReturn("claude");
         when(provider.model()).thenReturn("claude-opus-5-5");
-        when(provider.analyze(any())).thenThrow(new AiProviderException("INVALID_OUTPUT", "허용 목록 밖"));
+        when(provider.analyze(any(), any())).thenThrow(new AiProviderException("INVALID_OUTPUT", "허용 목록 밖"));
+        when(registry.candidates()).thenReturn(List.of(provider));
 
         Session s = signup();
         for (int i = 0; i < 4; i++) {
@@ -39,7 +43,7 @@ class AiFailureIntegrationTest extends IntegrationTestBase {
         assertThat(usageMapper.findRecent(userId, 10)).hasSize(4)
                 .allSatisfy(row -> assertThat(row.getStatus()).isEqualTo("FAILED"));
 
-        doThrow(new IllegalStateException("뜻밖의 오류")).when(provider).analyze(any());
+        doThrow(new IllegalStateException("뜻밖의 오류")).when(provider).analyze(any(), any());
         api().upload("/api/v1/wardrobe/items/analyze", s.accessToken(), "image", new byte[] {9}, "a.jpg", "image/jpeg")
                 .expectError(502, "AI_UNAVAILABLE");
     }

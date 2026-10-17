@@ -1,8 +1,10 @@
 package app.wearly.support;
 
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -17,13 +19,19 @@ import org.testcontainers.utility.DockerImageName;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "wearly.ai.provider=mock",
-        "wearly.ai.api-key=",
         "wearly.ai.daily-limit=3",
+        "wearly.admin.email=" + IntegrationTestBase.BOOT_ADMIN_EMAIL,
+        "wearly.admin.password=" + IntegrationTestBase.BOOT_ADMIN_PASSWORD,
+        "wearly.admin.name=테스트관리자",
         "spring.config.import=",
 })
 public abstract class IntegrationTestBase {
 
     static final String EXTERNAL_URL = System.getenv("WEARLY_TEST_DB_URL");
+
+    /** 시작 시 만들어지는 관리자 계정 (WEARLY_ADMIN_*) */
+    public static final String BOOT_ADMIN_EMAIL = "it-admin@wearly.test";
+    public static final String BOOT_ADMIN_PASSWORD = "admin1234";
 
     static final PostgreSQLContainer POSTGRES;
 
@@ -56,6 +64,9 @@ public abstract class IntegrationTestBase {
     @Value("${local.server.port}")
     protected int port;
 
+    @Autowired
+    protected JdbcTemplate jdbcTemplate;
+
     private TestApi api;
 
     protected TestApi api() {
@@ -72,6 +83,18 @@ public abstract class IntegrationTestBase {
     /** 새 회원을 만들고 토큰이 든 세션을 돌려준다. */
     protected TestApi.Session signup() {
         return api().signup(uniqueEmail(), "pass1234", "테스터");
+    }
+
+    /** 새 회원을 만들고 DB에서 ADMIN으로 올린다 (권한은 요청마다 DB 역할로 판단하므로 토큰을 다시 받을 필요 없다) */
+    protected TestApi.Session adminSession() {
+        TestApi.Session s = signup();
+        jdbcTemplate.update("update tb_user set role = 'ADMIN' where user_id = ?", Long.parseLong(s.userId()));
+        return s;
+    }
+
+    /** 코드·공급자 ID 충돌을 피하는 짧은 무작위 접미사 (대문자) */
+    protected static String suffix() {
+        return UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase();
     }
 
     private static String envOr(String key, String fallback) {

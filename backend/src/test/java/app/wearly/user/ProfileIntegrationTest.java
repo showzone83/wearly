@@ -63,7 +63,7 @@ class ProfileIntegrationTest extends IntegrationTestBase {
                 .contains("name");
 
         Map<String, Object> badEnum = profile();
-        badEnum.put("colors", List.of("pink"));
+        badEnum.put("colors", List.of("rainbow"));
         Resp e = api().put("/api/v1/users/me/profile", s.accessToken(), badEnum).expectError(400, "VALIDATION_FAILED");
         assertThat(e.body().get("fieldErrors").get(0).get("field").asString()).startsWith("colors");
 

@@ -3,9 +3,9 @@ package app.wearly.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import app.wearly.domain.Category;
-import app.wearly.domain.ColorKey;
-import app.wearly.domain.SubType;
+import app.wearly.code.CodeGroups;
+import app.wearly.code.CodeSnapshot;
+import app.wearly.support.TestCodes;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.sun.net.httpserver.HttpServer;
@@ -41,6 +41,7 @@ class ClaudeAiProviderTest {
     volatile String responseBody;
 
     ClaudeAiProvider provider;
+    final CodeSnapshot codes = TestCodes.seed();
 
     @BeforeEach
     void setUp() throws IOException {
@@ -62,7 +63,8 @@ class ClaudeAiProviderTest {
                 .maxRetries(0)
                 .timeout(Duration.ofSeconds(10))
                 .build();
-        provider = new ClaudeAiProvider(client, "claude-opus-5-5", "medium", new SuggestionParser(JSON));
+        provider = new ClaudeAiProvider("claude", client, "claude-opus-5-5", "medium", 16000, new SuggestionParser(JSON),
+                "test-key");
     }
 
     @AfterEach
@@ -71,9 +73,9 @@ class ClaudeAiProviderTest {
     }
 
     @Test
-    void 이미지와_허용_목록을_구조화_출력_스키마로_보낸다() {
+    void 이미지와_활성_코드_허용_목록을_구조화_출력_스키마로_보낸다() {
         responseBody = message(validSuggestion(), "end_turn");
-        provider.analyze(new AiImage(PHOTO, "image/jpeg", "x".repeat(64)));
+        provider.analyze(new AiImage(PHOTO, "image/jpeg", "x".repeat(64)), codes);
 
         JsonNode req = JSON.readTree(requestBody.get());
         assertThat(apiKeyHeader.get()).isEqualTo("test-key");
@@ -88,7 +90,9 @@ class ClaudeAiProviderTest {
         assertThat(content.get(0).get("source").get("media_type").asString()).isEqualTo("image/jpeg");
         assertThat(Base64.getDecoder().decode(content.get(0).get("source").get("data").asString())).isEqualTo(PHOTO);
         assertThat(content.get(1).get("type").asString()).isEqualTo("text");
-        assertThat(content.get(1).get("text").asString()).contains("TOP: TEE(티셔츠)", "lightblue(라이트블루)");
+        assertThat(content.get(1).get("text").asString())
+                .contains("TOP(상의): TEE(티셔츠), LONG_TEE(긴소매 티셔츠)", "DRESS(원피스): DRESS(원피스)", "lightblue(라이트블루)",
+                        "denim(데님)", "FLORAL(플로럴)", "FEMININE(페미닌)");
 
         JsonNode output = req.get("output_config");
         assertThat(output.get("effort").asString()).isEqualTo("medium");
@@ -97,9 +101,10 @@ class ClaudeAiProviderTest {
         assertThat(schema.get("additionalProperties").asBoolean()).isFalse();
         assertThat(texts(schema.get("required"))).containsExactlyInAnyOrder("name", "category", "subType", "color",
                 "pattern", "seasons", "styles", "formality", "confidence");
-        assertThat(texts(schema.get("properties").get("subType").get("enum"))).hasSize(SubType.values().length);
-        assertThat(texts(schema.get("properties").get("color").get("enum"))).hasSize(ColorKey.values().length)
-                .contains("navy", "burgundy");
+        assertThat(texts(schema.get("properties").get("subType").get("enum"))).hasSize(52).contains("JEANS", "JUMPSUIT");
+        assertThat(texts(schema.get("properties").get("category").get("enum"))).contains("DRESS");
+        assertThat(texts(schema.get("properties").get("color").get("enum"))).hasSize(22)
+                .contains("navy", "burgundy", "denim", "lavender");
         assertThat(texts(schema.get("properties").get("seasons").get("items").get("enum")))
                 .containsExactly("SPRING", "SUMMER", "FALL", "WINTER");
         assertThat(schema.get("properties").get("formality").get("enum").toString()).isEqualTo("[1,2,3]");
@@ -112,12 +117,12 @@ class ClaudeAiProviderTest {
     @Test
     void 응답을_검증해_제안과_토큰_수를_돌려준다() {
         responseBody = message(validSuggestion(), "end_turn");
-        AiResult result = provider.analyze(new AiImage(PHOTO, "image/png", "x".repeat(64)));
+        AiResult result = provider.analyze(new AiImage(PHOTO, "image/png", "x".repeat(64)), codes);
 
         assertThat(result.suggestion().name()).isEqualTo("네이비 울 니트");
-        assertThat(result.suggestion().category()).isEqualTo(Category.TOP);
-        assertThat(result.suggestion().subType()).isEqualTo(SubType.KNIT);
-        assertThat(result.suggestion().color()).isEqualTo(ColorKey.NAVY);
+        assertThat(result.suggestion().category()).isEqualTo("TOP");
+        assertThat(result.suggestion().subType()).isEqualTo("KNIT");
+        assertThat(result.suggestion().color()).isEqualTo("navy");
         assertThat(result.suggestion().formality()).isEqualTo(2);
         assertThat(result.suggestion().confidence()).isEqualTo(0.87);
         assertThat(result.model()).isEqualTo("claude-opus-5-5");
@@ -127,7 +132,7 @@ class ClaudeAiProviderTest {
 
     @Test
     void 허용_목록_밖이나_짝이_틀린_값은_거부한다() {
-        ObjectNode badColor = validSuggestion().put("color", "pink");
+        ObjectNode badColor = validSuggestion().put("color", "rainbow");
         assertRejected(badColor);
 
         ObjectNode mismatch = validSuggestion().put("category", "SHOES");
@@ -147,15 +152,15 @@ class ClaudeAiProviderTest {
     @Test
     void JSON이_아니거나_거절이면_실패() {
         responseBody = textMessage("죄송하지만 분석할 수 없어요", "end_turn");
-        assertThatThrownBy(() -> provider.analyze(image())).isInstanceOf(AiProviderException.class)
+        assertThatThrownBy(() -> provider.analyze(image(), codes)).isInstanceOf(AiProviderException.class)
                 .extracting("reason").isEqualTo("INVALID_OUTPUT");
 
         responseBody = textMessage("", "refusal");
-        assertThatThrownBy(() -> provider.analyze(image())).isInstanceOf(AiProviderException.class)
+        assertThatThrownBy(() -> provider.analyze(image(), codes)).isInstanceOf(AiProviderException.class)
                 .extracting("reason").isEqualTo("REFUSAL");
 
         responseBody = textMessage("{\"name\":", "max_tokens");
-        assertThatThrownBy(() -> provider.analyze(image())).isInstanceOf(AiProviderException.class)
+        assertThatThrownBy(() -> provider.analyze(image(), codes)).isInstanceOf(AiProviderException.class)
                 .extracting("reason").isEqualTo("MAX_TOKENS");
     }
 
@@ -163,22 +168,34 @@ class ClaudeAiProviderTest {
     void API_오류는_AiProviderException() {
         responseStatus = 529;
         responseBody = "{\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}";
-        assertThatThrownBy(() -> provider.analyze(image())).isInstanceOf(AiProviderException.class)
+        assertThatThrownBy(() -> provider.analyze(image(), codes)).isInstanceOf(AiProviderException.class)
                 .extracting("reason").isEqualTo("API_529");
     }
 
     @Test
     void HEIC는_Claude에_보내지_않고_실패한다() {
         responseBody = message(validSuggestion(), "end_turn");
-        assertThatThrownBy(() -> provider.analyze(new AiImage(PHOTO, "image/heic", "x".repeat(64))))
+        assertThatThrownBy(() -> provider.analyze(new AiImage(PHOTO, "image/heic", "x".repeat(64)), codes))
                 .isInstanceOf(AiProviderException.class).extracting("reason").isEqualTo("UNSUPPORTED_MEDIA");
         assertThat(requestBody.get()).isNull();
     }
 
     private void assertRejected(ObjectNode suggestion) {
         responseBody = message(suggestion, "end_turn");
-        assertThatThrownBy(() -> provider.analyze(image())).isInstanceOf(AiProviderException.class)
+        assertThatThrownBy(() -> provider.analyze(image(), codes)).isInstanceOf(AiProviderException.class)
                 .extracting("reason").isEqualTo("INVALID_OUTPUT");
+    }
+
+    @Test
+    void 비활성_코드는_스키마에서_빠지고_응답에_와도_거부한다() {
+        CodeSnapshot limited = TestCodes.withInactive(CodeGroups.COLOR, "navy");
+        responseBody = message(validSuggestion(), "end_turn");
+        assertThatThrownBy(() -> provider.analyze(image(), limited)).isInstanceOf(AiProviderException.class)
+                .extracting("reason").isEqualTo("INVALID_OUTPUT");
+        JsonNode schema = JSON.readTree(requestBody.get()).get("output_config").get("format").get("schema");
+        assertThat(texts(schema.get("properties").get("color").get("enum"))).doesNotContain("navy").hasSize(21);
+        assertThat(JSON.readTree(requestBody.get()).get("messages").get(0).get("content").get(1).get("text").asString())
+                .doesNotContain("navy(네이비)");
     }
 
     private static AiImage image() {
