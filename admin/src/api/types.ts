@@ -72,6 +72,10 @@ export interface IDashboard {
   items: number;
   aiToday: { total: number; success: number; failed: number };
   aiByProvider7d: IProviderStat7d[];
+  /** doc/16 4장: 살아 있는 로그인 세션 수. 예전 서버는 없다 → 카드 생략 */
+  activeSessions?: number | null;
+  /** doc/16 4장: 24시간 안에 활동한 회원 수. 예전 서버는 없다 → 카드 생략 */
+  activeUsers24h?: number | null;
 }
 
 // ───────── 코드 (06 문서) ─────────
@@ -296,6 +300,57 @@ export interface IUserQuery extends IPageQuery {
 export interface IUserPatch {
   status?: TUserStatus;
   role?: TUserRole;
+}
+
+// ───────── 로그인 세션 (doc/16 4장) ─────────
+// 백엔드 최종 응답 모양이 다르면 이 절과 api/client.ts의 toSession·toAuthEvent·toUserSessions만 고치면 된다.
+
+/** 로그인한 곳. 서버가 X-Wearly-Client 헤더(없으면 User-Agent)로 정한다. 모르는 값도 그대로 받는다 */
+export type TSessionClient = 'APP' | 'ADMIN' | 'WEB' | (string & {});
+
+/** `GET /admin/sessions`, `GET /admin/users/{id}/sessions`의 세션 한 줄 */
+export interface IAdminSession {
+  sessionId: string;
+  userId: string;
+  email: string | null;
+  name: string;
+  role: TUserRole | null;
+  client: TSessionClient;
+  userAgent: string | null;
+  ip: string | null;
+  /** 로그인 시각 (ISO) */
+  createdAt: string | null;
+  lastRefreshAt: string | null;
+  /** 마지막 인증 요청 시각 (서버는 1분에 한 번만 갱신) */
+  lastSeenAt: string | null;
+  /** 요청한 관리자 자신의 지금 세션 — 끊을 수 없다(400) */
+  current: boolean;
+}
+
+export interface ISessionQuery extends IPageQuery {
+  /** 이메일·이름 검색 */
+  q?: string;
+  /** APP · ADMIN · WEB */
+  client?: string;
+}
+
+export type TAuthEventType = 'LOGIN' | 'LOGOUT' | 'REFRESH_REUSED' | 'FORCED_LOGOUT' | (string & {});
+
+/** 회원별 최근 로그인 이력 (`tb_auth_event`) */
+export interface IAuthEvent {
+  type: TAuthEventType;
+  sessionId: string | null;
+  client: TSessionClient | null;
+  ip: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+/** `GET /admin/users/{id}/sessions` */
+export interface IUserSessions {
+  sessions: IAdminSession[];
+  /** 최근 이력 (최신순, 최대 20개) */
+  events: IAuthEvent[];
 }
 
 // ───────── 변경 이력 ─────────

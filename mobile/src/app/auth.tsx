@@ -40,7 +40,9 @@ function validate(mode: Mode, email: string, password: string, name: string): Pa
 // 이메일 로그인·가입 (임시 수단: 소셜 로그인 키를 받기 전까지 토큰 흐름을 먼저 쓴다. 계약 1장)
 export default function Auth() {
   const params = useLocalSearchParams<{ reason?: string; mode?: string }>();
-  const expired = params.reason === 'expired';
+  // expired = 로그인이 풀려 들어온 경우. elsewhere는 다른 곳에서 로그아웃됨(강제 로그아웃 등, doc/16 6장)
+  const elsewhere = params.reason === 'elsewhere';
+  const expired = params.reason === 'expired' || elsewhere;
   const lastEmail = useStore((s) => (s.authMode === 'account' ? s.user?.email : null));
   const guestHasData = useStore((s) => s.authMode === 'guest' && s.onboarded);
 
@@ -113,7 +115,9 @@ export default function Auth() {
 
       {expired && (
         <View style={[s.notice, s.noticeWarn]}>
-          <Text style={s.noticeTitle}>로그인이 만료됐어요</Text>
+          <Text style={s.noticeTitle}>
+            {elsewhere ? '다른 곳에서 로그아웃되었어요. 다시 로그인해 주세요.' : '로그인이 만료됐어요'}
+          </Text>
           <Text style={s.noticeText}>다시 로그인하면 이 기기의 코디·기록을 이어서 쓸 수 있어요.</Text>
         </View>
       )}

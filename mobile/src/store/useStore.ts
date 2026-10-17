@@ -29,6 +29,9 @@ export interface Draft {
 
 export type AuthMode = 'guest' | 'account';
 
+/** 로그인이 풀린 이유: expired = 만료·갱신 실패, elsewhere = 다른 곳에서 로그아웃됨(401 TOKEN_INVALID, doc/16 6장) */
+export type AuthLostReason = 'expired' | 'elsewhere';
+
 /** 로그인한 계정 정보 (토큰은 여기 두지 않고 Keychain/Keystore에 둔다) */
 export interface AccountUser {
   id: string;
@@ -43,6 +46,8 @@ interface State {
   user: AccountUser | null;
   /** 토큰 갱신 실패 등으로 로그인이 풀린 상태. 로그인 화면으로 보낸다 */
   authLost: boolean;
+  /** authLost일 때 로그인 화면 안내 문구를 고르는 이유 */
+  authLostReason: AuthLostReason | null;
   /** 계정 모드: 서버 아이템 id → 기기에만 있는 사진 uri (서버는 사진을 저장하지 않는다) */
   photos: Record<string, string>;
   onboarded: boolean;
@@ -78,6 +83,7 @@ const EMPTY = {
   authMode: 'guest' as AuthMode,
   user: null as AccountUser | null,
   authLost: false,
+  authLostReason: null as AuthLostReason | null,
   photos: {} as Record<string, string>,
   onboarded: false,
   profile: DEFAULT_PROFILE,

@@ -16,6 +16,17 @@ export const qk = {
   users: (q: object) => ['users', q] as const,
   audit: (q: object) => ['audit', q] as const,
   appTheme: ['app', 'theme'] as const,
+  /** 'sessions'로 시작하는 키를 무효화하면 목록과 회원별 세션이 함께 다시 읽힌다 */
+  sessions: (q: object) => ['sessions', 'list', q] as const,
+  userSessions: (userId: string) => ['sessions', 'user', userId] as const,
+};
+
+/** 로그인 사용자 화면·회원 세션 패널의 자동 새로 고침 간격 (doc/16 5장) */
+const SESSION_REFETCH_MS = 30_000;
+
+/** 30초마다 새로 고치되, 서버가 아직 이 API를 모르면(404) 다시 묻지 않는다 */
+export const sessionRefetchInterval = (query: { state: { error: unknown } }): number | false => {
+  return isUnsupportedApi(query.state.error) ? false : SESSION_REFETCH_MS;
 };
 
 export const useCodes = () => {
@@ -65,6 +76,34 @@ export const useUpdateAppTheme = () => {
       // 본문 없이(204) 오면 themeId가 비어 있으므로 서버에서 다시 읽는다
       if (data.themeId) queryClient.setQueryData(qk.appTheme, data);
       else void queryClient.invalidateQueries({ queryKey: qk.appTheme });
+      void queryClient.invalidateQueries({ queryKey: ['audit'] });
+    },
+  });
+};
+
+/** 강제 로그아웃 대상 (doc/16 4장). who·device는 확인 대화상자·토스트 문구용 */
+export type TRevokeTarget =
+  | { kind: 'session'; sessionId: string; who: string; device: string }
+  | { kind: 'user'; userId: string; who: string; count: number | null };
+
+/** 회원 한 명의 세션과 최근 로그인 이력 (회원 화면의 패널) */
+export const useUserSessions = (userId: string) => {
+  return useQuery({
+    queryKey: qk.userSessions(userId),
+    queryFn: () => api.sessions.ofUser(userId),
+    refetchInterval: sessionRefetchInterval,
+  });
+};
+
+/** 세션 하나 또는 회원의 모든 세션 끊기. 성공하면 세션 목록·대시보드·변경 이력을 다시 읽게 한다 */
+export const useRevokeSessions = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (target: TRevokeTarget) =>
+      target.kind === 'session' ? api.sessions.revoke(target.sessionId) : api.sessions.revokeUser(target.userId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      void queryClient.invalidateQueries({ queryKey: qk.dashboard });
       void queryClient.invalidateQueries({ queryKey: ['audit'] });
     },
   });

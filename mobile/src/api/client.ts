@@ -31,8 +31,11 @@ export interface ApiClientOptions {
   /** 서버 주소. 예: `http://localhost:8080`. `/api/v1`로 끝나도 되고 아니어도 된다. */
   baseUrl: string;
   tokenStore: TokenStore;
-  /** Refresh 실패(또는 토큰 무효)로 로그인 상태를 잃었을 때. 저장소는 이미 비워진 뒤에 불린다. */
-  onAuthLost?: () => void;
+  /**
+   * Refresh 실패(또는 토큰 무효)로 로그인 상태를 잃었을 때. 저장소는 이미 비워진 뒤에 불린다.
+   * reason.code: TOKEN_INVALID(강제 로그아웃·정지·탈퇴, doc/16 6장) · REFRESH_INVALID · REFRESH_REUSED 등
+   */
+  onAuthLost?: (reason: ApiError) => void;
   /** 요청 시간 제한(ms). 기본 15초. 0이면 제한 없음 */
   timeoutMs?: number;
   /** AI 분석 요청 시간 제한(ms). 기본 60초 */
@@ -44,6 +47,9 @@ export interface ApiClientOptions {
 }
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+/** 서버가 로그인 세션의 종류(APP·ADMIN·WEB)를 정하는 헤더 (doc/16 4장). 모든 요청에 붙인다 */
+const CLIENT_HEADER = { 'X-Wearly-Client': 'app' } as const;
 
 interface RequestOptions {
   /** JSON 본문 */
@@ -131,7 +137,7 @@ export function createApiClient(options: ApiClientOptions) {
   let refreshing: Promise<Tokens> | null = null;
 
   async function send(method: Method, path: string, opts: RequestOptions, accessToken?: string): Promise<Response> {
-    const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers };
+    const headers: Record<string, string> = { Accept: 'application/json', ...CLIENT_HEADER, ...opts.headers };
     let body: BodyInit | undefined;
     if (opts.form) {
       body = opts.form(); // Content-Type(boundary 포함)은 fetch가 정한다
@@ -176,11 +182,11 @@ export function createApiClient(options: ApiClientOptions) {
     }
   }
 
-  async function lose(): Promise<void> {
+  async function lose(reason: ApiError): Promise<void> {
     try {
       await tokenStore.clear();
     } finally {
-      onAuthLost?.();
+      onAuthLost?.(reason);
     }
   }
 
@@ -198,7 +204,9 @@ export function createApiClient(options: ApiClientOptions) {
         } catch (e) {
           // 네트워크 실패는 Refresh 토큰이 아직 유효할 수 있으므로 로그인 상태를 지우지 않는다.
           // 그 밖의 실패(REFRESH_INVALID·REFRESH_REUSED 등)는 저장소를 비우고 onAuthLost를 한 번만 부른다.
-          if (!(e instanceof ApiError && e.code === 'NETWORK')) await lose();
+          if (!(e instanceof ApiError && e.code === 'NETWORK')) {
+            await lose(e instanceof ApiError ? e : new ApiError(401, 'REFRESH_INVALID', '로그인이 만료됐어요.'));
+          }
           throw e;
         }
       })().finally(() => {
@@ -226,8 +234,8 @@ export function createApiClient(options: ApiClientOptions) {
     }
 
     if (original.code === 'TOKEN_INVALID') {
-      // 서명 오류·탈퇴한 회원: 갱신해도 소용없다
-      if (used) await lose();
+      // 서명 오류·탈퇴·정지, 다른 곳에서 강제 로그아웃(세션 없음, doc/16): 갱신해도 소용없다
+      if (used) await lose(original);
       throw original;
     }
     if (original.code !== 'TOKEN_EXPIRED') throw original;

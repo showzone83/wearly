@@ -5,7 +5,7 @@ import { File } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-import { createApiClient, isApiError, type AnalyzeFile, type Tokens, type TokenStore } from '@/api';
+import { createApiClient, isApiError, type AnalyzeFile, type ApiError, type Tokens, type TokenStore } from '@/api';
 
 const API_PORT = 8080;
 
@@ -111,17 +111,17 @@ export const tokenStore: TokenStore = {
 
 // ── 클라이언트 ──
 
-let authLostHandler: (() => void) | null = null;
+let authLostHandler: ((reason: ApiError) => void) | null = null;
 
-/** 로그인이 풀렸을 때(Refresh 실패) 할 일을 등록한다. src/lib/account.ts가 등록한다 */
-export function setAuthLostHandler(fn: () => void) {
+/** 로그인이 풀렸을 때(Refresh 실패·토큰 무효) 할 일을 등록한다. src/lib/account.ts가 등록한다 */
+export function setAuthLostHandler(fn: (reason: ApiError) => void) {
   authLostHandler = fn;
 }
 
 export const api = createApiClient({
   baseUrl: API_BASE_URL,
   tokenStore,
-  onAuthLost: () => authLostHandler?.(),
+  onAuthLost: (reason) => authLostHandler?.(reason),
 });
 
 // ── 화면용 도우미 ──

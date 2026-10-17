@@ -93,10 +93,11 @@ const useAppConfigSync = (themeHydrated: boolean) => {
 /** 계정 모드에서 로그인이 풀리면(Refresh 실패) 로그인 화면으로 보낸다 */
 function AuthWatcher() {
   const lost = useStore((s) => s.authMode === 'account' && s.authLost);
+  const reason = useStore((s) => s.authLostReason ?? 'expired');
   const pathname = usePathname();
   useEffect(() => {
-    if (lost && pathname !== '/auth') router.replace({ pathname: '/auth', params: { reason: 'expired' } });
-  }, [lost, pathname]);
+    if (lost && pathname !== '/auth') router.replace({ pathname: '/auth', params: { reason } });
+  }, [lost, pathname, reason]);
   return null;
 }
 

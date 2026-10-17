@@ -54,3 +54,22 @@ export const todaySeoul = (offsetDays = 0): string => {
   const d = new Date(Date.now() + offsetDays * 86_400_000);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(d);
 };
+
+/**
+ * ISO 시각 → "방금 전", "3분 전", "2시간 전", "5일 전". 30일이 넘으면 날짜.
+ * now는 기준 시각(ms). 렌더 중에 Date.now()를 부르지 않도록 호출하는 쪽이 넘긴다(쿼리의 dataUpdatedAt 등).
+ */
+export const fmtRelative = (iso: string | null | undefined, now: number): string => {
+  if (!iso) return '—';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return iso;
+  const sec = Math.floor((now - t) / 1000);
+  if (sec < 60) return '방금 전';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}분 전`;
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour}시간 전`;
+  const day = Math.floor(hour / 24);
+  if (day <= 30) return `${day}일 전`;
+  return fmtDate(iso);
+};

@@ -7,6 +7,7 @@ import { tokenStore } from '@/api/tokenStore';
 import type { ITokens } from '@/api/tokenStore';
 import type {
   IAdminCodesResponse,
+  IAdminSession,
   IAdminUser,
   IAiLogQuery,
   IAiLogRow,
@@ -17,6 +18,7 @@ import type {
   IAppThemeUpdate,
   IAuditLog,
   IAuditQuery,
+  IAuthEvent,
   IAuthResponse,
   ICodeCreate,
   ICodePatch,
@@ -28,9 +30,11 @@ import type {
   IProviderOptionSpec,
   IProviderTestResult,
   IProviderTypeSpec,
+  ISessionQuery,
   IUserDto,
   IUserPatch,
   IUserQuery,
+  IUserSessions,
   TAiLogDetail,
   TKeySource,
   TProviderPatch,
@@ -50,6 +54,8 @@ interface IRequestOptions {
 }
 
 const API_PREFIX = '/api/v1';
+/** 서버가 로그인 세션의 종류(APP·ADMIN·WEB)를 정하는 헤더 (doc/16 4장). 모든 요청에 붙인다 */
+const CLIENT_HEADER = { 'X-Wearly-Client': 'admin' } as const;
 const DEFAULT_TIMEOUT = 15_000;
 /** 시험 분석은 실제 AI를 부르므로 넉넉히 */
 const TEST_TIMEOUT = 120_000;
@@ -152,6 +158,47 @@ const toAudit = (r: Record<string, unknown>): IAuditLog => {
   };
 };
 
+/** 세션 한 줄 (doc/16 4장). id·사용자 정보가 다른 이름이나 중첩 객체(user)로 와도 받는다 */
+const toSession = (r: Record<string, unknown>): IAdminSession => {
+  const user = (r.user && typeof r.user === 'object' ? r.user : {}) as Record<string, unknown>;
+  const role = str(r.role ?? user.role);
+  return {
+    sessionId: String(r.sessionId ?? r.id ?? ''),
+    userId: String(r.userId ?? user.id ?? ''),
+    email: str(r.email ?? user.email),
+    name: String(r.name ?? user.name ?? ''),
+    role: role === 'ADMIN' || role === 'USER' ? role : null,
+    client: String(r.client ?? '').toUpperCase(),
+    userAgent: str(r.userAgent),
+    ip: str(r.ip),
+    createdAt: str(r.createdAt ?? r.loginAt),
+    lastRefreshAt: str(r.lastRefreshAt),
+    lastSeenAt: str(r.lastSeenAt),
+    current: r.current === true,
+  };
+};
+
+const toAuthEvent = (r: Record<string, unknown>): IAuthEvent => {
+  return {
+    type: String(r.type ?? ''),
+    sessionId: str(r.sessionId),
+    client: str(r.client)?.toUpperCase() ?? null,
+    ip: str(r.ip),
+    userAgent: str(r.userAgent),
+    createdAt: String(r.createdAt ?? ''),
+  };
+};
+
+/** 회원 한 명의 세션 + 최근 이력. 배열만 오면 세션 목록으로 본다 */
+const toUserSessions = (raw: unknown): IUserSessions => {
+  if (Array.isArray(raw)) return { sessions: toArray<Record<string, unknown>>(raw).map(toSession), events: [] };
+  const r = (raw ?? {}) as Record<string, unknown>;
+  return {
+    sessions: toArray<Record<string, unknown>>(r.sessions).map(toSession),
+    events: toArray<Record<string, unknown>>(r.events ?? r.history).map(toAuthEvent),
+  };
+};
+
 /** 앱 테마 설정. updatedBy가 객체(관리자 정보)로 와도 이메일 문자열로 바꾼다 */
 const toAppTheme = (raw: unknown): IAppTheme => {
   const r = (raw ?? {}) as Record<string, unknown>;
@@ -226,7 +273,7 @@ export const createAdminApi = (options: IAdminApiOptions) => {
     opts: IRequestOptions,
     accessToken?: string,
   ): Promise<Response> => {
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: 'application/json', ...CLIENT_HEADER };
     let body: BodyInit | undefined;
     if (opts.form) {
       body = opts.form();
@@ -474,6 +521,26 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       },
       update: (id: string, patch: IUserPatch) => {
         return request<IAdminUser>('PATCH', `/admin/users/${enc(id)}`, { auth: true, json: patch });
+      },
+    },
+
+    /** 로그인 세션 (doc/16 4장). 끊긴 기기는 다음 요청에서 401 TOKEN_INVALID를 받는다 */
+    sessions: {
+      /** 살아 있는 세션 목록 (마지막 활동 최신순) */
+      list: async (q: ISessionQuery): Promise<IPage<IAdminSession>> => {
+        return toPage(await get<unknown>('/admin/sessions', { ...q }), q, toSession);
+      },
+      /** 회원 한 명의 세션과 최근 로그인 이력 */
+      ofUser: async (userId: string): Promise<IUserSessions> => {
+        return toUserSessions(await get<unknown>(`/admin/users/${enc(userId)}/sessions`));
+      },
+      /** 세션 하나 끊기 (204). 내 지금 세션이면 400 */
+      revoke: (sessionId: string) => {
+        return request<void>('DELETE', `/admin/sessions/${enc(sessionId)}`, { auth: true });
+      },
+      /** 회원의 모든 세션 끊기 (204). 자기 자신이면 400 */
+      revokeUser: (userId: string) => {
+        return request<void>('DELETE', `/admin/users/${enc(userId)}/sessions`, { auth: true });
       },
     },
 

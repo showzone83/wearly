@@ -1781,3 +1781,11 @@ details summary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* ───────── 로그인 사용자 (pages/SessionsPage, pages/UserSessionsDrawer) ───────── */
+
+.link-btn:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+  text-decoration: none;
+}

@@ -1,4 +1,4 @@
-// 회원: 검색, 정지·해제, 관리자 지정·해제
+// 회원: 검색, 정지·해제, 관리자 지정·해제, 로그인 기기(세션·이력·강제 로그아웃)
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
@@ -6,6 +6,7 @@ import { api, errorMessage } from '@/api';
 import type { IAdminUser, IUserPatch, IUserQuery } from '@/api';
 
 import { Badge, Button, Card, Empty, ErrorBox, Loading, PageHeader, Pagination } from '@/components/ui';
+import { UserSessionsDrawer } from '@/pages/UserSessionsDrawer';
 
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -31,6 +32,8 @@ export const UsersPage = () => {
   };
 
   const [q, setQ] = useState(query.q ?? '');
+  /** 로그인 기기 패널을 연 회원 */
+  const [sessionsOf, setSessionsOf] = useState<IAdminUser | null>(null);
 
   const me = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
@@ -159,6 +162,9 @@ export const UsersPage = () => {
                         <td className="num">{fmtNum(u.itemCount)}</td>
                         <td className="num">{fmtNum(u.aiToday)}</td>
                         <td className="actions">
+                          <Button size="sm" variant="ghost" onClick={() => setSessionsOf(u)}>
+                            로그인 기기
+                          </Button>
                           {u.status === 'SUSPENDED' ? (
                             <Button
                               size="sm"
@@ -226,6 +232,10 @@ export const UsersPage = () => {
           )}
           <Pagination page={data.page} size={data.size || PAGE_SIZE} total={data.total} onPage={setPage} />
         </Card>
+      ) : null}
+
+      {sessionsOf ? (
+        <UserSessionsDrawer user={sessionsOf} isMe={sessionsOf.id === me?.id} onClose={() => setSessionsOf(null)} />
       ) : null}
     </>
   );

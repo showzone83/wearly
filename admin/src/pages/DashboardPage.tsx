@@ -59,6 +59,25 @@ export const DashboardPage = () => {
                 </Link>
               }
             />
+            {/* doc/16 4장. 예전 서버는 이 값을 주지 않으므로 없으면 카드를 그리지 않는다 */}
+            {typeof data.activeSessions === 'number' ? (
+              <Stat
+                label="로그인 세션"
+                value={fmtNum(data.activeSessions)}
+                sub={
+                  <Link to="/sessions" className="link">
+                    로그인 사용자 보기
+                  </Link>
+                }
+              />
+            ) : null}
+            {typeof data.activeUsers24h === 'number' ? (
+              <Stat
+                label="24시간 활동 회원"
+                value={fmtNum(data.activeUsers24h)}
+                sub="최근 24시간 안에 앱·웹을 쓴 회원"
+              />
+            ) : null}
           </div>
 
           <Card title="공급자별 최근 7일">

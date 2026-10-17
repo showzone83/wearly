@@ -24,10 +24,14 @@ function toAccountUser(u: UserDto): AccountUser {
 
 // ── 로그인 상태 잃음 ──
 
-/** Refresh 실패: 기기 데이터는 두고 로그인 화면으로 보낸다 (이동은 _layout의 AuthWatcher가 한다) */
-setAuthLostHandler(() => {
+/**
+ * Refresh 실패·토큰 무효: 기기 데이터는 두고 로그인 화면으로 보낸다 (이동은 _layout의 AuthWatcher가 한다).
+ * TOKEN_INVALID는 관리자가 강제 로그아웃했거나 계정이 정지·탈퇴된 경우다 → "다른 곳에서 로그아웃" 안내 (doc/16 6장)
+ */
+setAuthLostHandler((reason) => {
   const s = useStore.getState();
-  if (s.authMode === 'account' && !s.authLost) useStore.setState({ authLost: true });
+  if (s.authMode !== 'account' || s.authLost) return;
+  useStore.setState({ authLost: true, authLostReason: reason.code === 'TOKEN_INVALID' ? 'elsewhere' : 'expired' });
 });
 
 // ── 서버 아이템 합치기 ──
@@ -79,6 +83,7 @@ export async function enterAccount(user: UserDto): Promise<'home' | 'onboarding'
     authMode: 'account',
     user: toAccountUser(user),
     authLost: false,
+    authLostReason: null,
     profile,
     onboarded: profileDto.onboarded,
   });
@@ -149,7 +154,7 @@ export async function bootstrapSession(): Promise<void> {
 
 /** 로그인이 풀린 뒤 게스트로 계속 쓰기: 기기 데이터는 그대로 둔다 */
 export function continueAsGuest() {
-  useStore.setState({ authMode: 'guest', user: null, authLost: false });
+  useStore.setState({ authMode: 'guest', user: null, authLost: false, authLostReason: null });
 }
 
 export async function logout(): Promise<void> {

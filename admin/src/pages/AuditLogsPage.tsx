@@ -1,4 +1,4 @@
-// 변경 이력: 코드·AI 공급자·회원·앱 설정을 누가 언제 어떻게 바꿨는지 (before/after)
+// 변경 이력: 코드·AI 공급자·회원·앱 설정·로그인 세션을 누가 언제 어떻게 바꿨는지 (before/after)
 import { Fragment, useState } from 'react';
 
 import { api } from '@/api';
@@ -22,7 +22,19 @@ const TARGET_TYPES: { value: string; label: string }[] = [
   { value: 'USER', label: '회원' },
   // 앱 테마 변경(APP_THEME_UPDATE, doc/12 3장). 서버가 다른 값을 쓰면 아래 extraTypes로 탭이 생긴다
   { value: 'APP_SETTING', label: '앱 설정' },
+  // 강제 로그아웃(doc/16 3장). 회원 단위(USER_SESSIONS_REVOKE)는 서버가 USER로 남길 수도 있다
+  { value: 'SESSION', label: '로그인 세션' },
 ];
+
+/** 동작 라벨. 없는 동작은 원문(SESSION_REVOKE 같은 값) 그대로 보여 준다 */
+const ACTION_LABELS: Record<string, string> = {
+  SESSION_REVOKE: '세션 로그아웃',
+  USER_SESSIONS_REVOKE: '모든 기기 로그아웃',
+};
+
+const actionTone = (action: string): 'red' | 'green' | 'gray' => {
+  return /DELETE|REVOKE/i.test(action) ? 'red' : /CREATE/i.test(action) ? 'green' : 'gray';
+};
 
 const targetLabel = (t: string): string => {
   return TARGET_TYPES.find((x) => x.value === t)?.label ?? t;
@@ -84,7 +96,7 @@ export const AuditLogsPage = () => {
 
   return (
     <>
-      <PageHeader title="변경 이력" desc="관리자가 바꾼 코드·AI 공급자·회원·앱 설정 기록" />
+      <PageHeader title="변경 이력" desc="관리자가 바꾼 코드·AI 공급자·회원·앱 설정 기록과 강제 로그아웃" />
       <div className="tabs">
         {[{ value: '', label: '전체' }, ...TARGET_TYPES, ...extraTypes.map((t) => ({ value: t, label: t }))].map(
           (t) => (
@@ -130,10 +142,8 @@ export const AuditLogsPage = () => {
                             {r.adminEmail ?? r.adminName ?? (r.adminUserId ? `#${r.adminUserId}` : '—')}
                           </td>
                           <td>
-                            <Badge
-                              tone={/DELETE/i.test(r.action) ? 'red' : /CREATE/i.test(r.action) ? 'green' : 'gray'}
-                            >
-                              {r.action}
+                            <Badge tone={actionTone(r.action)} title={r.action}>
+                              {ACTION_LABELS[r.action] ?? r.action}
                             </Badge>
                           </td>
                           <td>
