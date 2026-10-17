@@ -9,6 +9,8 @@ import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto;
 import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.ColorCount;
 import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.StyleCount;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
+import app.wearly.wardrobe.application.port.out.dto.KeyCountDto;
+import app.wearly.wardrobe.domain.KeyCount;
 import app.wearly.wardrobe.domain.WardrobeStatsRules;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -39,9 +41,11 @@ public class WardrobeStatsService implements WardrobeStatsUseCase {
 
     CodeSnapshot codes = catalog.current();
     Map<String, Long> byCategory =
-        WardrobeStatsRules.keyed(codes, CodeGroups.CATEGORY, queries.countByCategory(userId));
+        WardrobeStatsRules.keyed(
+            codes, CodeGroups.CATEGORY, counts(queries.countByCategory(userId)));
     Map<String, Long> byStatus =
-        WardrobeStatsRules.keyed(codes, CodeGroups.ITEM_STATUS, queries.countByStatus(userId));
+        WardrobeStatsRules.keyed(
+            codes, CodeGroups.ITEM_STATUS, counts(queries.countByStatus(userId)));
 
     List<ColorCount> byColor =
         queries.countByColor(userId).stream().map(r -> new ColorCount(r.key(), r.count())).toList();
@@ -64,5 +68,9 @@ public class WardrobeStatsService implements WardrobeStatsUseCase {
 
     return new WardrobeStatsDto(
         total, byCategory, byColor, byStyle, byStatus, worn, utilization, sleeping);
+  }
+
+  private static List<KeyCount> counts(List<KeyCountDto> rows) {
+    return rows.stream().map(r -> new KeyCount(r.key(), r.count())).toList();
   }
 }

@@ -45,6 +45,8 @@ mybatis:
   type-handlers-package: app.wearly.common.mybatis
   configuration:
     map-underscore-to-camel-case: true
+    # 결과를 record(생성자만 있는 클래스)로 바로 받을 때 컬럼 이름과 생성자 인자 이름으로 맞춘다 (08 문서 7장 port.out.dto)
+    arg-name-based-constructor-auto-mapping: true
 
 management:
   endpoints:

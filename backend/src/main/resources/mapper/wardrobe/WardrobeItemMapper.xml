@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!-- 옷장 읽기 전용 조회: 동적 필터 목록과 /wardrobe/stats 집계 -->
+<!-- 옷장 읽기 전용 조회: 동적 필터 목록, /wardrobe/stats 집계, 코드 사용 수 (code 컨텍스트가 CodeUsageSource로 묻는다) -->
 <mapper namespace="app.wearly.wardrobe.adapter.out.persistence.mybatis.mapper.WardrobeItemMapper">
 
     <resultMap id="itemRow" type="app.wearly.wardrobe.adapter.out.persistence.mybatis.dto.ItemRowDto">
@@ -20,10 +20,6 @@
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
-    <resultMap id="countRow" type="app.wearly.wardrobe.adapter.out.persistence.mybatis.dto.CountRowDto">
-        <result property="key" column="key"/>
-        <result property="count" column="count"/>
-    </resultMap>
 
     <select id="findItems" parameterType="app.wearly.wardrobe.application.port.out.ItemFilter" resultMap="itemRow">
         SELECT item_id, name, category, sub_type, color, pattern, seasons, styles, formality, status, brand,
@@ -60,14 +56,14 @@
         SELECT count(*) FROM tb_wardrobe_item WHERE user_id = #{userId}
     </select>
 
-    <select id="countByCategory" resultMap="countRow">
+    <select id="countByCategory" resultType="app.wearly.wardrobe.application.port.out.dto.KeyCountDto">
         SELECT category AS key, count(*) AS count
           FROM tb_wardrobe_item
          WHERE user_id = #{userId}
          GROUP BY category
     </select>
 
-    <select id="countByColor" resultMap="countRow">
+    <select id="countByColor" resultType="app.wearly.wardrobe.application.port.out.dto.KeyCountDto">
         SELECT color AS key, count(*) AS count
           FROM tb_wardrobe_item
          WHERE user_id = #{userId}
@@ -76,7 +72,7 @@
     </select>
 
     <!-- styles는 TEXT[]라서 펼쳐서 센다 -->
-    <select id="countByStyle" resultMap="countRow">
+    <select id="countByStyle" resultType="app.wearly.wardrobe.application.port.out.dto.KeyCountDto">
         SELECT s.style AS key, count(*) AS count
           FROM tb_wardrobe_item i
          CROSS JOIN LATERAL unnest(i.styles) AS s(style)
@@ -85,7 +81,7 @@
          ORDER BY count DESC, s.style ASC
     </select>
 
-    <select id="countByStatus" resultMap="countRow">
+    <select id="countByStatus" resultType="app.wearly.wardrobe.application.port.out.dto.KeyCountDto">
         SELECT status AS key, count(*) AS count
           FROM tb_wardrobe_item
          WHERE user_id = #{userId}
@@ -107,5 +103,38 @@
            AND (last_worn_at IS NULL OR last_worn_at &lt; #{before})
          ORDER BY last_worn_at ASC NULLS FIRST, created_at ASC, item_id ASC
          LIMIT #{limit}
+    </select>
+
+    <!-- 코드 값을 담는 컬럼 7개 (category·sub_type·color·pattern·status 한 값, seasons·styles 배열).
+         컬럼을 늘리면 여기와 countUsing에 함께 넣는다 (코드 삭제 가드가 이 쿼리로만 사용 여부를 본다) -->
+    <select id="countByCode" resultType="app.wearly.wardrobe.application.port.out.dto.CodeCountDto">
+        SELECT 'CATEGORY' AS group_code, category AS code, count(*) AS count FROM tb_wardrobe_item GROUP BY category
+        UNION ALL
+        SELECT 'SUB_TYPE', sub_type, count(*) FROM tb_wardrobe_item GROUP BY sub_type
+        UNION ALL
+        SELECT 'COLOR', color, count(*) FROM tb_wardrobe_item GROUP BY color
+        UNION ALL
+        SELECT 'PATTERN', pattern, count(*) FROM tb_wardrobe_item GROUP BY pattern
+        UNION ALL
+        SELECT 'ITEM_STATUS', status, count(*) FROM tb_wardrobe_item GROUP BY status
+        UNION ALL
+        SELECT 'SEASON', s.v, count(*) FROM tb_wardrobe_item i CROSS JOIN LATERAL unnest(i.seasons) AS s(v) GROUP BY s.v
+        UNION ALL
+        SELECT 'STYLE', s.v, count(*) FROM tb_wardrobe_item i CROSS JOIN LATERAL unnest(i.styles) AS s(v) GROUP BY s.v
+    </select>
+
+    <select id="countUsing" resultType="long">
+        SELECT count(*)
+          FROM tb_wardrobe_item
+        <choose>
+            <when test="group == 'CATEGORY'">WHERE category = #{code}</when>
+            <when test="group == 'SUB_TYPE'">WHERE sub_type = #{code}</when>
+            <when test="group == 'COLOR'">WHERE color = #{code}</when>
+            <when test="group == 'PATTERN'">WHERE pattern = #{code}</when>
+            <when test="group == 'ITEM_STATUS'">WHERE status = #{code}</when>
+            <when test="group == 'SEASON'">WHERE #{code} = ANY (seasons)</when>
+            <when test="group == 'STYLE'">WHERE #{code} = ANY (styles)</when>
+            <otherwise>WHERE FALSE</otherwise>
+        </choose>
     </select>
 </mapper>

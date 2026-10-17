@@ -1,17 +1,17 @@
 package app.wearly.wardrobe.adapter.out.persistence.mybatis;
 
-import app.wearly.wardrobe.adapter.out.persistence.mybatis.dto.CountRowDto;
 import app.wearly.wardrobe.adapter.out.persistence.mybatis.dto.ItemRowDto;
 import app.wearly.wardrobe.adapter.out.persistence.mybatis.mapper.WardrobeItemMapper;
 import app.wearly.wardrobe.application.port.out.ItemFilter;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
-import app.wearly.wardrobe.domain.KeyCount;
+import app.wearly.wardrobe.application.port.out.dto.CodeCountDto;
+import app.wearly.wardrobe.application.port.out.dto.KeyCountDto;
 import app.wearly.wardrobe.domain.WardrobeItem;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
-/** ItemQueryPort 구현 (MyBatis). 행 → 도메인 모델 변환 */
+/** ItemQueryPort 구현 (MyBatis). 목록 행 → 도메인 모델 변환, 집계는 매퍼가 port.out.dto로 바로 돌려준다 */
 @Component
 class WardrobeItemMybatisAdapter implements ItemQueryPort {
 
@@ -32,23 +32,23 @@ class WardrobeItemMybatisAdapter implements ItemQueryPort {
   }
 
   @Override
-  public List<KeyCount> countByCategory(long userId) {
-    return counts(mapper.countByCategory(userId));
+  public List<KeyCountDto> countByCategory(long userId) {
+    return mapper.countByCategory(userId);
   }
 
   @Override
-  public List<KeyCount> countByColor(long userId) {
-    return counts(mapper.countByColor(userId));
+  public List<KeyCountDto> countByColor(long userId) {
+    return mapper.countByColor(userId);
   }
 
   @Override
-  public List<KeyCount> countByStyle(long userId) {
-    return counts(mapper.countByStyle(userId));
+  public List<KeyCountDto> countByStyle(long userId) {
+    return mapper.countByStyle(userId);
   }
 
   @Override
-  public List<KeyCount> countByStatus(long userId) {
-    return counts(mapper.countByStatus(userId));
+  public List<KeyCountDto> countByStatus(long userId) {
+    return mapper.countByStatus(userId);
   }
 
   @Override
@@ -61,8 +61,14 @@ class WardrobeItemMybatisAdapter implements ItemQueryPort {
     return mapper.findSleepingIds(userId, before, limit);
   }
 
-  private static List<KeyCount> counts(List<CountRowDto> rows) {
-    return rows.stream().map(r -> new KeyCount(r.getKey(), r.getCount())).toList();
+  @Override
+  public List<CodeCountDto> countByCode() {
+    return mapper.countByCode();
+  }
+
+  @Override
+  public long countUsing(String group, String code) {
+    return mapper.countUsing(group, code);
   }
 
   private static WardrobeItem toDomain(ItemRowDto r, long userId) {
