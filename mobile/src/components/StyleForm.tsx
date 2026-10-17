@@ -1,7 +1,9 @@
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { COLOR_KEYS, COLOR, FORMALITY_LABEL, STYLE_LABEL, STYLE_TAGS, WEEKDAY_SHORT } from '@/data/constants';
+import { FORMALITY_LABEL, WEEKDAY_SHORT } from '@/data/constants';
 import type { Formality, Profile, WorkType } from '@/data/types';
+import { activeCodes, colorLabel, styleLabel, withCurrent } from '@/lib/codes';
+import { useCodesVersion } from '@/store/useCodes';
 import { colors } from '@/theme';
 import { ChipGroup } from './Chip';
 import { Badge, Label } from './ui';
@@ -13,6 +15,7 @@ const WORK_PRESET: Record<WorkType, number[]> = { WEEKDAY: [1, 2, 3, 4, 5], WEEK
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 export function StylePrefs({ value, onChange }: { value: Profile; onChange: (p: Profile) => void }) {
+  useCodesVersion(); // 코드가 갱신되면 다시 그린다
   return (
     <View style={{ gap: 26 }}>
       <View>
@@ -27,16 +30,23 @@ export function StylePrefs({ value, onChange }: { value: Profile; onChange: (p: 
       </View>
       <View>
         <Label>선호 분위기 (복수 선택)</Label>
-        <ChipGroup options={STYLE_TAGS} labels={STYLE_LABEL} value={value.moods} multi onChange={(moods) => onChange({ ...value, moods })} />
+        <ChipGroup
+          options={withCurrent(activeCodes('STYLE'), value.moods)}
+          labels={styleLabel}
+          value={value.moods}
+          multi
+          onChange={(moods) => onChange({ ...value, moods })}
+        />
       </View>
       <View>
         <Label>자주 입는 색</Label>
         <ChipGroup
-          options={COLOR_KEYS.slice(0, 8)}
-          labels={(c) => COLOR[c].label}
+          options={withCurrent(activeCodes('COLOR'), value.colors)}
+          labels={colorLabel}
           value={value.colors}
           multi
           dots
+          small
           onChange={(cs) => onChange({ ...value, colors: cs })}
         />
       </View>

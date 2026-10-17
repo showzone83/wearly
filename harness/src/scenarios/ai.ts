@@ -1,5 +1,5 @@
 // AI 사진 분석 (목업 공급자)
-import { COLOR, SUBTYPE } from '../../../mobile/src/data/constants';
+import { COLOR, SUBTYPE } from '../lib/appCodes';
 import { eq, expectApiError, isNonEmptyString, ok } from '../lib/assert';
 import { HARNESS_AI_DAILY_LIMIT } from '../lib/config';
 import { checkErrorBody, raw } from '../lib/http';

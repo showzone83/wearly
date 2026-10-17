@@ -4,8 +4,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { OutfitBoard, OutfitItemRows, ReasonBox } from '@/components/OutfitView';
 import { Button, Header, Row, Screen, Serif } from '@/components/ui';
-import { FORMALITY_LABEL, MOOD_LABEL, OCCASION_LABEL, STYLE_LABEL } from '@/data/constants';
+import { FORMALITY_LABEL, MOOD_LABEL, OCCASION_LABEL } from '@/data/constants';
 import type { Outfit, ScoreBreakdown } from '@/data/types';
+import { styleLabel } from '@/lib/codes';
 import { newId } from '@/lib/context';
 import { longLabel, todayKey } from '@/lib/date';
 import { WEIGHTS } from '@/lib/recommend';
@@ -41,7 +42,7 @@ export default function Result() {
 
   const kicker =
     draft.mode === 'PLAN' && draft.plan
-      ? `${longLabel(draft.plan.date)} · ${OCCASION_LABEL[ctx.occasion]} · ${draft.plan.concepts.map((c) => STYLE_LABEL[c]).join('·')}`
+      ? `${longLabel(draft.plan.date)} · ${OCCASION_LABEL[ctx.occasion]} · ${draft.plan.concepts.map(styleLabel).join('·')}`
       : `${OCCASION_LABEL[ctx.occasion]} · ${MOOD_LABEL[ctx.mood]} · ${FORMALITY_LABEL[ctx.formality]}`;
 
   const save = () => {

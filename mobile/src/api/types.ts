@@ -1,41 +1,21 @@
-// 백엔드 API DTO (doc/05_백엔드_API.md 6장).
-// 이 폴더는 Node(연동 하네스)에서도 그대로 import되므로 앱 쪽 타입(@/data/types)을 가져오지 않고
-// 같은 문자열 값을 여기 다시 정의한다. 앱 타입과 어긋나면 src/lib/serverItems.ts의 타입 검사가 깨진다.
+// 백엔드 API DTO (doc/05_백엔드_API.md 6장, doc/06_코드_관리.md 4장).
+// 이 폴더는 Node(연동 하네스)에서도 그대로 import되므로 앱 쪽 타입(@/data/types)을 가져오지 않는다.
+// 옷 속성 값(종류·세부 종류·색·패턴·계절·스타일·보유 상태)은 서버 코드 테이블(GET /codes)이 정하므로 문자열이다.
 
-export type Category = 'TOP' | 'BOTTOM' | 'OUTER' | 'SHOES' | 'BAG' | 'ACC';
-export type SubType =
-  | 'TEE'
-  | 'KNIT'
-  | 'SHIRT'
-  | 'CARDIGAN'
-  | 'SLACKS'
-  | 'WIDE'
-  | 'CHINO'
-  | 'SKIRT'
-  | 'JACKET'
-  | 'COAT'
-  | 'LOAFER'
-  | 'SNEAKER'
-  | 'TOTE'
-  | 'SHOULDER'
-  | 'WATCH';
-export type ColorKey =
-  | 'navy'
-  | 'black'
-  | 'charcoal'
-  | 'gray'
-  | 'white'
-  | 'ivory'
-  | 'beige'
-  | 'camel'
-  | 'brown'
-  | 'khaki'
-  | 'lightblue'
-  | 'burgundy';
-export type Pattern = 'SOLID' | 'STRIPE' | 'CHECK' | 'ETC';
-export type Season = 'SPRING' | 'SUMMER' | 'FALL' | 'WINTER';
-export type StyleTag = 'NEAT' | 'MINIMAL' | 'CASUAL' | 'CLASSIC' | 'STREET';
-export type ItemStatus = 'OWNED' | 'LAUNDRY' | 'REPAIR';
+/** CATEGORY 코드 (예: TOP, DRESS) */
+export type Category = string;
+/** SUB_TYPE 코드 (예: KNIT, SHIRT_DRESS). parent가 Category */
+export type SubType = string;
+/** COLOR 코드 (예: navy) */
+export type ColorKey = string;
+/** PATTERN 코드 (예: SOLID) */
+export type Pattern = string;
+/** SEASON 코드 (예: SPRING) */
+export type Season = string;
+/** STYLE 코드 (예: NEAT). 아이템 스타일이자 프로필 취향(moods) 값 */
+export type StyleTag = string;
+/** ITEM_STATUS 코드 (예: OWNED) */
+export type ItemStatus = string;
 export type DressCode = 'CASUAL' | 'BIZ_CASUAL' | 'FORMAL';
 export type WorkType = 'WEEKDAY' | 'WEEKEND' | 'CUSTOM';
 
@@ -45,6 +25,8 @@ export interface UserDto {
   id: string;
   email: string | null;
   name: string;
+  /** USER · ADMIN (doc/07). 예전 서버는 보내지 않는다 */
+  role?: string;
   createdAt: string;
 }
 
@@ -128,6 +110,7 @@ export interface ItemFilter {
 
 export interface WardrobeStats {
   total: number;
+  /** 활성 CATEGORY 코드 전부 (0 포함) + 아이템이 있는 비활성 코드 */
   byCategory: Record<Category, number>;
   byColor: { color: ColorKey; count: number }[];
   byStyle: { style: StyleTag; count: number }[];
@@ -139,7 +122,8 @@ export interface WardrobeStats {
 
 // ── AI 분석 ──
 
-export type AiProvider = 'mock' | 'claude';
+/** 공급자 ID (tb_ai_provider.provider_id). 예: "claude", "openai", "gemini", 서버 목업이면 "mock" */
+export type AiProvider = string;
 
 export interface AnalyzeSuggestion {
   name: string;
@@ -160,6 +144,41 @@ export interface AnalyzeResponse {
   model: string | null;
   remainingToday: number;
 }
+
+// ── 코드 (doc/06_코드_관리.md 4장) ──
+
+/** 코드 그룹. 서버가 새 그룹을 더해도 받을 수 있게 string도 허용한다 */
+export type CodeGroupKey = 'CATEGORY' | 'SUB_TYPE' | 'COLOR' | 'PATTERN' | 'SEASON' | 'STYLE' | 'ITEM_STATUS';
+
+export interface CodeDto {
+  code: string;
+  /** 한국어 표시 이름 */
+  label: string;
+  /** SUB_TYPE만: CATEGORY 코드 */
+  parent: string | null;
+  sortOrder: number;
+  /** false면 새로 고를 수 없지만 저장된 값의 이름은 보여 준다 */
+  active: boolean;
+  /** 그룹별 속성 (06 문서 3장) */
+  attrs: Record<string, unknown>;
+}
+
+export interface CodeGroupDto {
+  group: CodeGroupKey | (string & {});
+  name: string;
+  codes: CodeDto[];
+}
+
+export interface CodesResponse {
+  /** 코드 테이블이 바뀌면 달라지는 문자열. ETag와 같은 값 */
+  version: string;
+  groups: CodeGroupDto[];
+}
+
+/** GET /codes 결과. If-None-Match가 맞아 304가 오면 changed: false */
+export type CodesResult =
+  | { changed: true; codes: CodesResponse; /** 다음 요청의 If-None-Match에 그대로 넣을 값 */ etag: string }
+  | { changed: false };
 
 /** React Native의 FormData 파일 파트 모양 */
 export interface RNFile {

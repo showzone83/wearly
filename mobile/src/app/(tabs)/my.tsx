@@ -4,8 +4,8 @@ import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { Badge, confirm, notify, Row, Screen, Serif } from '@/components/ui';
-import { STYLE_LABEL } from '@/data/constants';
 import { deleteAccount, logout, saveProfile } from '@/lib/account';
+import { styleLabel } from '@/lib/codes';
 import { API_BASE_URL, errorMessage } from '@/lib/api';
 import { MOCK_MODE } from '@/lib/mode';
 import { diffDays, todayKey } from '@/lib/date';
@@ -81,7 +81,7 @@ export default function My() {
       </View>
 
       <Text style={s.section}>스타일</Text>
-      <MenuRow label="스타일 · 근무 패턴 설정" value={profile.moods.map((m) => STYLE_LABEL[m]).join(' · ') || '미설정'} onPress={() => router.push('/settings')} />
+      <MenuRow label="스타일 · 근무 패턴 설정" value={profile.moods.map(styleLabel).join(' · ') || '미설정'} onPress={() => router.push('/settings')} />
       <MenuRow label="옷장 스타일 분석" onPress={() => router.push('/analysis')} />
       <MenuRow label="AI 진단 리포트" value={looks.length ? `${looks.length}건` : undefined} onPress={() => router.push('/analysis')} />
       <MenuRow

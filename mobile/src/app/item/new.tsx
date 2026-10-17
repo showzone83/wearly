@@ -8,11 +8,11 @@ import { GarmentArt } from '@/components/GarmentArt';
 import { Icon } from '@/components/Icon';
 import { defaultName, ItemForm, type ItemDraft } from '@/components/ItemForm';
 import { Badge, Button, Header, Kicker, notify, Row, Screen, Serif } from '@/components/ui';
-import { COLOR_KEYS, SUBTYPE, SUBTYPES_BY_CATEGORY } from '@/data/constants';
 import type { Category, ColorKey, SubType } from '@/data/types';
 import { isApiError } from '@/api/errors';
 import { createItem, isAccountMode } from '@/lib/account';
 import { api, errorMessage, isNetworkError, photoFile } from '@/lib/api';
+import { activeCodes, defaultStatus, isActiveCode, subTypeMeta, subTypesOf } from '@/lib/codes';
 import { MOCK_MODE } from '@/lib/mode';
 import { canRecommend } from '@/lib/recommend';
 import { draftFromSuggestion } from '@/lib/serverItems';
@@ -25,15 +25,26 @@ const ANALYSIS_STEPS = ['종류 인식', '색상 추출', '패턴 · 계절 판�
 /** 분석 진행 표시를 끝까지 보여 주는 최소 시간 */
 const MIN_ANALYZE_MS = 550 * ANALYSIS_STEPS.length + 300;
 
-/** AI 제안의 출처: 게스트 목업 · 서버 목업 공급자 · Claude · 서버 연결 실패로 기기 목업 대체 */
-type AiSource = 'guest' | 'server-mock' | 'claude' | 'fallback';
+/**
+ * AI 제안의 출처: 게스트 목업 · 서버(공급자 ID) · 서버 연결 실패로 기기 목업 대체.
+ * 서버 응답의 provider는 공급자 ID 문자열이다(doc/07 3장). "mock"이면 서버 목업 공급자.
+ */
+type AiSource = { kind: 'guest' } | { kind: 'fallback' } | { kind: 'server'; provider: string };
 
-const AI_BADGE: Record<AiSource, string> = {
-  guest: 'AI 제안 · 목업',
-  'server-mock': 'AI 제안 · 서버 목업',
-  claude: 'AI 제안',
-  fallback: 'AI 제안 · 기기 목업',
-};
+/** 알려진 공급자 ID의 표시 이름. 그 밖의 ID는 그대로 보여 준다 */
+const PROVIDER_NAME: Record<string, string> = { claude: 'Claude', openai: 'OpenAI', gemini: 'Gemini' };
+
+function aiBadge(src: AiSource): string {
+  if (src.kind === 'guest') return 'AI 제안 · 목업';
+  if (src.kind === 'fallback') return 'AI 제안 · 기기 목업';
+  return src.provider === 'mock' ? 'AI 제안 · 서버 목업' : 'AI 제안';
+}
+
+/** 실제 공급자일 때 배지 옆에 작게 붙이는 공급자 이름 */
+function providerNote(src: AiSource): string | null {
+  if (src.kind !== 'server' || src.provider === 'mock') return null;
+  return PROVIDER_NAME[src.provider] ?? src.provider;
+}
 
 type PickedAsset = { uri: string; fileName?: string | null; mimeType?: string | null };
 
@@ -54,25 +65,32 @@ function hash(str: string): number {
  */
 function mockAnalyze(uri: string): ItemDraft {
   const h = hash(uri);
-  const cats: Category[] = ['TOP', 'TOP', 'BOTTOM', 'OUTER', 'SHOES', 'BAG'];
+  // 활성 코드에서 고른다. 상의는 두 번 넣어 자주 나오게 한다
+  const cats: Category[] = ['TOP', 'TOP', 'BOTTOM', 'DRESS', 'OUTER', 'SHOES', 'BAG'].filter((c) => subTypesOf(c).length > 0);
+  if (cats.length === 0) cats.push(...activeCodes('CATEGORY').filter((c) => subTypesOf(c).length > 0));
   const category = cats[h % cats.length];
-  const subs = SUBTYPES_BY_CATEGORY[category];
+  const subs = subTypesOf(category);
   // h는 32비트 부호 없는 값이라 >>(부호 있는 시프트)를 쓰면 음수 인덱스가 나온다
   const subType: SubType = subs[(h >>> 3) % subs.length];
-  const palette: ColorKey[] = COLOR_KEYS.slice(0, 8);
+  const palette: ColorKey[] = activeCodes('COLOR').slice(0, 8);
   const color = palette[(h >>> 7) % palette.length];
   return {
     name: defaultName({ color, subType }),
     category,
     subType,
     color,
-    pattern: 'SOLID',
-    seasons: SUBTYPE[subType].warmth >= 2 ? ['FALL', 'WINTER'] : ['SPRING', 'FALL'],
-    styles: ['MINIMAL'],
+    pattern: pick(activeCodes('PATTERN'), 'SOLID'),
+    seasons: subTypeMeta(subType).warmth >= 2 ? ['FALL', 'WINTER'] : ['SPRING', 'FALL'],
+    styles: [pick(activeCodes('STYLE'), 'MINIMAL')],
     formality: 2,
-    status: 'OWNED',
+    status: defaultStatus(),
     imageUri: uri,
   };
+}
+
+/** 원하는 코드가 활성이면 그것, 아니면 첫 활성 코드 */
+function pick(options: string[], preferred: string): string {
+  return options.includes(preferred) ? preferred : (options[0] ?? preferred);
 }
 
 /**
@@ -82,14 +100,14 @@ function mockAnalyze(uri: string): ItemDraft {
  */
 async function runAnalysis(asset: PickedAsset): Promise<Outcome> {
   if (!isAccountMode()) {
-    if (MOCK_MODE) return { kind: 'ai', source: 'guest', draft: mockAnalyze(asset.uri) };
+    if (MOCK_MODE) return { kind: 'ai', source: { kind: 'guest' }, draft: mockAnalyze(asset.uri) };
     return { kind: 'error', message: '로그인해야 AI 분석을 쓸 수 있어요.' };
   }
   try {
     const res = await api.wardrobe.analyze(await photoFile(asset));
     return {
       kind: 'ai',
-      source: res.provider === 'claude' ? 'claude' : 'server-mock',
+      source: { kind: 'server', provider: String(res.provider ?? '') },
       draft: draftFromSuggestion(res.suggestion, asset.uri),
       remaining: res.remainingToday,
     };
@@ -97,23 +115,30 @@ async function runAnalysis(asset: PickedAsset): Promise<Outcome> {
     const cause = (e as { cause?: unknown }).cause;
     console.warn('[item/new] AI 분석 실패', e, cause, asset);
     if (isApiError(e) && e.code === 'AI_LIMIT_EXCEEDED') return { kind: 'limit' };
-    if (isNetworkError(e) && MOCK_MODE) return { kind: 'ai', source: 'fallback', draft: mockAnalyze(asset.uri) };
+    if (isNetworkError(e) && MOCK_MODE) return { kind: 'ai', source: { kind: 'fallback' }, draft: mockAnalyze(asset.uri) };
     const detail = cause instanceof Error ? ` (${cause.message})` : '';
     return { kind: 'error', message: errorMessage(e, 'AI 분석에 실패했어요.') + detail };
   }
 }
 
-const MANUAL: ItemDraft = {
-  name: '네이비 니트',
-  category: 'TOP',
-  subType: 'KNIT',
-  color: 'navy',
-  pattern: 'SOLID',
-  seasons: ['FALL', 'WINTER'],
-  styles: ['NEAT'],
-  formality: 2,
-  status: 'OWNED',
-};
+/** 직접 입력의 첫 값: 네이비 니트. 코드가 비활성이면 각 그룹의 첫 활성 값으로 */
+function manualDraft(imageUri?: string): ItemDraft {
+  const category = isActiveCode('CATEGORY', 'TOP') ? 'TOP' : pick(activeCodes('CATEGORY'), 'TOP');
+  const subType = pick(subTypesOf(category), 'KNIT');
+  const color = pick(activeCodes('COLOR'), 'navy');
+  return {
+    name: defaultName({ color, subType }),
+    category,
+    subType,
+    color,
+    pattern: pick(activeCodes('PATTERN'), 'SOLID'),
+    seasons: ['FALL', 'WINTER'].filter((x) => isActiveCode('SEASON', x)),
+    styles: ['NEAT'].filter((x) => isActiveCode('STYLE', x)),
+    formality: 2,
+    status: defaultStatus(),
+    imageUri,
+  };
+}
 
 export default function NewItem() {
   const items = useStore((s) => s.items);
@@ -139,7 +164,7 @@ export default function NewItem() {
   const manual = (uri?: string) => {
     runRef.current++;
     setAiSource(null);
-    setDraft({ ...MANUAL, imageUri: uri });
+    setDraft(manualDraft(uri));
     setStep(3);
   };
 
@@ -224,13 +249,13 @@ export default function NewItem() {
       >
         {progress}
         <View style={{ alignItems: 'center', paddingTop: 40 }}>
-          {draft && <GarmentArt subType={draft.subType} color={draft.color} pattern={draft.pattern} size={140} />}
+          {draft && <GarmentArt subType={draft.subType} category={draft.category} color={draft.color} pattern={draft.pattern} size={140} />}
           <Kicker>STEP 4 / 4</Kicker>
           <Serif style={s.doneTitle}>옷장에 추가했어요</Serif>
           <Text style={s.doneSub}>
             {after.ok
               ? `총 ${items.length}벌 · 이제 이 옷이 들어간 코디도 추천해 드려요.`
-              : `첫 코디까지 ${after.missing.join(', ')} 1벌씩 남았어요.`}
+              : `첫 코디까지 ${after.missing.join(', ')} 1벌씩 남았어요. 원피스 한 벌로도 시작할 수 있어요.`}
           </Text>
         </View>
       </Screen>
@@ -257,14 +282,19 @@ export default function NewItem() {
             {draft.imageUri ? (
               <Image source={{ uri: draft.imageUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
             ) : (
-              <GarmentArt subType={draft.subType} color={draft.color} pattern={draft.pattern} size={86} />
+              <GarmentArt subType={draft.subType} category={draft.category} color={draft.color} pattern={draft.pattern} size={86} />
             )}
           </View>
           <View style={{ flex: 1, gap: 6 }}>
-            {aiSource && <Badge tone={aiSource === 'fallback' ? 'beige' : 'green'}>{AI_BADGE[aiSource]}</Badge>}
+            {aiSource && (
+              <Row style={{ gap: 6 }}>
+                <Badge tone={aiSource.kind === 'fallback' ? 'beige' : 'green'}>{aiBadge(aiSource)}</Badge>
+                {providerNote(aiSource) && <Text style={s.provider}>{providerNote(aiSource)}</Text>}
+              </Row>
+            )}
             <Text style={s.formTitle}>{fromAi ? '분석이 끝났어요' : '직접 입력해 주세요'}</Text>
             <Text style={s.formSub}>
-              {aiSource === 'fallback'
+              {aiSource?.kind === 'fallback'
                 ? '서버에 연결하지 못해 기기 안의 목업 분석으로 대신했어요. 틀린 항목은 바로 수정하세요'
                 : fromAi
                   ? '틀린 항목은 바로 수정하세요'
@@ -354,4 +384,5 @@ const s = StyleSheet.create({
   formTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
   formSub: { fontSize: 13, color: colors.sub, lineHeight: 18 },
   remaining: { fontSize: 12, color: colors.green, fontWeight: '700' },
+  provider: { fontSize: 11, color: colors.sub, fontWeight: '600' },
 });

@@ -5,9 +5,10 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { ChipGroup } from '@/components/Chip';
 import { ItemThumb } from '@/components/ItemThumb';
 import { Button, Header, Kicker, Label, Screen, Serif, Stars } from '@/components/ui';
-import { CATEGORY_LABEL, EMOTION_LABEL, OTHERS_LABEL, SLOTS } from '@/data/constants';
+import { EMOTION_LABEL, OTHERS_LABEL, SLOTS } from '@/data/constants';
 import type { DailyLook, Emotion, OthersReaction, OutfitItems, Slot } from '@/data/types';
 import { pushWorn } from '@/lib/account';
+import { slotLabel } from '@/lib/codes';
 import { dayContext, newId } from '@/lib/context';
 import { longLabel, todayKey } from '@/lib/date';
 import { diagnose } from '@/lib/diagnose';
@@ -34,7 +35,19 @@ export default function NewLook() {
   const [praised, setPraised] = useState<string | undefined>();
 
   const chosen = Object.values(items).filter(Boolean) as string[];
-  const canSave = !!items.TOP && !!items.BOTTOM;
+  // 상의+하의 또는 원피스 한 벌
+  const canSave = (!!items.TOP && !!items.BOTTOM) || !!items.DRESS;
+
+  /** 원피스를 고르면 상의·하의를, 상의·하의를 고르면 원피스를 비운다 */
+  const pickSlot = (slot: Slot, id?: string) => {
+    const next: OutfitItems = { ...items, [slot]: id };
+    if (id && slot === 'DRESS') {
+      delete next.TOP;
+      delete next.BOTTOM;
+    }
+    if (id && (slot === 'TOP' || slot === 'BOTTOM')) delete next.DRESS;
+    setItems(next);
+  };
 
   const submit = () => {
     const ctx = saved?.outfit.context ?? plan?.outfit?.context ?? dayContext(date, profile);
@@ -63,12 +76,21 @@ export default function NewLook() {
       <Kicker>{longLabel(date)}</Kicker>
       <Serif style={s.title}>오늘 입은 옷을 남겨 주세요</Serif>
       <Text style={s.desc}>
-        {saved ? '저장한 코디를 불러왔어요. 실제로 바꿔 입은 옷이 있다면 고쳐 주세요.' : '입은 옷을 칸마다 골라 주세요. 착장 사진 자동 인식은 출시 버전에서 지원해요.'}
+        {saved
+          ? '저장한 코디를 불러왔어요. 실제로 바꿔 입은 옷이 있다면 고쳐 주세요.'
+          : '입은 옷을 칸마다 골라 주세요. 상의·하의 대신 원피스 한 벌도 돼요. 착장 사진 자동 인식은 출시 버전에서 지원해요.'}
       </Text>
 
       <View style={{ gap: 16, marginTop: 20 }}>
         {SLOTS.map((slot) => (
-          <SlotPicker key={slot} slot={slot} value={items[slot]} items={allItems.filter((i) => slotOf(i.category) === slot)} onChange={(id) => setItems({ ...items, [slot]: id })} />
+          <SlotPicker
+            key={slot}
+            slot={slot}
+            value={items[slot]}
+            required={(slot === 'TOP' || slot === 'BOTTOM') && !items.DRESS}
+            items={allItems.filter((i) => slotOf(i.category) === slot)}
+            onChange={(id) => pickSlot(slot, id)}
+          />
         ))}
       </View>
 
@@ -99,13 +121,26 @@ export default function NewLook() {
   );
 }
 
-function SlotPicker({ slot, value, items, onChange }: { slot: Slot; value?: string; items: ReturnType<typeof useStore.getState>['items']; onChange: (id?: string) => void }) {
+function SlotPicker({
+  slot,
+  value,
+  required,
+  items,
+  onChange,
+}: {
+  slot: Slot;
+  value?: string;
+  required: boolean;
+  items: ReturnType<typeof useStore.getState>['items'];
+  onChange: (id?: string) => void;
+}) {
   if (items.length === 0) return null;
   return (
     <View>
       <Label>
-        {CATEGORY_LABEL[slot]}
-        {(slot === 'TOP' || slot === 'BOTTOM') && <Text style={{ color: colors.danger }}> *</Text>}
+        {slotLabel(slot)}
+        {required && <Text style={{ color: colors.danger }}> *</Text>}
+        {slot === 'DRESS' && <Text style={{ color: colors.faint, fontWeight: '400' }}> (고르면 상의·하의 대신)</Text>}
       </Label>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }}>
         {items.map((it) => {

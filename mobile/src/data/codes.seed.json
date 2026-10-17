@@ -1,0 +1,1244 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "group": "CATEGORY",
+      "name": "종류",
+      "description": "옷장 아이템의 큰 분류. attrs.slot은 코디 칸(TOP·BOTTOM·DRESS·OUTER·SHOES·BAG, 없으면 null=코디에 안 들어감)",
+      "codes": [
+        {
+          "code": "TOP",
+          "label": "상의",
+          "parent": null,
+          "attrs": {
+            "slot": "TOP"
+          },
+          "sortOrder": 10
+        },
+        {
+          "code": "BOTTOM",
+          "label": "하의",
+          "parent": null,
+          "attrs": {
+            "slot": "BOTTOM"
+          },
+          "sortOrder": 20
+        },
+        {
+          "code": "DRESS",
+          "label": "원피스",
+          "parent": null,
+          "attrs": {
+            "slot": "DRESS"
+          },
+          "sortOrder": 30
+        },
+        {
+          "code": "OUTER",
+          "label": "아우터",
+          "parent": null,
+          "attrs": {
+            "slot": "OUTER"
+          },
+          "sortOrder": 40
+        },
+        {
+          "code": "SHOES",
+          "label": "신발",
+          "parent": null,
+          "attrs": {
+            "slot": "SHOES"
+          },
+          "sortOrder": 50
+        },
+        {
+          "code": "BAG",
+          "label": "가방",
+          "parent": null,
+          "attrs": {
+            "slot": "BAG"
+          },
+          "sortOrder": 60
+        },
+        {
+          "code": "ACC",
+          "label": "액세서리",
+          "parent": null,
+          "attrs": {
+            "slot": null
+          },
+          "sortOrder": 70
+        }
+      ]
+    },
+    {
+      "group": "SUB_TYPE",
+      "name": "세부 종류",
+      "description": "parent=CATEGORY 코드. attrs.volume(-1 슬림·0 레귤러·1 볼륨), warmth(0~3 보온), shape(일러스트 모양 키)",
+      "codes": [
+        {
+          "code": "TEE",
+          "label": "티셔츠",
+          "parent": "TOP",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "TEE"
+          },
+          "sortOrder": 10
+        },
+        {
+          "code": "LONG_TEE",
+          "label": "긴소매 티셔츠",
+          "parent": "TOP",
+          "attrs": {
+            "volume": 0,
+            "warmth": 1,
+            "shape": "LONG_TEE"
+          },
+          "sortOrder": 20
+        },
+        {
+          "code": "POLO",
+          "label": "폴로 셔츠",
+          "parent": "TOP",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "POLO"
+          },
+          "sortOrder": 30
+        },
+        {
+          "code": "SHIRT",
+          "label": "셔츠",
+          "parent": "TOP",
+          "attrs": {
+            "volume": -1,
+            "warmth": 1,
+            "shape": "SHIRT"
+          },
+          "sortOrder": 40
+        },
+        {
+          "code": "BLOUSE",
+          "label": "블라우스",
+          "parent": "TOP",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "BLOUSE"
+          },
+          "sortOrder": 50
+        },
+        {
+          "code": "KNIT",
+          "label": "니트",
+          "parent": "TOP",
+          "attrs": {
+            "volume": 0,
+            "warmth": 2,
+            "shape": "KNIT"
+          },
+          "sortOrder": 60
+        },
+        {
+          "code": "SWEATSHIRT",
+          "label": "맨투맨",
+          "parent": "TOP",
+          "attrs": {
+            "volume": 0,
+            "warmth": 2,
+            "shape": "SWEATSHIRT"
+          },
+          "sortOrder": 70
+        },
+        {
+          "code": "HOODIE",
+          "label": "후드티",
+          "parent": "TOP",
+          "attrs": {
+            "volume": 1,
+            "warmth": 2,
+            "shape": "HOODIE"
+          },
+          "sortOrder": 80
+        },
+        {
+          "code": "SLEEVELESS",
+          "label": "민소매",
+          "parent": "TOP",
+          "attrs": {
+            "volume": -1,
+            "warmth": 0,
+            "shape": "SLEEVELESS"
+          },
+          "sortOrder": 90
+        },
+        {
+          "code": "VEST",
+          "label": "베스트",
+          "parent": "TOP",
+          "attrs": {
+            "volume": -1,
+            "warmth": 1,
+            "shape": "VEST"
+          },
+          "sortOrder": 100
+        },
+        {
+          "code": "SLACKS",
+          "label": "슬랙스",
+          "parent": "BOTTOM",
+          "attrs": {
+            "volume": -1,
+            "warmth": 1,
+            "shape": "SLACKS"
+          },
+          "sortOrder": 110
+        },
+        {
+          "code": "WIDE",
+          "label": "와이드 팬츠",
+          "parent": "BOTTOM",
+          "attrs": {
+            "volume": 1,
+            "warmth": 1,
+            "shape": "WIDE"
+          },
+          "sortOrder": 120
+        },
+        {
+          "code": "CHINO",
+          "label": "치노 팬츠",
+          "parent": "BOTTOM",
+          "attrs": {
+            "volume": 0,
+            "warmth": 1,
+            "shape": "CHINO"
+          },
+          "sortOrder": 130
+        },
+        {
+          "code": "JEANS",
+          "label": "청바지",
+          "parent": "BOTTOM",
+          "attrs": {
+            "volume": 0,
+            "warmth": 1,
+            "shape": "JEANS"
+          },
+          "sortOrder": 140
+        },
+        {
+          "code": "JOGGER",
+          "label": "조거 팬츠",
+          "parent": "BOTTOM",
+          "attrs": {
+            "volume": 0,
+            "warmth": 1,
+            "shape": "JOGGER"
+          },
+          "sortOrder": 150
+        },
+        {
+          "code": "SHORTS",
+          "label": "반바지",
+          "parent": "BOTTOM",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "SHORTS"
+          },
+          "sortOrder": 160
+        },
+        {
+          "code": "SKIRT",
+          "label": "스커트",
+          "parent": "BOTTOM",
+          "attrs": {
+            "volume": 1,
+            "warmth": 0,
+            "shape": "SKIRT"
+          },
+          "sortOrder": 170
+        },
+        {
+          "code": "PENCIL_SKIRT",
+          "label": "펜슬 스커트",
+          "parent": "BOTTOM",
+          "attrs": {
+            "volume": -1,
+            "warmth": 0,
+            "shape": "PENCIL_SKIRT"
+          },
+          "sortOrder": 180
+        },
+        {
+          "code": "LONG_SKIRT",
+          "label": "롱스커트",
+          "parent": "BOTTOM",
+          "attrs": {
+            "volume": 1,
+            "warmth": 1,
+            "shape": "LONG_SKIRT"
+          },
+          "sortOrder": 190
+        },
+        {
+          "code": "DRESS",
+          "label": "원피스",
+          "parent": "DRESS",
+          "attrs": {
+            "volume": 0,
+            "warmth": 1,
+            "shape": "DRESS"
+          },
+          "sortOrder": 200
+        },
+        {
+          "code": "SHIRT_DRESS",
+          "label": "셔츠 원피스",
+          "parent": "DRESS",
+          "attrs": {
+            "volume": 0,
+            "warmth": 1,
+            "shape": "SHIRT_DRESS"
+          },
+          "sortOrder": 210
+        },
+        {
+          "code": "KNIT_DRESS",
+          "label": "니트 원피스",
+          "parent": "DRESS",
+          "attrs": {
+            "volume": 0,
+            "warmth": 2,
+            "shape": "KNIT_DRESS"
+          },
+          "sortOrder": 220
+        },
+        {
+          "code": "JUMPSUIT",
+          "label": "점프수트",
+          "parent": "DRESS",
+          "attrs": {
+            "volume": 0,
+            "warmth": 1,
+            "shape": "JUMPSUIT"
+          },
+          "sortOrder": 230
+        },
+        {
+          "code": "CARDIGAN",
+          "label": "가디건",
+          "parent": "OUTER",
+          "attrs": {
+            "volume": 0,
+            "warmth": 1,
+            "shape": "CARDIGAN"
+          },
+          "sortOrder": 240
+        },
+        {
+          "code": "JACKET",
+          "label": "재킷",
+          "parent": "OUTER",
+          "attrs": {
+            "volume": 0,
+            "warmth": 2,
+            "shape": "JACKET"
+          },
+          "sortOrder": 250
+        },
+        {
+          "code": "BLAZER",
+          "label": "블레이저",
+          "parent": "OUTER",
+          "attrs": {
+            "volume": 0,
+            "warmth": 2,
+            "shape": "BLAZER"
+          },
+          "sortOrder": 260
+        },
+        {
+          "code": "DENIM_JACKET",
+          "label": "데님 재킷",
+          "parent": "OUTER",
+          "attrs": {
+            "volume": 0,
+            "warmth": 2,
+            "shape": "DENIM_JACKET"
+          },
+          "sortOrder": 270
+        },
+        {
+          "code": "JUMPER",
+          "label": "점퍼",
+          "parent": "OUTER",
+          "attrs": {
+            "volume": 1,
+            "warmth": 2,
+            "shape": "JUMPER"
+          },
+          "sortOrder": 280
+        },
+        {
+          "code": "TRENCH",
+          "label": "트렌치코트",
+          "parent": "OUTER",
+          "attrs": {
+            "volume": 1,
+            "warmth": 2,
+            "shape": "TRENCH"
+          },
+          "sortOrder": 290
+        },
+        {
+          "code": "COAT",
+          "label": "코트",
+          "parent": "OUTER",
+          "attrs": {
+            "volume": 1,
+            "warmth": 3,
+            "shape": "COAT"
+          },
+          "sortOrder": 300
+        },
+        {
+          "code": "PADDING",
+          "label": "패딩",
+          "parent": "OUTER",
+          "attrs": {
+            "volume": 1,
+            "warmth": 3,
+            "shape": "PADDING"
+          },
+          "sortOrder": 310
+        },
+        {
+          "code": "FLEECE",
+          "label": "플리스",
+          "parent": "OUTER",
+          "attrs": {
+            "volume": 1,
+            "warmth": 2,
+            "shape": "FLEECE"
+          },
+          "sortOrder": 320
+        },
+        {
+          "code": "LOAFER",
+          "label": "로퍼",
+          "parent": "SHOES",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "LOAFER"
+          },
+          "sortOrder": 330
+        },
+        {
+          "code": "DRESS_SHOES",
+          "label": "구두",
+          "parent": "SHOES",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "DRESS_SHOES"
+          },
+          "sortOrder": 340
+        },
+        {
+          "code": "SNEAKER",
+          "label": "스니커즈",
+          "parent": "SHOES",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "SNEAKER"
+          },
+          "sortOrder": 350
+        },
+        {
+          "code": "FLATS",
+          "label": "플랫 슈즈",
+          "parent": "SHOES",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "FLATS"
+          },
+          "sortOrder": 360
+        },
+        {
+          "code": "HEELS",
+          "label": "힐",
+          "parent": "SHOES",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "HEELS"
+          },
+          "sortOrder": 370
+        },
+        {
+          "code": "BOOTS",
+          "label": "부츠",
+          "parent": "SHOES",
+          "attrs": {
+            "volume": 0,
+            "warmth": 2,
+            "shape": "BOOTS"
+          },
+          "sortOrder": 380
+        },
+        {
+          "code": "SANDAL",
+          "label": "샌들",
+          "parent": "SHOES",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "SANDAL"
+          },
+          "sortOrder": 390
+        },
+        {
+          "code": "TOTE",
+          "label": "토트백",
+          "parent": "BAG",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "TOTE"
+          },
+          "sortOrder": 400
+        },
+        {
+          "code": "SHOULDER",
+          "label": "숄더백",
+          "parent": "BAG",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "SHOULDER"
+          },
+          "sortOrder": 410
+        },
+        {
+          "code": "CROSSBODY",
+          "label": "크로스백",
+          "parent": "BAG",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "CROSSBODY"
+          },
+          "sortOrder": 420
+        },
+        {
+          "code": "BACKPACK",
+          "label": "백팩",
+          "parent": "BAG",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "BACKPACK"
+          },
+          "sortOrder": 430
+        },
+        {
+          "code": "BRIEFCASE",
+          "label": "서류가방",
+          "parent": "BAG",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "BRIEFCASE"
+          },
+          "sortOrder": 440
+        },
+        {
+          "code": "CLUTCH",
+          "label": "클러치",
+          "parent": "BAG",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "CLUTCH"
+          },
+          "sortOrder": 450
+        },
+        {
+          "code": "WATCH",
+          "label": "시계",
+          "parent": "ACC",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "WATCH"
+          },
+          "sortOrder": 460
+        },
+        {
+          "code": "BELT",
+          "label": "벨트",
+          "parent": "ACC",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "BELT"
+          },
+          "sortOrder": 470
+        },
+        {
+          "code": "TIE",
+          "label": "넥타이",
+          "parent": "ACC",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "TIE"
+          },
+          "sortOrder": 480
+        },
+        {
+          "code": "SCARF",
+          "label": "머플러",
+          "parent": "ACC",
+          "attrs": {
+            "volume": 0,
+            "warmth": 2,
+            "shape": "SCARF"
+          },
+          "sortOrder": 490
+        },
+        {
+          "code": "CAP",
+          "label": "모자",
+          "parent": "ACC",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "CAP"
+          },
+          "sortOrder": 500
+        },
+        {
+          "code": "GLASSES",
+          "label": "안경",
+          "parent": "ACC",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "GLASSES"
+          },
+          "sortOrder": 510
+        },
+        {
+          "code": "NECKLACE",
+          "label": "목걸이",
+          "parent": "ACC",
+          "attrs": {
+            "volume": 0,
+            "warmth": 0,
+            "shape": "NECKLACE"
+          },
+          "sortOrder": 520
+        }
+      ]
+    },
+    {
+      "group": "COLOR",
+      "name": "색상",
+      "description": "attrs.hex(표시색), neutral(무채색·뉴트럴), light(밝기 0~1), pairs(잘 어울리는 색 코드, 양방향으로 적는다)",
+      "codes": [
+        {
+          "code": "navy",
+          "label": "네이비",
+          "parent": null,
+          "attrs": {
+            "hex": "#22305A",
+            "neutral": true,
+            "light": 0.15,
+            "pairs": [
+              "beige",
+              "burgundy",
+              "camel",
+              "gray",
+              "green",
+              "lavender",
+              "lightblue",
+              "mint",
+              "orange",
+              "pink",
+              "red",
+              "white",
+              "yellow"
+            ]
+          },
+          "sortOrder": 10
+        },
+        {
+          "code": "black",
+          "label": "블랙",
+          "parent": null,
+          "attrs": {
+            "hex": "#1C1C1E",
+            "neutral": true,
+            "light": 0.05,
+            "pairs": [
+              "camel",
+              "denim",
+              "gray",
+              "purple",
+              "red",
+              "white"
+            ]
+          },
+          "sortOrder": 20
+        },
+        {
+          "code": "charcoal",
+          "label": "차콜",
+          "parent": null,
+          "attrs": {
+            "hex": "#3A3B3F",
+            "neutral": true,
+            "light": 0.2,
+            "pairs": [
+              "lightblue",
+              "white"
+            ]
+          },
+          "sortOrder": 30
+        },
+        {
+          "code": "gray",
+          "label": "그레이",
+          "parent": null,
+          "attrs": {
+            "hex": "#9A9CA1",
+            "neutral": true,
+            "light": 0.55,
+            "pairs": [
+              "black",
+              "blue",
+              "burgundy",
+              "denim",
+              "lavender",
+              "mint",
+              "navy",
+              "pink",
+              "purple",
+              "white",
+              "yellow"
+            ]
+          },
+          "sortOrder": 40
+        },
+        {
+          "code": "white",
+          "label": "화이트",
+          "parent": null,
+          "attrs": {
+            "hex": "#F7F7F5",
+            "neutral": true,
+            "light": 1,
+            "pairs": [
+              "beige",
+              "black",
+              "blue",
+              "charcoal",
+              "denim",
+              "gray",
+              "green",
+              "khaki",
+              "lavender",
+              "mint",
+              "navy",
+              "orange",
+              "pink",
+              "purple",
+              "red",
+              "yellow"
+            ]
+          },
+          "sortOrder": 50
+        },
+        {
+          "code": "ivory",
+          "label": "아이보리",
+          "parent": null,
+          "attrs": {
+            "hex": "#EFE8D8",
+            "neutral": true,
+            "light": 0.92,
+            "pairs": [
+              "beige",
+              "brown",
+              "khaki"
+            ]
+          },
+          "sortOrder": 60
+        },
+        {
+          "code": "beige",
+          "label": "베이지",
+          "parent": null,
+          "attrs": {
+            "hex": "#CDB591",
+            "neutral": true,
+            "light": 0.72,
+            "pairs": [
+              "blue",
+              "brown",
+              "denim",
+              "green",
+              "ivory",
+              "lightblue",
+              "mint",
+              "navy",
+              "white"
+            ]
+          },
+          "sortOrder": 70
+        },
+        {
+          "code": "denim",
+          "label": "데님",
+          "parent": null,
+          "attrs": {
+            "hex": "#4A6A8C",
+            "neutral": true,
+            "light": 0.35,
+            "pairs": [
+              "beige",
+              "black",
+              "gray",
+              "lavender",
+              "orange",
+              "pink",
+              "red",
+              "white",
+              "yellow"
+            ]
+          },
+          "sortOrder": 80
+        },
+        {
+          "code": "camel",
+          "label": "카멜",
+          "parent": null,
+          "attrs": {
+            "hex": "#B08453",
+            "neutral": false,
+            "light": 0.5,
+            "pairs": [
+              "black",
+              "blue",
+              "green",
+              "navy"
+            ]
+          },
+          "sortOrder": 90
+        },
+        {
+          "code": "brown",
+          "label": "브라운",
+          "parent": null,
+          "attrs": {
+            "hex": "#6E4A33",
+            "neutral": false,
+            "light": 0.3,
+            "pairs": [
+              "beige",
+              "ivory"
+            ]
+          },
+          "sortOrder": 100
+        },
+        {
+          "code": "khaki",
+          "label": "카키",
+          "parent": null,
+          "attrs": {
+            "hex": "#6E6B4E",
+            "neutral": false,
+            "light": 0.38,
+            "pairs": [
+              "ivory",
+              "white"
+            ]
+          },
+          "sortOrder": 110
+        },
+        {
+          "code": "lightblue",
+          "label": "라이트블루",
+          "parent": null,
+          "attrs": {
+            "hex": "#A9C3E3",
+            "neutral": false,
+            "light": 0.8,
+            "pairs": [
+              "beige",
+              "charcoal",
+              "navy"
+            ]
+          },
+          "sortOrder": 120
+        },
+        {
+          "code": "blue",
+          "label": "블루",
+          "parent": null,
+          "attrs": {
+            "hex": "#2F5DA8",
+            "neutral": false,
+            "light": 0.35,
+            "pairs": [
+              "beige",
+              "camel",
+              "gray",
+              "white"
+            ]
+          },
+          "sortOrder": 130
+        },
+        {
+          "code": "burgundy",
+          "label": "버건디",
+          "parent": null,
+          "attrs": {
+            "hex": "#6B2333",
+            "neutral": false,
+            "light": 0.2,
+            "pairs": [
+              "gray",
+              "navy"
+            ]
+          },
+          "sortOrder": 140
+        },
+        {
+          "code": "red",
+          "label": "레드",
+          "parent": null,
+          "attrs": {
+            "hex": "#B8322F",
+            "neutral": false,
+            "light": 0.3,
+            "pairs": [
+              "black",
+              "denim",
+              "navy",
+              "white"
+            ]
+          },
+          "sortOrder": 150
+        },
+        {
+          "code": "pink",
+          "label": "핑크",
+          "parent": null,
+          "attrs": {
+            "hex": "#E9A6B8",
+            "neutral": false,
+            "light": 0.78,
+            "pairs": [
+              "denim",
+              "gray",
+              "navy",
+              "white"
+            ]
+          },
+          "sortOrder": 160
+        },
+        {
+          "code": "orange",
+          "label": "오렌지",
+          "parent": null,
+          "attrs": {
+            "hex": "#E07B39",
+            "neutral": false,
+            "light": 0.55,
+            "pairs": [
+              "denim",
+              "navy",
+              "white"
+            ]
+          },
+          "sortOrder": 170
+        },
+        {
+          "code": "yellow",
+          "label": "옐로",
+          "parent": null,
+          "attrs": {
+            "hex": "#E8C547",
+            "neutral": false,
+            "light": 0.8,
+            "pairs": [
+              "denim",
+              "gray",
+              "navy",
+              "white"
+            ]
+          },
+          "sortOrder": 180
+        },
+        {
+          "code": "green",
+          "label": "그린",
+          "parent": null,
+          "attrs": {
+            "hex": "#2E6B47",
+            "neutral": false,
+            "light": 0.3,
+            "pairs": [
+              "beige",
+              "camel",
+              "navy",
+              "white"
+            ]
+          },
+          "sortOrder": 190
+        },
+        {
+          "code": "mint",
+          "label": "민트",
+          "parent": null,
+          "attrs": {
+            "hex": "#A7D7C5",
+            "neutral": false,
+            "light": 0.8,
+            "pairs": [
+              "beige",
+              "gray",
+              "navy",
+              "white"
+            ]
+          },
+          "sortOrder": 200
+        },
+        {
+          "code": "purple",
+          "label": "퍼플",
+          "parent": null,
+          "attrs": {
+            "hex": "#5E3F86",
+            "neutral": false,
+            "light": 0.25,
+            "pairs": [
+              "black",
+              "gray",
+              "white"
+            ]
+          },
+          "sortOrder": 210
+        },
+        {
+          "code": "lavender",
+          "label": "라벤더",
+          "parent": null,
+          "attrs": {
+            "hex": "#C4B3E0",
+            "neutral": false,
+            "light": 0.8,
+            "pairs": [
+              "denim",
+              "gray",
+              "navy",
+              "white"
+            ]
+          },
+          "sortOrder": 220
+        }
+      ]
+    },
+    {
+      "group": "PATTERN",
+      "name": "패턴",
+      "description": "attrs 없음",
+      "codes": [
+        {
+          "code": "SOLID",
+          "label": "무지",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 10
+        },
+        {
+          "code": "STRIPE",
+          "label": "스트라이프",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 20
+        },
+        {
+          "code": "CHECK",
+          "label": "체크",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 30
+        },
+        {
+          "code": "DOT",
+          "label": "도트",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 40
+        },
+        {
+          "code": "FLORAL",
+          "label": "플로럴",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 50
+        },
+        {
+          "code": "PRINT",
+          "label": "프린트·그래픽",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 60
+        },
+        {
+          "code": "ETC",
+          "label": "기타",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 70
+        }
+      ]
+    },
+    {
+      "group": "SEASON",
+      "name": "계절",
+      "description": "attrs 없음",
+      "codes": [
+        {
+          "code": "SPRING",
+          "label": "봄",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 10
+        },
+        {
+          "code": "SUMMER",
+          "label": "여름",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 20
+        },
+        {
+          "code": "FALL",
+          "label": "가을",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 30
+        },
+        {
+          "code": "WINTER",
+          "label": "겨울",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 40
+        }
+      ]
+    },
+    {
+      "group": "STYLE",
+      "name": "스타일",
+      "description": "아이템 스타일 태그이자 프로필 취향(moods) 값",
+      "codes": [
+        {
+          "code": "NEAT",
+          "label": "단정",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 10
+        },
+        {
+          "code": "MINIMAL",
+          "label": "미니멀",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 20
+        },
+        {
+          "code": "CASUAL",
+          "label": "캐주얼",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 30
+        },
+        {
+          "code": "CLASSIC",
+          "label": "클래식",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 40
+        },
+        {
+          "code": "STREET",
+          "label": "스트릿",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 50
+        },
+        {
+          "code": "FEMININE",
+          "label": "페미닌",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 60
+        },
+        {
+          "code": "SPORTY",
+          "label": "스포티",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 70
+        }
+      ]
+    },
+    {
+      "group": "ITEM_STATUS",
+      "name": "보유 상태",
+      "description": "attrs.recommendable: 코디 추천에 넣는지",
+      "codes": [
+        {
+          "code": "OWNED",
+          "label": "보유 중",
+          "parent": null,
+          "attrs": {
+            "recommendable": true
+          },
+          "sortOrder": 10
+        },
+        {
+          "code": "LAUNDRY",
+          "label": "세탁 중",
+          "parent": null,
+          "attrs": {
+            "recommendable": false
+          },
+          "sortOrder": 20
+        },
+        {
+          "code": "REPAIR",
+          "label": "수선 중",
+          "parent": null,
+          "attrs": {
+            "recommendable": false
+          },
+          "sortOrder": 30
+        }
+      ]
+    }
+  ]
+}

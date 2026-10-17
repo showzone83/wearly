@@ -1,41 +1,19 @@
-export type Category = 'TOP' | 'BOTTOM' | 'OUTER' | 'SHOES' | 'BAG' | 'ACC';
+// 옷 속성 값은 서버 코드 테이블(doc/06_코드_관리.md)이 정한다. 라벨·속성은 src/lib/codes.ts로 읽는다.
 
-/** 일러스트 모양과 실루엣(볼륨)을 정하는 세부 종류 */
-export type SubType =
-  | 'TEE'
-  | 'KNIT'
-  | 'SHIRT'
-  | 'CARDIGAN'
-  | 'SLACKS'
-  | 'WIDE'
-  | 'CHINO'
-  | 'SKIRT'
-  | 'JACKET'
-  | 'COAT'
-  | 'LOAFER'
-  | 'SNEAKER'
-  | 'TOTE'
-  | 'SHOULDER'
-  | 'WATCH';
-
-export type ColorKey =
-  | 'navy'
-  | 'black'
-  | 'charcoal'
-  | 'gray'
-  | 'white'
-  | 'ivory'
-  | 'beige'
-  | 'camel'
-  | 'brown'
-  | 'khaki'
-  | 'lightblue'
-  | 'burgundy';
-
-export type Pattern = 'SOLID' | 'STRIPE' | 'CHECK' | 'ETC';
-export type Season = 'SPRING' | 'SUMMER' | 'FALL' | 'WINTER';
-export type StyleTag = 'NEAT' | 'MINIMAL' | 'CASUAL' | 'CLASSIC' | 'STREET';
-export type ItemStatus = 'OWNED' | 'LAUNDRY' | 'REPAIR';
+/** CATEGORY 코드 (예: TOP, DRESS, ACC) */
+export type Category = string;
+/** SUB_TYPE 코드. 일러스트 모양·보온·실루엣(볼륨)은 코드 attrs가 정한다 */
+export type SubType = string;
+/** COLOR 코드 (예: navy) */
+export type ColorKey = string;
+/** PATTERN 코드 (예: SOLID) */
+export type Pattern = string;
+/** SEASON 코드 (SPRING·SUMMER·FALL·WINTER) */
+export type Season = string;
+/** STYLE 코드 (예: NEAT) */
+export type StyleTag = string;
+/** ITEM_STATUS 코드 (예: OWNED). 추천 후보 여부는 attrs.recommendable */
+export type ItemStatus = string;
 
 export interface WardrobeItem {
   id: string;
@@ -56,7 +34,8 @@ export interface WardrobeItem {
   createdAt: string;
 }
 
-export type Slot = 'TOP' | 'BOTTOM' | 'OUTER' | 'SHOES' | 'BAG';
+/** 코디 칸 (앱 로직이라 고정). 코디는 TOP+BOTTOM 또는 DRESS 하나로 몸판을 채운다 */
+export type Slot = 'TOP' | 'BOTTOM' | 'DRESS' | 'OUTER' | 'SHOES' | 'BAG';
 export type OutfitItems = Partial<Record<Slot, string>>;
 
 export type Occasion =

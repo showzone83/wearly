@@ -6,24 +6,14 @@ import { Chip, ChipGroup } from '@/components/Chip';
 import { condIcon, Icon } from '@/components/Icon';
 import { ItemThumb } from '@/components/ItemThumb';
 import { Button, Label, notify, Row, Screen, Serif } from '@/components/ui';
-import {
-  COLOR,
-  COLOR_KEYS,
-  FORMALITY_LABEL,
-  MOOD_LABEL,
-  OCCASION_LABEL,
-  PLAN_OCCASIONS,
-  STYLE_LABEL,
-  STYLE_TAGS,
-  TIME_LABEL,
-  WEEKDAY_SHORT,
-  WORK_OCCASIONS,
-} from '@/data/constants';
+import { FORMALITY_LABEL, MOOD_LABEL, OCCASION_LABEL, PLAN_OCCASIONS, TIME_LABEL, WEEKDAY_SHORT, WORK_OCCASIONS } from '@/data/constants';
 import type { ColorKey, Formality, Mood, Occasion, RecommendContext, StyleTag, TimeOfDay } from '@/data/types';
+import { activeCodes, colorLabel, isActiveCode, isRecommendable, styleLabel, withCurrent } from '@/lib/codes';
 import { dayContext } from '@/lib/context';
 import { addDays, diffDays, fromKey, longLabel, todayKey } from '@/lib/date';
-import { canRecommend, recommend } from '@/lib/recommend';
+import { canRecommend, recommend, slotOf } from '@/lib/recommend';
 import { COND_LABEL, FEEL_PRESETS, forecast, hasForecast, manualWeather } from '@/lib/weather';
+import { useCodesVersion } from '@/store/useCodes';
 import { engineInput, useStore } from '@/store/useStore';
 import { colors } from '@/theme';
 
@@ -35,9 +25,10 @@ function planFormality(o: Occasion): Formality {
   return 'BIZ_CASUAL';
 }
 
+/** 예정일 컨셉(STYLE 코드) → 분위기. 모르는 스타일은 단정으로 본다 */
 function planMood(concepts: StyleTag[]): Mood {
-  if (concepts.some((c) => c === 'CASUAL' || c === 'STREET')) return 'COMFY';
-  if (concepts.some((c) => c === 'MINIMAL' || c === 'CLASSIC')) return 'CHIC';
+  if (concepts.some((c) => c === 'CASUAL' || c === 'STREET' || c === 'SPORTY')) return 'COMFY';
+  if (concepts.some((c) => c === 'MINIMAL' || c === 'CLASSIC' || c === 'FEMININE')) return 'CHIC';
   return 'NEAT';
 }
 
@@ -47,6 +38,7 @@ export default function Coordi() {
   const profile = useStore((s) => s.profile);
   const items = useStore((s) => s.items);
   const setDraft = useStore((s) => s.setDraft);
+  useCodesVersion(); // 코드가 갱신되면 다시 그린다
   const today = todayKey();
   const base = dayContext(today, profile);
 
@@ -66,7 +58,7 @@ export default function Coordi() {
   // 예정일 조건
   const [planDate, setPlanDate] = useState(addDays(today, 7));
   const [time, setTime] = useState<TimeOfDay>('PM');
-  const [concepts, setConcepts] = useState<StyleTag[]>(['MINIMAL']);
+  const [concepts, setConcepts] = useState<StyleTag[]>(() => (isActiveCode('STYLE', 'MINIMAL') ? ['MINIMAL'] : []));
   const [planOcc, setPlanOcc] = useState<Occasion>('WEDDING');
   const [feel, setFeel] = useState(FEEL_PRESETS[2].temp);
   const [rain, setRain] = useState(false);
@@ -76,7 +68,7 @@ export default function Coordi() {
   const auto = hasForecast(planDate);
   const planWeather = auto ? forecast(planDate) : manualWeather(feel, rain);
   const todayWeather = forecast(today);
-  const anchorable = items.filter((i) => i.status === 'OWNED' && i.category !== 'ACC');
+  const anchorable = items.filter((i) => isRecommendable(i.status) && slotOf(i.category) !== null);
 
   const submit = () => {
     const ctx: RecommendContext =
@@ -130,7 +122,7 @@ export default function Coordi() {
       {!ready.ok ? (
         <View style={{ paddingTop: 40, alignItems: 'center', gap: 14 }}>
           <Text style={{ color: colors.sub, textAlign: 'center', lineHeight: 21 }}>
-            코디를 만들려면 {ready.missing.join(', ')}이(가) 필요해요.{'\n'}옷장에 먼저 등록해 주세요.
+            코디를 만들려면 {ready.missing.join(', ')}이(가) 필요해요.{'\n'}(원피스 한 벌로도 시작할 수 있어요) 옷장에 먼저 등록해 주세요.
           </Text>
           <Button title="옷 등록하기" onPress={() => router.push('/item/new')} style={{ alignSelf: 'stretch' }} />
         </View>
@@ -195,7 +187,7 @@ export default function Coordi() {
           </View>
           <View>
             <Label>컨셉</Label>
-            <ChipGroup options={STYLE_TAGS} labels={STYLE_LABEL} value={concepts} multi onChange={setConcepts} />
+            <ChipGroup options={withCurrent(activeCodes('STYLE'), concepts)} labels={styleLabel} value={concepts} multi onChange={setConcepts} />
           </View>
           <View>
             <Label>상황 (TPO)</Label>
@@ -269,7 +261,7 @@ function AvoidColors({ value, onChange }: { value: ColorKey[]; onChange: (v: Col
   return (
     <View>
       <Label>피하고 싶은 색</Label>
-      <ChipGroup options={COLOR_KEYS.slice(0, 10)} labels={(c) => COLOR[c].label} value={value} multi dots small onChange={onChange} />
+      <ChipGroup options={withCurrent(activeCodes('COLOR'), value)} labels={colorLabel} value={value} multi dots small onChange={onChange} />
     </View>
   );
 }

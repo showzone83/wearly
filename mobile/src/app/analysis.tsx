@@ -3,16 +3,19 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ItemThumb } from '@/components/ItemThumb';
 import { Header, Kicker, notify, Row, Screen, Serif } from '@/components/ui';
-import { CATEGORY_LABEL, COLOR, STYLE_LABEL, STYLE_TAGS } from '@/data/constants';
 import type { Category, ColorKey, StyleTag, WardrobeItem } from '@/data/types';
+import { activeCodes, categoryLabel, categorySlot, colorLabel, colorMeta, styleLabel, withCurrent } from '@/lib/codes';
 import { dayContext } from '@/lib/context';
 import { diffDays, todayKey } from '@/lib/date';
 import { josa } from '@/lib/josa';
 import { recommend } from '@/lib/recommend';
+import { useCodesVersion } from '@/store/useCodes';
 import { engineInput, useStore } from '@/store/useStore';
 import { colors } from '@/theme';
 
 const SLEEP_DAYS = 30;
+/** 스타일 구성비 막대 색 (많은 순) */
+const STACK_COLORS = [colors.ink, colors.green, colors.beige, colors.faint, colors.line, colors.sub, colors.tile];
 
 function isSleeping(i: WardrobeItem, today: string) {
   return !i.lastWornAt || diffDays(today, i.lastWornAt) >= SLEEP_DAYS;
@@ -24,6 +27,7 @@ export default function Analysis() {
   const looks = useStore((s) => s.looks);
   const profile = useStore((s) => s.profile);
   const setDraft = useStore((s) => s.setDraft);
+  useCodesVersion(); // 코드가 갱신되면 다시 그린다
   const today = todayKey();
 
   if (items.length === 0) {
@@ -34,19 +38,26 @@ export default function Analysis() {
     );
   }
 
-  const styleCount = STYLE_TAGS.map((t) => [t, items.filter((i) => i.styles.includes(t)).length] as [StyleTag, number]).filter(([, n]) => n > 0);
+  // 활성 스타일 + 옷장에 있는 비활성(또는 모르는) 스타일
+  const styleCodes = withCurrent(activeCodes('STYLE'), [...new Set(items.flatMap((i) => i.styles))]);
+  const styleCount = styleCodes.map((t) => [t, items.filter((i) => i.styles.includes(t)).length] as [StyleTag, number]).filter(([, n]) => n > 0);
   const styleTotal = styleCount.reduce((s, [, n]) => s + n, 0);
   styleCount.sort((a, b) => b[1] - a[1]);
   const colorCount = Object.entries(
     items.reduce<Record<string, number>>((acc, i) => ({ ...acc, [i.color]: (acc[i.color] ?? 0) + 1 }), {}),
   ).sort((a, b) => b[1] - a[1]) as [ColorKey, number][];
-  const catCount = (['TOP', 'BOTTOM', 'OUTER', 'SHOES', 'BAG'] as Category[]).map((c) => [c, items.filter((i) => i.category === c).length] as const);
+  // 코디에 들어가는 종류(CATEGORY attrs.slot이 있는 것). 원피스는 한 벌이라도 있을 때만 보여 준다
+  const catCount = withCurrent(activeCodes('CATEGORY'), [...new Set(items.map((i) => i.category))])
+    .filter((c) => categorySlot(c) !== null)
+    .map((c) => [c, items.filter((i) => i.category === c).length] as [Category, number])
+    .filter(([c, n]) => n > 0 || categorySlot(c) !== 'DRESS');
   const sleeping = items.filter((i) => isSleeping(i, today));
   const usage = Math.round(((items.length - sleeping.length) / items.length) * 100);
   const most = [...items].sort((a, b) => b.wornCount - a.wornCount).slice(0, 3);
-  const thin = catCount.filter(([c, n]) => (c === 'OUTER' || c === 'BOTTOM') && n < 3).map(([c]) => CATEGORY_LABEL[c]);
-  const rich = catCount.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
-  const type = styleCount[0] ? `${COLOR[colorCount[0][0]].neutral ? '뉴트럴' : COLOR[colorCount[0][0]].label} ${STYLE_LABEL[styleCount[0][0]]}` : '분석 중';
+  const thin = catCount.filter(([c, n]) => (c === 'OUTER' || c === 'BOTTOM') && n < 3).map(([c]) => categoryLabel(c));
+  const rich = catCount.length ? catCount.reduce((a, b) => (b[1] > a[1] ? b : a))[0] : items[0].category;
+  const mainColor = colorCount[0][0];
+  const type = styleCount[0] ? `${colorMeta(mainColor).neutral ? '뉴트럴' : colorLabel(mainColor)} ${styleLabel(styleCount[0][0])}` : '분석 중';
 
   const recent = looks.filter((l) => diffDays(today, l.date) <= 7);
   const avg = recent.length ? Math.round(recent.reduce((s, l) => s + l.diagnosis.aiScore, 0) / recent.length) : null;
@@ -68,13 +79,13 @@ export default function Analysis() {
       <Text style={s.h}>스타일 구성비</Text>
       <View style={s.stack}>
         {styleCount.map(([t, n], i) => (
-          <View key={t} style={{ flex: n, backgroundColor: [colors.ink, colors.green, colors.beige, colors.faint, colors.line][i] }} />
+          <View key={t} style={{ flex: n, backgroundColor: STACK_COLORS[i % STACK_COLORS.length] }} />
         ))}
       </View>
       <Row style={{ flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
         {styleCount.map(([t, n]) => (
           <Text key={t} style={s.legend}>
-            {STYLE_LABEL[t]} {Math.round((n / styleTotal) * 100)}%
+            {styleLabel(t)} {Math.round((n / styleTotal) * 100)}%
           </Text>
         ))}
       </Row>
@@ -83,9 +94,9 @@ export default function Analysis() {
       <Row style={{ gap: 8, flexWrap: 'wrap' }}>
         {colorCount.map(([c, n]) => (
           <View key={c} style={{ alignItems: 'center', gap: 4 }}>
-            <View style={[s.swatch, { backgroundColor: COLOR[c].hex }]} />
+            <View style={[s.swatch, { backgroundColor: colorMeta(c).hex }]} />
             <Text style={s.legend}>
-              {COLOR[c].label} {n}
+              {colorLabel(c)} {n}
             </Text>
           </View>
         ))}
@@ -94,7 +105,7 @@ export default function Analysis() {
       <Text style={s.h}>카테고리 밸런스</Text>
       {catCount.map(([c, n]) => (
         <Row key={c} style={{ gap: 10, marginBottom: 6 }}>
-          <Text style={s.cat}>{CATEGORY_LABEL[c]}</Text>
+          <Text style={s.cat}>{categoryLabel(c)}</Text>
           <View style={s.track}>
             <View style={[s.fill, { width: `${Math.min(100, n * 14)}%` }]} />
           </View>
@@ -108,7 +119,7 @@ export default function Analysis() {
         <Text style={s.cardSub}>나의 스타일 유형</Text>
         <Serif style={{ fontSize: 22, marginTop: 4 }}>{type}</Serif>
         <Text style={s.body}>
-          {josa(CATEGORY_LABEL[rich], '은', '는')} 풍부{thin.length ? `하고, ${josa(thin.join('·'), '이', '가')} 부족해요` : '하고 균형이 좋아요'}. 옷장 활용률은 최근 30일 기준 <Text style={{ fontWeight: '800' }}>{usage}%</Text>예요.
+          {josa(categoryLabel(rich), '은', '는')} 풍부{thin.length ? `하고, ${josa(thin.join('·'), '이', '가')} 부족해요` : '하고 균형이 좋아요'}. 옷장 활용률은 최근 30일 기준 <Text style={{ fontWeight: '800' }}>{usage}%</Text>예요.
         </Text>
         {avg !== null && <Text style={s.body}>최근 7일 착용 기록 {recent.length}건 · 평균 AI 점수 {avg}점</Text>}
         <Text style={s.body}>자주 입는 옷: {most.map((m) => `${m.name}(${m.wornCount}회)`).join(', ')}</Text>

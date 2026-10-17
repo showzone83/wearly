@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { COLOR } from '@/data/constants';
 import type { ColorKey } from '@/data/types';
+import { colorMeta } from '@/lib/codes';
 import { colors } from '@/theme';
 
 interface ChipProps {
@@ -20,7 +20,7 @@ export function Chip({ label, selected, onPress, dot, small }: ChipProps) {
       accessibilityState={{ selected }}
       style={[s.chip, small && s.small, selected ? s.on : s.off]}
     >
-      {dot && <View style={[s.dot, { backgroundColor: COLOR[dot].hex }, dot === 'white' && s.dotEdge]} />}
+      {dot && <View style={[s.dot, { backgroundColor: colorMeta(dot).hex }, colorMeta(dot).light >= 0.9 && s.dotEdge]} />}
       <Text style={[s.text, small && { fontSize: 13 }, { color: selected ? '#fff' : colors.ink }]}>{label}</Text>
     </Pressable>
   );
@@ -54,7 +54,7 @@ export function ChipGroup<T extends string>({ options, labels, value, onChange, 
           label={label(o)}
           selected={selected.includes(o)}
           onPress={() => toggle(o)}
-          dot={dots ? (o as unknown as ColorKey) : undefined}
+          dot={dots ? o : undefined}
           small={small}
         />
       ))}

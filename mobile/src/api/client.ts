@@ -8,6 +8,8 @@ import type {
   AnalyzeFile,
   AnalyzeResponse,
   AuthResponse,
+  CodesResponse,
+  CodesResult,
   ItemDto,
   ItemFilter,
   ItemInput,
@@ -45,6 +47,8 @@ interface RequestOptions {
   /** Authorization 헤더를 붙이고 TOKEN_EXPIRED 시 갱신·재시도한다 */
   auth?: boolean;
   timeoutMs?: number;
+  /** 추가 요청 헤더 (예: If-None-Match) */
+  headers?: Record<string, string>;
 }
 
 const API_PREFIX = '/api/v1';
@@ -119,7 +123,7 @@ export function createApiClient(options: ApiClientOptions) {
   let refreshing: Promise<Tokens> | null = null;
 
   async function send(method: Method, path: string, opts: RequestOptions, accessToken?: string): Promise<Response> {
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers };
     let body: BodyInit | undefined;
     if (opts.form) {
       body = opts.form(); // Content-Type(boundary 포함)은 fetch가 정한다
@@ -242,6 +246,21 @@ export function createApiClient(options: ApiClientOptions) {
   }
 
   return {
+    codes: {
+      /**
+       * 옷 속성 코드 전체 (인증 불필요). etag를 주면 If-None-Match로 보내고,
+       * 서버가 304를 주면 `{ changed: false }`를 돌려준다.
+       */
+      async list(etag?: string | null): Promise<CodesResult> {
+        const res = await send('GET', '/codes', { headers: etag ? { 'If-None-Match': etag } : undefined });
+        if (res.status === 304) return { changed: false };
+        const codes = await readBody<CodesResponse>(res);
+        if (!codes || !Array.isArray(codes.groups)) throw new ApiError(res.status, 'HTTP_ERROR', '코드 응답 형식이 달라요.');
+        // 웹(CORS)에서는 ETag 헤더를 읽지 못할 수 있으니 본문의 version으로 같은 값을 만든다
+        const header = res.headers?.get?.('ETag');
+        return { changed: true, codes, etag: header || `"${codes.version}"` };
+      },
+    },
     auth: {
       /** 가입 + 토큰 저장 */
       async signup(req: SignupRequest): Promise<AuthResponse> {

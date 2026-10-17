@@ -5,7 +5,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components/Icon';
 import { OutfitMini } from '@/components/OutfitMini';
 import { Badge, Button, confirm, Row, Screen, Serif, Stars } from '@/components/ui';
-import { OCCASION_LABEL, STYLE_LABEL, WEEKDAY_SHORT } from '@/data/constants';
+import { OCCASION_LABEL, WEEKDAY_SHORT } from '@/data/constants';
+import { styleLabel } from '@/lib/codes';
 import { addDays, diffDays, fromKey, shortLabel, todayKey, weekStart, weekTitle } from '@/lib/date';
 import { upcomingPlans, useStore } from '@/store/useStore';
 import { colors } from '@/theme';
@@ -122,7 +123,7 @@ export default function Calendar() {
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={s.cardTitle}>{p.title}</Text>
               <Text style={s.cardSub}>
-                {p.concepts.map((c) => STYLE_LABEL[c]).join(' · ')} · {p.weather.temp}°C{p.weather.manual ? ' (직접 입력)' : ''}
+                {p.concepts.map(styleLabel).join(' · ')} · {p.weather.temp}°C{p.weather.manual ? ' (직접 입력)' : ''}
               </Text>
               {p.outfit ? <OutfitMini items={p.outfit.items} size={38} /> : <Text style={s.cardSub}>추천 대기</Text>}
               <Row style={{ gap: 12, marginTop: 4 }}>

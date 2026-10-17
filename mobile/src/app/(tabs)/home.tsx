@@ -149,7 +149,7 @@ export default function Home() {
       {!ready.ok ? (
         <Card style={{ marginTop: 26, alignItems: 'center', paddingVertical: 28 }}>
           <Serif style={{ fontSize: 20, textAlign: 'center' }}>새 옷을 사기 전에,{'\n'}내 옷장부터.</Serif>
-          <Text style={s.emptySub}>첫 코디까지 {ready.missing.join(', ')} 1벌씩 남았어요.</Text>
+          <Text style={s.emptySub}>첫 코디까지 {ready.missing.join(', ')} 1벌씩 남았어요.{'\n'}원피스 한 벌로도 시작할 수 있어요.</Text>
           <Button title="옷 등록하기" onPress={() => router.push('/item/new')} style={{ marginTop: 18, alignSelf: 'stretch' }} />
         </Card>
       ) : current ? (

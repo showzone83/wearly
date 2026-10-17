@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CATEGORY_LABEL, COLOR, SEASON_LABEL, SLOTS } from '@/data/constants';
+import { SLOTS } from '@/data/constants';
 import type { Outfit, Slot, WardrobeItem } from '@/data/types';
-import { alternativesFor, evaluate, type EngineInput } from '@/lib/recommend';
+import { categoryLabel, colorLabel, isRecommendable, seasonLabel, slotLabel, statusLabel } from '@/lib/codes';
+import { alternativesFor, evaluate, slotOf, type EngineInput } from '@/lib/recommend';
 import { useStore } from '@/store/useStore';
 import { colors, space } from '@/theme';
 import { Icon } from './Icon';
@@ -12,7 +13,10 @@ import { ItemThumb } from './ItemThumb';
 
 const MAX_WIDTH = 480;
 
-/** 목업 p.42의 코디 보드: 상의·하의 크게, 아우터 크게, 신발·가방 작게 */
+/**
+ * 목업 p.42의 코디 보드: 상의·하의 크게, 아우터 크게, 신발·가방 작게.
+ * 원피스 코디는 왼쪽에 원피스를 길게, 오른쪽에 아우터와 신발·가방을 둔다.
+ */
 export function OutfitBoard({ outfit, compact }: { outfit: Outfit; compact?: boolean }) {
   const items = useStore((s) => s.items);
   const { width } = useWindowDimensions();
@@ -25,6 +29,33 @@ export function OutfitBoard({ outfit, compact }: { outfit: Outfit; compact?: boo
   const scale = compact ? 0.8 : 1;
 
   const outer = get('OUTER');
+  const outerTile = outer ? (
+    <ItemThumb item={outer} size={big} height={big * scale} tag="OUTER" />
+  ) : (
+    <View style={[styles.noOuter, { width: big, height: big * scale }]}>
+      <Text style={styles.noOuterText}>아우터 없이{'\n'}가볍게</Text>
+    </View>
+  );
+  const smalls = (
+    <View style={{ gap, flexDirection: 'row', alignItems: 'flex-start' }}>
+      <ItemThumb item={get('SHOES')} size={small} />
+      <ItemThumb item={get('BAG')} size={small} />
+    </View>
+  );
+
+  if (outfit.items.DRESS && !outfit.items.TOP && !outfit.items.BOTTOM) {
+    return (
+      <View style={{ flexDirection: 'row', gap }}>
+        {/* 오른쪽 아우터 + 신발·가방 줄과 아래 끝을 맞춘다 */}
+        <ItemThumb item={get('DRESS')} size={big} height={big * scale + gap + small} tag="DRESS" />
+        <View style={{ gap }}>
+          {outerTile}
+          {smalls}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={{ gap }}>
       <View style={{ flexDirection: 'row', gap }}>
@@ -32,17 +63,8 @@ export function OutfitBoard({ outfit, compact }: { outfit: Outfit; compact?: boo
         <ItemThumb item={get('BOTTOM')} size={big} height={big * scale} tag="BOTTOM" />
       </View>
       <View style={{ flexDirection: 'row', gap }}>
-        {outer ? (
-          <ItemThumb item={outer} size={big} height={big * scale} tag="OUTER" />
-        ) : (
-          <View style={[styles.noOuter, { width: big, height: big * scale }]}>
-            <Text style={styles.noOuterText}>아우터 없이{'\n'}가볍게</Text>
-          </View>
-        )}
-        <View style={{ gap, flexDirection: 'row', alignItems: 'flex-start' }}>
-          <ItemThumb item={get('SHOES')} size={small} />
-          <ItemThumb item={get('BAG')} size={small} />
-        </View>
+        {outerTile}
+        {smalls}
       </View>
     </View>
   );
@@ -115,7 +137,7 @@ export function OutfitItemRows({ outfit, input, onChange, pinned = [], onToggleP
 }
 
 export function itemSubtitle(it: WardrobeItem): string {
-  return `${CATEGORY_LABEL[it.category]} · ${COLOR[it.color].label} · ${it.seasons.map((x) => SEASON_LABEL[x]).join('/')}`;
+  return `${categoryLabel(it.category)} · ${colorLabel(it.color)} · ${it.seasons.map(seasonLabel).join('/')}`;
 }
 
 function SwapSheet({
@@ -133,7 +155,7 @@ function SwapSheet({
 }) {
   const insets = useSafeAreaInsets();
   const options = useMemo(() => (slot ? alternativesFor(slot, outfit.items, input) : []), [slot, outfit, input]);
-  const laundry = slot ? input.items.filter((i) => i.category === slot && i.status !== 'OWNED') : [];
+  const laundry = slot ? input.items.filter((i) => slotOf(i.category) === slot && !isRecommendable(i.status)) : [];
 
   return (
     <Modal visible={!!slot} transparent animationType="slide" onRequestClose={onClose}>
@@ -141,7 +163,7 @@ function SwapSheet({
       <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={styles.grip} />
         <View style={styles.sheetHead}>
-          <Text style={styles.sheetTitle}>{slot ? `${CATEGORY_LABEL[slot]} 교체` : ''}</Text>
+          <Text style={styles.sheetTitle}>{slot ? `${slotLabel(slot)} 교체` : ''}</Text>
           <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="닫기">
             <Icon name="close" />
           </Pressable>
@@ -159,8 +181,8 @@ function SwapSheet({
               >
                 <ItemThumb item={item ?? undefined} size={56} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.rowTitle}>{item ? item.name : `${CATEGORY_LABEL[slot!]} 빼기`}</Text>
-                  <Text style={styles.rowSub}>{item ? `${COLOR[item.color].label} · 착용 ${item.wornCount}회` : '더 가볍게 입어요'}</Text>
+                  <Text style={styles.rowTitle}>{item ? item.name : `${slotLabel(slot!)} 빼기`}</Text>
+                  <Text style={styles.rowSub}>{item ? `${colorLabel(item.color)} · 착용 ${item.wornCount}회` : '더 가볍게 입어요'}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={styles.score}>{next.score}점</Text>
@@ -176,7 +198,7 @@ function SwapSheet({
               <ItemThumb item={it} size={56} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowTitle}>{it.name}</Text>
-                <Text style={styles.rowSub}>{it.status === 'LAUNDRY' ? '세탁 중' : '수선 중'} · 추천에서 제외</Text>
+                <Text style={styles.rowSub}>{statusLabel(it.status)} · 추천에서 제외</Text>
               </View>
             </View>
           ))}

@@ -6,8 +6,9 @@ import { Chip } from '@/components/Chip';
 import { Icon } from '@/components/Icon';
 import { ItemThumb } from '@/components/ItemThumb';
 import { Row, Screen } from '@/components/ui';
-import { CATEGORIES, CATEGORY_LABEL, COLOR, SEASON_LABEL, SEASONS } from '@/data/constants';
 import type { Category, Season } from '@/data/types';
+import { activeCodes, categoryLabel, colorLabel, isRecommendable, seasonLabel, statusLabel, subTypeLabel, withCurrent } from '@/lib/codes';
+import { useCodesVersion } from '@/store/useCodes';
 import { useStore } from '@/store/useStore';
 import { colors, space } from '@/theme';
 
@@ -16,6 +17,7 @@ const SORT_LABEL: Record<SortKey, string> = { recent: '최근 등록순', worn: 
 
 export default function Closet() {
   const items = useStore((s) => s.items);
+  const codesVersion = useCodesVersion();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState<Category | 'ALL'>('ALL');
   const [season, setSeason] = useState<Season | null>(null);
@@ -28,20 +30,25 @@ export default function Closet() {
 
   const list = useMemo(() => {
     const term = q.trim();
+    // 이름·브랜드와 함께 종류·세부 종류·색 이름으로도 찾는다
+    const matches = (i: (typeof items)[number]) =>
+      [i.name, i.brand ?? '', categoryLabel(i.category), subTypeLabel(i.subType), colorLabel(i.color)].some((t) => t.includes(term));
     const filtered = items.filter(
       (i) =>
         (cat === 'ALL' || i.category === cat) &&
         (!season || i.seasons.includes(season)) &&
-        (!laundryOnly || i.status !== 'OWNED') &&
-        (!term || i.name.includes(term) || COLOR[i.color].label.includes(term) || (i.brand ?? '').includes(term)),
+        (!laundryOnly || !isRecommendable(i.status)) &&
+        (!term || matches(i)),
     );
     const sorted = [...filtered];
     if (sort === 'worn') sorted.sort((a, b) => b.wornCount - a.wornCount);
     if (sort === 'sleeping') sorted.sort((a, b) => (a.lastWornAt ?? '0').localeCompare(b.lastWornAt ?? '0'));
     return sorted;
-  }, [items, q, cat, season, laundryOnly, sort]);
+  }, [items, q, cat, season, laundryOnly, sort, codesVersion]); // codesVersion: 코드가 갱신되면 라벨 검색을 다시 한다
 
-  const laundry = items.filter((i) => i.status === 'LAUNDRY').length;
+  const resting = items.filter((i) => !isRecommendable(i.status)).length;
+  // 종류 필터: 활성 종류 + 옷장에 있는 비활성(또는 모르는) 종류
+  const categories = withCurrent(activeCodes('CATEGORY'), [...new Set(items.map((i) => i.category))]);
   const nextSort: Record<SortKey, SortKey> = { recent: 'worn', worn: 'sleeping', sleeping: 'recent' };
 
   return (
@@ -58,7 +65,7 @@ export default function Closet() {
       >
         <Row style={{ justifyContent: 'space-between' }}>
           <Text style={s.count}>
-            총 <Text style={{ fontWeight: '800', color: colors.ink }}>{items.length}벌</Text> · 세탁 중 {laundry}벌
+            총 <Text style={{ fontWeight: '800', color: colors.ink }}>{items.length}벌</Text> · 세탁 · 수선 중 {resting}벌
           </Text>
           <Pressable onPress={() => setSort(nextSort[sort])} hitSlop={8}>
             <Text style={s.sort}>{SORT_LABEL[sort]} ▾</Text>
@@ -70,13 +77,13 @@ export default function Closet() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
           <Chip label="전체" selected={cat === 'ALL'} onPress={() => setCat('ALL')} small />
-          {CATEGORIES.map((c) => (
-            <Chip key={c} label={CATEGORY_LABEL[c]} selected={cat === c} onPress={() => setCat(c)} small />
+          {categories.map((c) => (
+            <Chip key={c} label={categoryLabel(c)} selected={cat === c} onPress={() => setCat(c)} small />
           ))}
         </ScrollView>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.chips, { marginTop: 0 }]}>
-          {SEASONS.map((x) => (
-            <Chip key={x} label={SEASON_LABEL[x]} selected={season === x} onPress={() => setSeason(season === x ? null : x)} small />
+          {activeCodes('SEASON').map((x) => (
+            <Chip key={x} label={seasonLabel(x)} selected={season === x} onPress={() => setSeason(season === x ? null : x)} small />
           ))}
           <Chip label="세탁 · 수선 중" selected={laundryOnly} onPress={() => setLaundryOnly(!laundryOnly)} small />
         </ScrollView>
@@ -87,17 +94,17 @@ export default function Closet() {
           <View style={[s.grid, { gap }]}>
             {list.map((it) => (
               <Pressable key={it.id} style={{ width: tile }} onPress={() => router.push(`/item/${it.id}`)}>
-                <ItemThumb item={it} size={tile} height={tile * 1.15} dim={it.status !== 'OWNED'} />
-                {it.status !== 'OWNED' && (
+                <ItemThumb item={it} size={tile} height={tile * 1.15} dim={!isRecommendable(it.status)} />
+                {!isRecommendable(it.status) && (
                   <View style={s.status}>
-                    <Text style={s.statusText}>{it.status === 'LAUNDRY' ? '세탁 중' : '수선 중'}</Text>
+                    <Text style={s.statusText}>{statusLabel(it.status)}</Text>
                   </View>
                 )}
                 <Text style={s.name} numberOfLines={1}>
                   {it.name}
                 </Text>
                 <Text style={s.meta}>
-                  {COLOR[it.color].label} · {it.wornCount}회
+                  {colorLabel(it.color)} · {it.wornCount}회
                 </Text>
               </Pressable>
             ))}

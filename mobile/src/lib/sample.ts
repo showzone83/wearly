@@ -32,7 +32,7 @@ export function buildSampleHistory(items: WardrobeItem[], profile: Profile) {
           emotions: meta.self >= 4 ? ['CONFIDENT'] : ['COMFY'],
           memo: meta.self >= 4 ? '하루 종일 편했다' : '조금 추웠다',
           others: meta.others,
-          praisedItemId: meta.others === 'PRAISE' ? pick.items.OUTER ?? pick.items.TOP : undefined,
+          praisedItemId: meta.others === 'PRAISE' ? pick.items.OUTER ?? pick.items.TOP ?? pick.items.DRESS : undefined,
           diagnosis: diagnose(pick.items, input(items, profile, ctx)),
           createdAt: new Date().toISOString(),
         });

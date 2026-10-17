@@ -30,7 +30,7 @@ export function ItemThumb({ item, size, tag, style, height, dim }: Props) {
           onError={() => setBroken(true)}
         />
       ) : item ? (
-        <GarmentArt subType={item.subType} color={item.color} pattern={item.pattern} size={art} />
+        <GarmentArt subType={item.subType} category={item.category} color={item.color} pattern={item.pattern} size={art} />
       ) : (
         <Text style={s.empty}>없음</Text>
       )}

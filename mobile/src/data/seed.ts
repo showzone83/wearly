@@ -3,7 +3,8 @@ import type { Profile, WardrobeItem } from './types';
 
 type SeedItem = Omit<WardrobeItem, 'createdAt' | 'lastWornAt'> & { wornDaysAgo?: number };
 
-// 기획서 목업(p.40 내 옷장)의 옷장 구성을 바탕으로 한 샘플 데이터
+// 기획서 목업(p.40 내 옷장)의 옷장 구성을 바탕으로 한 샘플 데이터.
+// 값은 코드 초기값(doc/06_코드_초기값.json)에 있는 코드만 쓴다. 서버 계정이면 bulk 등록 때 서버가 코드를 검증한다.
 const SEED: SeedItem[] = [
   { id: 's-top-1', name: '네이비 니트', category: 'TOP', subType: 'KNIT', color: 'navy', pattern: 'SOLID', seasons: ['FALL', 'WINTER'], styles: ['NEAT', 'MINIMAL'], formality: 2, status: 'OWNED', wornCount: 5, wornDaysAgo: 2 },
   { id: 's-top-2', name: '화이트 옥스포드 셔츠', category: 'TOP', subType: 'SHIRT', color: 'white', pattern: 'SOLID', seasons: ['SPRING', 'FALL', 'SUMMER'], styles: ['NEAT', 'CLASSIC'], formality: 3, status: 'OWNED', wornCount: 8, wornDaysAgo: 4 },
@@ -24,6 +25,12 @@ const SEED: SeedItem[] = [
   { id: 's-sho-3', name: '브라운 더비 로퍼', category: 'SHOES', subType: 'LOAFER', color: 'brown', pattern: 'SOLID', seasons: ['SPRING', 'FALL', 'WINTER'], styles: ['CLASSIC'], formality: 2, status: 'OWNED', wornCount: 3, wornDaysAgo: 10 },
   { id: 's-bag-1', name: '브라운 토트백', category: 'BAG', subType: 'TOTE', color: 'brown', pattern: 'SOLID', seasons: ['SPRING', 'SUMMER', 'FALL', 'WINTER'], styles: ['CLASSIC', 'MINIMAL'], formality: 2, status: 'OWNED', wornCount: 10, wornDaysAgo: 2 },
   { id: 's-bag-2', name: '블랙 숄더백', category: 'BAG', subType: 'SHOULDER', color: 'black', pattern: 'SOLID', seasons: ['SPRING', 'SUMMER', 'FALL', 'WINTER'], styles: ['MINIMAL', 'NEAT'], formality: 2, status: 'OWNED', wornCount: 7, wornDaysAgo: 5 },
+  // 코드 확장(doc/06)으로 늘어난 종류: 청바지·원피스·데님 재킷·부츠·시계
+  { id: 's-bot-5', name: '데님 청바지', category: 'BOTTOM', subType: 'JEANS', color: 'denim', pattern: 'SOLID', seasons: ['SPRING', 'FALL', 'WINTER'], styles: ['CASUAL', 'STREET'], formality: 1, status: 'OWNED', wornCount: 4, wornDaysAgo: 11 },
+  { id: 's-dre-1', name: '네이비 셔츠 원피스', category: 'DRESS', subType: 'SHIRT_DRESS', color: 'navy', pattern: 'SOLID', seasons: ['SPRING', 'FALL'], styles: ['CLASSIC', 'FEMININE', 'NEAT'], formality: 2, status: 'OWNED', wornCount: 1, wornDaysAgo: 21 },
+  { id: 's-out-5', name: '데님 재킷', category: 'OUTER', subType: 'DENIM_JACKET', color: 'denim', pattern: 'SOLID', seasons: ['SPRING', 'FALL'], styles: ['CASUAL', 'STREET'], formality: 1, status: 'OWNED', wornCount: 0 },
+  { id: 's-sho-4', name: '블랙 앵클 부츠', category: 'SHOES', subType: 'BOOTS', color: 'black', pattern: 'SOLID', seasons: ['FALL', 'WINTER'], styles: ['CLASSIC', 'MINIMAL'], formality: 2, status: 'OWNED', wornCount: 2, wornDaysAgo: 25 },
+  { id: 's-acc-1', name: '실버 메탈 시계', category: 'ACC', subType: 'WATCH', color: 'gray', pattern: 'SOLID', seasons: ['SPRING', 'SUMMER', 'FALL', 'WINTER'], styles: ['CLASSIC', 'MINIMAL'], formality: 2, status: 'OWNED', wornCount: 14, wornDaysAgo: 2 },
 ];
 
 export function seedItems(): WardrobeItem[] {

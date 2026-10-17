@@ -1,10 +1,10 @@
 // 서버 DTO ↔ 앱 모델 변환. 서버 DTO는 @/api/types, 앱 모델은 @/data/types.
 import type * as Api from '@/api/types';
 import type { ItemDraft } from '@/components/ItemForm';
-import { SUBTYPES_BY_CATEGORY } from '@/data/constants';
 import type * as App from '@/data/types';
+import { activeCodes, defaultStatus, isActiveCode, parentOf, subTypesOf } from './codes';
 
-// 두 곳에 따로 정의한 열거형 문자열이 어긋나면 여기서 타입 오류가 난다
+// 두 곳에 따로 정의한 타입이 어긋나면 여기서 타입 오류가 난다 (옷 속성은 양쪽 모두 코드 문자열)
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 const _sameEnums: [
   Same<Api.Category, App.Category>,
@@ -89,20 +89,33 @@ export function profileToDto(p: App.Profile, onboarded: boolean): Api.ProfileDto
   };
 }
 
-/** AI 분석 제안 → 등록 폼 값. 종류·세부 종류 짝이 어긋나면 그 종류의 첫 세부 종류로 맞춘다 */
+/**
+ * AI 분석 제안의 종류·세부 종류 짝을 앱 코드 기준으로 맞춘다.
+ * 1. 세부 종류가 아는 활성 코드면 그 상위 종류를 따른다 (세부 종류가 더 구체적이다)
+ * 2. 아니면 종류가 아는 활성 코드일 때 그 종류의 첫 세부 종류
+ * 3. 둘 다 모르면 첫 활성 종류와 그 첫 세부 종류
+ * 서버가 앱 캐시보다 새 코드를 줬다면(캐시에 없는 코드) 1·2에서 걸러져 아는 값으로 바뀐다.
+ */
+export function fixCategoryPair(category: string, subType: string): { category: string; subType: string } {
+  const parent = isActiveCode('SUB_TYPE', subType) ? parentOf(subType) : null;
+  if (parent && isActiveCode('CATEGORY', parent)) return { category: parent, subType };
+  const cat = isActiveCode('CATEGORY', category) ? category : (activeCodes('CATEGORY').find((c) => subTypesOf(c).length > 0) ?? category);
+  return { category: cat, subType: subTypesOf(cat)[0] ?? subType };
+}
+
+/** AI 분석 제안 → 등록 폼 값. 종류·세부 종류 짝은 코드 기준으로 맞춘다 */
 export function draftFromSuggestion(s: Api.AnalyzeSuggestion, imageUri: string): ItemDraft {
-  const subs = SUBTYPES_BY_CATEGORY[s.category] ?? SUBTYPES_BY_CATEGORY.TOP;
-  const category = SUBTYPES_BY_CATEGORY[s.category] ? s.category : 'TOP';
+  const { category, subType } = fixCategoryPair(s.category, s.subType);
   return {
     name: s.name,
     category,
-    subType: subs.includes(s.subType) ? s.subType : subs[0],
+    subType,
     color: s.color,
     pattern: s.pattern,
     seasons: s.seasons,
     styles: s.styles,
     formality: s.formality,
-    status: 'OWNED',
+    status: defaultStatus(),
     imageUri,
   };
 }
