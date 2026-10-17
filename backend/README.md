@@ -12,7 +12,7 @@
 |---|---|
 | Spring Boot | 4.1.1 (Java 21 toolchain, Gradle 9.8.1 wrapper, Kotlin DSL) |
 | 데이터 접근 | Spring Data JPA (Hibernate 7.4) + MyBatis (mybatis-spring-boot-starter 4.1.0) |
-| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V5) |
+| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V7) |
 | 인증 | Spring Security OAuth2 Resource Server, JWT HS256 (Nimbus) |
 | AI | Claude: Anthropic Java SDK 2.73.0 / OpenAI·Gemini: 각 사 REST API를 Spring `RestClient`로 (SDK 없음) |
 | 구조 | 헥사고날 (컨텍스트별 domain · application · adapter), 규칙은 ArchUnit 1.5.1 테스트 |
@@ -60,7 +60,7 @@ cd backend
 compose의 backend가 떠 있으면 8080이 겹치므로 먼저 `docker compose stop backend`.
 
 - 서버: `http://localhost:8080`, API 기본 경로 `/api/v1`, 상태 확인 `GET /actuator/health`
-- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
+- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
 - **AI 공급자 고르기** (07 문서 3장)
   - `bootRunMock`(`WEARLY_AI_PROVIDER=mock`)이면 언제나 목업. DB 설정은 무시한다.
   - 그 밖(`bootRun`, 기본 `db`)에는 `tb_ai_provider`에서 사용(`enabled`)·모델·키를 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패(시간 초과·HTTP 오류·응답 검증 실패)하면 다음 공급자로 넘어간다.
@@ -246,7 +246,11 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 | `ProviderApiKeyNoMasterKeyIntegrationTest` | 마스터 키 없음 409 `SECRET_KEY_MISSING`(비밀번호 확인보다 먼저), `secretStoreEnabled: false` |
 | `EnvApiKeyAdapterTest` | 서버 설정 키 찾기: `wearly.ai.keys.<이름>` → 같은 이름 속성·환경변수, 빈 값은 건너뜀, `*_API_KEY`가 아닌 이름 거부 (Spring 없음) |
 | `AesGcmSecretCipherTest` · `ApiKeyRulesTest` · `ApiKeyServiceTest` | 암호화 왕복·nonce 매번 다름·AAD/마스터 키/암호문이 다르면 실패·마스터 키 없음 WARN·형식 오류 ERROR, 키 형식·출처 우선순위, 복호화 캐시·무효화·복호화 실패 시 쓸 수 없음 (Spring 없음) |
-| `HexagonalArchitectureTest` | 08 문서 3장 규칙 12개 (ArchUnit, 4차부터 `outfit` 컨텍스트 포함) |
+| `HexagonalArchitectureTest` | 08 문서 3장·7장 규칙 19개 (ArchUnit): 의존 방향, 컨텍스트 사이는 `port.in`만, common·공유 커널은 컨텍스트를 모름, 출력 어댑터는 API 오류를 모름, `@Entity`·`@Mapper` 위치, 검증·Jackson 어노테이션은 웹 어댑터만, 컨트롤러는 `*Response`만 반환, 포트 DTO는 어댑터를 모름 |
+| `ApiResponseSnapshotTest` | (5차) 155개 요청의 응답(상태·헤더 일부·본문)을 `src/test/resources/snapshots/api-responses.json`과 비교. 토큰·시각·버전 등 매번 다른 값만 정규화한다. 응답 모양을 바꾸면 실패한다. 파일을 지우고 돌리면 다시 만든다 |
+| `*ServiceTest` (5차) | 서비스 단위 테스트(가짜 포트, Spring 없음): `AuthService`, `CodeManagementService`(색 짝·삭제 가드), `AdminUserService`(자기 정지 금지), `AdminAiService`(키 저장 순서), `AiCallRunner`(폴백·기록), `AiQuotaService`·`AiJsonGenerationService`(한도 예약), `WardrobeService` |
+| `AiQuotaConcurrencyIntegrationTest` | (5차) 12개 동시 예약·동시 사진 분석에서 한도 3개만 성공, 오래된 예약 무시 |
+| `CodeUsageSourceIntegrationTest` · `WardrobePatchIntegrationTest` · `AiLogSummaryMigrationTest` | (5차) 코드 사용 수를 옷장·프로필이 세는지, 옷장 PATCH 오류 모양, V7이 기존 기록 요약을 4차 문구대로 채우는지 |
 | `CandidateValidatorTest` · `OutfitPromptTest` | (Spring 없음) 후보 검증: 정상·남의 아이템·칸 불일치·TOP+DRESS 혼합·신발 없음·고정/중심 누락·제외/피하고 싶은 색/세탁 중·중복·형식. 스키마: 칸별 enum이 그 칸의 내 아이템만·세탁 중 제외·고정·원피스 고정·null 허용 규칙, 프롬프트 내용, 모자란 칸, 고정 확인, 목업 결정성 |
 | `OutfitRecommendIntegrationTest` | (목업) 응답 형식·규칙·결정성, 고정·중심·제외·색·후보 수, 옷 부족 400(기록 없음), 한도 429(사진 분석과 따로), 요청 검증 400·401, 기록 `feature`·관리자 AI 기록·대시보드 |
 | `OutfitProviderFallbackIntegrationTest` | (DB 공급자, 가짜 OpenAI·Gemini·Claude 서버) 오류·남은 후보 0개면 다음 공급자, 각 사 요청 형식(시스템 지시·텍스트·스키마 enum), 실패 기록, 전부 실패 502·한도 미차감, 공급자 없으면 502, 공급자 `today`·대시보드 |
@@ -266,45 +270,58 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 |---|---|---|
 | 회원·자격 증명·Refresh 토큰 | `User`(역할·정지), `LocalCredential`, `RefreshToken` | 관리자 회원 목록 (`AdminQueryMapper.xml`) |
 | 프로필 | `UserProfile` | |
-| 옷장 | 등록·bulk·PATCH·삭제·단건 조회 (`WardrobeItem`) | 동적 필터 목록, `/wardrobe/stats` 집계 (`WardrobeQueryMapper.xml`) |
-| 코드 | 관리자 추가·수정·순서·삭제 (`Code`) | 캐시 적재·version·사용 수 집계 (`CodeQueryMapper.xml`) |
-| AI | 호출 기록 저장 (`AiAnalysisLogEntity`), 공급자 설정 (`AiProviderEntity`), 웹 키 암호문 (`ProviderSecretEntity`) | 일일 사용량 (`ai/AiUsageMapper.xml`), 관리자 AI 기록 검색·공급자별 통계·대시보드 (`admin/AdminQueryMapper.xml`) |
+| 옷장 | 등록·bulk·PATCH·삭제·단건 조회 (`WardrobeItem`) | 동적 필터 목록, `/wardrobe/stats` 집계, 코드 사용 수 (`WardrobeItemMapper.xml`) |
+| 프로필 | | 코드 사용 수 (`user/ProfileMapper.xml`) |
+| 코드 | 관리자 추가·수정·순서·삭제 (`Code`) | 캐시 적재·version (`CodeMapper.xml`). 사용 수는 옷장·프로필이 `CodeUsageSource`로 센다 |
+| AI | 호출 기록 저장 (`AiAnalysisLogEntity`), 공급자 설정 (`AiProviderEntity`), 웹 키 암호문 (`ProviderSecretEntity`), 한도 예약 (`AiUsageReservationEntity`) | 일일 사용량·한도 잠금 (`ai/AiQuotaMapper.xml`), 관리자 AI 기록 검색·공급자별 통계·대시보드 (`admin/AdminQueryMapper.xml`) |
 | 변경 이력 | 기록 (`AuditLog`) | 목록 (`AdminQueryMapper.xml`) |
 
-## 패키지 구조 (08 문서, 3차)
+## 패키지 구조 (08 문서 2장·7장, 5차)
 
-컨텍스트마다 같은 모양이다. 안쪽으로만 의존하고(`adapter` → `application` → `domain`), 규칙은 `HexagonalArchitectureTest`(ArchUnit)가 검사한다.
+컨텍스트마다 같은 모양이다. 안쪽으로만 의존하고(`adapter` → `application` → `domain`), 규칙은 `HexagonalArchitectureTest`(ArchUnit)가 검사한다. 요청 하나가 지나가는 클래스 순서는 [`doc/10_백엔드_흐름.md`](../doc/10_백엔드_흐름.md).
 
 ```
 app.wearly.<context>
-├── domain/                  순수 자바 도메인 모델·규칙 (Spring·JPA·Jackson 없음)
+├── domain/                        순수 자바 도메인 모델·불변식 (Spring·JPA·Jackson 없음, 어기면 DomainValidationException)
 ├── application/
-│   ├── port/in/             유스케이스 인터페이스 + 명령·조회 조건·결과
-│   ├── port/out/            출력 포트 (저장·조회·외부 호출)
-│   └── service/             유스케이스 구현 (@Service, @Transactional은 여기까지)
-└── adapter/
-    ├── in/web/              @RestController, 요청·응답 DTO   (in/startup: 시작 시 실행)
-    └── out/persistence/     JPA 엔티티(*Entity)·리포지토리·쓰기 포트 구현
-        out/query/           MyBatis 매퍼·조회 포트 구현 (XML: resources/mapper/<context>/)
-        out/<기술>/           ai: ai/claude·ai/openai·ai/gemini·ai/mock·env·crypto, auth: security
-app.wearly.common
-├── domain/                  여러 컨텍스트가 쓰는 값 (FieldError, PatchBody, ImageUpload, Ids·Times·Zones, code.CodeSnapshot)
-├── error/                   오류 코드·ApiException·전역 예외 처리
-├── web/                     웹 어댑터 공용 (CurrentUser, PathIds, Uploads, JsonPatchBody)
-├── config/                  Spring·Security 설정, 설정 값(WearlyProperties) → 유스케이스 설정 값
-└── mybatis/                 TypeHandler
+│   ├── port/in/                   유스케이스 인터페이스 (XxxUseCase)
+│   │   └── dto/                   유스케이스 입력(<동작><대상>Dto)·출력(<대상>Dto). 자바 타입 그대로
+│   ├── port/out/                  출력 포트 (쓰기·단건 XxxPort, 조회 XxxQueryPort, 외부 호출)
+│   │   └── dto/                   조회 포트가 돌려주는 도메인이 아닌 모양 (필요한 곳만)
+│   └── service/                   유스케이스 구현 (@Service, @Transactional은 여기까지)
+├── adapter/
+│   ├── in/web/                    @RestController
+│   │   ├── request/               XxxRequest: 요청 바인딩·Bean Validation·Jackson, toDto()
+│   │   └── response/              XxxResponse: 응답 JSON 모양, static from(dto) (문자열 ID, 밀리초 ISO 시각)
+│   ├── in/startup/                시작 시 실행        in/code/: code의 CodeUsageSource 구현 (wardrobe·user)
+│   └── out/
+│       ├── persistence/jpa/       XxxEntity · XxxJpaRepository · XxxJpaAdapter
+│       ├── persistence/mybatis/   XxxMybatisAdapter, mapper/XxxMapper (XML: resources/mapper/<context>/), dto/XxxRowDto
+│       └── <기술>/                 ai: ai/(claude·openai·gemini·mock, 공급자 모듈), env, crypto, transaction / auth: security
+└── config/                        그 컨텍스트의 Spring 설정 빈 (auth: SecurityConfig, ai: AiConfig, outfit: OutfitConfig)
+app.wearly.sharedkernel.code       공유 커널 (소유자 code): CodeSnapshot·CodeChecks·CodeGroups, Slots, DressCode, Seasons
+app.wearly.common                  컨텍스트를 모른다 (ArchUnit)
+├── domain/                        FieldError, DomainValidationException, Zones
+├── application/                   Patch(안 보냄·값·형식 오류), ImageUpload
+├── error/                         오류 코드·ApiException·전역 예외 처리
+├── web/                           웹 어댑터 공용 (CurrentUser, PathIds, Uploads, Ids, Times, JsonPatches)
+├── config/                        WearlyProperties, ClockConfig, CorsConfig
+├── mybatis/                       TypeHandler, LikePatterns(LIKE 이스케이프, XML에서 <bind>)
+├── persistence/                   PersistenceClock (엔티티 시각도 주입한 Clock)
+└── transaction/                   AfterTransaction (커밋·완료 뒤 실행)
 ```
 
 | 컨텍스트 | domain | 입력 포트 (주요) | 출력 어댑터 |
 |---|---|---|---|
-| `auth` | `RefreshToken`(회전·재사용 판단), `RefreshTokens`, `LocalCredential` | `AuthUseCase`, `AuthenticationUseCase`, `AccountUseCase` | JPA(자격 증명·Refresh 토큰), security(BCrypt, JWT 발급) |
-| `user` | `User`, `UserProfile`, `DressCode`, `WorkType` | `UserUseCase`, `ProfileUseCase` | JPA(회원·프로필) |
-| `wardrobe` | `WardrobeItem`, `ItemInput`, `ItemCodeValidator`, `WardrobeStatsRules` | `WardrobeUseCase`, `WardrobeStatsUseCase` | JPA(아이템 쓰기·단건), MyBatis(목록·통계) |
-| `code` | `Code`, `CodeAttrs`, `CodeRules` (스냅샷은 `common.domain.code`) | `CodeCatalog`, `CodeManagementUseCase` | JPA(코드 쓰기), MyBatis(스냅샷 캐시·사용 수) |
-| `ai` | `AiProviderSetting`, `AiProviderSelection`, `AiRunMode`, `AiProviderType`, `ApiKeyRules`, `AnalysisPrompt`, `AiJsonPrompt` … | `AnalyzeImageUseCase`, `ProviderTestUseCase`, `AiProviderAdminUseCase`, `AiStatusUseCase`, `JsonGenerationUseCase`(4차) | JPA(공급자·호출 기록·웹 키), MyBatis(사용량), ai/*(Claude SDK·OpenAI·Gemini REST·목업·키 확인), env, crypto(AES-GCM) |
-| `outfit` (4차) | `OutfitPool`, `OutfitPrompt`, `CandidateValidator`, `MockOutfitPlanner`, `OutfitRequest` … | `RecommendOutfitUseCase` | 없음 (옷장·프로필·코드는 각 입력 포트, 공급자는 ai의 `JsonGenerationUseCase`) |
-| `admin` | `AuditTargets`, `SearchText` | `AdminDashboardUseCase`, `AdminUserUseCase`, `AdminCodeUseCase`, `AdminAiProviderUseCase`, `EnsureAdminUseCase` | JPA(변경 이력 = `RecordAuditPort`), MyBatis(대시보드·목록 읽기 모델) |
+| `auth` | `RefreshToken`(회전·재사용 판단), `RefreshTokens`, `LocalCredential`, `EmailTakenException` | `AuthUseCase`, `AuthenticationUseCase`, `AccountUseCase` | JPA(자격 증명·Refresh 토큰), security(BCrypt, JWT 발급). 보안 필터 체인은 `auth.config.SecurityConfig` |
+| `user` | `User`(이름·상태·역할 불변식), `UserStatus`, `UserRole`, `UserProfile`, `WorkType` | `UserUseCase`, `ProfileUseCase`, `ProfileCodeUsageUseCase` | JPA(회원·프로필), MyBatis(프로필 코드 사용 수) |
+| `wardrobe` | `WardrobeItem`, `ItemInput`, `ItemRules`(불변식), `ItemCodeValidator`, `WardrobeStatsRules` | `WardrobeUseCase`, `WardrobeStatsUseCase`, `ItemCodeUsageUseCase` | JPA(아이템 쓰기·단건), MyBatis(목록·통계·코드 사용 수) |
+| `code` | `Code`, `CodeAttrs`, `CodeRules` (스냅샷·검증 정책은 공유 커널) | `CodeCatalog`, `CodeManagementUseCase`, `CodeUsageSource`(SPI: 옷장·프로필이 구현) | JPA(코드 쓰기), MyBatis(스냅샷 캐시) |
+| `ai` | `AiProviderSetting`, `AiProviderSelection`, `AiRunMode`, `AiProviderType`, `ApiKeyRules`, `AnalysisPrompt`, `AiJsonPrompt`, `AiSuggestionValidator` … | `AnalyzeImageUseCase`, `ProviderTestUseCase`, `AiProviderAdminUseCase`, `AiProviderKeyUseCase`, `AiStatusUseCase`, `JsonGenerationUseCase` | JPA(공급자·호출 기록·웹 키·한도 예약), MyBatis(사용량·한도 잠금), ai/*(공급자 모듈: Claude SDK·OpenAI·Gemini REST·목업·키 확인), env, crypto(AES-GCM), transaction |
+| `outfit` | `OutfitPool`, `OutfitPrompt`, `CandidateValidator`, `MockOutfitPlanner`, `OutfitRequest` … | `RecommendOutfitUseCase` (기능 이름 `OutfitFeatures`) | 없음 (옷장·프로필·코드는 각 입력 포트, 공급자는 ai의 `JsonGenerationUseCase`) |
+| `admin` | `AuditTargets`, `SearchText` | `AdminDashboardUseCase`, `AdminUserUseCase`, `AdminCodeUseCase`, `AdminAiProviderUseCase`, `EnsureAdminUseCase` | JPA(변경 이력 = `RecordAuditPort`), MyBatis(대시보드·목록 읽기 모델 → `port.out.dto`) |
 
-- 컨텍스트 사이는 상대 `port.in`으로만 부른다. 관리자 API는 admin 컨텍스트가 code·ai·user·auth 유스케이스를 부르고, 같은 트랜잭션에서 변경 이력을 남긴다.
+- 컨텍스트 사이는 상대 `port.in`(과 `port.in.dto`)으로만 부른다. 관리자 API는 admin 컨텍스트가 code·ai·user·auth 유스케이스를 부르고, 같은 트랜잭션에서 변경 이력을 남긴다. 외부 HTTP가 끼는 웹 키 저장은 트랜잭션을 나눈다(`AdminAiKeyWriter`).
 - 사진 분석 `POST /wardrobe/items/analyze`는 경로는 옷장이지만 ai 컨텍스트의 `AiAnalyzeController`가 받는다.
-- `MultipartFile`은 웹 어댑터에서 `ImageUpload`(byte[]·MIME)로, PATCH JSON은 `PatchBody`(관리자)·`ItemPatch`(옷장)로 바꿔 넘긴다.
+- `MultipartFile`은 웹 어댑터에서 `ImageUpload`(byte[]·MIME)로, PATCH JSON은 웹 어댑터가 필드마다 `Patch`로 바꿔 `PatchCodeDto`·`PatchProviderDto`·`PatchUserDto`·`PatchItemDto`로 넘긴다.
+- 컨트롤러는 항상 `*Response`를 돌려준다. 응답 JSON은 5차 전과 바이트 단위로 같다(`ApiResponseSnapshotTest`).
