@@ -1,7 +1,7 @@
 package app.wearly.user.adapter.out.persistence.jpa;
 
+import app.wearly.sharedkernel.code.DressCode;
 import app.wearly.user.application.port.out.ProfilePort;
-import app.wearly.user.domain.DressCode;
 import app.wearly.user.domain.EnumCodes;
 import app.wearly.user.domain.UserProfile;
 import app.wearly.user.domain.WorkType;

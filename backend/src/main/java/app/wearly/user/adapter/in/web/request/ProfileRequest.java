@@ -1,8 +1,8 @@
 package app.wearly.user.adapter.in.web.request;
 
+import app.wearly.sharedkernel.code.DressCode;
 import app.wearly.user.application.port.in.dto.ProfileDto.NotifyDto;
 import app.wearly.user.application.port.in.dto.UpdateProfileDto;
-import app.wearly.user.domain.DressCode;
 import app.wearly.user.domain.WorkType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;

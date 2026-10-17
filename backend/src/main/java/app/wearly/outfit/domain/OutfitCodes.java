@@ -1,5 +1,6 @@
 package app.wearly.outfit.domain;
 
+import app.wearly.sharedkernel.code.DressCode;
 import app.wearly.sharedkernel.code.Slots;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -47,14 +48,10 @@ public final class OutfitCodes {
           "COMFY", new Mood("편안", List.of("CASUAL", "SPORTY")),
           "CHIC", new Mood("세련", List.of("MINIMAL", "CLASSIC", "FEMININE")));
 
-  /** 격식(드레스 코드): 라벨과 단계(1~3) */
+  /** 격식(드레스 코드, 공유 커널 DressCode): 라벨과 단계(1~3) */
   public record Formality(String label, int level) {}
 
-  public static final Map<String, Formality> FORMALITIES =
-      ordered(
-          "CASUAL", new Formality("편한 데일리", 1),
-          "BIZ_CASUAL", new Formality("비즈니스 캐주얼", 2),
-          "FORMAL", new Formality("포멀", 3));
+  public static final Map<String, Formality> FORMALITIES = formalities();
 
   public static final Map<String, String> TIMES_OF_DAY =
       ordered("AM", "오전", "PM", "오후", "EVENING", "저녁");
@@ -63,6 +60,14 @@ public final class OutfitCodes {
       ordered("SUNNY", "맑음", "CLOUDY", "흐림", "RAIN", "비");
 
   private OutfitCodes() {}
+
+  private static Map<String, Formality> formalities() {
+    Map<String, Formality> out = new LinkedHashMap<>();
+    for (DressCode d : DressCode.values()) {
+      out.put(d.name(), new Formality(d.label(), d.level()));
+    }
+    return Collections.unmodifiableMap(out);
+  }
 
   @SuppressWarnings("unchecked")
   private static <V> Map<String, V> ordered(Object... keyValues) {

@@ -1,6 +1,6 @@
 package app.wearly.user.application.port.in.dto;
 
-import app.wearly.user.domain.DressCode;
+import app.wearly.sharedkernel.code.DressCode;
 import app.wearly.user.domain.UserProfile;
 import app.wearly.user.domain.WorkType;
 import java.util.List;
