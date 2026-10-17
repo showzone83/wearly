@@ -201,7 +201,9 @@ start_backend() {
   (
     cd "$BACKEND_DIR"
     unset ANTHROPIC_API_KEY
+    # 개발용 backend/config/application-local.yml(실제 AI 키·관리자 계정·마스터 키)을 읽지 않게 없는 경로를 준다
     exec env \
+      WEARLY_LOCAL_CONFIG="$HARNESS_DIR/.logs/no-local-config.yml" \
       JAVA_HOME="$java_home" \
       SERVER_PORT="$PORT" \
       SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5433/$DB_NAME" \

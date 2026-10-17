@@ -113,7 +113,8 @@ public class AiProviderRegistry implements AiStatusUseCase {
                 .toList();
         if (usableList.isEmpty()) {
             log.warn("쓸 수 있는 AI 공급자가 없습니다. 사진 분석은 502 AI_UNAVAILABLE이 됩니다. "
-                    + "관리자 화면에서 공급자를 켜고 모델을 넣거나, 키 환경변수(예: ANTHROPIC_API_KEY)를 backend/.env에 넣으세요. "
+                    + "관리자 화면에서 공급자를 켜고 모델을 넣거나, 키를 웹에서 넣거나 backend/config/application-local.yml의 "
+                    + "wearly.ai.keys.ANTHROPIC_API_KEY 등에 넣으세요. "
                     + "목업으로 띄우려면 ./gradlew bootRunMock");
         } else {
             log.info("AI 공급자 (시도 순서): {}", String.join(", ", usableList));

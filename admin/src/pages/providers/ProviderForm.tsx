@@ -1,5 +1,5 @@
 // AI 공급자 추가·수정 패널. 수정일 때는 위에 "API 키" 영역(웹 입력, ApiKeySection)을 함께 보여 준다.
-// 아래 폼은 키 값이 아니라 키 환경변수 '이름'만 다룬다.
+// 아래 폼은 키 값이 아니라 서버 설정 키 '이름'만 다룬다.
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
@@ -135,7 +135,7 @@ export const ProviderForm = ({
     const nextSpec = typeList.find((t) => t.type === type);
     setForm((f) => {
       const prevDefault = typeList.find((t) => t.type === f.type)?.defaultApiKeyEnv ?? DEFAULT_KEY_ENV[f.type];
-      // 키 환경변수를 손대지 않았으면 새 종류의 기본값으로 바꾼다
+      // 서버 설정 키 이름을 손대지 않았으면 새 종류의 기본값으로 바꾼다
       const apiKeyEnv =
         !f.apiKeyEnv || f.apiKeyEnv === prevDefault
           ? (nextSpec?.defaultApiKeyEnv ?? DEFAULT_KEY_ENV[type] ?? f.apiKeyEnv)
@@ -166,9 +166,9 @@ export const ProviderForm = ({
       if (form.providerId === 'mock') e.set('providerId', "'mock'은 서버 목업 실행용 이름이라 쓸 수 없습니다.");
     }
     if (!form.displayName.trim()) e.set('displayName', '화면 이름을 입력하세요.');
-    if (!form.apiKeyEnv.trim()) e.set('apiKeyEnv', '키가 들어 있는 환경변수 이름을 입력하세요.');
+    if (!form.apiKeyEnv.trim()) e.set('apiKeyEnv', '서버 설정 키 이름을 입력하세요.');
     else if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(form.apiKeyEnv.trim()))
-      e.set('apiKeyEnv', '환경변수 이름 형식(영문·숫자·밑줄)이 아닙니다. 키 값이 아니라 이름을 넣으세요.');
+      e.set('apiKeyEnv', '서버 설정 키 이름 형식(영문 대문자·숫자·밑줄)이 아닙니다. 키 값이 아니라 이름을 넣으세요.');
     if (!/^-?\d+$/.test(form.priority.trim())) e.set('priority', '정수로 입력하세요.');
     if (form.enabled && !form.model.trim()) e.set('model', '사용하려면 모델 ID가 필요합니다.');
     for (const s of specs) {
@@ -254,13 +254,13 @@ export const ProviderForm = ({
           />
         </Field>
         <Field
-          label="키 환경변수 이름"
+          label="서버 설정 키 이름"
           required
           error={err('apiKeyEnv')}
           hint={
             isEdit
-              ? "키 값이 아니라 서버 환경변수의 '이름'입니다. 웹에서 넣은 키가 없을 때 이 환경변수의 키를 씁니다. 키 값은 위 'API 키'에서 넣으세요."
-              : "키 값이 아니라 서버 환경변수의 '이름'입니다. 키 값은 공급자를 추가한 뒤 수정 화면의 'API 키'에서 넣을 수 있어요."
+              ? "키 값이 아니라 서버 설정 키의 '이름'입니다(서버 설정 wearly.ai.keys.이름 또는 같은 이름 환경변수). 웹에서 넣은 키가 없을 때 이 서버 설정 키를 씁니다. 키 값은 위 'API 키'에서 넣으세요."
+              : "키 값이 아니라 서버 설정 키의 '이름'입니다(서버 설정 wearly.ai.keys.이름 또는 같은 이름 환경변수). 키 값은 공급자를 추가한 뒤 수정 화면의 'API 키'에서 넣을 수 있어요."
           }
         >
           <div className="row gap-sm">

@@ -50,6 +50,21 @@ cd mobile && npm run typecheck && npx expo-doctor
 - 시뮬레이터 자동 조작(탭·스와이프·스크린샷)은 `idb`(`brew install facebook/fb/idb-companion` + `pip3 install --user fb-idb`)와 `xcrun simctl io booted screenshot`을 쓴다.
 - 패키지 추가는 `npx expo install <패키지>`로 한다 (SDK 호환 버전 자동 선택).
 
+## 백엔드·관리자 사이트 실행 (docker compose)
+
+DB·백엔드·관리자 사이트는 저장소 루트의 `docker-compose.yml`로 한 번에 띄운다. 앱(Expo)은 넣지 않는다 — 시뮬레이터·휴대폰이 Mac의 Metro에 붙어야 하므로 `cd mobile && npx expo start`를 따로 띄운다.
+
+```bash
+docker compose up -d --build              # 전체 빌드·실행: db(5433) · backend(8080) · admin(5173)
+docker compose logs -f backend            # 로그 보기 (admin, db도 같은 방식)
+docker compose up -d --build backend      # 백엔드만 다시 빌드·재시작 (코드 수정 후)
+docker compose down                       # 중지 (DB 데이터는 wearly-pgdata 볼륨에 남음)
+```
+
+- 백엔드 비밀 값(AI 키·관리자 계정·마스터 키)은 `backend/config/application-local.yml`(git 제외)에 둔다. 견본은 `backend/config/application-local.example.yml`. `.env`는 쓰지 않는다 (`doc/08_백엔드_구조.md` 6장). compose는 `backend/config`를 컨테이너에 읽기 전용으로 마운트하고, 이미지에는 비밀 값을 넣지 않는다.
+- 관리자 사이트를 `npm run dev`(vite, 5173)로 띄울 때는 `admin` 서비스를 빼고 `docker compose up -d --build db backend`.
+- 백엔드를 Mac에서 직접 돌릴 때는 `docker compose up -d db` 후 `cd backend && ./gradlew bootRun` (자세한 내용은 `backend/README.md`).
+
 ## 목업 앱 핵심 코드
 
 - 추천 엔진: `mobile/src/lib/recommend.ts` — 기획서 p.24 점수 모델 (색상 30, 상황 25, 날씨 20, 취향 15, 다양성 10)

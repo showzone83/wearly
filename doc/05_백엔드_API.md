@@ -28,10 +28,10 @@
 | Spring Boot | 4.1.x (MyBatis 스타터가 호환되지 않으면 4.0.x) |
 | Java | 21 (Gradle toolchain) |
 | 빌드 | Gradle Kotlin DSL, wrapper 포함 |
-| DB | `docker compose up -d` → `wearly-postgres`, `localhost:5433`, DB·계정·비밀번호 모두 `wearly` (로컬 전용) |
+| DB | `docker compose up -d db` → `wearly-postgres`, `localhost:5433`, DB·계정·비밀번호 모두 `wearly` (로컬 전용). `docker compose up -d --build`는 백엔드(8080)·관리자 사이트(5173)까지 띄운다 |
 | 스키마 | Flyway가 만든다. JPA는 `ddl-auto: validate` |
 | 서버 포트 | 8080 |
-| 비밀 값 | `backend/.env` (git 제외). `ANTHROPIC_API_KEY`·`OPENAI_API_KEY`·`GEMINI_API_KEY`(공급자 행의 `api_key_env`가 가리키는 이름), `WEARLY_JWT_SECRET`, `WEARLY_ADMIN_EMAIL`·`WEARLY_ADMIN_PASSWORD`(·`WEARLY_ADMIN_NAME`), 3차 `WEARLY_SECRET_KEY`(웹 입력 AI 키의 마스터 키, base64 32바이트) |
+| 비밀 값 | `backend/config/application-local.yml` (git·docker 이미지 제외, 견본 `application-local.example.yml`, `.env` 쓰지 않음 — 08 문서 6장). `wearly.ai.keys.ANTHROPIC_API_KEY`·`OPENAI_API_KEY`·`GEMINI_API_KEY`(공급자 행의 `api_key_env` = 서버 설정 키 이름), `wearly.jwt.secret`, `wearly.admin.email`·`wearly.admin.password`(·`wearly.admin.name`), 3차 `wearly.secret-key`(웹 입력 AI 키의 마스터 키, base64 32바이트). 같은 값을 OS 환경변수(`ANTHROPIC_API_KEY`, `WEARLY_JWT_SECRET`, `WEARLY_ADMIN_EMAIL` …, `WEARLY_SECRET_KEY`)로도 줄 수 있다 |
 
 ### 데이터 접근 분담
 
@@ -95,7 +95,7 @@
 | 404 | `NOT_FOUND` | 없거나 남의 리소스 (남의 것도 404) |
 | 409 | `EMAIL_TAKEN` | 가입 이메일 중복 |
 | 409 | `CODE_EXISTS` · `CODE_IN_USE` · `PROVIDER_EXISTS` | 관리자 코드 중복·사용 중 삭제, AI 공급자 ID 중복 (07 문서 4장) |
-| 409 | `SECRET_KEY_MISSING` | 서버에 `WEARLY_SECRET_KEY`가 없어 AI 키를 웹에서 넣을 수 없음 (07 문서 6장) |
+| 409 | `SECRET_KEY_MISSING` | 서버에 마스터 키(`wearly.secret-key` / 환경변수 `WEARLY_SECRET_KEY`)가 없어 AI 키를 웹에서 넣을 수 없음 (07 문서 6장) |
 | 400 | `API_KEY_INVALID` | 저장 전 키 확인(각 사 모델 목록 조회) 실패 (07 문서 6장) |
 | 413 | `IMAGE_TOO_LARGE` | 분석 이미지 10MB 초과 |
 | 429 | `AI_LIMIT_EXCEEDED` | AI 분석 일일 한도 초과 |
@@ -236,7 +236,7 @@ interface AnalyzeResponse {
 - `WEARLY_AI_PROVIDER` = `db`(기본, 1차 값 `claude`도 같은 뜻) | `mock`. 그 밖의 값(예전 `auto` 포함)은 시작 실패.
   - `mock`(`./gradlew bootRunMock`, 하네스·테스트)이면 언제나 목업. DB 설정은 무시한다.
   - 그 밖에는 `tb_ai_provider`에서 사용·모델·키를 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패하면 다음 공급자로 넘어간다. 실패도 각각 기록한다.
-  - 키 고르기(3차, 07 문서 6장): 관리자 화면에서 넣은 키(DB, 복호화되면) → `api_key_env` 환경변수 → 없음. `WEARLY_SECRET_KEY`가 없으면 DB 키는 보지 않고 환경변수 키만 쓴다.
+  - 키 고르기(3차, 07 문서 6장): 관리자 화면에서 넣은 키(DB, 복호화되면) → 서버 설정 키(`wearly.ai.keys.<api_key_env>` → 같은 이름 OS 환경변수) → 없음. 마스터 키(`wearly.secret-key`)가 없으면 DB 키는 보지 않고 서버 설정 키만 쓴다.
   - 쓸 수 있는 공급자가 없으면 502 `AI_UNAVAILABLE`. **목업으로 대신하지 않는다.** 서버는 이때도 시작하고 WARN을 남긴다 (1차의 "키 없으면 시작 실패"는 없어졌다).
 - 세 공급자 모두 이미지와 함께 **활성 코드**로 만든 허용 값 목록(코드+한국어 라벨, 세부 종류는 종류별)과 JSON 스키마를 주고 구조화 출력으로 받는다. 허용 목록 밖 값·짝 불일치는 서버가 거부하고 다음 공급자로 넘어간다 (06 문서 4장).
 - 목업은 이미지 바이트의 SHA-256으로 활성 코드 중에서 값을 정한다 (같은 사진 + 같은 코드 = 같은 결과).
@@ -276,4 +276,5 @@ api.wardrobe.analyze(file)                   // file: Blob | { uri, name, type }
 
 - 하네스 전용 DB `wearly_harness`(같은 컨테이너)를 매번 비우고, 백엔드를 포트 18080으로 띄운다.
 - 짧은 Access 수명(`WEARLY_ACCESS_TTL=PT3S`)과 낮은 AI 한도(`WEARLY_AI_DAILY_LIMIT=3`), `WEARLY_AI_PROVIDER=mock`으로 띄워 만료·갱신·한도를 실제로 확인한다.
+- 개발용 `backend/config/application-local.yml`(실제 AI 키·관리자 계정·마스터 키)은 읽지 않는다 (`WEARLY_LOCAL_CONFIG`를 없는 경로로 준다). DB는 compose의 `db`(`wearly-postgres`)를 쓴다.
 - 시나리오는 `mobile/src/api/client.ts`를 그대로 import해 앱과 같은 코드로 서버를 부른다.

@@ -23,7 +23,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { fmtDateTime } from '@/lib/format';
 import { qk, useProviders } from '@/lib/queries';
 
-const SECRET_MISSING_TEXT = '서버에 WEARLY_SECRET_KEY가 없어 웹 입력을 쓸 수 없어요';
+const SECRET_MISSING_TEXT = '서버에 마스터 키(wearly.secret-key)가 없어 웹 입력을 쓸 수 없어요';
 /** 07 6장: 앞뒤 공백을 지운 뒤 20~300자, 공백·줄바꿈 없음 */
 const KEY_MIN = 20;
 const KEY_MAX = 300;
@@ -57,7 +57,7 @@ const toKeyErrors = (e: unknown): IKeyFormErrors => {
       return { apiKey: `키가 유효하지 않아요. ${e.message}` };
     case 'SECRET_KEY_MISSING':
       return {
-        form: `${SECRET_MISSING_TEXT}. 서버 관리자에게 WEARLY_SECRET_KEY 설정을 요청하거나, 환경변수 키를 쓰세요.`,
+        form: `${SECRET_MISSING_TEXT}. 서버 관리자에게 마스터 키 설정을 요청하거나, 서버 설정 키를 쓰세요.`,
       };
     case 'VALIDATION_FAILED': {
       const out: IKeyFormErrors = {};
@@ -93,8 +93,8 @@ export const KeySourceBadge = ({ provider: p }: { provider: IAiProvider }) => {
   }
   if (p.keySource === 'ENV') {
     return (
-      <span className="key-cell" title="서버 환경변수의 키를 씁니다">
-        <Badge tone="green">환경변수</Badge>
+      <span className="key-cell" title="서버 설정 키를 씁니다">
+        <Badge tone="green">서버 설정 키</Badge>
         <span className="mono small">{p.apiKeyEnv}</span>
       </span>
     );
@@ -129,19 +129,19 @@ export const ApiKeySection = ({ providerId, fallback }: { providerId: string; fa
           </>
         ) : p.keySource === 'ENV' ? (
           <>
-            <Badge tone="green">환경변수</Badge>
+            <Badge tone="green">서버 설정 키</Badge>
             <span className="mono">{p.apiKeyEnv}</span>
           </>
         ) : (
           <>
             <Badge tone="red">없음</Badge>
             <span className="muted small">
-              웹 키도 없고 서버 환경변수 <span className="mono">{p.apiKeyEnv}</span>도 비어 있어요.
+              웹 키도 없고 서버 설정 키 <span className="mono">{p.apiKeyEnv}</span>도 비어 있어요.
             </span>
           </>
         )}
       </div>
-      {storeOff ? <Notice tone="warn">{SECRET_MISSING_TEXT}. 환경변수 키는 그대로 쓸 수 있어요.</Notice> : null}
+      {storeOff ? <Notice tone="warn">{SECRET_MISSING_TEXT}. 서버 설정 키는 그대로 쓸 수 있어요.</Notice> : null}
       <div className="key-actions">
         <Button
           size="sm"
@@ -154,13 +154,13 @@ export const ApiKeySection = ({ providerId, fallback }: { providerId: string; fa
         </Button>
         {p.keySource === 'DB' ? (
           <Button size="sm" variant="ghost" className="text-danger" onClick={() => setDialog('delete')}>
-            웹 키 삭제(환경변수로 되돌리기)
+            웹 키 삭제(서버 설정 키로 되돌리기)
           </Button>
         ) : null}
       </div>
       <p className="muted small">
-        웹에서 넣은 키가 있으면 환경변수 <span className="mono">{p.apiKeyEnv}</span>보다 먼저 씁니다. 저장한 키는 다시
-        볼 수 없고 마지막 4자만 보여요.
+        웹에서 넣은 키가 있으면 서버 설정 키 <span className="mono">{p.apiKeyEnv}</span>보다 먼저 씁니다. 저장한 키는
+        다시 볼 수 없고 마지막 4자만 보여요.
       </p>
       {dialog === 'set' ? <ApiKeyModal provider={p} onClose={() => setDialog(null)} /> : null}
       {dialog === 'delete' ? <DeleteKeyModal provider={p} onClose={() => setDialog(null)} /> : null}
@@ -258,7 +258,7 @@ const ApiKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose: ()
           hint={
             provider.keySource === 'DB'
               ? `지금 웹 키(${masked(provider.keyLast4)})를 새 키로 바꿉니다.`
-              : `저장하면 환경변수 ${provider.apiKeyEnv}보다 이 키를 먼저 씁니다.`
+              : `저장하면 서버 설정 키 ${provider.apiKeyEnv}보다 이 키를 먼저 씁니다.`
           }
         >
           {/* 비제어 입력: 값을 React 상태에 두지 않는다. name 없음, 보기 토글 없음, 붙여넣기 허용 */}
@@ -336,7 +336,7 @@ const DeleteKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose:
           const now = row?.keySource ?? null;
           toast(
             now === 'ENV'
-              ? `웹 키를 지웠어요. 이제 환경변수 ${provider.apiKeyEnv}의 키를 씁니다.`
+              ? `웹 키를 지웠어요. 이제 서버 설정 키 ${provider.apiKeyEnv}를 씁니다.`
               : now === 'NONE'
                 ? `웹 키를 지웠어요. ${provider.apiKeyEnv} 값도 없어 이 공급자는 지금 쓸 수 없어요.`
                 : '웹 키를 지웠어요.',
@@ -371,8 +371,8 @@ const DeleteKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose:
     >
       <form id="api-key-delete-form" className="form" method="post" onSubmit={submit} noValidate>
         <p>
-          웹에서 넣은 키 <span className="mono">{masked(provider.keyLast4)}</span>를 지우고 서버 환경변수{' '}
-          <span className="mono">{provider.apiKeyEnv}</span>의 키로 되돌립니다. 환경변수가 비어 있으면 이 공급자는 쓸 수
+          웹에서 넣은 키 <span className="mono">{masked(provider.keyLast4)}</span>를 지우고 서버 설정 키{' '}
+          <span className="mono">{provider.apiKeyEnv}</span>로 되돌립니다. 서버 설정 키가 비어 있으면 이 공급자는 쓸 수
           없게 돼요.
         </p>
         {errors.form ? <Notice tone="error">{errors.form}</Notice> : null}

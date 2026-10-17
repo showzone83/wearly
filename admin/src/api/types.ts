@@ -137,7 +137,7 @@ export interface ICodePatch {
 
 export type TProviderType = 'CLAUDE' | 'OPENAI' | 'GEMINI' | 'MOCK';
 
-/** 지금 실제로 쓰는 키의 출처 (07 6장). DB = 웹에서 넣은 키, ENV = `apiKeyEnv` 환경변수 */
+/** 지금 실제로 쓰는 키의 출처 (07 6장). DB = 웹에서 넣은 키, ENV = 서버 설정 키 `apiKeyEnv` (backend/config/application-local.yml의 wearly.ai.keys.* 또는 같은 이름 환경변수) */
 export type TKeySource = 'DB' | 'ENV' | 'NONE';
 
 export interface IAiProvider {

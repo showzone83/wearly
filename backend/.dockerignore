@@ -1,0 +1,18 @@
+# 빌드 결과·캐시
+build/
+.gradle/
+out/
+bin/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# 비밀 값은 이미지에 굽지 않는다 (실행 시 backend/config를 /app/config로 마운트)
+.env
+.env.*
+config/application-local.yml
+
+# 이미지에 필요 없는 파일
+scripts/
+*.md

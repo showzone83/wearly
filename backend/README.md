@@ -15,87 +15,133 @@
 | 인증 | Spring Security OAuth2 Resource Server, JWT HS256 (Nimbus) |
 | AI | Claude: Anthropic Java SDK 2.73.0 / OpenAI·Gemini: 각 사 REST API를 Spring `RestClient`로 (SDK 없음) |
 | 구조 | 헥사고날 (컨텍스트별 domain · application · adapter), 규칙은 ArchUnit 1.5.1 테스트 |
-| 키 암호화 | AES-256-GCM (JDK `javax.crypto`), 마스터 키 `WEARLY_SECRET_KEY` |
+| 키 암호화 | AES-256-GCM (JDK `javax.crypto`), 마스터 키 `wearly.secret-key` (환경변수 `WEARLY_SECRET_KEY`) |
+| 설정 | 공통 `application.yml` + 로컬 비밀 `config/application-local.yml` (git 제외, `.env` 쓰지 않음, 08 문서 6장) |
+| 로컬 실행 | 루트 `docker-compose.yml`: db · backend · admin |
 
 ## 실행
 
-```bash
-# 1) 저장소 루트에서 DB 띄우기 (localhost:5433, DB·계정·비밀번호 wearly)
-docker compose up -d
+처음 한 번, 로컬 비밀 설정 파일을 만든다 (git 제외, 아래 "설정"):
 
-# 2) 서버 실행 (backend/ 에서)
+```bash
 cd backend
-cp .env.example .env   # 처음 한 번. 키와 관리자 계정을 채운다
-./gradlew bootRun      # 관리자 화면의 AI 공급자 설정(DB)대로 사진 분석
-./gradlew bootRunMock  # 목업 공급자로 사진 분석 (키 불필요, WEARLY_AI_PROVIDER=mock)
+cp config/application-local.example.yml config/application-local.yml   # AI 키·관리자 계정·마스터 키를 채운다
+chmod 600 config/application-local.yml
 ```
+
+### 전체 실행: docker compose (DB · 백엔드 · 관리자 사이트)
+
+저장소 루트에서:
+
+```bash
+docker compose up -d --build              # 전체 빌드·실행: db(5433) · backend(8080) · admin(5173)
+docker compose logs -f backend            # 백엔드 로그 보기 (admin, db도 같은 방식)
+docker compose up -d --build backend      # 백엔드만 다시 빌드·재시작 (코드 수정 후)
+docker compose down                       # 중지 (DB 데이터는 wearly-pgdata 볼륨에 남음)
+```
+
+- **앱(Expo)은 compose에 없다.** 시뮬레이터·휴대폰이 Mac의 Metro에 붙어야 하므로 Mac에서 `cd mobile && npx expo start`를 따로 띄운다. 앱은 `http://<Mac>:8080`의 compose 백엔드를 그대로 쓴다.
+- 백엔드 이미지(`backend/Dockerfile`): 빌드는 `eclipse-temurin:21-jdk`에서 `./gradlew bootJar -x test`(Gradle 캐시는 BuildKit 캐시 마운트), 실행은 `eclipse-temurin:21-jre`의 비루트 사용자 `wearly`, 작업 디렉터리 `/app`. 이미지 빌드에서는 테스트를 돌리지 않으니 테스트는 Mac에서 `./gradlew test`.
+- compose는 `--spring.profiles.active=docker`로 띄운다 (`application-docker.yml`: DB 주소 `db:5432`, 비밀 값 없음). 비밀 값은 `backend/config/` 폴더를 `/app/config`에 **읽기 전용으로 마운트**해서 `application-local.yml`을 읽는다. `backend/.dockerignore`가 이 파일을 빼므로 이미지에는 들어가지 않는다.
+- 헬스체크는 `/actuator/health`. 시작 순서는 db(healthy) → backend → admin.
+- 관리자 사이트(`admin/Dockerfile`, 빌드 컨텍스트는 저장소 루트)는 nginx가 빌드 결과를 서빙한다. API 주소는 빌드 인자 `VITE_API_URL`(기본 `http://localhost:8080`). 관리자 사이트를 vite(`npm run dev`, 5173)로 띄울 때는 포트가 겹치므로 `docker compose up -d --build db backend`만 띄운다.
+
+### Mac에서 직접 실행
+
+```bash
+docker compose up -d db   # 저장소 루트에서 DB만 (localhost:5433, DB·계정·비밀번호 wearly)
+cd backend
+./gradlew bootRun         # 관리자 화면의 AI 공급자 설정(DB)대로 사진 분석
+./gradlew bootRunMock     # 목업 공급자로 사진 분석 (키 불필요, WEARLY_AI_PROVIDER=mock)
+```
+
+compose의 backend가 떠 있으면 8080이 겹치므로 먼저 `docker compose stop backend`.
 
 - 서버: `http://localhost:8080`, API 기본 경로 `/api/v1`, 상태 확인 `GET /actuator/health`
 - 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
 - **AI 공급자 고르기** (07 문서 3장)
   - `bootRunMock`(`WEARLY_AI_PROVIDER=mock`)이면 언제나 목업. DB 설정은 무시한다.
   - 그 밖(`bootRun`, 기본 `db`)에는 `tb_ai_provider`에서 사용(`enabled`)·모델·키를 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패(시간 초과·HTTP 오류·응답 검증 실패)하면 다음 공급자로 넘어간다.
-  - 키는 **웹에서 넣은 키(DB) → `api_key_env` 환경변수 → 없음** 순서로 고른다 (아래 "AI 키 관리").
+  - 키는 **웹에서 넣은 키(DB) → 서버 설정 키(`wearly.ai.keys.<api_key_env>` → 같은 이름 환경변수) → 없음** 순서로 고른다 (아래 "AI 키 관리").
   - 쓸 수 있는 공급자가 없어도 서버는 **뜬다**. 시작 로그에 WARN이 남고, 사진 분석은 502 `AI_UNAVAILABLE`이다 (목업으로 대신하지 않는다). 관리자 사이트에서 고칠 수 있게 하려는 것이다.
   - 시작 직후 로그: `AI 공급자 (시도 순서): claude(CLAUDE, model=…, priority=1, key=ENV), …` 또는 `쓸 수 있는 AI 공급자가 없습니다 …` 또는 `AI 공급자: mock (목업 …)`.
-  - 처음 상태: `claude`(사용, `claude-opus-5-5`, 키 `ANTHROPIC_API_KEY`), `openai`·`gemini`(꺼짐, 모델 비움). 그래서 `.env`에 `ANTHROPIC_API_KEY`만 넣으면 1차와 같이 Claude로 돈다.
-- **관리자 계정**: `WEARLY_ADMIN_EMAIL`·`WEARLY_ADMIN_PASSWORD`가 있으면 시작할 때 그 계정을 만들거나(이름 `WEARLY_ADMIN_NAME`, 기본 "관리자") 이미 있는 계정을 `ADMIN`으로 올린다. 이미 있는 계정의 비밀번호·이름은 바꾸지 않는다. 가입 API로는 관리자를 만들 수 없다.
+  - 처음 상태: `claude`(사용, `claude-opus-5-5`, 키 `ANTHROPIC_API_KEY`), `openai`·`gemini`(꺼짐, 모델 비움). 그래서 `config/application-local.yml`의 `wearly.ai.keys.ANTHROPIC_API_KEY`만 넣으면 1차와 같이 Claude로 돈다.
+- **관리자 계정**: `wearly.admin.email`·`wearly.admin.password`(환경변수 `WEARLY_ADMIN_EMAIL`·`WEARLY_ADMIN_PASSWORD`)가 있으면 시작할 때 그 계정을 만들거나(이름 `wearly.admin.name`, 기본 "관리자") 이미 있는 계정을 `ADMIN`으로 올린다. 이미 있는 계정의 비밀번호·이름은 바꾸지 않는다. 가입 API로는 관리자를 만들 수 없다.
 - 운영 프로필(`SPRING_PROFILES_ACTIVE=prod`)은 `WEARLY_JWT_SECRET`이 없으면 기동하지 않는다.
 
-실행 가능한 jar: `./gradlew bootJar` → `build/libs/wearly-backend-0.0.1-SNAPSHOT.jar`
+실행 가능한 jar: `./gradlew bootJar` → `build/libs/wearly-backend-0.0.1-SNAPSHOT.jar` (`backend/`에서 `java -jar`로 실행해야 `./config/application-local.yml`을 읽는다)
 
-## 환경변수
+## 설정 (yml, 08 문서 6장)
 
-모든 값은 환경변수나 `backend/.env`로 덮어쓴다. `.env`는 git에 올리지 않는다 (`.env.example`만 커밋).
-`.env`는 `bootRun`/`java -jar`를 **`backend/` 디렉터리에서** 실행할 때 읽힌다 (`spring.config.import=optional:file:.env[.properties]`).
+- **공통 설정**: `src/main/resources/application.yml` (git 포함, 비밀 값 없음). compose용 `application-docker.yml`, 운영용 `application-prod.yml`.
+- **로컬 비밀 설정**: `config/application-local.yml` (git·docker 이미지 제외, 권한 600 권장). 견본은 `config/application-local.example.yml`(커밋). 같은 속성 이름을 계층으로 적고, 값은 따옴표로 감싼다.
+- 서버는 `spring.config.import: optional:file:${WEARLY_LOCAL_CONFIG:./config/application-local.yml}`로 읽는다. 그래서 `bootRun`/`java -jar`는 **`backend/` 디렉터리에서** 실행한다 (다른 파일을 쓰려면 `WEARLY_LOCAL_CONFIG=<경로>`). 파일이 없으면 건너뛴다.
+- **테스트와 하네스는 이 파일을 읽지 않는다**: `build.gradle.kts`의 test 태스크와 `harness/run.sh`가 `WEARLY_LOCAL_CONFIG`를 없는 경로로 준다. IDE에서 Gradle을 거치지 않고 테스트를 돌릴 때는 같은 환경변수를 직접 준다.
+- `.env`는 더 이상 읽지 않는다 (예전 `backend/.env`의 값은 같은 이름의 yml 속성으로 옮긴다: `ANTHROPIC_API_KEY` → `wearly.ai.keys.ANTHROPIC_API_KEY`, `WEARLY_ADMIN_EMAIL` → `wearly.admin.email`, `WEARLY_SECRET_KEY` → `wearly.secret-key` …).
 
-| 이름 | 기본값 | 설명 |
-|---|---|---|
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5433/wearly` | DB 주소 |
-| `SPRING_DATASOURCE_USERNAME` | `wearly` | |
-| `SPRING_DATASOURCE_PASSWORD` | `wearly` | |
-| `SERVER_PORT` | `8080` | |
-| `WEARLY_JWT_SECRET` | 개발용 고정값 | HS256 키, 32바이트 이상. prod 프로필에서는 필수 |
-| `WEARLY_ACCESS_TTL` | `PT30M` | Access 토큰 수명 (ISO-8601 Duration) |
-| `WEARLY_REFRESH_TTL` | `P30D` | Refresh 토큰 수명 |
-| `WEARLY_AI_PROVIDER` | `db` | `db`(관리자 화면 설정) · `mock`. 1차 값 `claude`는 `db`와 같다. 그 밖의 값(예전 `auto` 포함)은 시작 실패 |
-| `WEARLY_AI_DAILY_LIMIT` | `10` | 회원별 하루 사진 분석 횟수 (Asia/Seoul 날짜, 성공만, 관리자 시험 분석 제외) |
-| `WEARLY_AI_TIMEOUT` | `PT60S` | 공급자 호출 제한 시간 기본값. 공급자 `options.timeoutSeconds`가 있으면 그 값 |
-| `WEARLY_AI_ALLOW_BASE_URL` | `false` | `true`일 때만 공급자 `options.baseUrl`(API 주소 바꾸기)을 허용. 키가 다른 주소로 갈 수 있어 운영에서는 끈다 |
-| `ANTHROPIC_API_KEY` | (없음) | Claude 키. 처음 상태의 `claude` 행이 가리키는 이름 |
-| `OPENAI_API_KEY` | (없음) | OpenAI 키. `openai` 행이 가리키는 이름 |
-| `GEMINI_API_KEY` | (없음) | Gemini 키. `gemini` 행이 가리키는 이름 |
-| `WEARLY_ADMIN_EMAIL` / `WEARLY_ADMIN_PASSWORD` | (없음) | 둘 다 있으면 시작 시 관리자 계정 생성·승격 |
-| `WEARLY_ADMIN_NAME` | `관리자` | 새로 만들 때의 이름 |
-| `WEARLY_SECRET_KEY` | (없음) | 웹에서 넣은 AI 키를 암호화하는 마스터 키. **base64로 인코딩한 32바이트** (`openssl rand -base64 32`). 없으면 웹 키 입력이 꺼진다 |
+```yaml
+# config/application-local.yml (예시 값)
+wearly:
+  ai:
+    keys:                         # 공급자 행의 서버 설정 키 이름(api_key_env) → 키 값
+      ANTHROPIC_API_KEY: "sk-ant-..."
+  secret-key: "..."               # openssl rand -base64 32
+  admin:
+    email: "admin@example.com"
+    password: "admin1234pw"
+    name: "관리자"
+```
+
+아래 값은 OS 환경변수(왼쪽 이름)로도 덮어쓸 수 있다 (운영 서버·CI). 같은 항목을 yml과 환경변수에 함께 두지 않는다.
+
+| 환경변수 | yml 속성 | 기본값 | 설명 |
+|---|---|---|---|
+| `SPRING_DATASOURCE_URL` | `spring.datasource.url` | `jdbc:postgresql://localhost:5433/wearly` | DB 주소 (compose는 `db:5432`) |
+| `SPRING_DATASOURCE_USERNAME` | `spring.datasource.username` | `wearly` | |
+| `SPRING_DATASOURCE_PASSWORD` | `spring.datasource.password` | `wearly` | |
+| `SERVER_PORT` | `server.port` | `8080` | |
+| `WEARLY_JWT_SECRET` | `wearly.jwt.secret` | 개발용 고정값 | HS256 키, 32바이트 이상. prod 프로필에서는 필수 |
+| `WEARLY_ACCESS_TTL` | `wearly.jwt.access-ttl` | `PT30M` | Access 토큰 수명 (ISO-8601 Duration) |
+| `WEARLY_REFRESH_TTL` | `wearly.jwt.refresh-ttl` | `P30D` | Refresh 토큰 수명 |
+| `WEARLY_AI_PROVIDER` | `wearly.ai.provider` | `db` | `db`(관리자 화면 설정) · `mock`. 1차 값 `claude`는 `db`와 같다. 그 밖의 값(예전 `auto` 포함)은 시작 실패 |
+| `WEARLY_AI_DAILY_LIMIT` | `wearly.ai.daily-limit` | `10` | 회원별 하루 사진 분석 횟수 (Asia/Seoul 날짜, 성공만, 관리자 시험 분석 제외) |
+| `WEARLY_AI_TIMEOUT` | `wearly.ai.timeout` | `PT60S` | 공급자 호출 제한 시간 기본값. 공급자 `options.timeoutSeconds`가 있으면 그 값 |
+| `WEARLY_AI_ALLOW_BASE_URL` | `wearly.ai.allow-base-url` | `false` | `true`일 때만 공급자 `options.baseUrl`(API 주소 바꾸기)을 허용. 키가 다른 주소로 갈 수 있어 운영에서는 끈다 |
+| `ANTHROPIC_API_KEY` | `wearly.ai.keys.ANTHROPIC_API_KEY` | (없음) | Claude 키. 처음 상태의 `claude` 행이 가리키는 이름. yml 값이 먼저 |
+| `OPENAI_API_KEY` | `wearly.ai.keys.OPENAI_API_KEY` | (없음) | OpenAI 키. `openai` 행이 가리키는 이름 |
+| `GEMINI_API_KEY` | `wearly.ai.keys.GEMINI_API_KEY` | (없음) | Gemini 키. `gemini` 행이 가리키는 이름 |
+| `WEARLY_ADMIN_EMAIL` / `WEARLY_ADMIN_PASSWORD` | `wearly.admin.email` / `wearly.admin.password` | (없음) | 둘 다 있으면 시작 시 관리자 계정 생성·승격 |
+| `WEARLY_ADMIN_NAME` | `wearly.admin.name` | `관리자` | 새로 만들 때의 이름 |
+| `WEARLY_SECRET_KEY` | `wearly.secret-key` | (없음) | 웹에서 넣은 AI 키를 암호화하는 마스터 키. **base64로 인코딩한 32바이트** (`openssl rand -base64 32`). 없으면 웹 키 입력이 꺼진다 |
+| `WEARLY_LOCAL_CONFIG` | — | `./config/application-local.yml` | 로컬 비밀 설정 파일 경로 |
 
 - 1차의 `WEARLY_AI_MODEL`·`WEARLY_AI_EFFORT`는 없어졌다. 모델·effort는 관리자 화면(`tb_ai_provider.model`·`options.effort`)에서 바꾼다.
-- 공급자 행의 `api_key_env`는 **키가 들어 있는 환경변수 이름**이다. 다른 서버 비밀(DB 비밀번호·JWT 키)이 공급자에게 가지 않도록 이름은 `*_API_KEY` 형식만 허용한다.
+- 공급자 행의 `api_key_env`는 **서버 설정 키 이름**이다 (관리자 화면의 '서버 설정 키'). 서버는 `wearly.ai.keys.<이름>` → 같은 이름의 환경변수 순으로 키를 찾는다. 다른 서버 비밀(DB 비밀번호·JWT 키)이 공급자에게 가지 않도록 이름은 `*_API_KEY` 형식만 허용한다.
 - 키 값은 어떤 API 응답·로그·변경 이력·예외 메시지에도 나오지 않는다. 관리자 화면에는 출처(`keySource`)와 웹 입력 키의 끝 4자(`keyLast4`)만 준다. 공급자의 인증 오류(401·403) 메시지는 키 조각이 섞일 수 있어 버린다.
 
 ## AI 키 관리 (07 문서 6장)
 
 키는 두 곳에서 올 수 있고, 공급자마다 아래 순서로 하나를 고른다.
 
-1. **웹 입력(DB)**: 관리자 사이트에서 넣은 키. `tb_ai_provider_secret`에 AES-256-GCM 암호문으로만 저장한다(저장할 때마다 새 무작위 12바이트 nonce, AAD = `provider_id`라 다른 공급자 행에 붙여 넣어도 복호화되지 않음). 마스터 키는 `WEARLY_SECRET_KEY`(DB에 없음), `key_version`은 지금 1.
-2. **환경변수**: 공급자 행의 `api_key_env`(예: `ANTHROPIC_API_KEY`)가 가리키는 값. `.env`도 된다.
+1. **웹 입력(DB)**: 관리자 사이트에서 넣은 키. `tb_ai_provider_secret`에 AES-256-GCM 암호문으로만 저장한다(저장할 때마다 새 무작위 12바이트 nonce, AAD = `provider_id`라 다른 공급자 행에 붙여 넣어도 복호화되지 않음). 마스터 키는 `wearly.secret-key`(환경변수 `WEARLY_SECRET_KEY`, DB에 없음), `key_version`은 지금 1.
+2. **서버 설정 키**: 공급자 행의 `api_key_env`(예: `ANTHROPIC_API_KEY`)를 이름으로 `wearly.ai.keys.<이름>`(`config/application-local.yml`) → 같은 이름의 OS 환경변수 순으로 찾은 값.
 3. 둘 다 없으면 그 공급자는 쓸 수 없다 (`usable: false`).
 
-- `WEARLY_SECRET_KEY`가 **없으면** 웹 키 기능이 꺼진다: 시작 로그 WARN, 저장 API는 409 `SECRET_KEY_MISSING`, DB에 남은 키는 보지 않고 환경변수 키만 쓴다. **형식이 틀리면**(base64가 아니거나 32바이트가 아님) 같은 상태로 ERROR를 남긴다. 서버는 어느 경우에도 뜬다.
-- 마스터 키가 바뀌어 DB 키를 **복호화하지 못하면** 그 공급자는 쓸 수 없는 것으로 보고 ERROR 로그를 남긴다(환경변수 키로 몰래 바꾸지 않음). 관리자 화면에서 키를 다시 넣으면 된다.
+- 마스터 키(`wearly.secret-key`)가 **없으면** 웹 키 기능이 꺼진다: 시작 로그 WARN, 저장 API는 409 `SECRET_KEY_MISSING`, DB에 남은 키는 보지 않고 서버 설정 키만 쓴다. **형식이 틀리면**(base64가 아니거나 32바이트가 아님) 같은 상태로 ERROR를 남긴다. 서버는 어느 경우에도 뜬다.
+- 마스터 키가 바뀌어 DB 키를 **복호화하지 못하면** 그 공급자는 쓸 수 없는 것으로 보고 ERROR 로그를 남긴다(서버 설정 키로 몰래 바꾸지 않음). 관리자 화면에서 키를 다시 넣으면 된다.
 - 복호화한 키는 메모리에 캐시하고, 키를 넣거나 지우거나 공급자를 지우면 비운다 (서버 인스턴스 하나 전제).
 
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
 | PUT | `/api/v1/admin/ai/providers/{id}/api-key` | `{ apiKey, currentPassword, verify? }` (`verify` 기본 true) | 200 공급자 행 |
-| DELETE | `/api/v1/admin/ai/providers/{id}/api-key` | `{ currentPassword }` | 200 공급자 행 (환경변수 키로 되돌아감) |
+| DELETE | `/api/v1/admin/ai/providers/{id}/api-key` | `{ currentPassword }` | 200 공급자 행 (서버 설정 키로 되돌아감) |
 
 - 확인 순서: 공급자 없음 404 → 마스터 키 없음 409 `SECRET_KEY_MISSING` → 비밀번호 재확인 실패 403 `REAUTH_FAILED` → 키 형식(앞뒤 공백 제거 후 20~300자, 공백·줄바꿈 없음) 400 `VALIDATION_FAILED`(`apiKey`) → `verify`면 각 사 **모델 목록 조회**(Claude SDK `models().list()` = `GET /v1/models`, OpenAI `GET /v1/models`, Gemini `GET /v1beta/models?pageSize=1`) 실패 시 400 `API_KEY_INVALID`.
 - 변경 이력 `AI_PROVIDER_KEY_SET`·`AI_PROVIDER_KEY_DELETE`: before·after에 `keySource`·`keyLast4`만.
 - 공급자 행(목록·추가·수정·키 API 응답)에 `keySource`(`DB`·`ENV`·`NONE`)·`keyLast4`·`keyUpdatedAt`·`keyUpdatedBy`(넣은 관리자 이메일)·`secretStoreEnabled`를 더했다. 뒤의 셋은 DB 키를 쓸 때만 값이 있다. `keyConfigured`는 `keySource !== 'NONE'`과 같다.
-- 마스터 키 교체(키 회전)는 아직 없다. 바꾸려면 새 `WEARLY_SECRET_KEY`로 띄운 뒤 웹 키를 다시 넣는다.
+- 마스터 키 교체(키 회전)는 아직 없다. 바꾸려면 새 `wearly.secret-key`로 띄운 뒤 웹 키를 다시 넣는다.
 
-하네스 예: `SERVER_PORT=18080 WEARLY_ACCESS_TTL=PT3S WEARLY_AI_DAILY_LIMIT=3 WEARLY_AI_PROVIDER=mock SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wearly_harness`
+하네스 예 (`harness/run.sh`가 이렇게 띄운다): `WEARLY_LOCAL_CONFIG=<없는 경로> SERVER_PORT=18080 WEARLY_ACCESS_TTL=PT3S WEARLY_AI_DAILY_LIMIT=3 WEARLY_AI_PROVIDER=mock SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wearly_harness`
 
 ## API 요약 (2차에서 더한 것)
 
@@ -148,7 +194,7 @@ LC_ALL=C.UTF-8 ./gradlew test
   # 계정이 다르면 WEARLY_TEST_DB_USERNAME / WEARLY_TEST_DB_PASSWORD
   ```
 
-- 테스트는 기본적으로 목업 실행(`IntegrationTestBase`)이고, `AiProviderFallbackIntegrationTest`만 DB 공급자 실행이다. 실제 키도 `.env`도 쓰지 않는다 (`ANTHROPIC_API_KEY` 등을 빈 값으로 덮는다).
+- 테스트는 기본적으로 목업 실행(`IntegrationTestBase`)이고, `AiProviderFallbackIntegrationTest`만 DB 공급자 실행이다. 실제 키도 `config/application-local.yml`도 쓰지 않는다 (test 태스크가 `WEARLY_LOCAL_CONFIG`를 없는 경로로 주고, `ANTHROPIC_API_KEY` 등을 빈 값으로 덮는다).
 - Claude·OpenAI·Gemini 공급자는 로컬 가짜 HTTP 서버(JDK `HttpServer`)로 실제로 나가는 요청 JSON·응답 파싱·오류 처리를 확인한다. 공급자 행의 `options.baseUrl`로 가짜 서버를 가리킨다 (테스트는 `wearly.ai.allow-base-url=true`).
 - 단위 테스트의 코드 목록은 계약 원본 `doc/06_코드_초기값.json`을 그대로 읽는다 (`TestCodes`).
 - 리눅스에서 로케일이 UTF-8이 아니면 Gradle이 한글 테스트 이름으로 보고서 파일을 못 만든다. `LC_ALL=C.UTF-8 ./gradlew test`로 돌린다 (macOS는 해당 없음).
@@ -161,9 +207,10 @@ LC_ALL=C.UTF-8 ./gradlew test
 | `WardrobeIntegrationTest` | CRUD·PATCH 병합·짝·필터·정렬·검색·통계(DRESS 키 포함)·bulk |
 | `CodeIntegrationTest` | `/codes` 형식·ETag 304·공개, 새 코드(DRESS·JEANS·denim·FLORAL…)로 등록, 모르는 코드·비활성 코드·parent 불일치 400, PATCH에서 안 바꾼 비활성 필드 통과, 비활성 종류의 하위 세부 종류, 통계 키 |
 | `AdminCodeIntegrationTest` | 관리자 권한 403·401, 코드 CRUD·검증·순서·사용 중 삭제 409·pairs 양방향·캐시 갱신(version 변경)·변경 이력 |
-| `AdminAiProviderIntegrationTest` | 공급자 초기값·CRUD·`keyConfigured`·`usable`·검증(키 환경변수 이름·options)·키 값 비노출·변경 이력 |
+| `AdminAiProviderIntegrationTest` | 공급자 초기값·CRUD·`keyConfigured`·`usable`·검증(서버 설정 키 이름·options)·키 값 비노출·변경 이력 |
 | `ProviderApiKeyIntegrationTest` | (마스터 키 있음) 웹 키 저장·교체·삭제, 키 출처 ENV→DB→ENV·NONE→DB, 암호문·nonce, 시험 분석이 DB 키로 호출, 재확인 403, 형식 400, verify(가짜 OpenAI·Gemini·Claude 서버의 모델 목록 경로·헤더) 실패 400, 공급자 삭제 시 비밀 행 삭제, 변경 이력 내용, 서버 출력·응답·이력에 키 0건 |
 | `ProviderApiKeyNoMasterKeyIntegrationTest` | 마스터 키 없음 409 `SECRET_KEY_MISSING`(비밀번호 확인보다 먼저), `secretStoreEnabled: false` |
+| `EnvApiKeyAdapterTest` | 서버 설정 키 찾기: `wearly.ai.keys.<이름>` → 같은 이름 속성·환경변수, 빈 값은 건너뜀, `*_API_KEY`가 아닌 이름 거부 (Spring 없음) |
 | `AesGcmSecretCipherTest` · `ApiKeyRulesTest` · `ApiKeyServiceTest` | 암호화 왕복·nonce 매번 다름·AAD/마스터 키/암호문이 다르면 실패·마스터 키 없음 WARN·형식 오류 ERROR, 키 형식·출처 우선순위, 복호화 캐시·무효화·복호화 실패 시 쓸 수 없음 (Spring 없음) |
 | `HexagonalArchitectureTest` | 08 문서 3장 규칙 12개 (ArchUnit) |
 | `*domain*` 단위 테스트 | 코드 검증·attrs, refresh 회전·재사용 감지, 공급자 선택 순서, 옷장 검증·통계 키, 프로필 정리 (Spring 없음) |
@@ -207,7 +254,7 @@ app.wearly.common
 ├── domain/                  여러 컨텍스트가 쓰는 값 (FieldError, PatchBody, ImageUpload, Ids·Times·Zones, code.CodeSnapshot)
 ├── error/                   오류 코드·ApiException·전역 예외 처리
 ├── web/                     웹 어댑터 공용 (CurrentUser, PathIds, Uploads, JsonPatchBody)
-├── config/                  Spring·Security 설정, 환경변수(WearlyProperties) → 유스케이스 설정 값
+├── config/                  Spring·Security 설정, 설정 값(WearlyProperties) → 유스케이스 설정 값
 └── mybatis/                 TypeHandler
 ```
 

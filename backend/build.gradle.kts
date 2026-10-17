@@ -57,6 +57,9 @@ tasks.withType<Test> {
     listOf("WEARLY_TEST_DB_URL", "WEARLY_TEST_DB_USERNAME", "WEARLY_TEST_DB_PASSWORD").forEach { key ->
         System.getenv(key)?.let { environment(key, it) }
     }
+    // 개발 PC의 config/application-local.yml(실제 AI 키·관리자 계정·마스터 키)이 테스트에 섞이지 않게
+    // application.yml의 spring.config.import 경로를 없는 파일로 돌린다 (optional이라 그냥 건너뛴다)
+    environment("WEARLY_LOCAL_CONFIG", layout.buildDirectory.file("no-local-config/application-local.yml").get().asFile.path)
     testLogging {
         events("passed", "skipped", "failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

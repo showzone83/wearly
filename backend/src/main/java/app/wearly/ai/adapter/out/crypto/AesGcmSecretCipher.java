@@ -50,8 +50,9 @@ public class AesGcmSecretCipher implements SecretCipherPort {
 
     private static SecretKey parse(String base64Key) {
         if (base64Key == null || base64Key.isBlank()) {
-            log.warn("WEARLY_SECRET_KEY가 없어 관리자 화면의 AI 키 웹 입력을 쓸 수 없어요 (환경변수 키는 그대로 씁니다). "
-                    + "켜려면 openssl rand -base64 32 값을 WEARLY_SECRET_KEY에 넣고 다시 시작하세요.");
+            log.warn("WEARLY_SECRET_KEY가 없어 관리자 화면의 AI 키 웹 입력을 쓸 수 없어요 (서버 설정 키는 그대로 씁니다). "
+                    + "켜려면 openssl rand -base64 32 값을 config/application-local.yml의 wearly.secret-key"
+                    + "(또는 환경변수 WEARLY_SECRET_KEY)에 넣고 다시 시작하세요.");
             return null;
         }
         byte[] bytes;

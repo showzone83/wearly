@@ -13,11 +13,13 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-백엔드(`backend/`)가 `http://localhost:8080`에서 돌고 있어야 한다. 다른 주소면 `admin/.env.local`에 적는다 (`.env.example` 참고).
+백엔드(`backend/`)가 `http://localhost:8080`에서 돌고 있어야 한다 (저장소 루트에서 `docker compose up -d --build db backend`, 또는 `backend/`에서 `./gradlew bootRun`). 다른 주소면 `admin/.env.local`에 적는다 (`.env.example` 참고).
 
 ```bash
 VITE_API_URL=http://localhost:8080
 ```
+
+docker로 띄우기: 저장소 루트에서 `docker compose up -d --build`를 하면 DB·백엔드와 함께 관리자 사이트 컨테이너(`wearly-admin`, nginx)가 `http://localhost:5173`에 뜬다. 이미지는 `admin/Dockerfile`(빌드 컨텍스트는 저장소 루트, `mobile/src/data/garmentShapes.ts`도 복사)로 만들고, API 주소는 빌드 인자 `VITE_API_URL`(기본 `http://localhost:8080`)로 번들에 들어간다. `npm run dev`와 포트(5173)가 겹치므로 개발 서버를 쓸 때는 `docker compose up -d --build db backend`만 띄운다. 코드를 고친 뒤 컨테이너에 반영하려면 `docker compose up -d --build admin`.
 
 검사:
 
@@ -29,16 +31,18 @@ npm run test:lint-rules   # 로컬 ESLint 규칙(eslint-rules/)과 import 그룹
 
 ## 관리자 계정 만들기
 
-가입 API로는 관리자를 만들 수 없다. 백엔드를 시작할 때 환경변수를 주면 그 계정을 만들거나 기존 계정을 `ADMIN`으로 올린다 (doc/07 2장).
+가입 API로는 관리자를 만들 수 없다. 백엔드 설정 파일 `backend/config/application-local.yml`(git 제외, 견본 `application-local.example.yml`)에 계정을 적어 두면 백엔드가 시작할 때 그 계정을 만들거나 기존 계정을 `ADMIN`으로 올린다 (doc/07 2장, doc/08 6장).
 
-```bash
-# backend/.env (git 제외)
-WEARLY_ADMIN_EMAIL=admin@example.com
-WEARLY_ADMIN_PASSWORD=admin1234pw    # 8~64자, 영문과 숫자 포함
-WEARLY_ADMIN_NAME=관리자              # 선택, 기본 "관리자"
+```yaml
+# backend/config/application-local.yml (git 제외)
+wearly:
+  admin:
+    email: "admin@example.com"
+    password: "admin1234pw"   # 8~64자, 영문과 숫자 포함
+    name: "관리자"             # 선택, 기본 "관리자"
 ```
 
-값을 넣고 백엔드를 다시 시작한 뒤 그 이메일·비밀번호로 로그인한다. 관리자 계정이 아니면 로그인 화면에서 "관리자 계정이 아닙니다"로 막는다. 관리자를 더 늘리려면 **회원** 화면에서 '관리자 지정'을 누른다.
+값을 넣고 백엔드를 다시 시작한 뒤(docker면 `docker compose restart backend`) 그 이메일·비밀번호로 로그인한다. 관리자 계정이 아니면 로그인 화면에서 "관리자 계정이 아닙니다"로 막는다. 관리자를 더 늘리려면 **회원** 화면에서 '관리자 지정'을 누른다.
 
 ## 화면
 
@@ -46,7 +50,7 @@ WEARLY_ADMIN_NAME=관리자              # 선택, 기본 "관리자"
 |---|---|
 | 대시보드 | 회원 수(7일 신규), 아이템 수, 오늘 AI 호출·실패, 공급자별 7일 통계, 지금 쓸 수 있는 공급자 순서 |
 | 코드 관리 | 그룹 탭(종류·세부 종류·색상·패턴·계절·스타일·보유 상태), 표(코드·라벨·상위·속성·순서값·사용·사용 수), 위·아래 버튼으로 순서 바꾸기, 사용 스위치(비활성화), 추가·수정 패널, 삭제(사용 중이면 409 → 비활성화 안내) |
-| AI 공급자 | 목록(키 출처·사용 가능 여부·오늘 성공/실패), 사용 켜기/끄기, 우선순위 위·아래, 추가·수정(종류·모델·키 환경변수 이름·우선순위·옵션), **API 키 웹 입력**, 삭제, **시험 분석** |
+| AI 공급자 | 목록(키 출처·사용 가능 여부·오늘 성공/실패), 사용 켜기/끄기, 우선순위 위·아래, 추가·수정(종류·모델·서버 설정 키 이름·우선순위·옵션), **API 키 웹 입력**, 삭제, **시험 분석** |
 | AI 분석 기록 | 공급자·상태·회원 이메일·기간 필터, 표, 행을 누르면 결과 JSON 전체 |
 | 회원 | 이메일·이름 검색, 상태·역할 필터, 정지·해제, 관리자 지정·해제 (자기 자신은 정지·해제 불가) |
 | 변경 이력 | 대상(코드·AI 공급자·회원)별 목록, 행을 누르면 변경 전·후 JSON |
@@ -61,7 +65,7 @@ WEARLY_ADMIN_NAME=관리자              # 선택, 기본 "관리자"
 
 ### API 키 웹 입력 (doc/07 6장)
 
-공급자 이름(또는 '수정'·'키 관리')을 눌러 패널을 열면 맨 위에 **API 키** 영역이 있다. 지금 쓰는 키의 출처를 보여 준다: 웹 입력(`••••abcd` · 넣은 시각 · 넣은 관리자) / 환경변수(`ANTHROPIC_API_KEY` 등) / 없음. **키 입력·교체**를 누르고 키를 붙여 넣은 뒤 내 비밀번호를 다시 입력하면, 서버가 키를 AES-256-GCM으로 암호화해 DB에 저장하고 그때부터 환경변수보다 웹 키를 먼저 쓴다(서버 재시작 불필요). "저장 전 유효성 확인"(기본 켬)은 저장하기 전에 그 키로 각 사 모델 목록을 한 번 조회한다. **웹 키 삭제(환경변수로 되돌리기)**는 비밀번호 확인 후 웹 키를 지운다. 서버에 `WEARLY_SECRET_KEY`가 없으면 입력 버튼이 꺼지고 환경변수 키만 쓴다. 보안: 키는 쓰기 전용이라 저장한 뒤 다시 볼 수 없다(마지막 4자만 보임). 화면은 키를 React 상태에 두지 않고, 저장 버튼을 누른 순간 한 번 읽어 JSON 본문으로만 보낸 뒤 성공·실패와 관계없이 입력칸을 바로 비운다. URL·쿼리 문자열·`sessionStorage`·`localStorage`·쿼리 캐시·콘솔에 키를 남기지 않는다(mutation은 `gcTime: 0` + 끝나면 `reset()`). 공용 PC라면 붙여 넣은 뒤 클립보드도 비운다.
+공급자 이름(또는 '수정'·'키 관리')을 눌러 패널을 열면 맨 위에 **API 키** 영역이 있다. 지금 쓰는 키의 출처를 보여 준다: 웹 입력(`••••abcd` · 넣은 시각 · 넣은 관리자) / 서버 설정 키(`ANTHROPIC_API_KEY` 등, 백엔드 `application-local.yml`의 `wearly.ai.keys.*` 또는 같은 이름 환경변수) / 없음. **키 입력·교체**를 누르고 키를 붙여 넣은 뒤 내 비밀번호를 다시 입력하면, 서버가 키를 AES-256-GCM으로 암호화해 DB에 저장하고 그때부터 서버 설정 키보다 웹 키를 먼저 쓴다(서버 재시작 불필요). "저장 전 유효성 확인"(기본 켬)은 저장하기 전에 그 키로 각 사 모델 목록을 한 번 조회한다. **웹 키 삭제(서버 설정 키로 되돌리기)**는 비밀번호 확인 후 웹 키를 지운다. 서버에 마스터 키(`wearly.secret-key`)가 없으면 입력 버튼이 꺼지고 서버 설정 키만 쓴다. 보안: 키는 쓰기 전용이라 저장한 뒤 다시 볼 수 없다(마지막 4자만 보임). 화면은 키를 React 상태에 두지 않고, 저장 버튼을 누른 순간 한 번 읽어 JSON 본문으로만 보낸 뒤 성공·실패와 관계없이 입력칸을 바로 비운다. URL·쿼리 문자열·`sessionStorage`·`localStorage`·쿼리 캐시·콘솔에 키를 남기지 않는다(mutation은 `gcTime: 0` + 끝나면 `reset()`). 공용 PC라면 붙여 넣은 뒤 클립보드도 비운다.
 
 ### 시험 분석
 

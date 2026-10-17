@@ -117,7 +117,7 @@ const KEY_SOURCES: readonly TKeySource[] = ['DB', 'ENV', 'NONE'];
 
 /**
  * 공급자 행. 07 6장의 키 필드(keySource 등)가 없는 예전 서버면 keyConfigured로 출처를 추정한다
- * (웹 키 기능 전에는 환경변수 키뿐이었으므로 있으면 'ENV', 없으면 'NONE').
+ * (웹 키 기능 전에는 서버 설정 키뿐이었으므로 있으면 'ENV', 없으면 'NONE').
  */
 const toProvider = (r: Record<string, unknown>): IAiProvider => {
   const source = KEY_SOURCES.includes(r.keySource as TKeySource) ? (r.keySource as TKeySource) : null;
@@ -421,7 +421,7 @@ export const createAdminApi = (options: IAdminApiOptions) => {
         });
         return toProviderOrNull(raw);
       },
-      /** 웹에서 넣은 키를 지운다 → 환경변수 키로 되돌아감. DELETE지만 JSON 본문(currentPassword)을 보낸다 */
+      /** 웹에서 넣은 키를 지운다 → 서버 설정 키로 되돌아감. DELETE지만 JSON 본문(currentPassword)을 보낸다 */
       deleteApiKey: async (providerId: string, body: IApiKeyDeleteRequest): Promise<IAiProvider | null> => {
         const raw = await request<unknown>('DELETE', `/admin/ai/providers/${enc(providerId)}/api-key`, {
           auth: true,

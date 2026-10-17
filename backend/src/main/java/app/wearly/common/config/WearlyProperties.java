@@ -10,7 +10,7 @@ import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-/** wearly.* 설정. application.yml에서 환경변수로 덮어쓴다. */
+/** wearly.* 설정. application.yml 기본값을 backend/config/application-local.yml이나 OS 환경변수로 덮어쓴다 (08 문서 6장). */
 @Validated
 @ConfigurationProperties("wearly")
 public record WearlyProperties(@Valid @NotNull Jwt jwt, @Valid @NotNull Ai ai, @Valid @NotNull Cors cors, Admin admin,

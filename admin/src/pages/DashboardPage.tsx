@@ -112,8 +112,8 @@ export const DashboardPage = () => {
           <Loading />
         ) : usable.length === 0 ? (
           <Empty>
-            쓸 수 있는 공급자가 없습니다. 사용 켜기·모델·키 환경변수를 확인하세요. (서버를 목업으로 띄웠다면 목업이
-            쓰입니다)
+            쓸 수 있는 공급자가 없습니다. 사용 켜기·모델·API 키(웹 입력 또는 서버 설정 키)를 확인하세요. (서버를
+            목업으로 띄웠다면 목업이 쓰입니다)
           </Empty>
         ) : (
           <div className="row gap-sm wrap">

@@ -1,0 +1,11 @@
+# 저장소 루트를 빌드 컨텍스트로 쓰는 이미지(admin/Dockerfile)용. 필요한 것만 넣는다.
+# (backend/ 이미지는 컨텍스트가 backend/라 backend/.dockerignore를 쓴다)
+*
+!admin
+!mobile/src/data/garmentShapes.ts
+
+**/node_modules
+**/dist
+**/.DS_Store
+# 로컬 VITE_API_URL 등은 빌드 인자(VITE_API_URL)로만 정한다
+admin/.env*

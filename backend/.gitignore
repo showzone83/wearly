@@ -8,7 +8,7 @@ build/
 .DS_Store
 /bin/
 
-# 비밀 값
+# 비밀 값 (로컬 설정은 config/application-local.yml, 견본만 커밋. .env는 더 쓰지 않지만 실수로 올라가지 않게 계속 무시)
+config/application-local.yml
 .env
 .env.*
-!.env.example

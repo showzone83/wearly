@@ -1,10 +1,14 @@
-# 모든 값은 환경변수로 덮어쓸 수 있다. backend/.env(git 제외)도 읽는다.
-# .env에 적은 값은 일반 속성으로 들어오므로 아래처럼 ${환경변수명:기본값} 자리표시자로 받는다.
+# 공통 설정 (git 포함, 비밀 값 없음). doc/08_백엔드_구조.md 6장.
+# 로컬 비밀 값(AI 키, 관리자 계정, 마스터 키 …)은 backend/config/application-local.yml(git 제외)에 같은 속성 이름으로 적는다.
+#   견본: backend/config/application-local.example.yml. 다른 파일을 쓰려면 WEARLY_LOCAL_CONFIG=<경로>
+#   (테스트·하네스는 이 값을 없는 경로로 줘서 개발용 파일을 읽지 않는다)
+# 아래 ${이름:기본값} 자리표시자는 OS 환경변수로도 덮어쓸 수 있다 (운영 서버·docker 등).
 spring:
   application:
     name: wearly-backend
   config:
-    import: optional:file:.env[.properties]
+    # 들여온 파일의 값이 이 파일 값보다 우선한다. 파일이 없으면 건너뛴다(optional)
+    import: optional:file:${WEARLY_LOCAL_CONFIG:./config/application-local.yml}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/wearly}
     username: ${SPRING_DATASOURCE_USERNAME:wearly}
@@ -60,7 +64,8 @@ wearly:
     refresh-ttl: ${WEARLY_REFRESH_TTL:P30D}
   ai:
     # db(기본): 관리자 화면의 AI 공급자 설정(tb_ai_provider)을 우선순위 순으로 쓴다. mock: 목업 (./gradlew bootRunMock)
-    # 공급자 키(ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY …)는 tb_ai_provider.api_key_env가 가리키는 이름으로 읽는다
+    # 공급자 키는 tb_ai_provider.api_key_env의 키 이름(ANTHROPIC_API_KEY …)으로 찾는다:
+    #   웹 입력 키(DB) → wearly.ai.keys.<키 이름>(application-local.yml) → 같은 이름의 OS 환경변수
     provider: ${WEARLY_AI_PROVIDER:db}
     daily-limit: ${WEARLY_AI_DAILY_LIMIT:10}
     timeout: ${WEARLY_AI_TIMEOUT:PT60S}
