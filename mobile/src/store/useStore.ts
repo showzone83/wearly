@@ -24,7 +24,24 @@ export interface Draft {
   plan?: Omit<PlannedEvent, 'id' | 'outfit'>;
 }
 
+export type AuthMode = 'guest' | 'account';
+
+/** 로그인한 계정 정보 (토큰은 여기 두지 않고 Keychain/Keystore에 둔다) */
+export interface AccountUser {
+  id: string;
+  email: string | null;
+  name: string;
+}
+
 interface State {
+  /** guest = 로그인 없이 체험(기기 저장만), account = 서버 계정 */
+  authMode: AuthMode;
+  /** account 모드의 마지막 로그인 사용자 */
+  user: AccountUser | null;
+  /** 토큰 갱신 실패 등으로 로그인이 풀린 상태. 로그인 화면으로 보낸다 */
+  authLost: boolean;
+  /** 계정 모드: 서버 아이템 id → 기기에만 있는 사진 uri (서버는 사진을 저장하지 않는다) */
+  photos: Record<string, string>;
   onboarded: boolean;
   profile: Profile;
   items: WardrobeItem[];
@@ -34,7 +51,11 @@ interface State {
   affinity: Record<string, number>;
   draft: Draft | null;
 
-  completeOnboarding: (profile: Profile, withSample: boolean) => void;
+  /** items를 주면(계정 모드: 서버가 돌려준 아이템) 그것으로 옷장을 채운다 */
+  completeOnboarding: (profile: Profile, withSample: boolean, items?: WardrobeItem[]) => void;
+  /** 서버 목록으로 옷장을 맞춘다. 사라진 아이템은 저장 코디·예정일에서도 뺀다 */
+  syncItems: (items: WardrobeItem[]) => void;
+  setPhoto: (id: string, uri: string | undefined) => void;
   updateProfile: (patch: Partial<Profile>) => void;
   addItem: (item: WardrobeItem) => void;
   updateItem: (id: string, patch: Partial<WardrobeItem>) => void;
@@ -51,6 +72,10 @@ interface State {
 }
 
 const EMPTY = {
+  authMode: 'guest' as AuthMode,
+  user: null as AccountUser | null,
+  authLost: false,
+  photos: {} as Record<string, string>,
   onboarded: false,
   profile: DEFAULT_PROFILE,
   items: [] as WardrobeItem[],
@@ -72,13 +97,38 @@ export const useStore = create<State>()(
     (set, get) => ({
       ...EMPTY,
 
-      completeOnboarding: (profile, withSample) => {
+      completeOnboarding: (profile, withSample, serverItems) => {
+        const items = serverItems ?? (withSample ? seedItems() : get().items);
         if (withSample) {
-          const items = seedItems();
           set({ onboarded: true, profile, items, ...buildSampleHistory(items, profile) });
         } else {
-          set({ onboarded: true, profile });
+          set({ onboarded: true, profile, items });
         }
+      },
+
+      syncItems: (items) => {
+        const s = get();
+        const keep = new Set(items.map((i) => i.id));
+        const removed = s.items.filter((i) => !keep.has(i.id)).map((i) => i.id);
+        let { dayOutfits, plans } = s;
+        for (const id of removed) {
+          const next: Record<string, SavedOutfit> = {};
+          for (const [k, v] of Object.entries(dayOutfits)) {
+            next[k] = { ...v, outfit: { ...v.outfit, items: removeItemRefs(v.outfit.items, id) } };
+          }
+          dayOutfits = next;
+          plans = plans.map((p) => (p.outfit ? { ...p, outfit: { ...p.outfit, items: removeItemRefs(p.outfit.items, id) } } : p));
+        }
+        const photos = { ...s.photos };
+        for (const id of removed) delete photos[id];
+        set({ items, dayOutfits, plans, photos });
+      },
+
+      setPhoto: (id, uri) => {
+        const photos = { ...get().photos };
+        if (uri) photos[id] = uri;
+        else delete photos[id];
+        set({ photos });
       },
 
       updateProfile: (patch) => set({ profile: { ...get().profile, ...patch } }),
@@ -90,12 +140,15 @@ export const useStore = create<State>()(
 
       deleteItem: (id) => {
         const s = get();
+        const photos = { ...s.photos };
+        delete photos[id];
         const dayOutfits: Record<string, SavedOutfit> = {};
         for (const [k, v] of Object.entries(s.dayOutfits)) {
           dayOutfits[k] = { ...v, outfit: { ...v.outfit, items: removeItemRefs(v.outfit.items, id) } };
         }
         set({
           items: s.items.filter((i) => i.id !== id),
+          photos,
           dayOutfits,
           plans: s.plans.map((p) =>
             p.outfit ? { ...p, outfit: { ...p.outfit, items: removeItemRefs(p.outfit.items, id) } } : p,

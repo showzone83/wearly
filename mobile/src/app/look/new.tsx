@@ -7,6 +7,7 @@ import { ItemThumb } from '@/components/ItemThumb';
 import { Button, Header, Kicker, Label, Screen, Serif, Stars } from '@/components/ui';
 import { CATEGORY_LABEL, EMOTION_LABEL, OTHERS_LABEL, SLOTS } from '@/data/constants';
 import type { DailyLook, Emotion, OthersReaction, OutfitItems, Slot } from '@/data/types';
+import { pushWorn } from '@/lib/account';
 import { dayContext, newId } from '@/lib/context';
 import { longLabel, todayKey } from '@/lib/date';
 import { diagnose } from '@/lib/diagnose';
@@ -52,6 +53,8 @@ export default function NewLook() {
       createdAt: new Date().toISOString(),
     };
     addLook(look);
+    // 계정 모드: 착용 기록은 기기에만 두지만 착용 횟수·마지막 착용일은 서버 아이템에도 반영한다
+    void pushWorn(Object.values(items).filter((id): id is string => !!id));
     router.replace(`/look/${look.id}`);
   };
 

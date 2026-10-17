@@ -1,10 +1,13 @@
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { Badge, confirm, notify, Row, Screen, Serif } from '@/components/ui';
 import { STYLE_LABEL } from '@/data/constants';
+import { deleteAccount, logout, saveProfile } from '@/lib/account';
+import { API_BASE_URL, errorMessage } from '@/lib/api';
+import { MOCK_MODE } from '@/lib/mode';
 import { diffDays, todayKey } from '@/lib/date';
 import { useStore } from '@/store/useStore';
 import { colors } from '@/theme';
@@ -17,12 +20,40 @@ export default function My() {
   const updateProfile = useStore((s) => s.updateProfile);
   const loadSample = useStore((s) => s.loadSample);
   const resetAll = useStore((s) => s.resetAll);
+  const isAccount = useStore((s) => s.authMode === 'account');
+  const user = useStore((s) => s.user);
+  const [busy, setBusy] = useState(false);
 
   const today = todayKey();
   const active = items.filter((i) => i.lastWornAt && diffDays(today, i.lastWornAt) <= 30).length;
   const usage = items.length ? Math.round((active / items.length) * 100) : 0;
 
-  const toggle = (key: keyof typeof profile.notify) => updateProfile({ notify: { ...profile.notify, [key]: !profile.notify[key] } });
+  // 바로 바꿔 보여 주고, 계정 모드면 서버에 저장한다. 실패하면 되돌린다
+  const toggle = async (key: keyof typeof profile.notify) => {
+    const before = profile;
+    const next = { ...profile, notify: { ...profile.notify, [key]: !profile.notify[key] } };
+    updateProfile(next);
+    if (!isAccount) return;
+    try {
+      await saveProfile(next);
+    } catch (e) {
+      updateProfile(before);
+      notify('알림 설정을 저장하지 못했어요', errorMessage(e));
+    }
+  };
+
+  const run = async (task: () => Promise<void>, failTitle: string) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await task();
+      router.replace('/onboarding');
+    } catch (e) {
+      notify(failTitle, errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <Screen
@@ -38,9 +69,9 @@ export default function My() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.name}>{profile.name}</Text>
-          <Text style={s.email}>데모 계정 · 소셜 로그인 연동 예정</Text>
+          <Text style={s.email}>{isAccount ? (user?.email ?? '이메일 계정') : '게스트 · 데이터는 이 기기에만 저장돼요'}</Text>
         </View>
-        <Badge>FREE</Badge>
+        <Badge>{isAccount ? 'FREE' : 'GUEST'}</Badge>
       </View>
 
       <View style={s.stats}>
@@ -60,26 +91,69 @@ export default function My() {
       />
 
       <Text style={s.section}>알림</Text>
-      <ToggleRow label="아침 코디 푸시" sub="매일 아침 7:30" value={profile.notify.morning} onChange={() => toggle('morning')} />
-      <ToggleRow label="저녁 일별 진단" sub="기록을 남기면 저녁에 진단 요약" value={profile.notify.evening} onChange={() => toggle('evening')} />
-      <ToggleRow label="D-1 예정일 알림" sub="전날 최신 예보로 재확인" value={profile.notify.dMinus1} onChange={() => toggle('dMinus1')} />
+      <ToggleRow label="아침 코디 푸시" sub="매일 아침 7:30" value={profile.notify.morning} onChange={() => void toggle('morning')} />
+      <ToggleRow label="저녁 일별 진단" sub="기록을 남기면 저녁에 진단 요약" value={profile.notify.evening} onChange={() => void toggle('evening')} />
+      <ToggleRow label="D-1 예정일 알림" sub="전날 최신 예보로 재확인" value={profile.notify.dMinus1} onChange={() => void toggle('dMinus1')} />
 
-      <Text style={s.section}>데이터</Text>
-      <MenuRow
-        label="샘플 옷장 다시 불러오기"
-        onPress={() => confirm('샘플 옷장을 불러올까요?', '지금 옷장과 기록이 샘플 데이터로 바뀌어요.', loadSample, '불러오기')}
-      />
-      <MenuRow
-        label="처음부터 다시 시작"
-        danger
-        onPress={() =>
-          confirm('모든 데이터를 지울까요?', '옷장·코디·기록이 모두 삭제되고 첫 화면으로 돌아가요.', () => {
-            resetAll();
-            router.replace('/onboarding');
-          }, '삭제')
-        }
-      />
-      <Text style={s.foot}>Wearly 목업 v0.1 · 데이터는 이 기기에만 저장돼요</Text>
+      <Text style={s.section}>계정</Text>
+      {isAccount ? (
+        <>
+          <MenuRow
+            label="로그아웃"
+            onPress={() =>
+              confirm(
+                '로그아웃할까요?',
+                '옷장과 취향 설정은 계정에 남아 있어요. 이 기기에만 저장된 코디·착용 기록·옷 사진은 지워져요.',
+                () => void run(logout, '로그아웃하지 못했어요'),
+                '로그아웃',
+              )
+            }
+          />
+          <MenuRow
+            label="회원 탈퇴"
+            danger
+            onPress={() =>
+              confirm(
+                '정말 탈퇴할까요?',
+                '계정과 서버에 저장된 옷장·취향 설정이 모두 삭제되고 되돌릴 수 없어요. 이 기기의 데이터도 함께 지워져요.',
+                () => void run(deleteAccount, '탈퇴하지 못했어요'),
+                '탈퇴',
+              )
+            }
+          />
+        </>
+      ) : (
+        <MenuRow
+          label="계정 만들기 · 로그인"
+          value="이메일"
+          onPress={() => router.push({ pathname: '/auth', params: { mode: 'signup' } })}
+        />
+      )}
+
+      {!isAccount && (
+        <>
+          <Text style={s.section}>데이터</Text>
+          <MenuRow
+            label="샘플 옷장 다시 불러오기"
+            onPress={() => confirm('샘플 옷장을 불러올까요?', '지금 옷장과 기록이 샘플 데이터로 바뀌어요.', loadSample, '불러오기')}
+          />
+          <MenuRow
+            label="처음부터 다시 시작"
+            danger
+            onPress={() =>
+              confirm('모든 데이터를 지울까요?', '옷장·코디·기록이 모두 삭제되고 첫 화면으로 돌아가요.', () => {
+                resetAll();
+                router.replace('/onboarding');
+              }, '삭제')
+            }
+          />
+        </>
+      )}
+      <Text style={s.foot}>
+        {isAccount ? 'Wearly v0.1 · 옷장·취향은 계정에, 코디·기록·사진은 이 기기에 저장돼요' : 'Wearly v0.1 · 데이터는 이 기기에만 저장돼요'}
+        {'\n'}
+        {MOCK_MODE ? '목업 실행' : '서버 실행'} · API {API_BASE_URL}
+      </Text>
     </Screen>
   );
 }

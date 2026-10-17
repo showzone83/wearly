@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GarmentArt } from '@/components/GarmentArt';
@@ -10,14 +10,37 @@ import { defaultName, ItemForm, type ItemDraft } from '@/components/ItemForm';
 import { Badge, Button, Header, Kicker, notify, Row, Screen, Serif } from '@/components/ui';
 import { COLOR_KEYS, SUBTYPE, SUBTYPES_BY_CATEGORY } from '@/data/constants';
 import type { Category, ColorKey, SubType } from '@/data/types';
-import { newId } from '@/lib/context';
+import { isApiError } from '@/api/errors';
+import { createItem, isAccountMode } from '@/lib/account';
+import { api, errorMessage, isNetworkError, photoFile } from '@/lib/api';
+import { MOCK_MODE } from '@/lib/mode';
 import { canRecommend } from '@/lib/recommend';
+import { draftFromSuggestion } from '@/lib/serverItems';
 import { useStore } from '@/store/useStore';
 import { colors } from '@/theme';
 
 type Step = 1 | 2 | 3 | 4;
 
 const ANALYSIS_STEPS = ['종류 인식', '색상 추출', '패턴 · 계절 판단'];
+/** 분석 진행 표시를 끝까지 보여 주는 최소 시간 */
+const MIN_ANALYZE_MS = 550 * ANALYSIS_STEPS.length + 300;
+
+/** AI 제안의 출처: 게스트 목업 · 서버 목업 공급자 · Claude · 서버 연결 실패로 기기 목업 대체 */
+type AiSource = 'guest' | 'server-mock' | 'claude' | 'fallback';
+
+const AI_BADGE: Record<AiSource, string> = {
+  guest: 'AI 제안 · 목업',
+  'server-mock': 'AI 제안 · 서버 목업',
+  claude: 'AI 제안',
+  fallback: 'AI 제안 · 기기 목업',
+};
+
+type PickedAsset = { uri: string; fileName?: string | null; mimeType?: string | null };
+
+type Outcome =
+  | { kind: 'ai'; source: AiSource; draft: ItemDraft; remaining?: number }
+  | { kind: 'limit' }
+  | { kind: 'error'; message: string };
 
 function hash(str: string): number {
   let h = 0;
@@ -27,7 +50,7 @@ function hash(str: string): number {
 
 /**
  * 목업 AI 분석: 실제 모델 대신 사진마다 고정된 제안값을 만든다.
- * 출시 버전에서는 POST /api/v1/wardrobe/items/analyze 응답으로 대체한다.
+ * 목업 실행(npm run start:mock)의 게스트 모드와, 그때 서버에 닿지 못한 경우에만 쓴다.
  */
 function mockAnalyze(uri: string): ItemDraft {
   const h = hash(uri);
@@ -52,6 +75,34 @@ function mockAnalyze(uri: string): ItemDraft {
   };
 }
 
+/**
+ * 서버 AI 분석(POST /wardrobe/items/analyze).
+ * 기기 목업(mockAnalyze)은 목업 실행(npm run start:mock)에서만 쓴다. 기본 실행에서 실패하면 목업으로 가리지 않고
+ * 원인을 보여 준 뒤 직접 입력으로 넘긴다.
+ */
+async function runAnalysis(asset: PickedAsset): Promise<Outcome> {
+  if (!isAccountMode()) {
+    if (MOCK_MODE) return { kind: 'ai', source: 'guest', draft: mockAnalyze(asset.uri) };
+    return { kind: 'error', message: '로그인해야 AI 분석을 쓸 수 있어요.' };
+  }
+  try {
+    const res = await api.wardrobe.analyze(await photoFile(asset));
+    return {
+      kind: 'ai',
+      source: res.provider === 'claude' ? 'claude' : 'server-mock',
+      draft: draftFromSuggestion(res.suggestion, asset.uri),
+      remaining: res.remainingToday,
+    };
+  } catch (e) {
+    const cause = (e as { cause?: unknown }).cause;
+    console.warn('[item/new] AI 분석 실패', e, cause, asset);
+    if (isApiError(e) && e.code === 'AI_LIMIT_EXCEEDED') return { kind: 'limit' };
+    if (isNetworkError(e) && MOCK_MODE) return { kind: 'ai', source: 'fallback', draft: mockAnalyze(asset.uri) };
+    const detail = cause instanceof Error ? ` (${cause.message})` : '';
+    return { kind: 'error', message: errorMessage(e, 'AI 분석에 실패했어요.') + detail };
+  }
+}
+
 const MANUAL: ItemDraft = {
   name: '네이비 니트',
   category: 'TOP',
@@ -66,23 +117,58 @@ const MANUAL: ItemDraft = {
 
 export default function NewItem() {
   const items = useStore((s) => s.items);
-  const addItem = useStore((s) => s.addItem);
   const [step, setStep] = useState<Step>(1);
   const [draft, setDraft] = useState<ItemDraft | null>(null);
-  const [fromAi, setFromAi] = useState(false);
+  const [aiSource, setAiSource] = useState<AiSource | null>(null);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [phase, setPhase] = useState(0);
+  const [saving, setSaving] = useState(false);
+  /** 분석 중 '직접 입력'으로 넘어가면 늦게 온 분석 결과를 버린다 */
+  const runRef = useRef(0);
+  const fromAi = aiSource !== null;
 
-  // 2단계: 분석 진행 표시 후 3단계로
+  // 2단계: 분석 진행 표시 (결과가 오면 analyze()가 3단계로 넘긴다)
   useEffect(() => {
     if (step !== 2) return;
     setPhase(0);
     const timers = ANALYSIS_STEPS.map((_, i) => setTimeout(() => setPhase(i + 1), 550 * (i + 1)));
-    const done = setTimeout(() => setStep(3), 550 * ANALYSIS_STEPS.length + 300);
-    return () => {
-      timers.forEach(clearTimeout);
-      clearTimeout(done);
-    };
+    return () => timers.forEach(clearTimeout);
   }, [step]);
+
+  const manual = (uri?: string) => {
+    runRef.current++;
+    setAiSource(null);
+    setDraft({ ...MANUAL, imageUri: uri });
+    setStep(3);
+  };
+
+  const analyze = async (asset: PickedAsset) => {
+    const run = ++runRef.current;
+    setPhotoUri(asset.uri);
+    setDraft(null);
+    setStep(2);
+    const started = Date.now();
+    const outcome = await runAnalysis(asset);
+    const wait = MIN_ANALYZE_MS - (Date.now() - started);
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    if (run !== runRef.current) return;
+
+    if (outcome.kind === 'ai') {
+      setAiSource(outcome.source);
+      if (outcome.remaining !== undefined) setRemaining(outcome.remaining);
+      setDraft(outcome.draft);
+      setStep(3);
+      return;
+    }
+    if (outcome.kind === 'limit') {
+      setRemaining(0);
+      notify('오늘 AI 분석을 모두 썼어요', '내일 다시 쓸 수 있어요. 이번 옷은 직접 입력으로 등록해 주세요.');
+    } else {
+      notify('AI 분석을 하지 못했어요', `${outcome.message}\n직접 입력으로 등록해 주세요.`);
+    }
+    manual(asset.uri);
+  };
 
   const pick = async (source: 'camera' | 'library') => {
     try {
@@ -96,19 +182,24 @@ export default function NewItem() {
       const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6, exif: false };
       const res = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
       if (res.canceled || !res.assets[0]) return;
-      setDraft(mockAnalyze(res.assets[0].uri));
-      setFromAi(true);
-      setStep(2);
+      void analyze(res.assets[0]);
     } catch (e) {
       console.warn('[item/new] 사진 선택 실패', e);
       notify('사진을 불러오지 못했어요', '직접 입력으로 등록할 수 있어요.');
     }
   };
 
-  const save = () => {
-    if (!draft) return;
-    addItem({ ...draft, name: draft.name.trim() || defaultName(draft), id: newId('item'), wornCount: 0, createdAt: new Date().toISOString() });
-    setStep(4);
+  const save = async () => {
+    if (!draft || saving) return;
+    setSaving(true);
+    try {
+      await createItem({ ...draft, name: draft.name.trim() || defaultName(draft) });
+      setStep(4);
+    } catch (e) {
+      notify('옷을 저장하지 못했어요', errorMessage(e));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const progress = (
@@ -126,7 +217,7 @@ export default function NewItem() {
         header={<Header title="옷 등록" />}
         footer={
           <View style={{ gap: 10 }}>
-            <Button title="계속 등록하기" variant="outline" onPress={() => { setDraft(null); setStep(1); }} />
+            <Button title="계속 등록하기" variant="outline" onPress={() => { setDraft(null); setAiSource(null); setPhotoUri(undefined); setStep(1); }} />
             <Button title={after.ok ? '오늘 코디 보러 가기' : '옷장으로'} onPress={() => router.replace(after.ok ? '/home' : '/closet')} />
           </View>
         }
@@ -148,7 +239,17 @@ export default function NewItem() {
 
   if (step === 3 && draft) {
     return (
-      <Screen header={<Header title="옷 등록" />} footer={<Button title="옷장에 저장" onPress={save} />}>
+      <Screen
+        header={<Header title="옷 등록" />}
+        footer={
+          <Button
+            title={saving ? '' : '옷장에 저장'}
+            icon={saving ? <ActivityIndicator color="#fff" /> : undefined}
+            disabled={saving}
+            onPress={save}
+          />
+        }
+      >
         {progress}
         <Kicker>STEP 3 / 4</Kicker>
         <Row style={{ gap: 16, marginTop: 12, marginBottom: 26 }}>
@@ -160,9 +261,18 @@ export default function NewItem() {
             )}
           </View>
           <View style={{ flex: 1, gap: 6 }}>
-            {fromAi && <Badge tone="green">AI 제안 · 목업</Badge>}
+            {aiSource && <Badge tone={aiSource === 'fallback' ? 'beige' : 'green'}>{AI_BADGE[aiSource]}</Badge>}
             <Text style={s.formTitle}>{fromAi ? '분석이 끝났어요' : '직접 입력해 주세요'}</Text>
-            <Text style={s.formSub}>{fromAi ? '틀린 항목은 바로 수정하세요' : '사진은 나중에 추가할 수 있어요'}</Text>
+            <Text style={s.formSub}>
+              {aiSource === 'fallback'
+                ? '서버에 연결하지 못해 기기 안의 목업 분석으로 대신했어요. 틀린 항목은 바로 수정하세요'
+                : fromAi
+                  ? '틀린 항목은 바로 수정하세요'
+                  : draft.imageUri
+                    ? '사진은 그대로 저장돼요'
+                    : '사진은 나중에 추가할 수 있어요'}
+            </Text>
+            {remaining !== null && <Text style={s.remaining}>오늘 남은 AI 분석 {remaining}회</Text>}
           </View>
         </Row>
         <ItemForm value={draft} onChange={setDraft} aiFields={fromAi ? ['category', 'color', 'pattern'] : []} />
@@ -175,7 +285,7 @@ export default function NewItem() {
       <Screen header={<Header title="옷 등록" />} scroll={false}>
         {progress}
         <View style={s.center}>
-          {draft?.imageUri && <Image source={{ uri: draft.imageUri }} style={s.analyzing} contentFit="cover" />}
+          {photoUri && <Image source={{ uri: photoUri }} style={s.analyzing} contentFit="cover" />}
           <ActivityIndicator color={colors.green} style={{ marginTop: 28 }} />
           <Serif style={s.doneTitle}>AI가 분석하고 있어요</Serif>
           <View style={{ gap: 8, marginTop: 16 }}>
@@ -186,7 +296,7 @@ export default function NewItem() {
               </Row>
             ))}
           </View>
-          <Pressable onPress={() => { setFromAi(false); setDraft(MANUAL); setStep(3); }} style={{ marginTop: 28 }}>
+          <Pressable onPress={() => manual(photoUri)} style={{ marginTop: 28 }}>
             <Text style={s.manual}>직접 입력할게요</Text>
           </Pressable>
         </View>
@@ -215,7 +325,7 @@ export default function NewItem() {
             <Text style={s.optSub}>쇼핑몰 캡처 사진도 괜찮아요</Text>
           </View>
         </Pressable>
-        <Pressable style={[s.option, { borderStyle: 'dashed' }]} onPress={() => { setFromAi(false); setDraft(MANUAL); setStep(3); }}>
+        <Pressable style={[s.option, { borderStyle: 'dashed' }]} onPress={() => manual()}>
           <Icon name="plus" size={28} />
           <View style={{ flex: 1 }}>
             <Text style={s.optTitle}>사진 없이 직접 입력</Text>
@@ -242,5 +352,6 @@ const s = StyleSheet.create({
   manual: { color: colors.green, fontWeight: '700', textDecorationLine: 'underline' },
   preview: { width: 110, height: 110, backgroundColor: colors.tile, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   formTitle: { fontSize: 18, fontWeight: '800', color: colors.ink },
-  formSub: { fontSize: 13, color: colors.sub },
+  formSub: { fontSize: 13, color: colors.sub, lineHeight: 18 },
+  remaining: { fontSize: 12, color: colors.green, fontWeight: '700' },
 });
