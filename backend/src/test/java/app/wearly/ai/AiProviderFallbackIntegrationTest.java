@@ -159,7 +159,8 @@ class AiProviderFallbackIntegrationTest extends IntegrationTestBase {
     assertThat(service.usedToday(userId)).isZero();
     List<String> reasons =
         jdbc.queryForList(
-            "select error_code from tb_ai_analysis_log where user_id = ? order by ai_analysis_log_id",
+            "select error_code from tb_ai_analysis_log where user_id = ?"
+                + " order by ai_analysis_log_id",
             String.class,
             userId);
     assertThat(reasons).hasSize(8).containsOnly("API_503", "INVALID_OUTPUT");
@@ -271,7 +272,8 @@ class AiProviderFallbackIntegrationTest extends IntegrationTestBase {
     JsonNode logs =
         api()
             .get(
-                "/api/v1/admin/ai/logs?providerId=t-openai&feature=ADMIN_TEST&status=SUCCESS&size=2",
+                "/api/v1/admin/ai/logs?providerId=t-openai&feature=ADMIN_TEST"
+                    + "&status=SUCCESS&size=2",
                 adminToken)
             .expect(200)
             .body();

@@ -72,7 +72,11 @@ checkstyle {
     configFile = file("config/checkstyle/google_checks.xml")
     // 배포본 google_checks.xml의 기본 심각도는 warning이다. error로 올려 위반하면 빌드가 실패하게 하고,
     // Javadoc 관련 모듈만 설정 파일에서 warning으로 둔다
-    configProperties = mapOf("org.checkstyle.google.severity" to "error")
+    configProperties = mapOf(
+        "org.checkstyle.google.severity" to "error",
+        // 한국어 테스트 이름 예외 (테스트 소스만)
+        "org.checkstyle.google.suppressionfilter.config" to file("config/checkstyle/checkstyle-suppressions.xml").path,
+    )
     maxWarnings = Int.MAX_VALUE
     isIgnoreFailures = false
 }

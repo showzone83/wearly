@@ -78,6 +78,8 @@ public class ProfileDto {
     this.onboarded = onboarded;
   }
 
+  /** dMinus1은 앱과 맞춘 JSON 필드 이름이라 그대로 쓴다 (Checkstyle 이름 규칙 예외) */
+  @SuppressWarnings("checkstyle:RecordComponentName")
   public record Notify(
       @NotNull(message = "필수 값이에요.") Boolean morning,
       @NotNull(message = "필수 값이에요.") Boolean evening,
@@ -86,6 +88,7 @@ public class ProfileDto {
   /** 응답: 저장된(또는 기본값) 프로필 */
   public static ProfileDto from(ProfileData data) {
     UserProfile p = data.profile();
+    UserProfile.Notify n = p.notifications();
     return new ProfileDto(
         data.name(),
         p.dressCodes(),
@@ -95,8 +98,7 @@ public class ProfileDto {
         p.workDays(),
         p.workRule(),
         p.offRule(),
-        new Notify(
-            p.notifications().morning(), p.notifications().evening(), p.notifications().dMinus1()),
+        new Notify(n.morning(), n.evening(), n.dayBefore()),
         p.onboarded());
   }
 

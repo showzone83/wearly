@@ -70,6 +70,7 @@ class ApiKeyVerifier implements ApiKeyVerifierPort {
                 apiKey),
             apiKey);
       }
+      default -> throw new IllegalArgumentException("키를 확인할 수 없는 공급자 종류: " + s.type());
     }
   }
 

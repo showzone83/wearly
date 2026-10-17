@@ -141,7 +141,8 @@ class ProviderApiKeyIntegrationTest extends IntegrationTestBase {
 
     Map<String, Object> stored =
         jdbc.queryForMap(
-            "select ciphertext, nonce, key_version, last4 from tb_ai_provider_secret where provider_id = ?",
+            "select ciphertext, nonce, key_version, last4 from tb_ai_provider_secret"
+                + " where provider_id = ?",
             id);
     byte[] firstNonce = (byte[]) stored.get("nonce");
     assertThat(firstNonce).hasSize(12);

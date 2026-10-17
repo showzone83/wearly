@@ -141,7 +141,8 @@ class GeminiAiProviderTest {
 
     server.respond(
         503,
-        "{\"error\":{\"code\":503,\"message\":\"The model is overloaded.\",\"status\":\"UNAVAILABLE\"}}");
+        "{\"error\":{\"code\":503,\"message\":\"The model is overloaded.\","
+            + "\"status\":\"UNAVAILABLE\"}}");
     assertThatThrownBy(() -> provider("gemini-test", null).analyze(image(), codes))
         .isInstanceOf(AiProviderException.class)
         .satisfies(

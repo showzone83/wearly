@@ -6,11 +6,11 @@ import org.springframework.stereotype.Component;
 
 /** PasswordHasher 구현 (Spring Security PasswordEncoder = BCrypt, SecurityConfig) */
 @Component
-class BCryptPasswordHasher implements PasswordHasher {
+class BcryptPasswordHasher implements PasswordHasher {
 
   private final PasswordEncoder encoder;
 
-  BCryptPasswordHasher(PasswordEncoder encoder) {
+  BcryptPasswordHasher(PasswordEncoder encoder) {
     this.encoder = encoder;
   }
 

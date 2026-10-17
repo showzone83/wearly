@@ -235,7 +235,8 @@ class ClaudeAiProviderTest {
     // 인증 오류 메시지는 키 조각이 섞일 수 있어 원문을 버린다
     responseStatus = 401;
     responseBody =
-        "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key test-key\"}}";
+        "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\","
+            + "\"message\":\"invalid x-api-key test-key\"}}";
     assertThatThrownBy(() -> provider.analyze(image(), codes))
         .isInstanceOf(AiProviderException.class)
         .satisfies(

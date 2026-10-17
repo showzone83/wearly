@@ -18,9 +18,11 @@ public record WearlyProperties(
     @Valid @NotNull Ai ai,
     @Valid @NotNull Cors cors,
     Admin admin,
-    /* WEARLY_SECRET_KEY: 웹 입력 AI 키를 암호화하는 마스터 키 (base64 32바이트). 없으면 웹 키 기능이 꺼진다 (07 문서 6장) */
+    // WEARLY_SECRET_KEY: 웹 입력 AI 키를 암호화하는 마스터 키 (base64 32바이트).
+    // 없으면 웹 키 기능이 꺼진다 (07 문서 6장)
     String secretKey) {
 
+  @Override
   public Admin admin() {
     return admin == null ? new Admin(null, null, null) : admin;
   }
@@ -33,7 +35,8 @@ public record WearlyProperties(
       @NotNull Duration refreshTtl) {}
 
   public record Ai(
-      /* db(기본) | mock. 검증은 AiRunMode가 한다 (ApplicationSettingsConfig). 공급자·모델·키 환경변수 이름은 tb_ai_provider에 있다 */
+      // db(기본) | mock. 검증은 AiRunMode가 한다 (ApplicationSettingsConfig).
+      // 공급자·모델·키 환경변수 이름은 tb_ai_provider에 있다
       String provider,
       @Min(0) int dailyLimit,
       /* 공급자 호출 제한 시간 기본값 (공급자 options.timeoutSeconds가 있으면 그 값) */

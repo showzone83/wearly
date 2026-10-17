@@ -42,7 +42,7 @@ public class ProfileService implements ProfileUseCase {
   @Override
   @Transactional
   public ProfileData put(long userId, ProfileData data) {
-    User user = users.findById(userId).orElseThrow(ApiException::notFound);
+    final User user = users.findById(userId).orElseThrow(ApiException::notFound);
     Optional<UserProfile> saved = profiles.findByUserId(userId);
     UserProfile in = data.profile();
     // 새로 고르는 색·취향은 활성 코드만. 이미 저장돼 있던 값은 비활성이어도 둔다

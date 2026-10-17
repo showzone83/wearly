@@ -39,8 +39,8 @@
         <if test="color != null">
            AND color = #{color}
         </if>
-        <if test="qPattern != null">
-           AND (name ILIKE #{qPattern} ESCAPE '\' OR brand ILIKE #{qPattern} ESCAPE '\')
+        <if test="queryPattern != null">
+           AND (name ILIKE #{queryPattern} ESCAPE '\' OR brand ILIKE #{queryPattern} ESCAPE '\')
         </if>
         <choose>
             <when test="sort == 'worn'">

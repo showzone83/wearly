@@ -258,7 +258,7 @@ class AuthIntegrationTest extends IntegrationTestBase {
   void 탈퇴하면_모든_데이터가_지워지고_남은_토큰은_TOKEN_INVALID() {
     String email = uniqueEmail();
     Session s = api().signup(email, "abcd1234", "민지");
-    long userId = Long.parseLong(s.userId());
+    final long userId = Long.parseLong(s.userId());
     api()
         .put(
             "/api/v1/users/me/profile",

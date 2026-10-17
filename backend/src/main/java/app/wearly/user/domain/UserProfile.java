@@ -20,14 +20,15 @@ public record UserProfile(
     Notify notifications,
     boolean onboarded) {
 
-  public record Notify(boolean morning, boolean evening, boolean dMinus1) {
+  /** dayBefore = 앱 notify.dMinus1 (예정일 하루 전 알림) */
+  public record Notify(boolean morning, boolean evening, boolean dayBefore) {
 
     /** 저장 모양 (JSONB, 키 순서 고정) */
     public Map<String, Boolean> toMap() {
       Map<String, Boolean> m = new LinkedHashMap<>();
       m.put("morning", morning);
       m.put("evening", evening);
-      m.put("dMinus1", dMinus1);
+      m.put("dMinus1", dayBefore);
       return m;
     }
 

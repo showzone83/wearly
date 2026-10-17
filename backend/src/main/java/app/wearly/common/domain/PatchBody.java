@@ -11,6 +11,9 @@ public interface PatchBody {
   /** 본문이 JSON 객체인지 (배열·문자열·빈 본문이면 false) */
   boolean isObject();
 
+  /** 필드 값이 JSON 객체인지 */
+  boolean isObject(String field);
+
   boolean has(String field);
 
   boolean isNull(String field);
@@ -31,8 +34,6 @@ public interface PatchBody {
   boolean isInt(String field);
 
   int intValue(String field);
-
-  boolean isObject(String field);
 
   /** JSON 객체 필드를 Map으로 (키 순서 유지) */
   Map<String, Object> object(String field);

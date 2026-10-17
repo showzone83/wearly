@@ -46,10 +46,10 @@ public final class SuggestionParser {
     if (!codes.belongsTo(subType, category)) {
       throw reject("category와 subType의 짝이 맞지 않아요: " + category + "/" + subType);
     }
-    String color = one(root, "color", codes, CodeGroups.COLOR);
-    String pattern = one(root, "pattern", codes, CodeGroups.PATTERN);
-    List<String> seasons = many(root, "seasons", codes, CodeGroups.SEASON);
-    List<String> styles = many(root, "styles", codes, CodeGroups.STYLE);
+    final String color = one(root, "color", codes, CodeGroups.COLOR);
+    final String pattern = one(root, "pattern", codes, CodeGroups.PATTERN);
+    final List<String> seasons = many(root, "seasons", codes, CodeGroups.SEASON);
+    final List<String> styles = many(root, "styles", codes, CodeGroups.STYLE);
     JsonNode formalityNode = root.get("formality");
     if (formalityNode == null
         || !formalityNode.isIntegralNumber()

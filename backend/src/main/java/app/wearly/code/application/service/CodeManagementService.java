@@ -65,7 +65,7 @@ public class CodeManagementService implements CodeManagementUseCase {
       throw new ApiException(ErrorCode.CODE_EXISTS);
     }
     int sortOrder = req.sortOrder() == null ? codes.maxSortOrder(group) + 10 : req.sortOrder();
-    Code saved =
+    final Code saved =
         codes.save(
             Code.newCode(
                 group,
@@ -86,12 +86,12 @@ public class CodeManagementService implements CodeManagementUseCase {
   @Override
   @Transactional
   public Change patch(String group, String code, PatchBody body) {
-    CodeSnapshot snapshot = requireGroup(group);
+    final CodeSnapshot snapshot = requireGroup(group);
     Code entity = codes.find(group, code).orElseThrow(ApiException::notFound);
     if (body == null || !body.isObject()) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
-    CodeInfo before = info(entity);
+    final CodeInfo before = info(entity);
     List<FieldError> errors = new ArrayList<>();
     if (body.has("code") && !code.equals(body.string("code"))) {
       errors.add(new FieldError("code", "코드는 바꿀 수 없어요."));
@@ -133,7 +133,7 @@ public class CodeManagementService implements CodeManagementUseCase {
     ApiException.throwIfAny(errors);
     List<String> oldPairs = CodeAttrs.pairsOf(entity.attrs());
     entity.update(label, parent, sortOrder, active, attrs);
-    Code saved = codes.save(entity);
+    final Code saved = codes.save(entity);
     codes.flush();
     if (CodeGroups.COLOR.equals(group)) {
       syncPairs(code, oldPairs, CodeAttrs.pairsOf(attrs));
@@ -184,7 +184,7 @@ public class CodeManagementService implements CodeManagementUseCase {
       throw new ApiException(
           ErrorCode.CODE_IN_USE, String.join(", ", reasons) + "에서 쓰고 있어 삭제할 수 없어요. 대신 비활성화해 주세요.");
     }
-    CodeInfo before = info(entity);
+    final CodeInfo before = info(entity);
     if (CodeGroups.COLOR.equals(group)) {
       syncPairs(code, CodeAttrs.pairsOf(entity.attrs()), List.of());
     }

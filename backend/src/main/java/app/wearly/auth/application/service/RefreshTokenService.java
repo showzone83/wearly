@@ -58,6 +58,7 @@ public class RefreshTokenService {
       case OK -> {
         // 회전한다
       }
+      default -> throw new IllegalStateException("모르는 토큰 상태: " + current.check(now));
     }
     Issued next = issue(current.userId(), current.familyId());
     current.rotateTo(next.token().id(), now);

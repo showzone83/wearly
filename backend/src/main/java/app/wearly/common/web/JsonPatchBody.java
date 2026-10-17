@@ -26,6 +26,11 @@ public final class JsonPatchBody implements PatchBody {
   }
 
   @Override
+  public boolean isObject(String field) {
+    return has(field) && body.get(field).isObject();
+  }
+
+  @Override
   public boolean has(String field) {
     return isObject() && body.has(field);
   }
@@ -69,11 +74,6 @@ public final class JsonPatchBody implements PatchBody {
   @Override
   public int intValue(String field) {
     return body.get(field).asInt();
-  }
-
-  @Override
-  public boolean isObject(String field) {
-    return has(field) && body.get(field).isObject();
   }
 
   @Override

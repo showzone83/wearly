@@ -114,11 +114,11 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
     List<FieldError> errors = new ArrayList<>();
-    String id = AiProviderRules.providerId(req.providerId(), errors);
+    final String id = AiProviderRules.providerId(req.providerId(), errors);
     AiProviderType type = AiProviderRules.type(req.type(), errors);
-    String displayName = AiProviderRules.displayName(req.displayName(), errors);
+    final String displayName = AiProviderRules.displayName(req.displayName(), errors);
     String model = AiProviderRules.model(req.model(), errors);
-    String apiKeyEnv = AiProviderRules.apiKeyEnv(req.apiKeyEnv(), errors);
+    final String apiKeyEnv = AiProviderRules.apiKeyEnv(req.apiKeyEnv(), errors);
     boolean enabled = req.enabled() != null && req.enabled();
     Integer priority = req.priority();
     if (priority != null && (priority < 0 || priority > 10000)) {
@@ -160,15 +160,15 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
     if (body.has("providerId") && !providerId.equals(body.string("providerId"))) {
       errors.add(new FieldError("providerId", "공급자 ID는 바꿀 수 없어요."));
     }
-    AiProviderType type =
+    final AiProviderType type =
         body.has("type") ? AiProviderRules.type(body.text("type"), errors) : s.type();
-    String displayName =
+    final String displayName =
         body.has("displayName")
             ? AiProviderRules.displayName(body.text("displayName"), errors)
             : s.displayName();
-    String model =
+    final String model =
         body.has("model") ? AiProviderRules.model(body.text("model"), errors) : s.model();
-    String apiKeyEnv =
+    final String apiKeyEnv =
         body.has("apiKeyEnv")
             ? AiProviderRules.apiKeyEnv(body.text("apiKeyEnv"), errors)
             : s.apiKeyEnv();

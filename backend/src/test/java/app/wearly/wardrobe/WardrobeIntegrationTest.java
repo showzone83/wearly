@@ -166,7 +166,7 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
   @Test
   void 필터와_정렬() {
     Session s = signup();
-    String t = s.accessToken();
+    final String t = s.accessToken();
     Map<String, Object> a = item("화이트 셔츠", "TOP", "SHIRT", "white");
     a.put("wornCount", 10);
     a.put("lastWornAt", TODAY.minusDays(1).toString());
@@ -261,7 +261,8 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
                 + "{\"color\":\"camel\",\"count\":1},{\"color\":\"navy\",\"count\":1}]");
     assertThat(st.get("byStyle").toString())
         .isEqualTo(
-            "[{\"style\":\"NEAT\",\"count\":3},{\"style\":\"CLASSIC\",\"count\":2},{\"style\":\"MINIMAL\",\"count\":1}]");
+            "[{\"style\":\"NEAT\",\"count\":3},{\"style\":\"CLASSIC\",\"count\":2},"
+                + "{\"style\":\"MINIMAL\",\"count\":1}]");
     assertThat(st.get("byStatus").toString()).isEqualTo("{\"OWNED\":4,\"LAUNDRY\":1,\"REPAIR\":1}");
     assertThat(st.get("wornLast30Days").asLong()).isEqualTo(2); // 오늘, 29일 전 (30일 전은 제외)
     assertThat(st.get("utilization30d").asDouble()).isEqualTo(0.33);

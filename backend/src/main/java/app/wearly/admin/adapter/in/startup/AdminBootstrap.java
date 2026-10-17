@@ -29,7 +29,8 @@ public class AdminBootstrap implements ApplicationRunner {
   public void run(ApplicationArguments args) {
     if (!props.configured()) {
       log.info(
-          "관리자 계정 설정 없음 (WEARLY_ADMIN_EMAIL·WEARLY_ADMIN_PASSWORD). 관리자 사이트에 들어가려면 둘 다 넣고 다시 시작하세요.");
+          "관리자 계정 설정 없음 (WEARLY_ADMIN_EMAIL·WEARLY_ADMIN_PASSWORD). "
+              + "관리자 사이트에 들어가려면 둘 다 넣고 다시 시작하세요.");
       return;
     }
     ensureAdmin(props.email(), props.password(), props.name());

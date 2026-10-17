@@ -83,7 +83,8 @@ class AiAnalyzeIntegrationTest extends IntegrationTestBase {
 
     // 어제(한국 시간) 기록은 세지 않는다
     jdbc.update(
-        "update tb_ai_analysis_log set created_at = created_at - interval '1 day' where user_id = ?",
+        "update tb_ai_analysis_log set created_at = created_at - interval '1 day'"
+            + " where user_id = ?",
         Long.parseLong(s.userId()));
     api().upload(PATH, s.accessToken(), "image", bytes(100, 9), "p.png", "image/png").expect(200);
   }

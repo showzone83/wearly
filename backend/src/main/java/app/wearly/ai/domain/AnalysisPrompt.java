@@ -26,6 +26,23 @@ public final class AnalysisPrompt {
           "formality",
           "confidence");
 
+  private static final String TEMPLATE =
+      """
+      직장인 옷장 앱에 등록할 옷 사진이다. 사진의 주된 아이템 하나를 보고 아래 값을 정해 JSON으로 답한다.
+
+      - name: 한국어 아이템 이름, 20자 이내 (예: "네이비 울 니트")
+      - category와 subType: 반드시 아래 짝 중 하나 (종류: 세부 종류들)
+      %s
+      - color: 가장 넓은 면적의 색 하나. %s
+      - pattern: %s
+      - seasons: 입기 좋은 계절 1~4개. %s
+      - styles: 어울리는 스타일 1~2개. %s
+      - formality: 1(편한 데일리), 2(비즈니스 캐주얼), 3(포멀)
+      - confidence: 판단에 대한 확신 0~1
+
+      사진이 흐리거나 옷이 아니면 가장 가까운 값을 고르고 confidence를 낮게 준다.
+      """;
+
   private AnalysisPrompt() {}
 
   public static String prompt(CodeSnapshot codes) {
@@ -44,27 +61,12 @@ public final class AnalysisPrompt {
                             .map(AnalysisPrompt::labeled)
                             .collect(Collectors.joining(", ")))
             .collect(Collectors.joining("\n"));
-    return """
-                직장인 옷장 앱에 등록할 옷 사진이다. 사진의 주된 아이템 하나를 보고 아래 값을 정해 JSON으로 답한다.
-
-                - name: 한국어 아이템 이름, 20자 이내 (예: "네이비 울 니트")
-                - category와 subType: 반드시 아래 짝 중 하나 (종류: 세부 종류들)
-                %s
-                - color: 가장 넓은 면적의 색 하나. %s
-                - pattern: %s
-                - seasons: 입기 좋은 계절 1~4개. %s
-                - styles: 어울리는 스타일 1~2개. %s
-                - formality: 1(편한 데일리), 2(비즈니스 캐주얼), 3(포멀)
-                - confidence: 판단에 대한 확신 0~1
-
-                사진이 흐리거나 옷이 아니면 가장 가까운 값을 고르고 confidence를 낮게 준다.
-                """
-        .formatted(
-            pairs,
-            list(codes, CodeGroups.COLOR),
-            list(codes, CodeGroups.PATTERN),
-            list(codes, CodeGroups.SEASON),
-            list(codes, CodeGroups.STYLE));
+    return TEMPLATE.formatted(
+        pairs,
+        list(codes, CodeGroups.COLOR),
+        list(codes, CodeGroups.PATTERN),
+        list(codes, CodeGroups.SEASON),
+        list(codes, CodeGroups.STYLE));
   }
 
   /** 허용 값을 enum으로 박은 JSON 스키마 (모든 필드 필수, 추가 필드 없음) */

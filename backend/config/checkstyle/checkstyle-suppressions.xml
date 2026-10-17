@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+<!--
+    Wearly 백엔드 Checkstyle 예외 (google_checks.xml의 SuppressionFilter가 읽는다).
+    테스트 이름은 한국어 문장(예: 일일_한도를_넘으면_429_AI_LIMIT_EXCEEDED)으로 쓰는 것이 이 저장소의 규칙이라
+    테스트 소스에서만 메서드 이름 규칙과 약어 규칙을 끈다. 본 코드에는 예외가 없다.
+-->
+<suppressions>
+  <suppress files="[\\/]src[\\/]test[\\/]java[\\/]" checks="GoogleMethodName|AbbreviationAsWordInName"/>
+</suppressions>

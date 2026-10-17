@@ -35,7 +35,8 @@ public class CodeIntegrationTest extends IntegrationTestBase {
     JsonNode top = category.get("codes").get(0);
     assertThat(top.toString())
         .isEqualTo(
-            "{\"code\":\"TOP\",\"label\":\"상의\",\"parent\":null,\"sortOrder\":10,\"active\":true,\"attrs\":{\"slot\":\"TOP\"}}");
+            "{\"code\":\"TOP\",\"label\":\"상의\",\"parent\":null,\"sortOrder\":10,"
+                + "\"active\":true,\"attrs\":{\"slot\":\"TOP\"}}");
     JsonNode acc = find(body, "CATEGORY", "ACC");
     assertThat(acc.get("attrs").has("slot")).isTrue();
     assertThat(acc.get("attrs").get("slot").isNull()).isTrue();
