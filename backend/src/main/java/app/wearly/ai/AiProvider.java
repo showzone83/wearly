@@ -1,6 +1,6 @@
 package app.wearly.ai;
 
-/** 옷 사진 분석 공급자. 구현은 MockAiProvider(기본)와 ClaudeAiProvider 둘이다. */
+/** 옷 사진 분석 공급자. 구현은 ClaudeAiProvider(기본)와 MockAiProvider(WEARLY_AI_PROVIDER=mock일 때만) 둘이다. */
 public interface AiProvider {
 
     /** 응답·로그에 쓰는 공급자 이름: "mock" | "claude" */

@@ -24,7 +24,7 @@ public record WearlyProperties(@Valid @NotNull Jwt jwt, @Valid @NotNull Ai ai, @
     }
 
     public record Ai(
-            /* mock | claude | auto */
+            /* claude(기본) | mock. 검증은 AiProviderConfig가 한다 */
             @NotBlank String provider,
             @NotBlank String model,
             @Min(0) int dailyLimit,

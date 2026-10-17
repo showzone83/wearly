@@ -59,3 +59,15 @@ tasks.withType<Test> {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
 }
+
+// 기본 ./gradlew bootRun은 실제 Claude만 쓴다 (ANTHROPIC_API_KEY 없으면 시작 실패).
+// 목업 공급자는 이 태스크로만 켠다: ./gradlew bootRunMock
+tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunMock") {
+    group = "application"
+    description = "AI 공급자를 목업으로 바꿔 서버를 띄운다 (WEARLY_AI_PROVIDER=mock)"
+    // bootRun 태스크를 거치지 않고 같은 클래스패스·메인 클래스를 쓴다 (bootRun에 의존하면 bootRun이 먼저 실행된다)
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("app.wearly.WearlyApplication")
+    workingDir = projectDir
+    environment("WEARLY_AI_PROVIDER", "mock")
+}

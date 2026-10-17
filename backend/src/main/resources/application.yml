@@ -59,7 +59,7 @@ wearly:
     access-ttl: ${WEARLY_ACCESS_TTL:PT30M}
     refresh-ttl: ${WEARLY_REFRESH_TTL:P30D}
   ai:
-    provider: ${WEARLY_AI_PROVIDER:auto}
+    provider: ${WEARLY_AI_PROVIDER:claude}
     model: ${WEARLY_AI_MODEL:claude-opus-5-5}
     daily-limit: ${WEARLY_AI_DAILY_LIMIT:10}
     api-key: ${ANTHROPIC_API_KEY:}

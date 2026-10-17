@@ -10,7 +10,7 @@
 | 내 정보 조회, 회원 탈퇴 | 이미지 업로드·저장 (사진은 앱 기기에만 둔다) |
 | 취향·근무 패턴 프로필 조회·저장 | 코디 저장·피드백·예정일·착용 기록 API (테이블만 만든다) |
 | 옷장 아이템 CRUD, 일괄 등록, 필터 목록, 통계 | 추천·진단의 서버 이전 (앱의 규칙 엔진 유지) |
-| AI 사진 분석 (목업 공급자 기본, 키가 있으면 Claude) | 소셜 토큰 검증, App Check, Redis 요청 제한 |
+| AI 사진 분석 (기본 Claude, 목업은 명시할 때만) | 소셜 토큰 검증, App Check, Redis 요청 제한 |
 
 이메일·비밀번호 로그인은 기술 결정 D5에서 출시 범위에서 뺀 수단이다. 소셜 로그인 키를 받기 전까지 토큰 흐름을 먼저 완성하기 위한 **임시 수단**이며, 자격 증명을 `tb_user_local_credential`에 따로 두어 나중에 소셜 계정과 같은 자리에서 교체할 수 있게 한다.
 
@@ -212,8 +212,12 @@ interface AnalyzeResponse {
 
 ## 7. AI 분석
 
-- 공급자 인터페이스 하나에 구현 둘: `MockAiProvider`(기본), `ClaudeAiProvider`.
-- `WEARLY_AI_PROVIDER` = `mock` | `claude` | `auto`(기본). `auto`는 `ANTHROPIC_API_KEY`가 있으면 Claude, 없으면 목업이다.
+- 공급자 인터페이스 하나에 구현 둘: `ClaudeAiProvider`(기본), `MockAiProvider`.
+- `WEARLY_AI_PROVIDER` = `claude`(기본) | `mock`. 목업이 실제 오류를 가리지 않도록 **조용한 대체는 없다**.
+  - `claude`인데 `ANTHROPIC_API_KEY`가 비어 있으면 서버 시작을 실패시키고 안내를 띄운다 ("ANTHROPIC_API_KEY가 없습니다. backend/.env에 … 목업으로 띄우려면 ./gradlew bootRunMock").
+  - 목업은 `WEARLY_AI_PROVIDER=mock`일 때만 쓴다. 로컬에서는 `./gradlew bootRunMock`(이 값을 넣어 띄우는 Gradle 태스크), 하네스·테스트는 값을 직접 준다.
+  - 예전 `auto`를 포함해 그 밖의 값은 시작 실패.
+  - 시작 직후 고른 공급자를 INFO 로그 한 줄로 남긴다: `AI 공급자: claude (model=…, effort=…)` / `AI 공급자: mock (목업 — 실제 Claude를 호출하지 않음)`.
 - Claude는 이미지와 함께 허용 값 목록을 주고 **구조화된 JSON 출력**으로 받는다. 허용 목록 밖 값은 서버가 거부하고 `AI_UNAVAILABLE`로 바꾼다. 모델은 `WEARLY_AI_MODEL`로 바꿀 수 있다.
 - 목업은 이미지 바이트의 SHA-256으로 값을 정한다 (같은 사진 = 같은 결과).
 - 일일 한도 `WEARLY_AI_DAILY_LIMIT` (기본 10, 기획서 무료회원 1회는 운영 설정에서 정한다). 성공한 호출만 센다. 집계는 `tb_ai_analysis_log`를 MyBatis로 센다 (Asia/Seoul 날짜 기준).
