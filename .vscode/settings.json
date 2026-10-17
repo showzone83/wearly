@@ -1,0 +1,23 @@
+{
+  // 저장할 때 ESLint 자동 수정 (관리자 사이트의 import 순서·코드 규칙)
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  // ESLint 설정이 하위 폴더(admin/)에 있으므로 폴더별로 찾게 한다
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.validate": ["javascript", "typescript", "typescriptreact"],
+
+  // 백엔드: Google Java Style (doc/08 5장). 저장할 때 포맷 + import 정리
+  "java.format.settings.url": "https://raw.githubusercontent.com/google/styleguide/gh-pages/eclipse-java-google-style.xml",
+  "java.format.settings.profile": "GoogleStyle",
+  "java.completion.importOrder": ["#", ""],
+  "[java]": {
+    "editor.defaultFormatter": "redhat.java",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2,
+    "editor.rulers": [100],
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  }
+}
