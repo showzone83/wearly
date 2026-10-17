@@ -2,10 +2,10 @@ package app.wearly.user.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.code.CodeChecks;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
+import app.wearly.sharedkernel.code.CodeChecks;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.user.application.port.in.ProfileUseCase;
 import app.wearly.user.application.port.in.dto.ProfileDto;
 import app.wearly.user.application.port.in.dto.ProfileTasteDto;

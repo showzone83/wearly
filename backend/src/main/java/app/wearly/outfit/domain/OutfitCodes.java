@@ -1,5 +1,6 @@
 package app.wearly.outfit.domain;
 
+import app.wearly.sharedkernel.code.Slots;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,15 +12,15 @@ import java.util.Map;
  */
 public final class OutfitCodes {
 
-  /** 코디 칸 (06 문서 5장). 칸 순서도 이 순서 */
-  public static final String TOP = "TOP";
+  /** 코디 칸 (06 문서 5장, 공유 커널 Slots). 칸 순서도 이 순서 */
+  public static final String TOP = Slots.TOP;
 
-  public static final String BOTTOM = "BOTTOM";
-  public static final String DRESS = "DRESS";
-  public static final String OUTER = "OUTER";
-  public static final String SHOES = "SHOES";
-  public static final String BAG = "BAG";
-  public static final List<String> SLOTS = List.of(TOP, BOTTOM, DRESS, OUTER, SHOES, BAG);
+  public static final String BOTTOM = Slots.BOTTOM;
+  public static final String DRESS = Slots.DRESS;
+  public static final String OUTER = Slots.OUTER;
+  public static final String SHOES = Slots.SHOES;
+  public static final String BAG = Slots.BAG;
+  public static final List<String> SLOTS = Slots.ALL;
 
   /** 상황: 라벨과 기대 격식(1~3) */
   public record Occasion(String label, double formality) {}

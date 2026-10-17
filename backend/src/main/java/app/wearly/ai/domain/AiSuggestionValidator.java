@@ -1,7 +1,7 @@
 package app.wearly.ai.domain;
 
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

@@ -1,7 +1,7 @@
 package app.wearly.wardrobe.domain;
 
-import app.wearly.common.domain.code.CodeEntry;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeEntry;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;

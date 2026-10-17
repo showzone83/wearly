@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.wearly.ai.application.service.AiProviderRegistry;
+import app.wearly.ai.config.AiProviderFailureAnalyzer;
 import app.wearly.ai.domain.AiProviderConfigException;
-import app.wearly.common.config.AiProviderFailureAnalyzer;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.diagnostics.FailureAnalysis;
 import org.springframework.boot.env.YamlPropertySourceLoader;

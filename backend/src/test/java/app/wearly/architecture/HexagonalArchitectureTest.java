@@ -38,7 +38,11 @@ class HexagonalArchitectureTest {
           .resideInAPackage("app.wearly..domain..")
           .should()
           .onlyDependOnClassesThat()
-          .resideInAnyPackage("java..", "app.wearly.common.domain..", "app.wearly.*.domain..")
+          .resideInAnyPackage(
+              "java..",
+              "app.wearly.common.domain..",
+              "app.wearly.sharedkernel..",
+              "app.wearly.*.domain..")
           .because("도메인 모델·규칙은 순수 자바다 (Spring·JPA·MyBatis·Jackson 어노테이션 없음)");
 
   @ArchTest
@@ -118,6 +122,27 @@ class HexagonalArchitectureTest {
           .should()
           .onlyDependOnClassesThat()
           .resideInAnyPackage("java..", "app.wearly.common.domain..");
+
+  @ArchTest
+  static final ArchRule 공유_커널은_자바_표준과_common_domain만_쓴다 =
+      classes()
+          .that()
+          .resideInAPackage("app.wearly.sharedkernel..")
+          .should()
+          .onlyDependOnClassesThat()
+          .resideInAnyPackage("java..", "app.wearly.common.domain..", "app.wearly.sharedkernel..")
+          .because("공유 커널은 불변 값·조회 메서드·공유 정책만 둔다 (M8)");
+
+  @ArchTest
+  static final ArchRule common은_컨텍스트를_모른다 =
+      noClasses()
+          .that()
+          .resideInAnyPackage("app.wearly.common..", "app.wearly.sharedkernel..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAnyPackage(
+              CONTEXTS.stream().map(c -> "app.wearly." + c + "..").toArray(String[]::new))
+          .because("컨텍스트에 속한 설정(보안·AI·코디)은 각 컨텍스트의 config 패키지에 둔다 (M8)");
 
   @ArchTest
   static final ArchRule JPA_엔티티는_영속성_어댑터에만 =

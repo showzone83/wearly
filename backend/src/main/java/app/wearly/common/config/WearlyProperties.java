@@ -38,7 +38,7 @@ public record WearlyProperties(
       @NotNull Duration refreshTtl) {}
 
   public record Ai(
-      // db(기본) | mock. 검증은 AiRunMode가 한다 (ApplicationSettingsConfig).
+      // db(기본) | mock. 검증은 AiRunMode가 한다 (ai.config.AiConfig).
       // 공급자·모델·키 환경변수 이름은 tb_ai_provider에 있다
       String provider,
       @Min(0) int dailyLimit,

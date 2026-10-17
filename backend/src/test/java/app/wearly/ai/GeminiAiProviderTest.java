@@ -9,7 +9,7 @@ import app.wearly.ai.domain.AiImage;
 import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiResult;
 import app.wearly.ai.domain.AnalysisPrompt;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.support.FakeHttpServer;
 import app.wearly.support.TestCodes;
 import java.time.Duration;

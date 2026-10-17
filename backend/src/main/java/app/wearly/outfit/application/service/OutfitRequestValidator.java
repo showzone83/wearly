@@ -1,12 +1,12 @@
 package app.wearly.outfit.application.service;
 
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
 import app.wearly.outfit.application.port.in.dto.RecommendOutfitDto;
 import app.wearly.outfit.domain.OutfitCodes;
 import app.wearly.outfit.domain.OutfitRequest;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;

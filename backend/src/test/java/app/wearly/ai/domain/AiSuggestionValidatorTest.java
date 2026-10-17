@@ -3,7 +3,7 @@ package app.wearly.ai.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.support.TestCodes;
 import java.util.HashMap;
 import java.util.List;

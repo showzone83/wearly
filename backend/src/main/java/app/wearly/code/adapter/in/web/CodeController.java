@@ -2,7 +2,7 @@ package app.wearly.code.adapter.in.web;
 
 import app.wearly.code.adapter.in.web.response.CodesResponse;
 import app.wearly.code.application.port.in.CodeCatalog;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

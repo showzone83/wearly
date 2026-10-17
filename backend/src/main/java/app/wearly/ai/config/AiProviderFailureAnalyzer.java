@@ -1,4 +1,4 @@
-package app.wearly.common.config;
+package app.wearly.ai.config;
 
 import app.wearly.ai.domain.AiProviderConfigException;
 import org.springframework.boot.diagnostics.AbstractFailureAnalyzer;

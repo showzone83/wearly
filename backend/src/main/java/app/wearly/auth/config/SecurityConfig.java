@@ -1,15 +1,16 @@
-package app.wearly.common.config;
+package app.wearly.auth.config;
 
 import app.wearly.auth.adapter.in.web.ExpiryValidator;
 import app.wearly.auth.adapter.in.web.RestAuthenticationEntryPoint;
 import app.wearly.auth.adapter.in.web.UserIdAuthenticationConverter;
 import app.wearly.auth.application.port.in.AuthenticationUseCase;
+import app.wearly.auth.domain.TokenPolicy;
+import app.wearly.common.config.WearlyProperties;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.common.error.ErrorResponseWriter;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
-import java.util.List;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.context.annotation.Bean;
@@ -31,10 +32,11 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+/**
+ * 인증 설정: Spring Security 필터 체인(JWT 리소스 서버), JWT 키·인코더·디코더, 비밀번호 해시, 토큰 정책. auth 컨텍스트가 소유한다 (M8, 전에는
+ * common.config에 있어 common ↔ auth 순환이 있었다). CORS는 컨텍스트를 모르는 설정이라 common.config.CorsConfig에 있다.
+ */
 @Configuration
 public class SecurityConfig {
 
@@ -134,17 +136,7 @@ public class SecurityConfig {
   }
 
   @Bean
-  CorsConfigurationSource corsConfigurationSource(WearlyProperties properties) {
-    CorsConfiguration config = new CorsConfiguration();
-    List<String> origins = properties.cors().allowedOrigins();
-    config.setAllowedOrigins(origins == null ? List.of() : origins);
-    config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-    config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "If-None-Match"));
-    config.setExposedHeaders(List.of("WWW-Authenticate", "ETag"));
-    config.setAllowCredentials(false);
-    config.setMaxAge(3600L);
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", config);
-    return source;
+  TokenPolicy tokenPolicy(WearlyProperties properties) {
+    return new TokenPolicy(properties.jwt().refreshTtl());
   }
 }

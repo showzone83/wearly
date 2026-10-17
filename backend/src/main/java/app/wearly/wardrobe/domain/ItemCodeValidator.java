@@ -1,9 +1,9 @@
 package app.wearly.wardrobe.domain;
 
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.code.CodeChecks;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeChecks;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.List;
 
 /** 아이템 입력의 코드 검증: 그룹에 있는지, 새 값은 활성인지, subType의 parent가 category인지 */

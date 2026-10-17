@@ -1,4 +1,4 @@
-package app.wearly.common.domain.code;
+package app.wearly.sharedkernel.code;
 
 import java.util.Map;
 

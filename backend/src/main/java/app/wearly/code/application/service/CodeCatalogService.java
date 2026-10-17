@@ -2,7 +2,7 @@ package app.wearly.code.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.code.application.port.out.CodeSnapshotPort;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import org.springframework.stereotype.Service;
 
 /** CodeCatalog 구현. 캐시는 출력 어댑터(CodeSnapshotPort)가 들고 있다 */

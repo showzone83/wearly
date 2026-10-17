@@ -2,9 +2,9 @@ package app.wearly.wardrobe.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
 import app.wearly.wardrobe.application.port.in.dto.CreateItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemDto;

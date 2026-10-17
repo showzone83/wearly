@@ -7,7 +7,7 @@ import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiResult;
 import app.wearly.ai.domain.AiSuggestionValidator;
 import app.wearly.ai.domain.AnalysisPrompt;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 
 /**
  * AI 공급자 (출력 포트). 공급자는 "이미지(선택) + 지시문 + 스키마 → JSON 객체"만 한다 (M1). 무엇을 묻고 어떻게 검증할지(사진 분석 프롬프트· 코드 검증,

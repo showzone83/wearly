@@ -2,8 +2,8 @@ package app.wearly.wardrobe.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.Zones;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.wardrobe.application.port.in.WardrobeStatsUseCase;
 import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto;
 import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.ColorCount;

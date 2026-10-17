@@ -1,7 +1,7 @@
 package app.wearly.code.adapter.in.web.response;
 
-import app.wearly.common.domain.code.CodeEntry;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeEntry;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.List;
 import java.util.Map;
 

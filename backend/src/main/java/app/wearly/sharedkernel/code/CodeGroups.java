@@ -1,4 +1,4 @@
-package app.wearly.common.domain.code;
+package app.wearly.sharedkernel.code;
 
 import java.util.List;
 
@@ -15,10 +15,6 @@ public final class CodeGroups {
 
   public static final List<String> ALL =
       List.of(CATEGORY, SUB_TYPE, COLOR, PATTERN, SEASON, STYLE, ITEM_STATUS);
-
-  /** 코디 칸 (앱 로직 고정값, 06 문서 5장). CATEGORY attrs.slot 값 */
-  public static final List<String> SLOTS =
-      List.of("TOP", "BOTTOM", "DRESS", "OUTER", "SHOES", "BAG");
 
   private CodeGroups() {}
 }

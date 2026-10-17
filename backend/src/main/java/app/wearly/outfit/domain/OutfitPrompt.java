@@ -8,9 +8,9 @@ import static app.wearly.outfit.domain.OutfitCodes.SHOES;
 import static app.wearly.outfit.domain.OutfitCodes.SLOTS;
 import static app.wearly.outfit.domain.OutfitCodes.TOP;
 
-import app.wearly.common.domain.code.CodeEntry;
-import app.wearly.common.domain.code.CodeGroups;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeEntry;
+import app.wearly.sharedkernel.code.CodeGroups;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

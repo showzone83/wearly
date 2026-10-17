@@ -1,4 +1,4 @@
-package app.wearly.common.domain.code;
+package app.wearly.sharedkernel.code;
 
 import app.wearly.common.domain.FieldError;
 import java.util.List;

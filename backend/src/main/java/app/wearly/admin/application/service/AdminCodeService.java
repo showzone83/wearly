@@ -12,7 +12,7 @@ import app.wearly.code.application.port.in.dto.CodeChangeDto;
 import app.wearly.code.application.port.in.dto.CodeDto;
 import app.wearly.code.application.port.in.dto.CreateCodeDto;
 import app.wearly.code.application.port.in.dto.PatchCodeDto;
-import app.wearly.common.domain.code.CodeSnapshot;
+import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
