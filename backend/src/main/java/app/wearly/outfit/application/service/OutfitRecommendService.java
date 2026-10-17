@@ -29,7 +29,6 @@ import app.wearly.user.application.port.in.ProfileUseCase;
 import app.wearly.user.application.port.in.dto.ProfileTasteDto;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
 import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -132,9 +131,7 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
       String why = r.rejections().isEmpty() ? "후보가 없어요." : String.join(" / ", r.rejections());
       throw new RejectedOutputException("남은 후보가 없어요: " + why);
     }
-    Map<String, Object> log = new LinkedHashMap<>();
-    log.put("candidates", r.accepted().stream().map(OutfitCandidate::toMap).toList());
-    log.put("dropped", r.rejections());
-    return new JsonOutputHandler.Accepted<>(r.accepted(), log);
+    return new JsonOutputHandler.Accepted<>(
+        r.accepted(), OutfitLogResults.of(r.accepted(), r.rejections()));
   }
 }
