@@ -1,8 +1,10 @@
 // 여러 화면이 함께 쓰는 서버 상태 (TanStack Query)
-import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { api, type IAdminCode, type IAdminCodeGroup } from '@/api';
+import { api } from '@/api';
+import type { IAdminCode, IAdminCodeGroup } from '@/api';
+
+import { useQuery } from '@tanstack/react-query';
 
 export const qk = {
   dashboard: ['dashboard'] as const,
@@ -37,7 +39,8 @@ export const useCodeBook = (): ICodeBook => {
   return useMemo(() => {
     const groups = data?.groups ?? [];
     const byGroup = new Map(groups.map((g) => [g.group, g.codes]));
-    const find = (group: string, code: string | null | undefined) => (code ? byGroup.get(group)?.find((c) => c.code === code) : undefined);
+    const find = (group: string, code: string | null | undefined) =>
+      code ? byGroup.get(group)?.find((c) => c.code === code) : undefined;
     return {
       groups,
       group: (group: string) => byGroup.get(group) ?? [],

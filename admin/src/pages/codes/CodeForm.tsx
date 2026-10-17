@@ -1,13 +1,20 @@
 // 코드 추가·수정 패널. 그룹별 속성(attrs) 폼은 doc/06 3장, 검증 규칙은 doc/07 4장을 따른다.
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 
-import { api, isApiError, type IAdminCode, type IAdminCodeGroup, type ICodeAttrs, type IFieldError, type TSlot } from '@/api';
+import { api, isApiError } from '@/api';
+import type { IAdminCode, IAdminCodeGroup, ICodeAttrs, IFieldError, TSlot } from '@/api';
+
 import { ColorChip, GarmentPreview } from '@/components/Garment';
-import { useToastStore } from '@/stores/useToastStore';
 import { Button, Drawer, Field, Notice, Segmented, Switch } from '@/components/ui';
-import { HAS_APP_SHAPES, SHAPE_KEYS, isKnownShape, lightnessOf, resolveShape } from '@/lib/garment';
-import { qk, type ICodeBook } from '@/lib/queries';
+
+import { useToastStore } from '@/stores/useToastStore';
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { HAS_APP_SHAPES, isKnownShape, lightnessOf, resolveShape, SHAPE_KEYS } from '@/lib/garment';
+import { qk } from '@/lib/queries';
+import type { ICodeBook } from '@/lib/queries';
 
 const SLOTS: { value: TSlot | ''; label: string }[] = [
   { value: 'TOP', label: '상의 칸 (TOP)' },
@@ -76,7 +83,23 @@ const errorsByField = (list: IFieldError[]): Map<string, string> => {
   return m;
 };
 
-const KNOWN_FIELDS = ['code', 'label', 'parent', 'sortOrder', 'active', 'attrs', 'attrs.slot', 'attrs.volume', 'attrs.warmth', 'attrs.shape', 'attrs.hex', 'attrs.neutral', 'attrs.light', 'attrs.pairs', 'attrs.recommendable'];
+const KNOWN_FIELDS = [
+  'code',
+  'label',
+  'parent',
+  'sortOrder',
+  'active',
+  'attrs',
+  'attrs.slot',
+  'attrs.volume',
+  'attrs.warmth',
+  'attrs.shape',
+  'attrs.hex',
+  'attrs.neutral',
+  'attrs.light',
+  'attrs.pairs',
+  'attrs.recommendable',
+];
 
 const baseField = (field: string): string => {
   return field.replace(/\[\d+\]$/, '').replace(/\.\d+$/, '');
@@ -96,10 +119,9 @@ export const CodeForm = ({
   onClose: () => void;
   onDeactivateInstead?: (code: IAdminCode) => void;
 }) => {
+  // 순서 예외: form 상태의 초깃값이 그룹 코드(g)를 읽는다
   const g = group.group;
-  const isEdit = !!original;
-  const queryClient = useQueryClient();
-  const toast = useToastStore((s) => s.show);
+  // 순서 예외: form 상태의 초깃값이 다음 순서값(maxOrder)을 읽는다
   const maxOrder = Math.max(0, ...group.codes.map((c) => c.sortOrder));
 
   const [form, setForm] = useState<IFormState>(() => ({
@@ -115,62 +137,8 @@ export const CodeForm = ({
   const [formError, setFormError] = useState<string | null>(null);
   const [inUse, setInUse] = useState(false);
 
-  const set = <K extends keyof IFormState>(key: K, value: IFormState[K]) => setForm((f) => ({ ...f, [key]: value }));
-  const setAttr = (key: string, value: unknown) => setForm((f) => ({ ...f, attrs: { ...f.attrs, [key]: value } }));
-  const err = (field: string) => errors.get(field);
-
-  const categories = book.group('CATEGORY');
-  const colors = book.group('COLOR');
-
-  // ───── 검증 ─────
-  const clientValidate = (): Map<string, string> => {
-    const e = new Map<string, string>();
-    if (!isEdit && !codePattern(g).test(form.code)) {
-      e.set('code', g === 'COLOR' ? '영문 소문자·숫자·밑줄 1~30자로 입력하세요.' : '영문 대문자·숫자·밑줄 1~30자로 입력하세요.');
-    }
-    if (!form.label.trim()) e.set('label', '라벨을 입력하세요.');
-    else if (form.label.trim().length > 50) e.set('label', '라벨은 50자 이하로 입력하세요.');
-    if (form.sortOrder.trim() && !/^-?\d+$/.test(form.sortOrder.trim())) e.set('sortOrder', '정수로 입력하세요.');
-    if (g === 'SUB_TYPE') {
-      if (!form.parent) e.set('parent', '상위 종류를 고르세요.');
-      const shape = String(form.attrs.shape ?? '').trim();
-      if (!shape) e.set('attrs.shape', '모양 키를 고르거나 입력하세요.');
-      else if (shape.length > 30) e.set('attrs.shape', '모양 키는 30자 이하입니다.');
-    }
-    if (g === 'COLOR') {
-      if (!/^#[0-9A-Fa-f]{6}$/.test(String(form.attrs.hex ?? ''))) e.set('attrs.hex', '#RRGGBB 형식으로 입력하세요.');
-      const light = Number(form.attrs.light);
-      if (!(light >= 0 && light <= 1)) e.set('attrs.light', '0~1 사이 값이어야 합니다.');
-    }
-    if (!ATTR_GROUPS.has(g) && !NO_ATTR_GROUPS.has(g)) {
-      try {
-        const parsed: unknown = JSON.parse(form.attrsJson || '{}');
-        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) e.set('attrs', 'JSON 객체여야 합니다.');
-      } catch {
-        e.set('attrs', 'JSON 형식이 아닙니다.');
-      }
-    }
-    return e;
-  };
-
-  const buildAttrs = (): ICodeAttrs => {
-    if (NO_ATTR_GROUPS.has(g)) return { ...(original?.attrs ?? {}) };
-    if (!ATTR_GROUPS.has(g)) return JSON.parse(form.attrsJson || '{}') as ICodeAttrs;
-    const a: ICodeAttrs = { ...form.attrs };
-    if (g === 'SUB_TYPE') {
-      a.shape = String(a.shape ?? '').trim();
-      a.volume = Number(a.volume);
-      a.warmth = Number(a.warmth);
-    }
-    if (g === 'COLOR') {
-      a.hex = String(a.hex).toUpperCase();
-      a.light = Math.round(Number(a.light) * 100) / 100;
-      a.pairs = (a.pairs ?? []).filter((p) => p !== (original?.code ?? form.code));
-    }
-    if (g === 'CATEGORY') a.slot = a.slot || null;
-    return a;
-  };
-
+  const queryClient = useQueryClient();
+  const toast = useToastStore((s) => s.show);
   const save = useMutation({
     mutationFn: async () => {
       const attrs = buildAttrs();
@@ -239,6 +207,67 @@ export const CodeForm = ({
     },
   });
 
+  const isEdit = !!original;
+  const categories = book.group('CATEGORY');
+  const colors = book.group('COLOR');
+
+  const set = <K extends keyof IFormState>(key: K, value: IFormState[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const setAttr = (key: string, value: unknown) => setForm((f) => ({ ...f, attrs: { ...f.attrs, [key]: value } }));
+  const err = (field: string) => errors.get(field);
+
+  // ───── 검증 ─────
+  const clientValidate = (): Map<string, string> => {
+    const e = new Map<string, string>();
+    if (!isEdit && !codePattern(g).test(form.code)) {
+      e.set(
+        'code',
+        g === 'COLOR' ? '영문 소문자·숫자·밑줄 1~30자로 입력하세요.' : '영문 대문자·숫자·밑줄 1~30자로 입력하세요.',
+      );
+    }
+    if (!form.label.trim()) e.set('label', '라벨을 입력하세요.');
+    else if (form.label.trim().length > 50) e.set('label', '라벨은 50자 이하로 입력하세요.');
+    if (form.sortOrder.trim() && !/^-?\d+$/.test(form.sortOrder.trim())) e.set('sortOrder', '정수로 입력하세요.');
+    if (g === 'SUB_TYPE') {
+      if (!form.parent) e.set('parent', '상위 종류를 고르세요.');
+      const shape = String(form.attrs.shape ?? '').trim();
+      if (!shape) e.set('attrs.shape', '모양 키를 고르거나 입력하세요.');
+      else if (shape.length > 30) e.set('attrs.shape', '모양 키는 30자 이하입니다.');
+    }
+    if (g === 'COLOR') {
+      if (!/^#[0-9A-Fa-f]{6}$/.test(String(form.attrs.hex ?? ''))) e.set('attrs.hex', '#RRGGBB 형식으로 입력하세요.');
+      const light = Number(form.attrs.light);
+      if (!(light >= 0 && light <= 1)) e.set('attrs.light', '0~1 사이 값이어야 합니다.');
+    }
+    if (!ATTR_GROUPS.has(g) && !NO_ATTR_GROUPS.has(g)) {
+      try {
+        const parsed: unknown = JSON.parse(form.attrsJson || '{}');
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+          e.set('attrs', 'JSON 객체여야 합니다.');
+      } catch {
+        e.set('attrs', 'JSON 형식이 아닙니다.');
+      }
+    }
+    return e;
+  };
+
+  const buildAttrs = (): ICodeAttrs => {
+    if (NO_ATTR_GROUPS.has(g)) return { ...(original?.attrs ?? {}) };
+    if (!ATTR_GROUPS.has(g)) return JSON.parse(form.attrsJson || '{}') as ICodeAttrs;
+    const a: ICodeAttrs = { ...form.attrs };
+    if (g === 'SUB_TYPE') {
+      a.shape = String(a.shape ?? '').trim();
+      a.volume = Number(a.volume);
+      a.warmth = Number(a.warmth);
+    }
+    if (g === 'COLOR') {
+      a.hex = String(a.hex).toUpperCase();
+      a.light = Math.round(Number(a.light) * 100) / 100;
+      a.pairs = (a.pairs ?? []).filter((p) => p !== (original?.code ?? form.code));
+    }
+    if (g === 'CATEGORY') a.slot = a.slot || null;
+    return a;
+  };
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const v = clientValidate();
@@ -280,8 +309,8 @@ export const CodeForm = ({
         {inUse && original ? (
           <Notice tone="warn">
             <div>
-              이 코드를 쓰는 아이템이나 프로필이 있어 삭제할 수 없습니다. 대신 <strong>비활성화</strong>하면 새로 고를 수 없게 되고, 이미 저장된 값의 이름은
-              그대로 보입니다.
+              이 코드를 쓰는 아이템이나 프로필이 있어 삭제할 수 없습니다. 대신 <strong>비활성화</strong>하면 새로 고를
+              수 없게 되고, 이미 저장된 값의 이름은 그대로 보입니다.
             </div>
             {original.active && onDeactivateInstead ? (
               <Button size="sm" variant="primary" onClick={() => onDeactivateInstead(original)}>
@@ -292,7 +321,18 @@ export const CodeForm = ({
         ) : null}
 
         <div className="grid-2">
-          <Field label="코드" required error={err('code')} hint={isEdit ? '코드 문자열은 바꿀 수 없습니다.' : g === 'COLOR' ? '영문 소문자·숫자·밑줄' : '영문 대문자·숫자·밑줄'}>
+          <Field
+            label="코드"
+            required
+            error={err('code')}
+            hint={
+              isEdit
+                ? '코드 문자열은 바꿀 수 없습니다.'
+                : g === 'COLOR'
+                  ? '영문 소문자·숫자·밑줄'
+                  : '영문 대문자·숫자·밑줄'
+            }
+          >
             <input
               className="mono"
               value={form.code}
@@ -303,7 +343,12 @@ export const CodeForm = ({
             />
           </Field>
           <Field label="라벨 (한국어 이름)" required error={err('label')}>
-            <input value={form.label} maxLength={50} onChange={(e) => set('label', e.target.value)} placeholder="화면에 보일 이름" />
+            <input
+              value={form.label}
+              maxLength={50}
+              onChange={(e) => set('label', e.target.value)}
+              placeholder="화면에 보일 이름"
+            />
           </Field>
         </div>
 
@@ -321,29 +366,73 @@ export const CodeForm = ({
         ) : null}
 
         <div className="grid-2">
-          <Field label="순서값" error={err('sortOrder')} hint="작을수록 앞. 목록의 위·아래 버튼으로도 바꿀 수 있습니다.">
+          <Field
+            label="순서값"
+            error={err('sortOrder')}
+            hint="작을수록 앞. 목록의 위·아래 버튼으로도 바꿀 수 있습니다."
+          >
             <input inputMode="numeric" value={form.sortOrder} onChange={(e) => set('sortOrder', e.target.value)} />
           </Field>
-          <Field label="사용 여부" error={err('active')} hint={g === 'CATEGORY' && !form.active ? '이 종류의 세부 종류도 새로 고를 수 없게 됩니다.' : '끄면 새로 고를 수 없고, 저장된 값의 이름은 그대로 보입니다.'}>
-            <Switch checked={form.active} onChange={(v) => set('active', v)} label={form.active ? '사용' : '사용 안 함'} />
+          <Field
+            label="사용 여부"
+            error={err('active')}
+            hint={
+              g === 'CATEGORY' && !form.active
+                ? '이 종류의 세부 종류도 새로 고를 수 없게 됩니다.'
+                : '끄면 새로 고를 수 없고, 저장된 값의 이름은 그대로 보입니다.'
+            }
+          >
+            <Switch
+              checked={form.active}
+              onChange={(v) => set('active', v)}
+              label={form.active ? '사용' : '사용 안 함'}
+            />
           </Field>
         </div>
 
         <h3 className="section-title">속성</h3>
         {g === 'CATEGORY' ? <CategoryAttrs attrs={form.attrs} setAttr={setAttr} err={err} /> : null}
         {g === 'SUB_TYPE' ? (
-          <SubTypeAttrs attrs={form.attrs} setAttr={setAttr} err={err} parent={form.parent} parentLabel={book.label('CATEGORY', form.parent)} colors={colors} />
+          <SubTypeAttrs
+            attrs={form.attrs}
+            setAttr={setAttr}
+            err={err}
+            parent={form.parent}
+            parentLabel={book.label('CATEGORY', form.parent)}
+            colors={colors}
+          />
         ) : null}
-        {g === 'COLOR' ? <ColorAttrs attrs={form.attrs} setAttr={setAttr} err={err} self={original?.code ?? form.code} colors={colors} /> : null}
+        {g === 'COLOR' ? (
+          <ColorAttrs
+            attrs={form.attrs}
+            setAttr={setAttr}
+            err={err}
+            self={original?.code ?? form.code}
+            colors={colors}
+          />
+        ) : null}
         {g === 'ITEM_STATUS' ? (
-          <Field label="코디 추천에 넣기" error={err('attrs.recommendable')} hint="끄면 이 상태의 옷은 추천 후보에서 빠집니다 (세탁·수선 중 등).">
-            <Switch checked={!!form.attrs.recommendable} onChange={(v) => setAttr('recommendable', v)} label={form.attrs.recommendable ? '추천에 넣음' : '추천에서 뺌'} />
+          <Field
+            label="코디 추천에 넣기"
+            error={err('attrs.recommendable')}
+            hint="끄면 이 상태의 옷은 추천 후보에서 빠집니다 (세탁·수선 중 등)."
+          >
+            <Switch
+              checked={!!form.attrs.recommendable}
+              onChange={(v) => setAttr('recommendable', v)}
+              label={form.attrs.recommendable ? '추천에 넣음' : '추천에서 뺌'}
+            />
           </Field>
         ) : null}
         {NO_ATTR_GROUPS.has(g) ? <p className="muted">이 그룹은 속성이 없습니다.</p> : null}
         {!ATTR_GROUPS.has(g) && !NO_ATTR_GROUPS.has(g) ? (
           <Field label="attrs (JSON)" error={err('attrs')} hint="이 사이트가 모르는 그룹이라 JSON으로 직접 입력합니다.">
-            <textarea className="mono" rows={6} value={form.attrsJson} onChange={(e) => set('attrsJson', e.target.value)} />
+            <textarea
+              className="mono"
+              rows={6}
+              value={form.attrsJson}
+              onChange={(e) => set('attrsJson', e.target.value)}
+            />
           </Field>
         ) : null}
         {err('attrs') && ATTR_GROUPS.has(g) ? <div className="field-error">{err('attrs')}</div> : null}
@@ -388,10 +477,16 @@ const SubTypeAttrs = ({
   parentLabel,
   colors,
 }: IAttrProps & { parent: string; parentLabel: string; colors: IAdminCode[] }) => {
+  // 순서 예외: custom 상태의 초깃값이 모양 키(shape)를 읽는다
   const shape = String(attrs.shape ?? '');
-  const [custom, setCustom] = useState(() => !!shape && !isKnownShape(shape));
+  // 순서 예외: previewColor 상태의 초깃값이 쓸 수 있는 색 목록(activeColors)을 읽는다
   const activeColors = colors.filter((c) => c.active && typeof c.attrs.hex === 'string');
-  const [previewColor, setPreviewColor] = useState(() => (activeColors.find((c) => c.code === 'navy') ?? activeColors[0])?.code ?? '');
+
+  const [custom, setCustom] = useState(() => !!shape && !isKnownShape(shape));
+  const [previewColor, setPreviewColor] = useState(
+    () => (activeColors.find((c) => c.code === 'navy') ?? activeColors[0])?.code ?? '',
+  );
+
   const pc = colors.find((c) => c.code === previewColor);
   const known = isKnownShape(shape);
   /** 실제로 그려지는 모양 (모르는 키면 상위 종류의 기본 모양, 그것도 없으면 TEE) */
@@ -463,7 +558,8 @@ const SubTypeAttrs = ({
             <span className="mono">{shape}</span>
           ) : (
             <span>
-              {shape ? <span className="mono">{shape}</span> : '모양 미지정'} → {parent ? `${parentLabel} 기본 모양` : '기본 모양'}
+              {shape ? <span className="mono">{shape}</span> : '모양 미지정'} →{' '}
+              {parent ? `${parentLabel} 기본 모양` : '기본 모양'}
               <span className="mono"> ({drawnKey})</span>
             </span>
           )}
@@ -500,7 +596,13 @@ const ColorAttrs = ({ attrs, setAttr, err, self, colors }: IAttrProps & { self: 
     if (next.has(code)) next.delete(code);
     else next.add(code);
     // 원래 순서(코드 목록 순서)를 지킨다
-    setAttr('pairs', others.map((c) => c.code).filter((c) => next.has(c)).concat([...next].filter((c) => !others.some((o) => o.code === c))));
+    setAttr(
+      'pairs',
+      others
+        .map((c) => c.code)
+        .filter((c) => next.has(c))
+        .concat([...next].filter((c) => !others.some((o) => o.code === c))),
+    );
   };
 
   return (
@@ -508,12 +610,31 @@ const ColorAttrs = ({ attrs, setAttr, err, self, colors }: IAttrProps & { self: 
       <div className="grid-2">
         <Field label="표시 색 (hex)" required error={err('attrs.hex')}>
           <div className="row gap-sm">
-            <input type="color" className="color-input" value={validHex ? hex.toLowerCase() : '#888888'} onChange={(e) => setAttr('hex', e.target.value.toUpperCase())} />
-            <input className="mono" value={hex} maxLength={7} onChange={(e) => setAttr('hex', e.target.value.trim())} placeholder="#RRGGBB" />
+            <input
+              type="color"
+              className="color-input"
+              value={validHex ? hex.toLowerCase() : '#888888'}
+              onChange={(e) => setAttr('hex', e.target.value.toUpperCase())}
+            />
+            <input
+              className="mono"
+              value={hex}
+              maxLength={7}
+              onChange={(e) => setAttr('hex', e.target.value.trim())}
+              placeholder="#RRGGBB"
+            />
           </div>
         </Field>
-        <Field label="무채색·뉴트럴 (neutral)" error={err('attrs.neutral')} hint="뉴트럴 색은 대부분의 색과 어울린다고 봅니다.">
-          <Switch checked={!!attrs.neutral} onChange={(v) => setAttr('neutral', v)} label={attrs.neutral ? '뉴트럴' : '유채색'} />
+        <Field
+          label="무채색·뉴트럴 (neutral)"
+          error={err('attrs.neutral')}
+          hint="뉴트럴 색은 대부분의 색과 어울린다고 봅니다."
+        >
+          <Switch
+            checked={!!attrs.neutral}
+            onChange={(v) => setAttr('neutral', v)}
+            label={attrs.neutral ? '뉴트럴' : '유채색'}
+          />
         </Field>
       </div>
       <Field
@@ -533,7 +654,15 @@ const ColorAttrs = ({ attrs, setAttr, err, self, colors }: IAttrProps & { self: 
         }
       >
         <div className="row gap-sm">
-          <input type="range" min={0} max={1} step={0.01} value={light} onChange={(e) => setAttr('light', Number(e.target.value))} className="grow" />
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={light}
+            onChange={(e) => setAttr('light', Number(e.target.value))}
+            className="grow"
+          />
           <span className="light-swatch" style={{ background: validHex ? hex : undefined }}>
             <span style={{ color: light > 0.6 ? '#111' : '#fff' }}>Aa</span>
           </span>
@@ -560,7 +689,16 @@ const ColorAttrs = ({ attrs, setAttr, err, self, colors }: IAttrProps & { self: 
           ))}
         </div>
         <div className="row gap-xs mt-xs">
-          <button type="button" className="link-btn" onClick={() => setAttr('pairs', others.filter((c) => c.active).map((c) => c.code))}>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() =>
+              setAttr(
+                'pairs',
+                others.filter((c) => c.active).map((c) => c.code),
+              )
+            }
+          >
             모두 선택
           </button>
           <span className="muted">·</span>

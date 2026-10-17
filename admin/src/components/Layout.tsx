@@ -1,7 +1,8 @@
-import { NavLink, Outlet } from 'react-router';
-
 import { API_URL } from '@/api';
+
 import { useAuthStore } from '@/stores/useAuthStore';
+
+import { NavLink, Outlet } from 'react-router';
 
 const MENU = [
   { to: '/', label: '대시보드', icon: '◧', end: true },
@@ -25,7 +26,11 @@ export const Layout = () => {
         <ul className="menu">
           {MENU.map((m) => (
             <li key={m.to}>
-              <NavLink to={m.to} end={m.end} className={({ isActive }) => (isActive ? 'menu-link active' : 'menu-link')}>
+              <NavLink
+                to={m.to}
+                end={m.end}
+                className={({ isActive }) => (isActive ? 'menu-link active' : 'menu-link')}
+              >
                 <span className="menu-icon" aria-hidden>
                   {m.icon}
                 </span>

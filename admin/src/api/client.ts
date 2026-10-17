@@ -2,12 +2,12 @@
 // 토큰 규칙은 doc/05 8장과 같다: TOKEN_EXPIRED면 Refresh로 한 번 갱신하고(single-flight) 원래 요청을 한 번 다시 보낸다.
 // 갱신이 실패하면 저장소를 비우고 onAuthLost()를 부른다 → 로그인 화면으로 간다.
 
-import { ApiError, errorFromResponse, networkError } from './errors';
-import { tokenStore, type ITokens } from './tokenStore';
+import { ApiError, errorFromResponse, networkError } from '@/api/errors';
+import { tokenStore } from '@/api/tokenStore';
+import type { ITokens } from '@/api/tokenStore';
 import type {
   IAdminCodesResponse,
   IAdminUser,
-  TAiLogDetail,
   IAiLogQuery,
   IAiLogRow,
   IAiProvider,
@@ -19,19 +19,20 @@ import type {
   ICodeCreate,
   ICodePatch,
   IDashboard,
-  TKeySource,
   ILoginRequest,
   IPage,
   IPageQuery,
   IProviderCreate,
   IProviderOptionSpec,
-  TProviderPatch,
   IProviderTestResult,
   IProviderTypeSpec,
   IUserDto,
   IUserPatch,
   IUserQuery,
-} from './types';
+  TAiLogDetail,
+  TKeySource,
+  TProviderPatch,
+} from '@/api/types';
 
 type TMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type TQuery = Record<string, string | number | undefined | null>;
@@ -91,7 +92,8 @@ const toArray = <T>(raw: unknown): T[] => {
 };
 
 const str = (v: unknown): string | null => (v === undefined || v === null ? null : String(v));
-const num = (v: unknown): number | null => (typeof v === 'number' ? v : v === null || v === undefined || v === '' ? null : Number(v));
+const num = (v: unknown): number | null =>
+  typeof v === 'number' ? v : v === null || v === undefined || v === '' ? null : Number(v);
 
 const toLogRow = (r: Record<string, unknown>): IAiLogRow => {
   return {
@@ -155,13 +157,14 @@ const toTypeSpecs = (raw: unknown): IProviderTypeSpec[] => {
   const wrapped = raw as { types?: unknown; baseUrlAllowed?: unknown } | null;
   if (wrapped && !Array.isArray(wrapped) && Array.isArray(wrapped.types)) {
     const specs = toTypeSpecs(wrapped.types);
-    if (wrapped.baseUrlAllowed === false) for (const t of specs) t.options = t.options.filter((o) => o.key !== 'baseUrl');
+    if (wrapped.baseUrlAllowed === false)
+      for (const t of specs) t.options = t.options.filter((o) => o.key !== 'baseUrl');
     return specs;
   }
   const list: Record<string, unknown>[] = Array.isArray(raw)
     ? (raw as Record<string, unknown>[])
     : Array.isArray((raw as { items?: unknown })?.items)
-      ? ((raw as { items: Record<string, unknown>[] }).items)
+      ? (raw as { items: Record<string, unknown>[] }).items
       : Object.entries((raw ?? {}) as Record<string, unknown>).map(([type, v]) => ({ type, ...(v as object) }));
   return list.map((t) => {
     const rawOpts = t.options;
@@ -203,7 +206,12 @@ export const createAdminApi = (options: IAdminApiOptions) => {
   const base = joinBase(options.baseUrl);
   let refreshing: Promise<ITokens> | null = null;
 
-  const send = async (method: TMethod, path: string, opts: IRequestOptions, accessToken?: string): Promise<Response> => {
+  const send = async (
+    method: TMethod,
+    path: string,
+    opts: IRequestOptions,
+    accessToken?: string,
+  ): Promise<Response> => {
     const headers: Record<string, string> = { Accept: 'application/json' };
     let body: BodyInit | undefined;
     if (opts.form) {
@@ -258,7 +266,9 @@ export const createAdminApi = (options: IAdminApiOptions) => {
         const current = tokenStore.get();
         try {
           if (!current?.refreshToken) throw new ApiError(401, 'REFRESH_INVALID', '로그인이 만료됐어요.');
-          const auth = await readBody<IAuthResponse>(await send('POST', '/auth/refresh', { json: { refreshToken: current.refreshToken } }));
+          const auth = await readBody<IAuthResponse>(
+            await send('POST', '/auth/refresh', { json: { refreshToken: current.refreshToken } }),
+          );
           if (auth.user?.role && auth.user.role !== 'ADMIN') {
             throw new ApiError(403, 'NOT_ADMIN', '관리자 계정이 아닙니다.');
           }
@@ -336,7 +346,9 @@ export const createAdminApi = (options: IAdminApiOptions) => {
         const auth = await request<IAuthResponse>('POST', '/auth/login', { json: req });
         if (auth.user?.role !== 'ADMIN') {
           // 관리자가 아닌 계정의 토큰은 저장하지 않고 서버에서도 폐기한다
-          await request<void>('POST', '/auth/logout', { json: { refreshToken: auth.refreshToken } }).catch(() => undefined);
+          await request<void>('POST', '/auth/logout', { json: { refreshToken: auth.refreshToken } }).catch(
+            () => undefined,
+          );
           throw new ApiError(403, 'NOT_ADMIN', '관리자 계정이 아닙니다.');
         }
         tokenStore.set({ accessToken: auth.accessToken, refreshToken: auth.refreshToken });
@@ -346,7 +358,8 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       logout: async (): Promise<void> => {
         const tokens = tokenStore.get();
         try {
-          if (tokens?.refreshToken) await request<void>('POST', '/auth/logout', { json: { refreshToken: tokens.refreshToken } });
+          if (tokens?.refreshToken)
+            await request<void>('POST', '/auth/logout', { json: { refreshToken: tokens.refreshToken } });
         } catch {
           // 서버 호출이 실패해도 이 탭의 토큰은 지운다
         } finally {
@@ -423,7 +436,11 @@ export const createAdminApi = (options: IAdminApiOptions) => {
           fd.append('image', image, image.name || 'photo.jpg');
           return fd;
         };
-        return request<IProviderTestResult>('POST', `/admin/ai/providers/${enc(providerId)}/test`, { auth: true, form, timeoutMs: TEST_TIMEOUT });
+        return request<IProviderTestResult>('POST', `/admin/ai/providers/${enc(providerId)}/test`, {
+          auth: true,
+          form,
+          timeoutMs: TEST_TIMEOUT,
+        });
       },
     },
 

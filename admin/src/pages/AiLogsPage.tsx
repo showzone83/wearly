@@ -1,10 +1,26 @@
 // AI 분석 기록: 필터 → 표 → 상세(결과 JSON 전체)
+import { useState } from 'react';
+import type { FormEvent } from 'react';
+
+import { api } from '@/api';
+import type { IAiLogQuery } from '@/api';
+
+import {
+  Badge,
+  Button,
+  Card,
+  Drawer,
+  Empty,
+  ErrorBox,
+  JsonView,
+  Loading,
+  PageHeader,
+  Pagination,
+} from '@/components/ui';
+
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
 
-import { api, type IAiLogQuery } from '@/api';
-import { Badge, Button, Card, Drawer, Empty, ErrorBox, JsonView, Loading, PageHeader, Pagination } from '@/components/ui';
 import { fmtBytes, fmtDateTime, fmtMs, fmtNum, todaySeoul } from '@/lib/format';
 import { qk, useProviders } from '@/lib/queries';
 
@@ -14,10 +30,21 @@ const FILTER_KEYS = ['providerId', 'status', 'userEmail', 'from', 'to'] as const
 const FEATURE_LABEL: Record<string, string> = { ITEM_ANALYZE: '사진 분석', ADMIN_TEST: '관리자 시험' };
 
 export const AiLogsPage = () => {
+  // 순서 예외: 필터 입력값(draft)의 초깃값이 URL 쿼리(params)를 읽는다
   const [params, setParams] = useSearchParams();
-  const providers = useProviders();
-  const [openId, setOpenId] = useState<string | null>(null);
 
+  const [openId, setOpenId] = useState<string | null>(null);
+  // 필터 입력값 (검색 버튼을 눌러야 적용)
+  const [draft, setDraft] = useState(
+    () =>
+      Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? ''])) as Record<
+        (typeof FILTER_KEYS)[number],
+        string
+      >,
+  );
+
+  const providers = useProviders();
+  // 순서 예외: 바로 아래 useQuery의 인자가 query를 읽는다
   const query: IAiLogQuery = {
     providerId: params.get('providerId') ?? undefined,
     status: params.get('status') ?? undefined,
@@ -27,15 +54,13 @@ export const AiLogsPage = () => {
     page: Number(params.get('page') ?? 0) || 0,
     size: PAGE_SIZE,
   };
-
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: qk.aiLogs(query),
     queryFn: () => api.aiLogs.list(query),
     placeholderData: keepPreviousData,
   });
 
-  // 필터 입력값 (검색 버튼을 눌러야 적용)
-  const [draft, setDraft] = useState(() => Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? ''])) as Record<(typeof FILTER_KEYS)[number], string>);
+  const providerIds = Array.from(new Set([...(providers.data ?? []).map((p) => p.providerId), 'mock']));
 
   const apply = (e?: FormEvent) => {
     e?.preventDefault();
@@ -54,11 +79,12 @@ export const AiLogsPage = () => {
   };
   const quickRange = (days: number) => setDraft((d) => ({ ...d, from: todaySeoul(-(days - 1)), to: todaySeoul() }));
 
-  const providerIds = Array.from(new Set([...(providers.data ?? []).map((p) => p.providerId), 'mock']));
-
   return (
     <>
-      <PageHeader title="AI 분석 기록" desc="앱의 사진 분석과 관리자 시험 분석 호출. 이미지는 저장하지 않고 결과와 메타만 남습니다." />
+      <PageHeader
+        title="AI 분석 기록"
+        desc="앱의 사진 분석과 관리자 시험 분석 호출. 이미지는 저장하지 않고 결과와 메타만 남습니다."
+      />
       <Card>
         <form className="filters" onSubmit={apply}>
           <label>
@@ -82,7 +108,12 @@ export const AiLogsPage = () => {
           </label>
           <label>
             <span className="field-label">회원 이메일</span>
-            <input type="search" value={draft.userEmail} onChange={(e) => setDraft({ ...draft, userEmail: e.target.value })} placeholder="user@example.com" />
+            <input
+              type="search"
+              value={draft.userEmail}
+              onChange={(e) => setDraft({ ...draft, userEmail: e.target.value })}
+              placeholder="user@example.com"
+            />
           </label>
           <label>
             <span className="field-label">시작일</span>
@@ -134,18 +165,32 @@ export const AiLogsPage = () => {
                     <tr key={r.id} onClick={() => setOpenId(r.id)} className="clickable">
                       <td className="nowrap small">{fmtDateTime(r.createdAt)}</td>
                       <td className="small">{r.userEmail ?? <span className="muted">—</span>}</td>
-                      <td>{r.feature === 'ADMIN_TEST' ? <Badge tone="beige">관리자 시험</Badge> : <span className="small">{FEATURE_LABEL[r.feature] ?? r.feature}</span>}</td>
+                      <td>
+                        {r.feature === 'ADMIN_TEST' ? (
+                          <Badge tone="beige">관리자 시험</Badge>
+                        ) : (
+                          <span className="small">{FEATURE_LABEL[r.feature] ?? r.feature}</span>
+                        )}
+                      </td>
                       <td>
                         <span className="mono small">{r.providerId}</span>
                         <div className="mono muted small">{r.model ?? '—'}</div>
                       </td>
-                      <td>{r.status === 'SUCCESS' ? <Badge tone="green">성공</Badge> : <Badge tone="red">{r.status === 'FAILED' ? '실패' : r.status}</Badge>}</td>
+                      <td>
+                        {r.status === 'SUCCESS' ? (
+                          <Badge tone="green">성공</Badge>
+                        ) : (
+                          <Badge tone="red">{r.status === 'FAILED' ? '실패' : r.status}</Badge>
+                        )}
+                      </td>
                       <td className="num">{fmtMs(r.latencyMs)}</td>
                       <td className="num small">
                         {fmtNum(r.inputTokens)} / {fmtNum(r.outputTokens)}
                       </td>
                       <td className="num small">{fmtBytes(r.imageBytes)}</td>
-                      <td className="small ellipsis">{r.errorCode ? <span className="mono text-danger">{r.errorCode}</span> : (r.summary ?? '—')}</td>
+                      <td className="small ellipsis">
+                        {r.errorCode ? <span className="mono text-danger">{r.errorCode}</span> : (r.summary ?? '—')}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -163,6 +208,7 @@ export const AiLogsPage = () => {
 
 const LogDetail = ({ id, onClose }: { id: string; onClose: () => void }) => {
   const { data, error, isLoading, refetch } = useQuery({ queryKey: qk.aiLog(id), queryFn: () => api.aiLogs.get(id) });
+
   const result = data && 'result' in data ? data.result : undefined;
   return (
     <Drawer title={`분석 기록 #${id}`} onClose={onClose} wide>
@@ -182,7 +228,9 @@ const LogDetail = ({ id, onClose }: { id: string; onClose: () => void }) => {
               {String(data.providerId ?? data.provider ?? '—')} · {data.model ?? '—'}
             </dd>
             <dt>상태</dt>
-            <dd>{data.status ?? '—'} {data.errorCode ? <span className="mono text-danger">{data.errorCode}</span> : null}</dd>
+            <dd>
+              {data.status ?? '—'} {data.errorCode ? <span className="mono text-danger">{data.errorCode}</span> : null}
+            </dd>
             <dt>지연 · 토큰</dt>
             <dd>
               {fmtMs(data.latencyMs)} · {fmtNum(data.inputTokens)} / {fmtNum(data.outputTokens)}

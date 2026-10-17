@@ -7,12 +7,19 @@
 // - mutation은 gcTime 0 + 끝나면 reset()이라 MutationCache에도 변수가 남지 않는다.
 // - 입력칸에 name을 붙이지 않는다. 만에 하나 스크립트가 멈춰 브라우저가 폼을 기본 제출(GET)해도 쿼리 문자열에 실리지 않게.
 // - 오류를 로그로 남기지 않는다(console 금지). 화면에는 서버 오류 메시지만 보여 준다(서버가 키 조각을 지운 문구).
-import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useRef, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
-import { api, errorMessage, isApiError, type IAiProvider } from '@/api';
-import { useToastStore } from '@/stores/useToastStore';
+import { api, errorMessage, isApiError } from '@/api';
+import type { IAiProvider } from '@/api';
+
 import { Badge, Button, Field, Modal, Notice } from '@/components/ui';
+
+import { useToastStore } from '@/stores/useToastStore';
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
+
 import { fmtDateTime } from '@/lib/format';
 import { qk, useProviders } from '@/lib/queries';
 
@@ -26,7 +33,9 @@ const masked = (last4: string | null) => `••••${last4 ?? ''}`;
 /** 저장·삭제 응답(공급자 행)을 목록 캐시에 바로 반영하고, 목록·변경 이력을 다시 읽는다 */
 const applyRow = (queryClient: QueryClient, row: IAiProvider | null) => {
   if (row) {
-    queryClient.setQueryData<IAiProvider[]>(qk.providers, (list) => list?.map((p) => (p.providerId === row.providerId ? { ...p, ...row, today: row.today ?? p.today } : p)));
+    queryClient.setQueryData<IAiProvider[]>(qk.providers, (list) =>
+      list?.map((p) => (p.providerId === row.providerId ? { ...p, ...row, today: row.today ?? p.today } : p)),
+    );
   }
   void queryClient.invalidateQueries({ queryKey: qk.providers });
   void queryClient.invalidateQueries({ queryKey: ['audit'] });
@@ -47,7 +56,9 @@ const toKeyErrors = (e: unknown): IKeyFormErrors => {
     case 'API_KEY_INVALID':
       return { apiKey: `키가 유효하지 않아요. ${e.message}` };
     case 'SECRET_KEY_MISSING':
-      return { form: `${SECRET_MISSING_TEXT}. 서버 관리자에게 WEARLY_SECRET_KEY 설정을 요청하거나, 환경변수 키를 쓰세요.` };
+      return {
+        form: `${SECRET_MISSING_TEXT}. 서버 관리자에게 WEARLY_SECRET_KEY 설정을 요청하거나, 환경변수 키를 쓰세요.`,
+      };
     case 'VALIDATION_FAILED': {
       const out: IKeyFormErrors = {};
       const rest: string[] = [];
@@ -71,7 +82,10 @@ const toKeyErrors = (e: unknown): IKeyFormErrors => {
 export const KeySourceBadge = ({ provider: p }: { provider: IAiProvider }) => {
   if (p.keySource === 'DB') {
     return (
-      <span className="key-cell" title={`웹에서 넣은 키 · ${fmtDateTime(p.keyUpdatedAt)}${p.keyUpdatedBy ? ` · ${p.keyUpdatedBy}` : ''}`}>
+      <span
+        className="key-cell"
+        title={`웹에서 넣은 키 · ${fmtDateTime(p.keyUpdatedAt)}${p.keyUpdatedBy ? ` · ${p.keyUpdatedBy}` : ''}`}
+      >
         <Badge tone="green">웹 입력</Badge>
         <span className="mono small">{masked(p.keyLast4)}</span>
       </span>
@@ -95,9 +109,11 @@ export const KeySourceBadge = ({ provider: p }: { provider: IAiProvider }) => {
 
 /** 공급자 상세(수정 패널)의 "API 키" 영역. 목록 캐시에서 최신 행을 읽어 저장·삭제 직후 바로 바뀐다 */
 export const ApiKeySection = ({ providerId, fallback }: { providerId: string; fallback: IAiProvider }) => {
-  const { data } = useProviders();
-  const p = data?.find((x) => x.providerId === providerId) ?? fallback;
   const [dialog, setDialog] = useState<'set' | 'delete' | null>(null);
+
+  const { data } = useProviders();
+
+  const p = data?.find((x) => x.providerId === providerId) ?? fallback;
   const storeOff = p.secretStoreEnabled === false;
 
   return (
@@ -127,7 +143,13 @@ export const ApiKeySection = ({ providerId, fallback }: { providerId: string; fa
       </div>
       {storeOff ? <Notice tone="warn">{SECRET_MISSING_TEXT}. 환경변수 키는 그대로 쓸 수 있어요.</Notice> : null}
       <div className="key-actions">
-        <Button size="sm" variant="primary" disabled={storeOff} title={storeOff ? SECRET_MISSING_TEXT : undefined} onClick={() => setDialog('set')}>
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={storeOff}
+          title={storeOff ? SECRET_MISSING_TEXT : undefined}
+          onClick={() => setDialog('set')}
+        >
           키 입력·교체
         </Button>
         {p.keySource === 'DB' ? (
@@ -137,7 +159,8 @@ export const ApiKeySection = ({ providerId, fallback }: { providerId: string; fa
         ) : null}
       </div>
       <p className="muted small">
-        웹에서 넣은 키가 있으면 환경변수 <span className="mono">{p.apiKeyEnv}</span>보다 먼저 씁니다. 저장한 키는 다시 볼 수 없고 마지막 4자만 보여요.
+        웹에서 넣은 키가 있으면 환경변수 <span className="mono">{p.apiKeyEnv}</span>보다 먼저 씁니다. 저장한 키는 다시
+        볼 수 없고 마지막 4자만 보여요.
       </p>
       {dialog === 'set' ? <ApiKeyModal provider={p} onClose={() => setDialog(null)} /> : null}
       {dialog === 'delete' ? <DeleteKeyModal provider={p} onClose={() => setDialog(null)} /> : null}
@@ -147,22 +170,25 @@ export const ApiKeySection = ({ providerId, fallback }: { providerId: string; fa
 
 /** 키 입력·교체 대화상자 */
 const ApiKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose: () => void }) => {
-  const queryClient = useQueryClient();
-  const toast = useToastStore((s) => s.show);
   const keyRef = useRef<HTMLInputElement>(null);
   const pwRef = useRef<HTMLInputElement>(null);
+
   const [password, setPassword] = useState('');
   const [verify, setVerify] = useState(true);
   const [errors, setErrors] = useState<IKeyFormErrors>({});
 
+  const queryClient = useQueryClient();
+  const toast = useToastStore((s) => s.show);
   // 변수({ apiKey, ... })가 캐시에 남지 않도록 gcTime 0, 끝나면 reset()
   const save = useMutation({
-    mutationFn: (vars: { apiKey: string; currentPassword: string; verify: boolean }) => api.providers.setApiKey(provider.providerId, vars),
+    mutationFn: (vars: { apiKey: string; currentPassword: string; verify: boolean }) =>
+      api.providers.setApiKey(provider.providerId, vars),
     gcTime: 0,
     // 대화상자를 닫은 뒤에 끝나도 목록은 반영되도록 훅 수준에서 처리한다
     onSuccess: (row) => applyRow(queryClient, row),
     onError: (e) => {
-      if (isApiError(e) && e.code === 'SECRET_KEY_MISSING') void queryClient.invalidateQueries({ queryKey: qk.providers });
+      if (isApiError(e) && e.code === 'SECRET_KEY_MISSING')
+        void queryClient.invalidateQueries({ queryKey: qk.providers });
     },
   });
 
@@ -176,7 +202,8 @@ const ApiKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose: ()
     const next: IKeyFormErrors = {};
     if (!apiKey) next.apiKey = 'API 키를 붙여 넣으세요.';
     else if (/\s/.test(apiKey)) next.apiKey = '키 안에 공백이나 줄바꿈이 있어요. 키만 다시 붙여 넣으세요.';
-    else if (apiKey.length < KEY_MIN || apiKey.length > KEY_MAX) next.apiKey = `키 길이가 ${KEY_MIN}~${KEY_MAX}자가 아니에요. 키 전체를 다시 붙여 넣으세요.`;
+    else if (apiKey.length < KEY_MIN || apiKey.length > KEY_MAX)
+      next.apiKey = `키 길이가 ${KEY_MIN}~${KEY_MAX}자가 아니에요. 키 전체를 다시 붙여 넣으세요.`;
     if (!password) next.currentPassword = '내 비밀번호를 입력하세요.';
     setErrors(next);
     if (next.apiKey || next.currentPassword) {
@@ -188,7 +215,9 @@ const ApiKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose: ()
       { apiKey, currentPassword: password, verify },
       {
         onSuccess: (row) => {
-          toast(`${provider.displayName} 키를 저장했어요${row?.keyLast4 ? ` (${masked(row.keyLast4)})` : ''}${verify ? '' : ' · 유효성 확인 안 함'}`);
+          toast(
+            `${provider.displayName} 키를 저장했어요${row?.keyLast4 ? ` (${masked(row.keyLast4)})` : ''}${verify ? '' : ' · 유효성 확인 안 함'}`,
+          );
           onClose();
         },
         onError: (e) => {
@@ -250,7 +279,12 @@ const ApiKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose: ()
             autoFocus
           />
         </Field>
-        <Field label="내 비밀번호" required error={errors.currentPassword} hint="키를 바꾸려면 로그인한 관리자의 비밀번호를 다시 확인해요.">
+        <Field
+          label="내 비밀번호"
+          required
+          error={errors.currentPassword}
+          hint="키를 바꾸려면 로그인한 관리자의 비밀번호를 다시 확인해요."
+        >
           <input
             ref={pwRef}
             type="password"
@@ -264,7 +298,9 @@ const ApiKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose: ()
           <input type="checkbox" checked={verify} onChange={(e) => setVerify(e.target.checked)} />
           <span>저장 전 유효성 확인 (그 키로 모델 목록을 한 번 조회해 봐요)</span>
         </label>
-        {!verify ? <p className="muted small">확인하지 않으면 틀린 키도 그대로 저장되고, 실제 분석 때 실패합니다.</p> : null}
+        {!verify ? (
+          <p className="muted small">확인하지 않으면 틀린 키도 그대로 저장되고, 실제 분석 때 실패합니다.</p>
+        ) : null}
       </form>
     </Modal>
   );
@@ -272,12 +308,13 @@ const ApiKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose: ()
 
 /** 웹 키 삭제 확인 대화상자 */
 const DeleteKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose: () => void }) => {
-  const queryClient = useQueryClient();
-  const toast = useToastStore((s) => s.show);
   const pwRef = useRef<HTMLInputElement>(null);
+
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<IKeyFormErrors>({});
 
+  const queryClient = useQueryClient();
+  const toast = useToastStore((s) => s.show);
   const remove = useMutation({
     mutationFn: (vars: { currentPassword: string }) => api.providers.deleteApiKey(provider.providerId, vars),
     gcTime: 0,
@@ -334,12 +371,20 @@ const DeleteKeyModal = ({ provider, onClose }: { provider: IAiProvider; onClose:
     >
       <form id="api-key-delete-form" className="form" method="post" onSubmit={submit} noValidate>
         <p>
-          웹에서 넣은 키 <span className="mono">{masked(provider.keyLast4)}</span>를 지우고 서버 환경변수 <span className="mono">{provider.apiKeyEnv}</span>의 키로
-          되돌립니다. 환경변수가 비어 있으면 이 공급자는 쓸 수 없게 돼요.
+          웹에서 넣은 키 <span className="mono">{masked(provider.keyLast4)}</span>를 지우고 서버 환경변수{' '}
+          <span className="mono">{provider.apiKeyEnv}</span>의 키로 되돌립니다. 환경변수가 비어 있으면 이 공급자는 쓸 수
+          없게 돼요.
         </p>
         {errors.form ? <Notice tone="error">{errors.form}</Notice> : null}
         <Field label="내 비밀번호" required error={errors.currentPassword}>
-          <input ref={pwRef} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
+          <input
+            ref={pwRef}
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoFocus
+          />
         </Field>
       </form>
     </Modal>

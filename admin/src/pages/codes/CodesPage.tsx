@@ -1,16 +1,20 @@
 // 코드 관리: 그룹 탭 → 표(코드·라벨·상위·순서·사용 여부·사용 수) → 추가·수정 패널
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+
+import { api, errorMessage } from '@/api';
+import type { IAdminCode, IAdminCodeGroup } from '@/api';
+
+import { ColorChip, GarmentPreview } from '@/components/Garment';
+import { Badge, Button, Card, Empty, ErrorBox, Loading, Notice, PageHeader, Switch } from '@/components/ui';
+import { CodeForm } from '@/pages/codes/CodeForm';
+
+import { useToastStore } from '@/stores/useToastStore';
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router';
 
-import { api, errorMessage, type IAdminCode, type IAdminCodeGroup } from '@/api';
-import { ColorChip, GarmentPreview } from '@/components/Garment';
-import { useToastStore } from '@/stores/useToastStore';
-import { Badge, Button, Card, Empty, ErrorBox, Loading, Notice, PageHeader, Switch } from '@/components/ui';
 import { HAS_APP_SHAPES } from '@/lib/garment';
 import { qk, useCodeBook, useCodes } from '@/lib/queries';
-
-import { CodeForm } from './CodeForm';
 
 /** 표시 순서: sortOrder, 같으면 받은 순서 */
 const ordered = (codes: IAdminCode[]): IAdminCode[] => {
@@ -23,40 +27,16 @@ const ordered = (codes: IAdminCode[]): IAdminCode[] => {
 const VOLUME_LABEL: Record<string, string> = { '-1': '슬림', '0': '레귤러', '1': '볼륨' };
 
 export const CodesPage = () => {
-  const [params, setParams] = useSearchParams();
-  const { data, error, isLoading, refetch } = useCodes();
-  const book = useCodeBook();
-  const queryClient = useQueryClient();
-  const toast = useToastStore((s) => s.show);
-
-  const groups = data?.groups ?? [];
-  const activeGroup: IAdminCodeGroup | undefined = groups.find((g) => g.group === params.get('group')) ?? groups[0];
-  const g = activeGroup?.group ?? '';
-
   const [q, setQ] = useState('');
   const [parentFilter, setParentFilter] = useState('');
   const [hideInactive, setHideInactive] = useState(false);
   const [editing, setEditing] = useState<IAdminCode | 'new' | null>(null);
 
-  const all = useMemo(() => (activeGroup ? ordered(activeGroup.codes) : []), [activeGroup]);
-  const filtering = q.trim() !== '';
-  const visible = all.filter((c) => {
-    if (hideInactive && !c.active) return false;
-    if (g === 'SUB_TYPE' && parentFilter && c.parent !== parentFilter) return false;
-    if (filtering) {
-      const s = q.trim().toLowerCase();
-      return c.code.toLowerCase().includes(s) || c.label.toLowerCase().includes(s);
-    }
-    return true;
-  });
-
-  const selectGroup = (group: string) => {
-    setParams({ group }, { replace: true });
-    setQ('');
-    setParentFilter('');
-    setEditing(null);
-  };
-
+  const [params, setParams] = useSearchParams();
+  const { data, error, isLoading, refetch } = useCodes();
+  const book = useCodeBook();
+  const queryClient = useQueryClient();
+  const toast = useToastStore((s) => s.show);
   const reorder = useMutation({
     mutationFn: (codes: string[]) => api.codes.reorder(g, codes),
     onMutate: async (codes) => {
@@ -68,7 +48,9 @@ export const CodesPage = () => {
           ? {
               ...old,
               groups: old.groups.map((gr) =>
-                gr.group !== g ? gr : { ...gr, codes: gr.codes.map((c) => ({ ...c, sortOrder: (codes.indexOf(c.code) + 1) * 10 })) },
+                gr.group !== g
+                  ? gr
+                  : { ...gr, codes: gr.codes.map((c) => ({ ...c, sortOrder: (codes.indexOf(c.code) + 1) * 10 })) },
               ),
             }
           : old,
@@ -95,6 +77,30 @@ export const CodesPage = () => {
     onError: (e) => toast(errorMessage(e), 'error'),
   });
 
+  const groups = data?.groups ?? [];
+  const activeGroup: IAdminCodeGroup | undefined = groups.find((g) => g.group === params.get('group')) ?? groups[0];
+  const g = activeGroup?.group ?? '';
+  const all = useMemo(() => (activeGroup ? ordered(activeGroup.codes) : []), [activeGroup]);
+  const filtering = q.trim() !== '';
+  const visible = all.filter((c) => {
+    if (hideInactive && !c.active) return false;
+    if (g === 'SUB_TYPE' && parentFilter && c.parent !== parentFilter) return false;
+    if (filtering) {
+      const s = q.trim().toLowerCase();
+      return c.code.toLowerCase().includes(s) || c.label.toLowerCase().includes(s);
+    }
+    return true;
+  });
+  const canReorder = !filtering && !reorder.isPending;
+  const categories = book.group('CATEGORY');
+
+  const selectGroup = (group: string) => {
+    setParams({ group }, { replace: true });
+    setQ('');
+    setParentFilter('');
+    setEditing(null);
+  };
+
   /** 보이는 목록 안에서 이웃과 자리를 바꾸고, 그룹 전체 순서를 보낸다 */
   const move = (code: IAdminCode, dir: -1 | 1) => {
     const vi = visible.indexOf(code);
@@ -110,13 +116,16 @@ export const CodesPage = () => {
   const onToggle = (c: IAdminCode) => {
     if (c.active && g === 'CATEGORY') {
       const children = book.group('SUB_TYPE').filter((s) => s.parent === c.code && s.active).length;
-      if (!window.confirm(`${c.label} 종류를 비활성화하면 하위 세부 종류 ${children}개도 새로 고를 수 없게 됩니다. 계속할까요?`)) return;
+      if (
+        !window.confirm(
+          `${c.label} 종류를 비활성화하면 하위 세부 종류 ${children}개도 새로 고를 수 없게 됩니다. 계속할까요?`,
+        )
+      )
+        return;
     }
     toggleActive.mutate(c);
   };
 
-  const canReorder = !filtering && !reorder.isPending;
-  const categories = book.group('CATEGORY');
   const childCount = (cat: string) => book.group('SUB_TYPE').filter((s) => s.parent === cat).length;
 
   return (
@@ -140,7 +149,9 @@ export const CodesPage = () => {
       <ErrorBox error={error} onRetry={() => void refetch()} />
       {isLoading ? <Loading /> : null}
       {!HAS_APP_SHAPES && data ? (
-        <Notice tone="warn">앱 일러스트 데이터(mobile/src/data/garmentShapes.ts)를 찾지 못해 옷 미리보기를 임시 사각형으로 그립니다.</Notice>
+        <Notice tone="warn">
+          앱 일러스트 데이터(mobile/src/data/garmentShapes.ts)를 찾지 못해 옷 미리보기를 임시 사각형으로 그립니다.
+        </Notice>
       ) : null}
 
       {activeGroup ? (
@@ -178,7 +189,13 @@ export const CodesPage = () => {
                     ))}
                   </select>
                 ) : null}
-                <input type="search" placeholder="코드·라벨 검색" value={q} onChange={(e) => setQ(e.target.value)} className="w-search" />
+                <input
+                  type="search"
+                  placeholder="코드·라벨 검색"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  className="w-search"
+                />
                 <Switch checked={hideInactive} onChange={setHideInactive} label="비활성 숨기기" />
               </div>
             </div>
@@ -208,7 +225,13 @@ export const CodesPage = () => {
                       <tr key={c.code} className={c.active ? '' : 'row-inactive'}>
                         <td>
                           <div className="order-btns">
-                            <button type="button" className="icon-btn" aria-label="위로" disabled={!canReorder || i === 0} onClick={() => move(c, -1)}>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              aria-label="위로"
+                              disabled={!canReorder || i === 0}
+                              onClick={() => move(c, -1)}
+                            >
                               ▲
                             </button>
                             <button
@@ -300,7 +323,8 @@ const AttrSummary = ({ group, code, label }: { group: string; code: IAdminCode; 
     case 'SUB_TYPE':
       return (
         <span className="small">
-          {VOLUME_LABEL[String(a.volume)] ?? a.volume} · 보온 {String(a.warmth ?? '—')} · <span className="mono">{a.shape ?? '—'}</span>
+          {VOLUME_LABEL[String(a.volume)] ?? a.volume} · 보온 {String(a.warmth ?? '—')} ·{' '}
+          <span className="mono">{a.shape ?? '—'}</span>
         </span>
       );
     case 'COLOR':
@@ -314,6 +338,10 @@ const AttrSummary = ({ group, code, label }: { group: string; code: IAdminCode; 
     case 'ITEM_STATUS':
       return a.recommendable ? <Badge tone="green">추천 후보</Badge> : <Badge tone="gray">추천 제외</Badge>;
     default:
-      return Object.keys(a).length ? <span className="mono small">{JSON.stringify(a)}</span> : <span className="muted">—</span>;
+      return Object.keys(a).length ? (
+        <span className="mono small">{JSON.stringify(a)}</span>
+      ) : (
+        <span className="muted">—</span>
+      );
   }
 };

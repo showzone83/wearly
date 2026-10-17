@@ -29,7 +29,10 @@ export interface IGarmentLayers {
   buttons: [number, number][];
 }
 
-export const garmentLayers = (shape: string | null | undefined, category: string | null | undefined): IGarmentLayers => {
+export const garmentLayers = (
+  shape: string | null | undefined,
+  category: string | null | undefined,
+): IGarmentLayers => {
   const key = resolveShape(shape ?? '', category ?? '');
   return {
     key,

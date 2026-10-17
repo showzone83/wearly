@@ -2,7 +2,12 @@ import type { IProviderTypeSpec } from '@/api';
 
 /** `/admin/ai/types`를 못 받았을 때 쓰는 기본 목록 (07 3장) */
 export const FALLBACK_TYPES: IProviderTypeSpec[] = [
-  { type: 'CLAUDE', label: 'Anthropic Claude', defaultApiKeyEnv: 'ANTHROPIC_API_KEY', options: [{ key: 'effort', type: 'string', description: '추론 노력 (예: low·medium·high)' }] },
+  {
+    type: 'CLAUDE',
+    label: 'Anthropic Claude',
+    defaultApiKeyEnv: 'ANTHROPIC_API_KEY',
+    options: [{ key: 'effort', type: 'string', description: '추론 노력 (예: low·medium·high)' }],
+  },
   {
     type: 'OPENAI',
     label: 'OpenAI',
@@ -25,4 +30,8 @@ export const FALLBACK_TYPES: IProviderTypeSpec[] = [
   },
 ];
 
-export const DEFAULT_KEY_ENV: Record<string, string> = { CLAUDE: 'ANTHROPIC_API_KEY', OPENAI: 'OPENAI_API_KEY', GEMINI: 'GEMINI_API_KEY' };
+export const DEFAULT_KEY_ENV: Record<string, string> = {
+  CLAUDE: 'ANTHROPIC_API_KEY',
+  OPENAI: 'OPENAI_API_KEY',
+  GEMINI: 'GEMINI_API_KEY',
+};

@@ -1,8 +1,10 @@
 // 로그인한 관리자 상태 (zustand). 토큰은 sessionStorage(api/tokenStore.ts)에 그대로 두고, 여기서는 화면용 사용자 정보와 상태만 든다.
 // 화면에서는 useAuthStore((s) => s.user)처럼 선택자로 구독하고, 컴포넌트 밖에서는 useAuthStore.getState()로 부른다.
+import { api, onAuthLost, tokenStore } from '@/api';
+import type { ApiError, IUserDto } from '@/api';
+
 import { create } from 'zustand';
 
-import { api, onAuthLost, tokenStore, type ApiError, type IUserDto } from '@/api';
 import { queryClient } from '@/lib/queryClient';
 
 /**
@@ -51,7 +53,11 @@ export const useAuthStore = create<IAuthStore>()((set, get) => ({
 
   handleAuthLost: (reason) => {
     queryClient.clear();
-    set({ user: null, status: 'signedOut', lostReason: lostReasonText(reason) });
+    set({
+      user: null,
+      status: 'signedOut',
+      lostReason: lostReasonText(reason),
+    });
   },
 
   restore: async () => {
@@ -61,7 +67,11 @@ export const useAuthStore = create<IAuthStore>()((set, get) => ({
       if (!tokenStore.get()) return; // 확인하는 사이 로그아웃·인증 상실됨
       if (me.role && me.role !== 'ADMIN') {
         tokenStore.clear();
-        set({ user: null, status: 'signedOut', lostReason: '관리자 계정이 아닙니다.' });
+        set({
+          user: null,
+          status: 'signedOut',
+          lostReason: '관리자 계정이 아닙니다.',
+        });
         return;
       }
       tokenStore.setUser(me);

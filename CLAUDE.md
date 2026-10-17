@@ -63,6 +63,9 @@ cd mobile && npm run typecheck && npx expo-doctor
 - 함수는 화살표 함수(`const f = () => {}`, 컴포넌트 포함). 클래스 메서드·getter/setter·제너레이터만 예외, 그 밖에 불가피하면 `eslint-disable-next-line no-restricted-syntax -- 이유`.
 - 인터페이스 이름은 `I`(`IProps`), 타입 별칭 이름은 `T`(`TKeySource`)로 시작한다.
 - 상태 공유는 zustand 스토어(`admin/src/stores/`), React Context 금지.
+- 컴포넌트·커스텀 훅 본문은 ref → state → hooks → effect → memo → event 순서(분류 사이 빈 줄). TDZ 때문에 앞에 둬야 하는 선언만 바로 위에 `// 순서 예외: <이유>` (로컬 규칙 `local/component-order`).
+- import 그룹은 위치 기준 react → api → component(`components`·`pages`) → hooks(`hooks`·`stores`) → 3rd party → local(`lib` 등) → css, 그룹 사이 빈 줄·안은 알파벳순·`import type`은 따로 값 뒤. 내부 모듈은 `@/` 별칭만(상대 경로 금지). `npm run lint -- --fix`로 정렬.
+- 포맷은 루트 `.prettierrc.json`(작은따옴표, 120자)을 따른다. VS Code는 저장할 때 Prettier와 ESLint 자동 수정을 적용한다(`.vscode/settings.json`).
 - 자세한 내용은 `admin/README.md`의 "코드 규칙".
 
 ## 현재 상태 (2026-10-15)

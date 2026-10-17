@@ -9,7 +9,12 @@ const dateTimeFmt = new Intl.DateTimeFormat('ko-KR', {
   hour12: false,
 });
 
-const dateFmt = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' });
+const dateFmt = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 
 /** ISO 시각 → 한국 시각 `2026. 10. 17. 14:03:22` */
 export const fmtDateTime = (iso: string | null | undefined): string => {

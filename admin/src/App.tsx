@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router';
 
-import { useAuthStore } from '@/stores/useAuthStore';
 import { Layout } from '@/components/Layout';
 import { AiLogsPage } from '@/pages/AiLogsPage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
@@ -10,6 +8,10 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { ProvidersPage } from '@/pages/providers/ProvidersPage';
 import { UsersPage } from '@/pages/UsersPage';
+
+import { useAuthStore } from '@/stores/useAuthStore';
+
+import { Navigate, Route, Routes, useLocation } from 'react-router';
 
 const RequireAdmin = ({ children }: { children: ReactNode }) => {
   const user = useAuthStore((s) => s.user);

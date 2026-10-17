@@ -25,7 +25,16 @@ export const GarmentPreview = ({
       {title ? <title>{title}</title> : null}
       <path d={g.body} fill={fill} stroke={edge} strokeWidth={1.4} strokeLinejoin="round" />
       {g.light ? <path d={g.light} fill="#FFFFFF" stroke={edge} strokeWidth={2.5} strokeLinejoin="round" /> : null}
-      {g.details ? <path d={g.details} fill="none" stroke={edge} strokeWidth={g.detailWidth} strokeLinejoin="round" strokeLinecap="round" /> : null}
+      {g.details ? (
+        <path
+          d={g.details}
+          fill="none"
+          stroke={edge}
+          strokeWidth={g.detailWidth}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : null}
       {g.buttons.map(([x, y]) => (
         <circle key={`${x}-${y}`} cx={x} cy={y} r={1.6} fill={edge} />
       ))}

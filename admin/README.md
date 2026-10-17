@@ -23,7 +23,8 @@ VITE_API_URL=http://localhost:8080
 
 ```bash
 npm run build        # tsc -b + vite build → dist/
-npm run lint
+npm run lint         # 코드 규칙 검사. import 순서·빈 줄은 npm run lint -- --fix로 고친다
+npm run test:lint-rules   # 로컬 ESLint 규칙(eslint-rules/)과 import 그룹 설정 단위 테스트
 ```
 
 ## 관리자 계정 만들기
@@ -70,6 +71,8 @@ WEARLY_ADMIN_NAME=관리자              # 선택, 기본 "관리자"
 
 ```
 admin/
+  eslint.config.js         코드 규칙(아래 "코드 규칙")
+  eslint-rules/            로컬 ESLint 규칙: component-order.js(컴포넌트 본문 순서), import-groups.js(import 그룹), rules.test.js(단위 테스트)
   vite.config.ts           포트 5173, '@' → src, '@garment-shapes' → ../mobile/src/data/garmentShapes.ts (fs.allow로 그 폴더만 허용)
   src/
     api/                   관리자 API 클라이언트와 계약 타입 (앱 코드를 import하지 않음)
@@ -106,3 +109,25 @@ admin/
    - 2·3은 `admin/src`에서 선언한 이름에만 적용한다. 외부 패키지 타입과 앱 파일(`mobile/src/data/garmentShapes.ts`)의 이름은 그대로 쓴다.
 4. **상태 공유는 zustand 스토어(`src/stores/`)로 하고 React Context는 쓰지 않는다.** 화면에서는 `useAuthStore((s) => s.user)`처럼 선택자로 구독하고, 컴포넌트 밖(API 클라이언트의 `onAuthLost` 등)에서는 `useAuthStore.getState()`로 부른다. 토큰 자체는 스토어가 아니라 `api/tokenStore.ts`(sessionStorage)에 둔다. 서버 데이터 캐시는 TanStack Query가 맡는다.
    - ESLint: `no-restricted-imports`로 `react`의 `createContext`·`useContext` import 금지(그래서 `import * as React from 'react'`도 막힌다), `no-restricted-syntax`로 `React.createContext`·`React.useContext` 금지.
+5. **컴포넌트·커스텀 훅 본문은 ref → state → hooks → effect → memo → event 순서로 쓰고, 그 뒤에 `return`(JSX)을 둔다.** 분류 사이에는 빈 줄 하나, 같은 분류 안은 원래 순서.
+   - ref: `useRef` / state: `useState`·`useReducer` / hooks: 그 밖의 모든 훅 호출(커스텀 훅, `useAuthStore((s) => …)` 같은 스토어 선택자, `useQuery`·`useMutation`·`useQueryClient`, `useNavigate`·`useSearchParams`, `useId` 등) / effect: `useEffect`·`useLayoutEffect` / memo: `useMemo`와 렌더마다 계산하는 파생 값(`const visible = items.filter(…)`처럼 함수가 아닌 `const`) / event: 이벤트 핸들러·함수(`const handleSave = () => {}`)와 `useCallback`.
+   - 대상: 이름이 대문자(컴포넌트) 또는 `use`(커스텀 훅)로 시작하고 본문이 블록인 화살표 함수(`memo(() => {})`로 감싼 것 포함). `if`·일반 함수 호출·`return`처럼 분류할 수 없는 문장은 순서 검사에서 빠진다(조기 `return`은 훅 규칙대로 훅 호출 뒤에).
+   - **예외(TDZ)**: `const`는 선언 전에 읽으면 오류가 나므로, 앞 분류가 뒤 분류의 값을 **렌더 중에 바로** 읽을 때만(state 초깃값이 hooks 결과나 파생 값을 읽음, `useQuery` 인자가 파생 값을 읽음, effect 의존성 배열이 파생 값을 읽음, `useMutation` 옵션에 핸들러를 그대로 넘김 등) 필요한 선언을 최소한으로 앞으로 올리고 바로 위 줄에 `// 순서 예외: <이유>`를 단다. effect·핸들러·mutation 콜백 **본문 안에서만** 읽는 값은 렌더 뒤에 실행되므로 예외가 아니다.
+     ```tsx
+     // 순서 예외: draft 상태의 초깃값이 URL 쿼리(params)를 읽는다
+     const [params, setParams] = useSearchParams();
+
+     const [draft, setDraft] = useState(() => params.get('q') ?? '');
+     ```
+   - ESLint: 로컬 규칙 `local/component-order`(`eslint-rules/component-order.js`). 순서가 어긋나면 오류(자동 수정 없음 — 주석·TDZ 때문에 옮기는 것은 사람이 한다), 분류 사이 빈 줄이 없으면 오류(`--fix`로 빈 줄을 넣는다). `// 순서 예외:` 주석이 붙은 문장은 건너뛴다.
+6. **import는 다음 그룹 순서로 쓰고, 그룹 사이에 빈 줄 하나를 둔다.** 그룹은 import 문자열의 모양이 아니라 **가리키는 위치**로 정한다.
+   1. react: `react`, `react-dom`, `react/*`
+   2. api: `src/api/**` (`@/api`, `@/api/client` …)
+   3. component: `src/components/**`, 화면 컴포넌트 `src/pages/**`, `src/App`
+   4. hooks: `src/hooks/**`, zustand 스토어 `src/stores/**`(스토어도 `useXxxStore` 훅)
+   5. 3rd party: react를 뺀 외부 패키지(`@tanstack/react-query`, `react-router`, `zustand`, `node:*` …)
+   6. local: 위에 안 든 내부 모듈(`src/lib/**`, 타입·유틸 등)과 앱 일러스트 데이터 별칭 `@garment-shapes`
+   7. css: `import '@/styles.css'`
+   - 그룹 안은 경로 알파벳순, `{ … }` 안의 이름도 알파벳순. 타입은 `import { a, type B }` 대신 **`import type { B }` 문으로 따로** 쓰고, 같은 그룹 안에서 값 import 뒤에 온다.
+   - **내부 모듈은 `@/` 별칭으로만 가져온다**(`./client`, `../api` 같은 상대 경로 금지, 같은 폴더도 `@/pages/providers/ProviderForm`처럼). 그래야 경로 문자열만으로 위치를 알 수 있다. `@/`는 `tsconfig.app.json`의 `paths`와 `vite.config.ts`의 `alias`에 있다.
+   - ESLint: `simple-import-sort/imports`(그룹 정의는 `eslint-rules/import-groups.js`), 이름 순서를 바꿀 때 빠지는 쉼표 뒤 공백은 `@stylistic/comma-spacing`, 상대 경로는 `no-restricted-imports`(patterns), 인라인 `type`은 `no-restricted-syntax`(`ImportSpecifier[importKind='type']`). 순서는 `npm run lint -- --fix`로 자동 정렬된다.

@@ -1,10 +1,14 @@
 // 변경 이력: 코드·AI 공급자·회원을 누가 언제 어떻게 바꿨는지 (before/after)
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
+
+import { api } from '@/api';
+import type { IAuditLog, IAuditQuery } from '@/api';
+
+import { Badge, Card, Empty, ErrorBox, JsonView, Loading, PageHeader, Pagination } from '@/components/ui';
+
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router';
 
-import { api, type IAuditLog, type IAuditQuery } from '@/api';
-import { Badge, Card, Empty, ErrorBox, JsonView, Loading, PageHeader, Pagination } from '@/components/ui';
 import { fmtDateTime } from '@/lib/format';
 import { qk } from '@/lib/queries';
 
@@ -30,9 +34,15 @@ const changedKeys = (before: unknown, after: unknown): string[] => {
 };
 
 export const AuditLogsPage = () => {
-  const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState<string | null>(null);
-  const query: IAuditQuery = { targetType: params.get('targetType') ?? undefined, page: Number(params.get('page') ?? 0) || 0, size: PAGE_SIZE };
+
+  const [params, setParams] = useSearchParams();
+  // 순서 예외: 바로 아래 useQuery의 인자가 query를 읽는다
+  const query: IAuditQuery = {
+    targetType: params.get('targetType') ?? undefined,
+    page: Number(params.get('page') ?? 0) || 0,
+    size: PAGE_SIZE,
+  };
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: qk.audit(query),
     queryFn: () => api.audit.list(query),
@@ -51,7 +61,12 @@ export const AuditLogsPage = () => {
       <PageHeader title="변경 이력" desc="관리자가 바꾼 코드·AI 공급자·회원 기록" />
       <div className="tabs">
         {[{ value: '', label: '전체' }, ...TARGET_TYPES].map((t) => (
-          <button type="button" key={t.value} className={(query.targetType ?? '') === t.value ? 'tab on' : 'tab'} onClick={() => setType(t.value)}>
+          <button
+            type="button"
+            key={t.value}
+            className={(query.targetType ?? '') === t.value ? 'tab on' : 'tab'}
+            onClick={() => setType(t.value)}
+          >
             {t.label}
           </button>
         ))}
@@ -82,15 +97,25 @@ export const AuditLogsPage = () => {
                       <Fragment key={r.id}>
                         <tr className="clickable" onClick={() => setOpen(isOpen ? null : r.id)}>
                           <td className="nowrap small">{fmtDateTime(r.createdAt)}</td>
-                          <td className="small">{r.adminEmail ?? r.adminName ?? (r.adminUserId ? `#${r.adminUserId}` : '—')}</td>
+                          <td className="small">
+                            {r.adminEmail ?? r.adminName ?? (r.adminUserId ? `#${r.adminUserId}` : '—')}
+                          </td>
                           <td>
-                            <Badge tone={/DELETE/i.test(r.action) ? 'red' : /CREATE/i.test(r.action) ? 'green' : 'gray'}>{r.action}</Badge>
+                            <Badge
+                              tone={/DELETE/i.test(r.action) ? 'red' : /CREATE/i.test(r.action) ? 'green' : 'gray'}
+                            >
+                              {r.action}
+                            </Badge>
                           </td>
                           <td>
                             {targetLabel(r.targetType)} <span className="mono small">{r.targetId ?? ''}</span>
                           </td>
                           <td className="small">
-                            {keys.length ? keys.slice(0, 6).join(', ') + (keys.length > 6 ? ` 외 ${keys.length - 6}` : '') : <span className="muted">—</span>}
+                            {keys.length ? (
+                              keys.slice(0, 6).join(', ') + (keys.length > 6 ? ` 외 ${keys.length - 6}` : '')
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
                             <span className="muted"> {isOpen ? '▴' : '▾'}</span>
                           </td>
                         </tr>

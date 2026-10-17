@@ -1,9 +1,13 @@
-import { useState, type FormEvent } from 'react';
-import { Navigate, useLocation } from 'react-router';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 
 import { API_URL, errorMessage, isApiError } from '@/api';
-import { useAuthStore } from '@/stores/useAuthStore';
+
 import { Button, Notice } from '@/components/ui';
+
+import { useAuthStore } from '@/stores/useAuthStore';
+
+import { Navigate, useLocation } from 'react-router';
 
 const loginErrorText = (e: unknown): string => {
   if (!isApiError(e)) return errorMessage(e);
@@ -22,14 +26,15 @@ const loginErrorText = (e: unknown): string => {
 };
 
 export const LoginPage = () => {
-  const user = useAuthStore((s) => s.user);
-  const login = useAuthStore((s) => s.login);
-  const lostReason = useAuthStore((s) => s.lostReason);
-  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const user = useAuthStore((s) => s.user);
+  const login = useAuthStore((s) => s.login);
+  const lostReason = useAuthStore((s) => s.lostReason);
+  const location = useLocation();
 
   if (user) {
     const from = (location.state as { from?: string } | null)?.from;
@@ -65,11 +70,22 @@ export const LoginPage = () => {
         {error ? <Notice tone="error">{error}</Notice> : null}
         <label className="field">
           <span className="field-label">이메일</span>
-          <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+          <input
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoFocus
+          />
         </label>
         <label className="field">
           <span className="field-label">비밀번호</span>
-          <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </label>
         <Button type="submit" variant="primary" busy={busy} className="btn-block">
           로그인

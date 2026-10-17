@@ -1,23 +1,27 @@
 // 회원: 검색, 정지·해제, 관리자 지정·해제
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
-import { useSearchParams } from 'react-router';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 
-import { api, errorMessage, type IAdminUser, type IUserPatch, type IUserQuery } from '@/api';
+import { api, errorMessage } from '@/api';
+import type { IAdminUser, IUserPatch, IUserQuery } from '@/api';
+
+import { Badge, Button, Card, Empty, ErrorBox, Loading, PageHeader, Pagination } from '@/components/ui';
+
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
-import { Badge, Button, Card, Empty, ErrorBox, Loading, PageHeader, Pagination } from '@/components/ui';
+
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router';
+
 import { fmtDate, fmtNum } from '@/lib/format';
 import { qk } from '@/lib/queries';
 
 const PAGE_SIZE = 20;
 
 export const UsersPage = () => {
-  const me = useAuthStore((s) => s.user);
+  // 순서 예외: 검색어(q) 초깃값이 읽는 query가 URL 쿼리(params)로 만들어진다
   const [params, setParams] = useSearchParams();
-  const queryClient = useQueryClient();
-  const toast = useToastStore((s) => s.show);
-
+  // 순서 예외: 검색어(q) 초깃값과 아래 useQuery의 인자가 query를 읽는다
   const query: IUserQuery = {
     q: params.get('q') ?? undefined,
     status: params.get('status') ?? undefined,
@@ -25,8 +29,12 @@ export const UsersPage = () => {
     page: Number(params.get('page') ?? 0) || 0,
     size: PAGE_SIZE,
   };
+
   const [q, setQ] = useState(query.q ?? '');
 
+  const me = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
+  const toast = useToastStore((s) => s.show);
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: qk.users(query),
     queryFn: () => api.users.list(query),
@@ -39,7 +47,13 @@ export const UsersPage = () => {
       await queryClient.invalidateQueries({ queryKey: ['users'] });
       void queryClient.invalidateQueries({ queryKey: ['audit'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      const what = patch.status ? (patch.status === 'SUSPENDED' ? '정지했습니다' : '정지를 해제했습니다') : patch.role === 'ADMIN' ? '관리자로 지정했습니다' : '관리자에서 해제했습니다';
+      const what = patch.status
+        ? patch.status === 'SUSPENDED'
+          ? '정지했습니다'
+          : '정지를 해제했습니다'
+        : patch.role === 'ADMIN'
+          ? '관리자로 지정했습니다'
+          : '관리자에서 해제했습니다';
       toast(`${user.email ?? user.name}: ${what}.`);
     },
     onError: (e) => toast(errorMessage(e), 'error'),
@@ -72,7 +86,13 @@ export const UsersPage = () => {
       <Card>
         <div className="toolbar">
           <form onSubmit={search} className="row gap-sm">
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="이메일·이름 검색" className="w-search" />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="이메일·이름 검색"
+              className="w-search"
+            />
             <Button type="submit" variant="primary">
               검색
             </Button>
@@ -125,14 +145,28 @@ export const UsersPage = () => {
                           {u.email ?? <span className="muted">—</span>} {isMe ? <Badge tone="beige">나</Badge> : null}
                         </td>
                         <td>{u.name}</td>
-                        <td>{u.role === 'ADMIN' ? <Badge tone="ink">관리자</Badge> : <span className="muted small">일반</span>}</td>
-                        <td>{u.status === 'SUSPENDED' ? <Badge tone="red">정지</Badge> : <Badge tone="green">정상</Badge>}</td>
+                        <td>
+                          {u.role === 'ADMIN' ? (
+                            <Badge tone="ink">관리자</Badge>
+                          ) : (
+                            <span className="muted small">일반</span>
+                          )}
+                        </td>
+                        <td>
+                          {u.status === 'SUSPENDED' ? <Badge tone="red">정지</Badge> : <Badge tone="green">정상</Badge>}
+                        </td>
                         <td className="small">{fmtDate(u.createdAt)}</td>
                         <td className="num">{fmtNum(u.itemCount)}</td>
                         <td className="num">{fmtNum(u.aiToday)}</td>
                         <td className="actions">
                           {u.status === 'SUSPENDED' ? (
-                            <Button size="sm" busy={busy} onClick={() => act(u, { status: 'ACTIVE' }, `${u.email ?? u.name} 회원의 정지를 해제할까요?`)}>
+                            <Button
+                              size="sm"
+                              busy={busy}
+                              onClick={() =>
+                                act(u, { status: 'ACTIVE' }, `${u.email ?? u.name} 회원의 정지를 해제할까요?`)
+                              }
+                            >
                               정지 해제
                             </Button>
                           ) : (
@@ -143,7 +177,13 @@ export const UsersPage = () => {
                               busy={busy}
                               disabled={isMe}
                               title={isMe ? '자기 자신은 정지할 수 없습니다' : undefined}
-                              onClick={() => act(u, { status: 'SUSPENDED' }, `${u.email ?? u.name} 회원을 정지할까요? 로그인이 막히고 지금 쓰는 앱에서도 로그아웃됩니다.`)}
+                              onClick={() =>
+                                act(
+                                  u,
+                                  { status: 'SUSPENDED' },
+                                  `${u.email ?? u.name} 회원을 정지할까요? 로그인이 막히고 지금 쓰는 앱에서도 로그아웃됩니다.`,
+                                )
+                              }
                             >
                               정지
                             </Button>
@@ -154,12 +194,25 @@ export const UsersPage = () => {
                               variant="ghost"
                               disabled={isMe || busy}
                               title={isMe ? '자기 자신의 역할은 내릴 수 없습니다' : undefined}
-                              onClick={() => act(u, { role: 'USER' }, `${u.email ?? u.name} 회원을 관리자에서 해제할까요?`)}
+                              onClick={() =>
+                                act(u, { role: 'USER' }, `${u.email ?? u.name} 회원을 관리자에서 해제할까요?`)
+                              }
                             >
                               관리자 해제
                             </Button>
                           ) : (
-                            <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(u, { role: 'ADMIN' }, `${u.email ?? u.name} 회원을 관리자로 지정할까요? 이 사이트의 모든 기능을 쓸 수 있게 됩니다.`)}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={busy}
+                              onClick={() =>
+                                act(
+                                  u,
+                                  { role: 'ADMIN' },
+                                  `${u.email ?? u.name} 회원을 관리자로 지정할까요? 이 사이트의 모든 기능을 쓸 수 있게 됩니다.`,
+                                )
+                              }
+                            >
                               관리자 지정
                             </Button>
                           )}

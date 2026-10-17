@@ -1,16 +1,20 @@
 // AI 공급자: 목록(키 출처·사용 가능·오늘 호출), 추가·수정(+ API 키 웹 입력), 사용 켜기/끄기, 우선순위, 시험 분석
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { api, errorMessage, type IAiProvider } from '@/api';
-import { useToastStore } from '@/stores/useToastStore';
+import { api, errorMessage } from '@/api';
+import type { IAiProvider } from '@/api';
+
 import { Badge, Button, Card, Empty, ErrorBox, Loading, PageHeader, Switch } from '@/components/ui';
+import { KeySourceBadge } from '@/pages/providers/ApiKeySection';
+import { ProviderForm } from '@/pages/providers/ProviderForm';
+import { TestPanel } from '@/pages/providers/TestPanel';
+
+import { useToastStore } from '@/stores/useToastStore';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import { FALLBACK_TYPES } from '@/lib/providerTypes';
 import { qk, useProviders } from '@/lib/queries';
-
-import { KeySourceBadge } from './ApiKeySection';
-import { ProviderForm } from './ProviderForm';
-import { TestPanel } from './TestPanel';
 
 const usableReason = (p: IAiProvider): string => {
   const missing: string[] = [];
@@ -21,18 +25,18 @@ const usableReason = (p: IAiProvider): string => {
 };
 
 export const ProvidersPage = () => {
-  const { data, error, isLoading, refetch } = useProviders();
-  const typesQuery = useQuery({ queryKey: qk.providerTypes, queryFn: () => api.providers.types(), staleTime: 5 * 60_000 });
-  const queryClient = useQueryClient();
-  const toast = useToastStore((s) => s.show);
   // 행 객체가 아니라 ID를 들고 있다가 최신 목록에서 찾는다 (키 저장 뒤 패널이 옛 값을 보지 않게)
   const [editingId, setEditingId] = useState<string | 'new' | null>(null);
 
-  const providers = (data ?? []).slice().sort((a, b) => a.priority - b.priority || a.providerId.localeCompare(b.providerId));
-  const nextPriority = providers.length ? Math.max(...providers.map((p) => p.priority)) + 1 : 1;
-  const editing = editingId === 'new' ? 'new' : (providers.find((p) => p.providerId === editingId) ?? null);
-  const setEditing = (p: IAiProvider | 'new' | null) => setEditingId(p === 'new' || p === null ? p : p.providerId);
-
+  const { data, error, isLoading, refetch } = useProviders();
+  const typesQuery = useQuery({
+    queryKey: qk.providerTypes,
+    queryFn: () => api.providers.types(),
+    staleTime: 5 * 60_000,
+  });
+  const queryClient = useQueryClient();
+  const toast = useToastStore((s) => s.show);
+  // 순서 예외: 아래 swap의 onSuccess 옵션이 렌더 중에 invalidate를 바로 읽는다
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: qk.providers });
     void queryClient.invalidateQueries({ queryKey: ['audit'] });
@@ -70,11 +74,19 @@ export const ProvidersPage = () => {
     onError: (e) => toast(errorMessage(e), 'error'),
   });
 
-  const onDelete = (p: IAiProvider) => {
-    if (window.confirm(`${p.displayName}(${p.providerId}) 공급자를 삭제할까요? 분석 기록은 남습니다.`)) remove.mutate(p);
-  };
-
+  const providers = (data ?? [])
+    .slice()
+    .sort((a, b) => a.priority - b.priority || a.providerId.localeCompare(b.providerId));
+  const nextPriority = providers.length ? Math.max(...providers.map((p) => p.priority)) + 1 : 1;
+  const editing = editingId === 'new' ? 'new' : (providers.find((p) => p.providerId === editingId) ?? null);
   const noneUsable = !!data && providers.every((p) => !p.usable);
+
+  const setEditing = (p: IAiProvider | 'new' | null) => setEditingId(p === 'new' || p === null ? p : p.providerId);
+
+  const onDelete = (p: IAiProvider) => {
+    if (window.confirm(`${p.displayName}(${p.providerId}) 공급자를 삭제할까요? 분석 기록은 남습니다.`))
+      remove.mutate(p);
+  };
 
   return (
     <>
@@ -91,7 +103,8 @@ export const ProvidersPage = () => {
       {isLoading ? <Loading /> : null}
       {noneUsable ? (
         <div className="alert alert-warn">
-          지금 쓸 수 있는 공급자가 없어 앱의 사진 분석이 <strong>AI_UNAVAILABLE</strong>로 실패합니다. (서버를 목업으로 띄운 경우는 예외)
+          지금 쓸 수 있는 공급자가 없어 앱의 사진 분석이 <strong>AI_UNAVAILABLE</strong>로 실패합니다. (서버를 목업으로
+          띄운 경우는 예외)
         </div>
       ) : null}
 
@@ -121,7 +134,13 @@ export const ProvidersPage = () => {
                     <tr key={p.providerId}>
                       <td>
                         <div className="order-btns">
-                          <button type="button" className="icon-btn" aria-label="위로" disabled={i === 0 || swap.isPending} onClick={() => swap.mutate([p, providers[i - 1]])}>
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            aria-label="위로"
+                            disabled={i === 0 || swap.isPending}
+                            onClick={() => swap.mutate([p, providers[i - 1]])}
+                          >
                             ▲
                           </button>
                           <button
@@ -160,9 +179,18 @@ export const ProvidersPage = () => {
                           title={!p.model ? '모델 ID를 먼저 입력하세요' : undefined}
                         />
                       </td>
-                      <td>{p.usable ? <Badge tone="green">사용 가능</Badge> : <Badge tone="gray" title={usableReason(p)}>{usableReason(p) || '불가'}</Badge>}</td>
+                      <td>
+                        {p.usable ? (
+                          <Badge tone="green">사용 가능</Badge>
+                        ) : (
+                          <Badge tone="gray" title={usableReason(p)}>
+                            {usableReason(p) || '불가'}
+                          </Badge>
+                        )}
+                      </td>
                       <td className="num">
-                        {p.today?.success ?? 0} / <span className={p.today?.failed ? 'text-danger' : ''}>{p.today?.failed ?? 0}</span>
+                        {p.today?.success ?? 0} /{' '}
+                        <span className={p.today?.failed ? 'text-danger' : ''}>{p.today?.failed ?? 0}</span>
                       </td>
                       <td className="actions">
                         <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>
@@ -179,8 +207,9 @@ export const ProvidersPage = () => {
             </div>
           )}
           <p className="muted small mt-sm">
-            API 키는 공급자 수정 패널의 'API 키'에서 웹으로 넣을 수 있습니다(서버에 암호화 저장, 다시 볼 수 없음). 웹 키가 있으면 환경변수보다 먼저 쓰고, 지우면
-            환경변수 키로 돌아갑니다. 환경변수 키를 바꾼 뒤에는 서버를 다시 시작해야 반영됩니다.
+            API 키는 공급자 수정 패널의 'API 키'에서 웹으로 넣을 수 있습니다(서버에 암호화 저장, 다시 볼 수 없음). 웹
+            키가 있으면 환경변수보다 먼저 쓰고, 지우면 환경변수 키로 돌아갑니다. 환경변수 키를 바꾼 뒤에는 서버를 다시
+            시작해야 반영됩니다.
           </p>
         </Card>
       ) : null}

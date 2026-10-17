@@ -1,7 +1,7 @@
 // 사이트 전체가 함께 쓰는 React Query 캐시. 로그아웃·인증 상실 때 스토어(useAuthStore)가 컴포넌트 밖에서 비운다.
-import { QueryClient } from '@tanstack/react-query';
-
 import { isApiError } from '@/api';
+
+import { QueryClient } from '@tanstack/react-query';
 
 export const queryClient = new QueryClient({
   defaultOptions: {

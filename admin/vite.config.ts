@@ -1,7 +1,6 @@
+import react from '@vitejs/plugin-react';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-
-import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 // 옷 일러스트 모양은 앱(mobile/)의 순수 TS 데이터를 그대로 가져다 쓴다 (doc/07 5장).

@@ -1,5 +1,5 @@
 // 토큰과 로그인한 관리자 정보는 sessionStorage에 둔다 (doc/07 5장). 탭을 닫으면 사라진다.
-import type { IUserDto } from './types';
+import type { IUserDto } from '@/api/types';
 
 export interface ITokens {
   accessToken: string;

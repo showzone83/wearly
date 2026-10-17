@@ -1,10 +1,14 @@
 // 시험 분석: 사진 한 장으로 고른 공급자를 동시에 호출하고 결과·지연·토큰을 나란히 비교한다.
-import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
-import { api, errorMessage, isApiError, type IAiProvider, type IAiSuggestion, type IProviderTestResult } from '@/api';
+import { api, errorMessage, isApiError } from '@/api';
+import type { IAiProvider, IAiSuggestion, IProviderTestResult } from '@/api';
+
 import { ColorChip } from '@/components/Garment';
 import { Badge, Button, Card, Notice } from '@/components/ui';
+
+import { useQueryClient } from '@tanstack/react-query';
+
 import { fmtBytes, fmtMs, fmtNum } from '@/lib/format';
 import { useCodeBook } from '@/lib/queries';
 
@@ -35,14 +39,19 @@ const norm = (v: unknown): string => {
 };
 
 export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
-  const book = useCodeBook();
-  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(providers.filter((p) => p.usable || (p.model && p.keyConfigured)).map((p) => p.providerId)));
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(providers.filter((p) => p.usable || (p.model && p.keyConfigured)).map((p) => p.providerId)),
+  );
   const [runs, setRuns] = useState<Record<string, TRunState>>({});
   const [, setTick] = useState(0);
+
+  const book = useCodeBook();
+  const queryClient = useQueryClient();
+  // 순서 예외: 아래 effect의 의존성 배열이 running을 읽는다
+  const running = Object.values(runs).some((r) => r.state === 'running');
 
   // 미리보기 URL 정리
   useEffect(() => {
@@ -55,13 +64,28 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const running = Object.values(runs).some((r) => r.state === 'running');
   // 진행 중인 동안 경과 시간을 다시 그린다
   useEffect(() => {
     if (!running) return;
     const t = setInterval(() => setTick((n) => n + 1), 250);
     return () => clearInterval(t);
   }, [running]);
+
+  const columns = providers.filter((p) => runs[p.providerId]);
+  const okSuggestions = columns
+    .map((p) => runs[p.providerId])
+    .filter(
+      (r): r is Extract<TRunState, { state: 'done' }> => r.state === 'done' && r.result.ok && !!r.result.suggestion,
+    )
+    .map((r) => r.result.suggestion!);
+  const differs = useMemo(() => {
+    const out = new Set<string>();
+    for (const row of ROWS) {
+      if (row.key === 'name' || row.key === 'confidence') continue;
+      if (new Set(okSuggestions.map((s) => norm(s[row.key]))).size > 1) out.add(row.key as string);
+    }
+    return out;
+  }, [okSuggestions]);
 
   const pickFile = (f: File | undefined) => {
     setFileError(null);
@@ -95,7 +119,12 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
         } catch (e) {
           setRuns((r) => ({
             ...r,
-            [id]: { state: 'error', code: isApiError(e) ? e.code : 'ERROR', message: errorMessage(e), elapsedMs: performance.now() - startedAt },
+            [id]: {
+              state: 'error',
+              code: isApiError(e) ? e.code : 'ERROR',
+              message: errorMessage(e),
+              elapsedMs: performance.now() - startedAt,
+            },
           }));
         }
       }),
@@ -104,20 +133,6 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
     void queryClient.invalidateQueries({ queryKey: ['ai'] });
     void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   };
-
-  const columns = providers.filter((p) => runs[p.providerId]);
-  const okSuggestions = columns
-    .map((p) => runs[p.providerId])
-    .filter((r): r is Extract<TRunState, { state: 'done' }> => r.state === 'done' && r.result.ok && !!r.result.suggestion)
-    .map((r) => r.result.suggestion!);
-  const differs = useMemo(() => {
-    const out = new Set<string>();
-    for (const row of ROWS) {
-      if (row.key === 'name' || row.key === 'confidence') continue;
-      if (new Set(okSuggestions.map((s) => norm(s[row.key]))).size > 1) out.add(row.key as string);
-    }
-    return out;
-  }, [okSuggestions]);
 
   const show = (row: (typeof ROWS)[number], s: IAiSuggestion) => {
     const v = s[row.key];
@@ -145,11 +160,22 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
   };
 
   return (
-    <Card title="시험 분석" actions={<span className="muted small">일일 한도에 세지 않고, 기록은 ADMIN_TEST로 남습니다.</span>}>
+    <Card
+      title="시험 분석"
+      actions={<span className="muted small">일일 한도에 세지 않고, 기록은 ADMIN_TEST로 남습니다.</span>}
+    >
       <div className="test-setup">
         <label className={`dropzone ${preview ? 'has-image' : ''}`}>
           <input type="file" accept={ACCEPT} onChange={(e) => pickFile(e.target.files?.[0])} />
-          {preview ? <img src={preview} alt="시험 사진" /> : <span>사진 한 장 고르기<br /><span className="muted small">JPEG·PNG·WebP·HEIC, 10MB 이하</span></span>}
+          {preview ? (
+            <img src={preview} alt="시험 사진" />
+          ) : (
+            <span>
+              사진 한 장 고르기
+              <br />
+              <span className="muted small">JPEG·PNG·WebP·HEIC, 10MB 이하</span>
+            </span>
+          )}
         </label>
         <div className="test-options">
           {file ? (
@@ -166,11 +192,23 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
                 <span>
                   {p.displayName} <span className="mono muted small">{p.model || '모델 없음'}</span>
                 </span>
-                {!p.model ? <Badge tone="red">모델 없음</Badge> : !p.keyConfigured ? <Badge tone="red">키 없음</Badge> : !p.enabled ? <Badge tone="gray">사용 안 함</Badge> : null}
+                {!p.model ? (
+                  <Badge tone="red">모델 없음</Badge>
+                ) : !p.keyConfigured ? (
+                  <Badge tone="red">키 없음</Badge>
+                ) : !p.enabled ? (
+                  <Badge tone="gray">사용 안 함</Badge>
+                ) : null}
               </label>
             ))}
           </div>
-          <Button variant="primary" onClick={() => void runAll()} disabled={!file || selected.size === 0} busy={running} className="mt-sm">
+          <Button
+            variant="primary"
+            onClick={() => void runAll()}
+            disabled={!file || selected.size === 0}
+            busy={running}
+            className="mt-sm"
+          >
             {running ? '분석 중…' : `${selected.size}개 공급자로 동시에 분석`}
           </Button>
         </div>
@@ -195,7 +233,12 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
                 <th>결과</th>
                 {columns.map((p) => {
                   const r = runs[p.providerId];
-                  if (r.state === 'running') return <td key={p.providerId}><span className="spinner" /> {fmtMs(performance.now() - r.startedAt)}</td>;
+                  if (r.state === 'running')
+                    return (
+                      <td key={p.providerId}>
+                        <span className="spinner" /> {fmtMs(performance.now() - r.startedAt)}
+                      </td>
+                    );
                   if (r.state === 'error')
                     return (
                       <td key={p.providerId}>
@@ -208,7 +251,8 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
                       {r.result.ok ? <Badge tone="green">성공</Badge> : <Badge tone="red">실패</Badge>}
                       {!r.result.ok ? (
                         <div className="small">
-                          <span className="mono">{r.result.errorCode ?? ''}</span> <span className="text-danger">{r.result.errorMessage ?? ''}</span>
+                          <span className="mono">{r.result.errorCode ?? ''}</span>{' '}
+                          <span className="text-danger">{r.result.errorMessage ?? ''}</span>
                         </div>
                       ) : null}
                     </td>
@@ -219,7 +263,11 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
                 <th>모델</th>
                 {columns.map((p) => {
                   const r = runs[p.providerId];
-                  return <td key={p.providerId} className="mono small">{r.state === 'done' ? (r.result.model ?? '—') : (p.model ?? '—')}</td>;
+                  return (
+                    <td key={p.providerId} className="mono small">
+                      {r.state === 'done' ? (r.result.model ?? '—') : (p.model ?? '—')}
+                    </td>
+                  );
                 })}
               </tr>
               <tr>
@@ -230,7 +278,8 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
                     <td key={p.providerId}>
                       {r.state === 'done' ? (
                         <>
-                          <strong>{fmtMs(r.result.latencyMs)}</strong> <span className="muted small">(왕복 {fmtMs(r.elapsedMs)})</span>
+                          <strong>{fmtMs(r.result.latencyMs)}</strong>{' '}
+                          <span className="muted small">(왕복 {fmtMs(r.elapsedMs)})</span>
                         </>
                       ) : r.state === 'error' ? (
                         <span className="muted small">왕복 {fmtMs(r.elapsedMs)}</span>
@@ -246,7 +295,9 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
                 {columns.map((p) => {
                   const r = runs[p.providerId];
                   return (
-                    <td key={p.providerId}>{r.state === 'done' ? `${fmtNum(r.result.inputTokens)} / ${fmtNum(r.result.outputTokens)}` : '—'}</td>
+                    <td key={p.providerId}>
+                      {r.state === 'done' ? `${fmtNum(r.result.inputTokens)} / ${fmtNum(r.result.outputTokens)}` : '—'}
+                    </td>
                   );
                 })}
               </tr>
@@ -254,11 +305,23 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
                 <tr key={row.key as string} className={differs.has(row.key as string) ? 'row-diff' : ''}>
                   <th>
                     {row.label}
-                    {differs.has(row.key as string) ? <span className="diff-mark" title="공급자마다 결과가 다릅니다">다름</span> : null}
+                    {differs.has(row.key as string) ? (
+                      <span className="diff-mark" title="공급자마다 결과가 다릅니다">
+                        다름
+                      </span>
+                    ) : null}
                   </th>
                   {columns.map((p) => {
                     const r = runs[p.providerId];
-                    return <td key={p.providerId}>{r.state === 'done' && r.result.suggestion ? show(row, r.result.suggestion) : <span className="muted">—</span>}</td>;
+                    return (
+                      <td key={p.providerId}>
+                        {r.state === 'done' && r.result.suggestion ? (
+                          show(row, r.result.suggestion)
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
+                    );
                   })}
                 </tr>
               ))}

@@ -1,6 +1,7 @@
 // 관리 화면 공통 부품. UI 라이브러리 없이 styles.css의 클래스만 쓴다.
-import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 import { errorMessage, isApiError } from '@/api';
 
@@ -40,7 +41,17 @@ export const PageHeader = ({ title, desc, actions }: { title: string; desc?: Rea
   );
 };
 
-export const Card = ({ title, actions, children, className }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string }) => {
+export const Card = ({
+  title,
+  actions,
+  children,
+  className,
+}: {
+  title?: ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) => {
   return (
     <section className={`card ${className ?? ''}`}>
       {title || actions ? (
@@ -90,7 +101,13 @@ export const ErrorBox = ({ error, onRetry }: { error: unknown; onRetry?: () => v
   );
 };
 
-export const Notice = ({ tone = 'info', children }: { tone?: 'info' | 'warn' | 'error' | 'success'; children: ReactNode }) => {
+export const Notice = ({
+  tone = 'info',
+  children,
+}: {
+  tone?: 'info' | 'warn' | 'error' | 'success';
+  children: ReactNode;
+}) => {
   return <div className={`alert alert-${tone}`}>{children}</div>;
 };
 
@@ -147,7 +164,7 @@ export const Switch = ({
   );
 };
 
-export const Segmented = <T extends string | number,>({
+export const Segmented = <T extends string | number>({
   value,
   options,
   onChange,
@@ -174,7 +191,17 @@ export const Segmented = <T extends string | number,>({
   );
 };
 
-export const Pagination = ({ page, size, total, onPage }: { page: number; size: number; total: number; onPage: (p: number) => void }) => {
+export const Pagination = ({
+  page,
+  size,
+  total,
+  onPage,
+}: {
+  page: number;
+  size: number;
+  total: number;
+  onPage: (p: number) => void;
+}) => {
   const pages = Math.max(1, Math.ceil(total / Math.max(1, size)));
   return (
     <div className="pagination">
@@ -194,7 +221,19 @@ export const Pagination = ({ page, size, total, onPage }: { page: number; size: 
 };
 
 /** 오른쪽에서 나오는 패널 (추가·수정 폼, 상세 보기) */
-export const Drawer = ({ title, onClose, children, footer, wide }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) => {
+export const Drawer = ({
+  title,
+  onClose,
+  children,
+  footer,
+  wide,
+}: {
+  title: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+  wide?: boolean;
+}) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // 위에 뜬 Modal이 Esc를 먼저 처리했으면(defaultPrevented) 패널은 닫지 않는다
@@ -220,7 +259,17 @@ export const Drawer = ({ title, onClose, children, footer, wide }: { title: Reac
 };
 
 /** 가운데 뜨는 작은 대화상자 (확인·비밀 입력). Drawer 위에 겹쳐 열 수 있고, Esc는 이 창만 닫는다 */
-export const Modal = ({ title, onClose, children, footer }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode }) => {
+export const Modal = ({
+  title,
+  onClose,
+  children,
+  footer,
+}: {
+  title: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+}) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;

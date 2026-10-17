@@ -1,4 +1,4 @@
-import type { IApiErrorBody, IFieldError } from './types';
+import type { IApiErrorBody, IFieldError } from '@/api/types';
 
 /** 서버 오류 코드 (05 4장, 07 2·4장) + 이 사이트가 만드는 코드 */
 export type TApiErrorCode =
@@ -50,7 +50,11 @@ export const isApiError = (e: unknown): e is ApiError => {
 };
 
 export const networkError = (cause: unknown, timedOut = false): ApiError => {
-  const err = new ApiError(0, 'NETWORK', timedOut ? '서버 응답이 너무 늦어요.' : '서버에 연결할 수 없어요. 백엔드가 켜져 있는지 확인해 주세요.');
+  const err = new ApiError(
+    0,
+    'NETWORK',
+    timedOut ? '서버 응답이 너무 늦어요.' : '서버에 연결할 수 없어요. 백엔드가 켜져 있는지 확인해 주세요.',
+  );
   (err as { cause?: unknown }).cause = cause;
   return err;
 };
@@ -72,7 +76,10 @@ const FALLBACK_MESSAGE: Record<number, string> = {
 };
 
 const fallbackMessage = (status: number): string => {
-  return FALLBACK_MESSAGE[status] ?? (status >= 500 ? `서버 오류가 났어요. (HTTP ${status})` : `요청을 처리하지 못했어요. (HTTP ${status})`);
+  return (
+    FALLBACK_MESSAGE[status] ??
+    (status >= 500 ? `서버 오류가 났어요. (HTTP ${status})` : `요청을 처리하지 못했어요. (HTTP ${status})`)
+  );
 };
 
 const isErrorBody = (v: unknown): v is IApiErrorBody => {
@@ -89,7 +96,9 @@ export const errorFromResponse = (status: number, rawText: string): ApiError => 
   }
   if (isErrorBody(parsed)) {
     const fieldErrors = Array.isArray(parsed.fieldErrors)
-      ? parsed.fieldErrors.filter((f): f is IFieldError => typeof f?.field === 'string' && typeof f?.message === 'string')
+      ? parsed.fieldErrors.filter(
+          (f): f is IFieldError => typeof f?.field === 'string' && typeof f?.message === 'string',
+        )
       : [];
     return new ApiError(status, parsed.code, parsed.message || fallbackMessage(status), fieldErrors);
   }
