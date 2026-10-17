@@ -2,6 +2,7 @@ package app.wearly.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.wearly.ai.application.service.AiAnalysisService;
 import app.wearly.support.FakeHttpServer;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi.Resp;

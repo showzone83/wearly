@@ -1,12 +1,12 @@
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
-out/
+/out/
 .idea/
 *.iml
 .vscode/
 .DS_Store
-bin/
+/bin/
 
 # 비밀 값
 .env

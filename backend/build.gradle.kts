@@ -21,6 +21,7 @@ repositories {
 // Spring Boot BOM이 관리하지 않는 라이브러리 버전
 val mybatisStarterVersion = "4.1.0"
 val anthropicJavaVersion = "2.73.0"
+val archunitVersion = "1.5.1"
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
@@ -40,6 +41,8 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
+    // 08 문서 3장 헥사고날 의존 규칙 검사
+    testImplementation("com.tngtech.archunit:archunit-junit5:$archunitVersion")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

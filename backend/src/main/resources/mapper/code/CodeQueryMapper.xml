@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 코드 테이블 읽기: 캐시 적재, 버전, 사용 수 집계 -->
+<mapper namespace="app.wearly.code.adapter.out.query.CodeQueryMapper">
+
+    <resultMap id="codeRow" type="app.wearly.code.adapter.out.query.CodeRow">
+        <result property="groupCode" column="group_code"/>
+        <result property="code" column="code"/>
+        <result property="label" column="label"/>
+        <result property="parentCode" column="parent_code"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="active" column="active"/>
+        <result property="attrs" column="attrs" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <resultMap id="usageRow" type="app.wearly.code.adapter.out.query.CodeUsageRow">
+        <result property="groupCode" column="group_code"/>
+        <result property="code" column="code"/>
+        <result property="count" column="count"/>
+    </resultMap>
+
+    <select id="findGroups" resultType="app.wearly.code.adapter.out.query.CodeGroupRow">
+        SELECT group_code, name, description, sort_order
+          FROM tb_code_group
+         ORDER BY sort_order, group_code
+    </select>
+
+    <select id="findCodes" resultMap="codeRow">
+        SELECT group_code, code, label, parent_code, sort_order, active, attrs, updated_at
+          FROM tb_code
+         ORDER BY group_code, sort_order, code_id
+    </select>
+
+    <!-- 코드가 바뀌면(추가·수정·삭제) 달라지는 문자열. 예: 2026-10-17T05:00:00.000Z#102 -->
+    <select id="version" resultType="string">
+        SELECT coalesce(to_char(max(updated_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'), 'empty')
+               || '#' || count(*)
+          FROM tb_code
+    </select>
+
+    <select id="countItemUsage" resultMap="usageRow">
+        SELECT 'CATEGORY' AS group_code, category AS code, count(*) AS count FROM tb_wardrobe_item GROUP BY category
+        UNION ALL
+        SELECT 'SUB_TYPE', sub_type, count(*) FROM tb_wardrobe_item GROUP BY sub_type
+        UNION ALL
+        SELECT 'COLOR', color, count(*) FROM tb_wardrobe_item GROUP BY color
+        UNION ALL
+        SELECT 'PATTERN', pattern, count(*) FROM tb_wardrobe_item GROUP BY pattern
+        UNION ALL
+        SELECT 'ITEM_STATUS', status, count(*) FROM tb_wardrobe_item GROUP BY status
+        UNION ALL
+        SELECT 'SEASON', s.v, count(*) FROM tb_wardrobe_item i CROSS JOIN LATERAL unnest(i.seasons) AS s(v) GROUP BY s.v
+        UNION ALL
+        SELECT 'STYLE', s.v, count(*) FROM tb_wardrobe_item i CROSS JOIN LATERAL unnest(i.styles) AS s(v) GROUP BY s.v
+    </select>
+
+    <select id="countItemsUsing" resultType="long">
+        SELECT count(*)
+          FROM tb_wardrobe_item
+        <choose>
+            <when test="group == 'CATEGORY'">WHERE category = #{code}</when>
+            <when test="group == 'SUB_TYPE'">WHERE sub_type = #{code}</when>
+            <when test="group == 'COLOR'">WHERE color = #{code}</when>
+            <when test="group == 'PATTERN'">WHERE pattern = #{code}</when>
+            <when test="group == 'ITEM_STATUS'">WHERE status = #{code}</when>
+            <when test="group == 'SEASON'">WHERE #{code} = ANY (seasons)</when>
+            <when test="group == 'STYLE'">WHERE #{code} = ANY (styles)</when>
+            <otherwise>WHERE FALSE</otherwise>
+        </choose>
+    </select>
+
+    <select id="countProfilesUsing" resultType="long">
+        SELECT count(*)
+          FROM tb_user_profile
+        <choose>
+            <when test="group == 'COLOR'">WHERE #{code} = ANY (colors)</when>
+            <when test="group == 'STYLE'">WHERE #{code} = ANY (moods)</when>
+            <otherwise>WHERE FALSE</otherwise>
+        </choose>
+    </select>
+</mapper>

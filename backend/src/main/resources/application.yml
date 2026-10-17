@@ -37,7 +37,7 @@ server:
     max-swallow-size: 20MB
 
 mybatis:
-  mapper-locations: classpath:mapper/*.xml
+  mapper-locations: classpath:mapper/**/*.xml
   type-handlers-package: app.wearly.common.mybatis
   configuration:
     map-underscore-to-camel-case: true

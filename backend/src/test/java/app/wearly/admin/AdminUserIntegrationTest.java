@@ -2,6 +2,7 @@ package app.wearly.admin;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.wearly.admin.adapter.in.startup.AdminBootstrap;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
