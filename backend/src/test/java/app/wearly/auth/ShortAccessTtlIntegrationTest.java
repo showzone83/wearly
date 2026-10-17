@@ -7,7 +7,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 
-/** 하네스처럼 짧은 Access 수명으로 띄워 실제 만료 → 갱신 흐름을 확인한다. */
+/**
+ * 하네스처럼 짧은 Access 수명으로 띄워 실제 만료 → 갱신 흐름을 확인한다. JWT exp는 초 단위라 발급기가 올림한다: 실제 수명은 1초 이상 2초 미만이다 (전에는
+ * 버림이라 0~1초여서 첫 요청이 가끔 TOKEN_EXPIRED로 실패했다).
+ */
 @TestPropertySource(properties = "wearly.jwt.access-ttl=PT1S")
 class ShortAccessTtlIntegrationTest extends IntegrationTestBase {
 
@@ -16,7 +19,7 @@ class ShortAccessTtlIntegrationTest extends IntegrationTestBase {
     Session s = signup();
     api().get("/api/v1/users/me", s.accessToken()).expect(200);
 
-    Thread.sleep(1500);
+    Thread.sleep(2100);
     api().get("/api/v1/users/me", s.accessToken()).expectError(401, "TOKEN_EXPIRED");
 
     Session renewed =

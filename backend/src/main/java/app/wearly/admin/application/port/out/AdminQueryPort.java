@@ -3,10 +3,13 @@ package app.wearly.admin.application.port.out;
 import app.wearly.admin.application.port.out.dto.AiCountsDto;
 import app.wearly.admin.application.port.out.dto.AiLogRowDto;
 import app.wearly.admin.application.port.out.dto.AuditLogRowDto;
+import app.wearly.admin.application.port.out.dto.AuthEventRowDto;
 import app.wearly.admin.application.port.out.dto.DashboardCountsDto;
 import app.wearly.admin.application.port.out.dto.ProviderStatDto;
+import app.wearly.admin.application.port.out.dto.UserBriefRowDto;
 import app.wearly.admin.application.port.out.dto.UserListRowDto;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -35,6 +38,12 @@ public interface AdminQueryPort {
   List<AuditLogRowDto> findAuditLogs(String targetType, int limit, long offset);
 
   long countAuditLogs(String targetType);
+
+  /** 회원 요약 (로그인 세션 목록용). 없는(탈퇴한) 회원은 빠진다. ids가 비면 빈 목록 */
+  List<UserBriefRowDto> findUserBriefs(Collection<Long> ids);
+
+  /** 그 회원의 로그인 이력 최신순 (tb_auth_event) */
+  List<AuthEventRowDto> findAuthEvents(long userId, int limit);
 
   /** id가 있으면 그 회원 하나만 */
   record UserFilter(Long id, String query, String status, String role) {}

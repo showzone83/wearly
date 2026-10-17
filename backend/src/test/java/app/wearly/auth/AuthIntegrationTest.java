@@ -2,7 +2,7 @@ package app.wearly.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.wearly.auth.application.service.RefreshTokenService;
+import app.wearly.auth.domain.RefreshTokens;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi;
 import app.wearly.support.TestApi.Resp;
@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -23,6 +24,12 @@ class AuthIntegrationTest extends IntegrationTestBase {
   @Autowired JwtEncoder jwtEncoder;
 
   @Autowired JdbcTemplate jdbc;
+
+  @Autowired StringRedisTemplate redis;
+
+  private Object rt(String rawRefreshToken, String field) {
+    return redis.opsForHash().get("wearly:rt:" + RefreshTokens.hash(rawRefreshToken), field);
+  }
 
   @Test
   void 가입하면_201과_토큰_회원정보를_준다() {
@@ -51,12 +58,11 @@ class AuthIntegrationTest extends IntegrationTestBase {
             java.nio.charset.StandardCharsets.UTF_8);
     assertThat(payload).contains("\"role\":\"USER\"");
 
-    String hash =
-        jdbc.queryForObject(
-            "select token_hash from tb_refresh_token where user_id = ?",
-            String.class,
-            Long.parseLong(r.body().get("user").get("id").asString()));
-    assertThat(hash).isEqualTo(RefreshTokenService.hash(r.body().get("refreshToken").asString()));
+    // Refresh 토큰은 Valkey에 해시로만 있고, Access 토큰의 sid가 그 세션이다 (16 문서 3장)
+    String raw = r.body().get("refreshToken").asString();
+    assertThat(rt(raw, "status")).isEqualTo("ACTIVE");
+    assertThat(rt(raw, "userId")).isEqualTo(r.body().get("user").get("id").asString());
+    assertThat(payload).contains("\"sid\":\"" + rt(raw, "sessionId") + "\"");
   }
 
   @Test
@@ -140,6 +146,11 @@ class AuthIntegrationTest extends IntegrationTestBase {
     api()
         .get("/api/v1/users/me", token(s.userId(), "someone-else", Instant.now().plusSeconds(600)))
         .expectError(401, "TOKEN_INVALID");
+
+    // 서명·발급자·만료가 맞아도 sid가 없는 옛 토큰은 거부한다 (16 문서 3장)
+    api()
+        .get("/api/v1/users/me", token(s.userId(), "wearly", Instant.now().plusSeconds(600)))
+        .expectError(401, "TOKEN_INVALID");
   }
 
   @Test
@@ -156,7 +167,7 @@ class AuthIntegrationTest extends IntegrationTestBase {
   }
 
   @Test
-  void refresh는_회전하고_이전_토큰을_다시_쓰면_family_전체를_폐기한다() {
+  void refresh는_회전하고_이전_토큰을_다시_쓰면_세션_전체를_끊는다() {
     Session s = signup();
 
     Resp first =
@@ -174,31 +185,36 @@ class AuthIntegrationTest extends IntegrationTestBase {
                 .post("/api/v1/auth/refresh", null, Map.of("refreshToken", s1.refreshToken()))
                 .expect(200));
 
-    // 이전 토큰 기록: revoked_at + replaced_by_id
-    Map<String, Object> old =
-        jdbc.queryForMap(
-            "select revoked_at, replaced_by_id from tb_refresh_token where token_hash = ?",
-            RefreshTokenService.hash(s.refreshToken()));
-    assertThat(old.get("revoked_at")).isNotNull();
-    assertThat(old.get("replaced_by_id")).isNotNull();
+    // 이전 토큰 기록: ROTATED + replacedBy, 회전해도 같은 세션
+    assertThat(rt(s.refreshToken(), "status")).isEqualTo("ROTATED");
+    assertThat(rt(s.refreshToken(), "replacedBy")).isEqualTo(RefreshTokens.hash(s1.refreshToken()));
+    String sid = (String) rt(s.refreshToken(), "sessionId");
+    assertThat(rt(s2.refreshToken(), "sessionId")).isEqualTo(sid);
+    assertThat(redis.opsForHash().get("wearly:session:" + sid, "currentHash"))
+        .isEqualTo(RefreshTokens.hash(s2.refreshToken()));
+    assertThat(redis.opsForHash().get("wearly:session:" + sid, "lastRefreshAt")).isNotNull();
 
-    // 이미 회전된 토큰 재사용 → REFRESH_REUSED, 같은 family 전부 폐기
+    // 이미 회전된 토큰 재사용 → REFRESH_REUSED, 그 세션 전체를 끊는다
     api()
         .post("/api/v1/auth/refresh", null, Map.of("refreshToken", s.refreshToken()))
         .expectError(401, "REFRESH_REUSED");
     api()
         .post("/api/v1/auth/refresh", null, Map.of("refreshToken", s2.refreshToken()))
         .expectError(401, "REFRESH_INVALID");
-    Integer active =
-        jdbc.queryForObject(
-            "select count(*) from tb_refresh_token where user_id = ? and revoked_at is null",
-            Integer.class,
-            Long.parseLong(s.userId()));
-    assertThat(active).isZero();
+    assertThat(redis.hasKey("wearly:session:" + sid)).isFalse();
+    assertThat(rt(s2.refreshToken(), "status")).isEqualTo("REVOKED");
+    // 끊긴 세션의 Access 토큰도 바로 401
+    api().get("/api/v1/users/me", s2.accessToken()).expectError(401, "TOKEN_INVALID");
+    assertThat(
+            jdbc.queryForList(
+                "select type from tb_auth_event where user_id = ? order by auth_event_id",
+                String.class,
+                Long.parseLong(s.userId())))
+        .containsExactly("LOGIN", "REFRESH_REUSED");
   }
 
   @Test
-  void 재사용_감지는_다른_기기의_family에는_영향이_없다() {
+  void 재사용_감지는_다른_기기의_세션에는_영향이_없다() {
     String email = uniqueEmail();
     Session phone = api().signup(email, "abcd1234", "민지");
     Session web =
@@ -233,21 +249,23 @@ class AuthIntegrationTest extends IntegrationTestBase {
   @Test
   void 만료된_refresh_토큰은_REFRESH_INVALID() {
     Session s = signup();
-    jdbc.update(
-        "update tb_refresh_token set expires_at = now() - interval '1 second' where token_hash = ?",
-        RefreshTokenService.hash(s.refreshToken()));
+    // 만료는 Valkey TTL이 맡는다: 키가 사라진 것과 같다
+    redis.delete("wearly:rt:" + RefreshTokens.hash(s.refreshToken()));
     api()
         .post("/api/v1/auth/refresh", null, Map.of("refreshToken", s.refreshToken()))
         .expectError(401, "REFRESH_INVALID");
   }
 
   @Test
-  void logout은_항상_204이고_이후_refresh는_REFRESH_INVALID() {
+  void logout은_항상_204이고_이후_refresh와_access는_401() {
     Session s = signup();
+    api().get("/api/v1/users/me", s.accessToken()).expect(200);
     api().post("/api/v1/auth/logout", null, Map.of("refreshToken", s.refreshToken())).expect(204);
     api()
         .post("/api/v1/auth/refresh", null, Map.of("refreshToken", s.refreshToken()))
         .expectError(401, "REFRESH_INVALID");
+    // 세션이 끊겨 Access 토큰도 수명과 상관없이 바로 401
+    api().get("/api/v1/users/me", s.accessToken()).expectError(401, "TOKEN_INVALID");
 
     api().post("/api/v1/auth/logout", null, Map.of("refreshToken", "unknown")).expect(204);
     api().post("/api/v1/auth/logout", null, Map.of()).expect(204);
@@ -332,7 +350,7 @@ class AuthIntegrationTest extends IntegrationTestBase {
         new String[] {
           "tb_user",
           "tb_user_local_credential",
-          "tb_refresh_token",
+          "tb_auth_event",
           "tb_user_profile",
           "tb_wardrobe_item",
           "tb_ai_analysis_log"
@@ -342,6 +360,8 @@ class AuthIntegrationTest extends IntegrationTestBase {
               "select count(*) from " + table + " where user_id = ?", Integer.class, userId);
       assertThat(n).as(table).isZero();
     }
+    // Valkey의 세션도 지운다 (UserDeletedListener)
+    assertThat(redis.opsForSet().size("wearly:user:" + userId + ":sessions")).isZero();
     // 같은 이메일로 다시 가입할 수 있다
     api().signup(email, "abcd1234", "다시");
   }

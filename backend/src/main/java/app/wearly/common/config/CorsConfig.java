@@ -17,7 +17,9 @@ public class CorsConfig {
     List<String> origins = properties.cors().allowedOrigins();
     config.setAllowedOrigins(origins == null ? List.of() : origins);
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-    config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "If-None-Match"));
+    // X-Wearly-Client: 로그인 세션의 기기 종류 (app | admin | web, 16 문서 4장). 앱·관리자 사이트가 모든 요청에 붙인다
+    config.setAllowedHeaders(
+        List.of("Authorization", "Content-Type", "Accept", "If-None-Match", "X-Wearly-Client"));
     config.setExposedHeaders(List.of("WWW-Authenticate", "ETag"));
     config.setAllowCredentials(false);
     config.setMaxAge(3600L);

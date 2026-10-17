@@ -13,6 +13,7 @@ import { authScenarios } from './scenarios/auth';
 import { codeScenarios } from './scenarios/codes';
 import { profileScenarios } from './scenarios/profile';
 import { retireScenarios } from './scenarios/retire';
+import { sessionScenarios } from './scenarios/sessions';
 import { tokenScenarios } from './scenarios/tokens';
 import { wardrobeScenarios } from './scenarios/wardrobe';
 
@@ -27,6 +28,7 @@ const ALL: Scenario[] = [
   ...adminScenarios,
   ...appSettingScenarios,
   ...retireScenarios,
+  ...sessionScenarios,
 ];
 
 type Status = 'PASS' | 'FAIL' | 'SKIP';

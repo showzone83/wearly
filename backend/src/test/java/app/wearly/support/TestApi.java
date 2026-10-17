@@ -145,8 +145,18 @@ public class TestApi {
   }
 
   public Resp exchange(HttpMethod method, String path, String token, Object body) {
+    return exchange(method, path, token, body, new HttpHeaders());
+  }
+
+  /** 헤더를 더해 부른다 (X-Wearly-Client, User-Agent, X-Forwarded-For 등) */
+  public Resp exchange(
+      HttpMethod method, String path, String token, Object body, HttpHeaders headers) {
     RestClient.RequestBodySpec spec =
-        client.method(method).uri(path).accept(MediaType.APPLICATION_JSON);
+        client
+            .method(method)
+            .uri(path)
+            .accept(MediaType.APPLICATION_JSON)
+            .headers(h -> h.addAll(headers));
     if (token != null) {
       spec.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
     }
@@ -158,13 +168,18 @@ public class TestApi {
   }
 
   public Resp options(String path, String origin, String requestMethod) {
+    return options(path, origin, requestMethod, "authorization,content-type");
+  }
+
+  /** CORS 사전 요청. requestHeaders = Access-Control-Request-Headers 값 */
+  public Resp options(String path, String origin, String requestMethod, String requestHeaders) {
     ResponseEntity<String> res =
         client
             .options()
             .uri(path)
             .header(HttpHeaders.ORIGIN, origin)
             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, requestMethod)
-            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type")
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, requestHeaders)
             .retrieve()
             .toEntity(String.class);
     return toResp(res);

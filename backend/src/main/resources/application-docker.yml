@@ -4,3 +4,8 @@ spring:
   datasource:
     # compose 네트워크 안의 db 서비스 (호스트 5433이 아니라 컨테이너 포트 5432)
     url: jdbc:postgresql://db:5432/wearly
+  data:
+    redis:
+      # compose 네트워크 안의 valkey 서비스 (호스트 6380이 아니라 컨테이너 포트 6379)
+      host: valkey
+      port: 6379

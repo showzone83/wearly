@@ -8,10 +8,10 @@ import app.wearly.admin.application.port.in.dto.PatchUserDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.application.port.out.dto.UserListRowDto;
-import app.wearly.auth.application.port.in.AccountUseCase;
 import app.wearly.common.application.Patch;
 import app.wearly.common.domain.FieldError;
 import app.wearly.common.error.ApiException;
+import app.wearly.support.FakeSessions;
 import app.wearly.support.FakeUsers;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.time.Clock;
@@ -20,7 +20,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /** 회원 정지·역할 변경 규칙과 감사 기록 (가짜 포트, Spring 없이) */
@@ -34,31 +33,9 @@ class AdminUserServiceTest {
       Map<String, Object> after) {}
 
   final FakeUsers users = new FakeUsers();
-  final List<Long> revoked = new ArrayList<>();
   final List<Audit> audits = new ArrayList<>();
 
-  final AccountUseCase accounts =
-      new AccountUseCase() {
-        @Override
-        public Optional<Long> findUserIdByEmail(String email) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long createAccount(String email, String rawPassword, String name, String role) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean passwordMatches(long userId, String rawPassword) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void revokeAllRefreshTokens(long userId) {
-          revoked.add(userId);
-        }
-      };
+  final FakeSessions sessions = new FakeSessions();
 
   final RecordAuditPort audit =
       (adminId, action, targetType, targetId, before, after) ->
@@ -96,7 +73,7 @@ class AdminUserServiceTest {
       new AdminUserService(
           queries,
           users,
-          accounts,
+          sessions,
           audit,
           Clock.fixed(Instant.parse("2026-10-17T00:00:00Z"), ZoneOffset.UTC));
 
@@ -106,11 +83,11 @@ class AdminUserServiceTest {
       users.add("member@wearly.test", UserAccountDto.ROLE_USER, UserAccountDto.ACTIVE);
 
   @Test
-  void 정지하면_토큰을_모두_폐기하고_전후_상태를_감사_기록한다() {
+  void 정지하면_세션을_모두_끊고_전후_상태를_감사_기록한다() {
     AdminUserDto view = service.patch(admin.id(), member.id(), patch("SUSPENDED", null));
 
     assertThat(view.status()).isEqualTo("SUSPENDED");
-    assertThat(revoked).containsExactly(member.id());
+    assertThat(sessions.endedUsers).containsExactly(member.id());
     assertThat(audits)
         .singleElement()
         .satisfies(
@@ -124,9 +101,9 @@ class AdminUserServiceTest {
               assertThat(a.after()).containsEntry("status", "SUSPENDED");
             });
 
-    // 이미 정지된 회원을 다시 정지하면 토큰 폐기는 하지 않는다
+    // 이미 정지된 회원을 다시 정지하면 세션 끊기는 하지 않는다
     service.patch(admin.id(), member.id(), patch("SUSPENDED", null));
-    assertThat(revoked).hasSize(1);
+    assertThat(sessions.endedUsers).hasSize(1);
   }
 
   @Test
@@ -141,7 +118,7 @@ class AdminUserServiceTest {
                         new FieldError("role", "자기 자신의 관리자 역할은 내릴 수 없어요.")));
     assertThat(users.get(admin.id()).status()).isEqualTo("ACTIVE");
     assertThat(audits).isEmpty();
-    assertThat(revoked).isEmpty();
+    assertThat(sessions.endedUsers).isEmpty();
   }
 
   @Test
@@ -162,7 +139,7 @@ class AdminUserServiceTest {
 
     assertThat(view.role()).isEqualTo("ADMIN");
     assertThat(view.status()).isEqualTo("ACTIVE");
-    assertThat(revoked).isEmpty();
+    assertThat(sessions.endedUsers).isEmpty();
   }
 
   private static PatchUserDto patch(String status, String role) {

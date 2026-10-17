@@ -12,7 +12,13 @@ public final class AuditTargets {
   /** 앱 설정 (12 문서 3장). targetId는 설정 키 (예: theme) */
   public static final String APP_SETTING = "APP_SETTING";
 
-  public static final Set<String> ALL = Set.of(CODE, AI_PROVIDER, USER, APP_SETTING);
+  /** 로그인 세션 (16 문서 4장). targetId는 세션 ID. 회원 전체 끊기는 USER(targetId = 회원 ID) */
+  public static final String SESSION = "SESSION";
+
+  public static final Set<String> ALL = Set.of(CODE, AI_PROVIDER, USER, APP_SETTING, SESSION);
+
+  /** 허용 값 오류 문구 */
+  public static final String NAMES = "CODE, AI_PROVIDER, USER, APP_SETTING, SESSION";
 
   private AuditTargets() {}
 }

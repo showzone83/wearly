@@ -5,8 +5,10 @@ import app.wearly.admin.application.port.out.AdminQueryPort.UserFilter;
 import app.wearly.admin.application.port.out.dto.AiCountsDto;
 import app.wearly.admin.application.port.out.dto.AiLogRowDto;
 import app.wearly.admin.application.port.out.dto.AuditLogRowDto;
+import app.wearly.admin.application.port.out.dto.AuthEventRowDto;
 import app.wearly.admin.application.port.out.dto.DashboardCountsDto;
 import app.wearly.admin.application.port.out.dto.ProviderStatDto;
+import app.wearly.admin.application.port.out.dto.UserBriefRowDto;
 import app.wearly.admin.application.port.out.dto.UserListRowDto;
 import java.time.Instant;
 import java.util.List;
@@ -46,4 +48,8 @@ public interface AdminQueryMapper {
       @Param("offset") long offset);
 
   long countAuditLogs(@Param("targetType") String targetType);
+
+  List<UserBriefRowDto> findUserBriefs(@Param("ids") List<Long> ids);
+
+  List<AuthEventRowDto> findAuthEvents(@Param("userId") long userId, @Param("limit") int limit);
 }

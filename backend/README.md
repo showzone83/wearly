@@ -9,18 +9,20 @@
 - [`doc/09_AI_코디_추천.md`](../doc/09_AI_코디_추천.md) — 4차: AI 코디 추천 API (`POST /outfits/recommendations`)
 - [`doc/12_디자인_테마.md`](../doc/12_디자인_테마.md) 3장 — 6차: 앱 설정(전체 사용자 테마) `GET /app/config`, `GET·PUT /admin/app/theme`
 - [`doc/13_옷_사용_중지.md`](../doc/13_옷_사용_중지.md) — 6차: 사용하지 않는 옷(`retire`·`restore`, `retired` 필터, 통계) · 완전 삭제
+- [`doc/16_세션_Valkey.md`](../doc/16_세션_Valkey.md) — 7차: Refresh 토큰·로그인 세션을 Valkey로, Access 토큰 `sid` 확인, 관리자 로그인 사용자 보기·강제 로그아웃
 
 | 항목 | 값 |
 |---|---|
 | Spring Boot | 4.1.1 (Java 21 toolchain, Gradle 9.8.1 wrapper, Kotlin DSL) |
 | 데이터 접근 | Spring Data JPA (Hibernate 7.4) + MyBatis (mybatis-spring-boot-starter 4.1.0) |
-| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V9) |
-| 인증 | Spring Security OAuth2 Resource Server, JWT HS256 (Nimbus) |
+| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V10) |
+| 세션 저장소 | Valkey 9.1 (Redis 호환), `spring-boot-starter-data-redis`(Lettuce). Refresh 토큰·로그인 세션 (16 문서) |
+| 인증 | Spring Security OAuth2 Resource Server, JWT HS256 (Nimbus) + 매 요청 `sid` 세션 확인 |
 | AI | Claude: Anthropic Java SDK 2.73.0 / OpenAI·Gemini: 각 사 REST API를 Spring `RestClient`로 (SDK 없음) |
 | 구조 | 헥사고날 (컨텍스트별 domain · application · adapter), 규칙은 ArchUnit 1.5.1 테스트 |
 | 키 암호화 | AES-256-GCM (JDK `javax.crypto`), 마스터 키 `wearly.secret-key` (환경변수 `WEARLY_SECRET_KEY`) |
 | 설정 | 공통 `application.yml` + 로컬 비밀 `config/application-local.yml` (git 제외, `.env` 쓰지 않음, 08 문서 6장) |
-| 로컬 실행 | 루트 `docker-compose.yml`: db · backend · admin |
+| 로컬 실행 | 루트 `docker-compose.yml`: db · valkey · backend · admin |
 | 코드 스타일 | Google Java Style: Spotless 8.10.4 + google-java-format 1.36.1, Checkstyle 14.3.0 (`config/checkstyle/google_checks.xml`) |
 
 ## 실행
@@ -33,27 +35,28 @@ cp config/application-local.example.yml config/application-local.yml   # AI 키�
 chmod 600 config/application-local.yml
 ```
 
-### 전체 실행: docker compose (DB · 백엔드 · 관리자 사이트)
+### 전체 실행: docker compose (DB · Valkey · 백엔드 · 관리자 사이트)
 
 저장소 루트에서:
 
 ```bash
-docker compose up -d --build              # 전체 빌드·실행: db(5433) · backend(8080) · admin(5173)
-docker compose logs -f backend            # 백엔드 로그 보기 (admin, db도 같은 방식)
+docker compose up -d --build              # 전체 빌드·실행: db(5433) · valkey(6380) · backend(8080) · admin(5173)
+docker compose logs -f backend            # 백엔드 로그 보기 (admin, db, valkey도 같은 방식)
 docker compose up -d --build backend      # 백엔드만 다시 빌드·재시작 (코드 수정 후)
-docker compose down                       # 중지 (DB 데이터는 wearly-pgdata 볼륨에 남음)
+docker compose down                       # 중지 (DB 데이터는 wearly-pgdata, 로그인 세션은 wearly-valkeydata 볼륨에 남음)
 ```
 
 - **앱(Expo)은 compose에 없다.** 시뮬레이터·휴대폰이 Mac의 Metro에 붙어야 하므로 Mac에서 `cd mobile && npx expo start`를 따로 띄운다. 앱은 `http://<Mac>:8080`의 compose 백엔드를 그대로 쓴다.
 - 백엔드 이미지(`backend/Dockerfile`): 빌드는 `eclipse-temurin:21-jdk`에서 `./gradlew bootJar -x test`(Gradle 캐시는 BuildKit 캐시 마운트), 실행은 `eclipse-temurin:21-jre`의 비루트 사용자 `wearly`, 작업 디렉터리 `/app`. 이미지 빌드에서는 테스트를 돌리지 않으니 테스트는 Mac에서 `./gradlew test`.
-- compose는 `--spring.profiles.active=docker`로 띄운다 (`application-docker.yml`: DB 주소 `db:5432`, 비밀 값 없음). 비밀 값은 `backend/config/` 폴더를 `/app/config`에 **읽기 전용으로 마운트**해서 `application-local.yml`을 읽는다. `backend/.dockerignore`가 이 파일을 빼므로 이미지에는 들어가지 않는다.
-- 헬스체크는 `/actuator/health`. 시작 순서는 db(healthy) → backend → admin.
+- compose는 `--spring.profiles.active=docker`로 띄운다 (`application-docker.yml`: DB 주소 `db:5432`, Valkey `valkey:6379`, 비밀 값 없음). 비밀 값은 `backend/config/` 폴더를 `/app/config`에 **읽기 전용으로 마운트**해서 `application-local.yml`을 읽는다. `backend/.dockerignore`가 이 파일을 빼므로 이미지에는 들어가지 않는다.
+- 헬스체크는 `/actuator/health`(Valkey 상태 포함). 시작 순서는 db·valkey(healthy) → backend → admin.
+- Valkey: 이미지 `valkey/valkey:9.1`, 컨테이너 `wearly-valkey`, 호스트 6380, AOF(`--appendonly yes`), 헬스체크 `valkey-cli ping`. 들여다보기는 `docker exec -it wearly-valkey valkey-cli` (doc/14 7장).
 - 관리자 사이트(`admin/Dockerfile`, 빌드 컨텍스트는 저장소 루트)는 nginx가 빌드 결과를 서빙한다. API 주소는 빌드 인자 `VITE_API_URL`(기본 `http://localhost:8080`). 관리자 사이트를 vite(`npm run dev`, 5173)로 띄울 때는 포트가 겹치므로 `docker compose up -d --build db backend`만 띄운다.
 
 ### Mac에서 직접 실행
 
 ```bash
-docker compose up -d db   # 저장소 루트에서 DB만 (localhost:5433, DB·계정·비밀번호 wearly)
+docker compose up -d db valkey   # 저장소 루트에서 DB(localhost:5433, DB·계정·비밀번호 wearly)와 Valkey(localhost:6380)만
 cd backend
 ./gradlew bootRun         # 관리자 화면의 AI 공급자 설정(DB)대로 사진 분석
 ./gradlew bootRunMock     # 목업 공급자로 사진 분석 (키 불필요, WEARLY_AI_PROVIDER=mock)
@@ -62,7 +65,7 @@ cd backend
 compose의 backend가 떠 있으면 8080이 겹치므로 먼저 `docker compose stop backend`.
 
 - 서버: `http://localhost:8080`, API 기본 경로 `/api/v1`, 상태 확인 `GET /actuator/health`
-- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움) → `V8__app_setting.sql`(6차: 앱 설정 `tb_app_setting`, 초기 테마 `nyang`) → `V9__wardrobe_item_retire.sql`(6차: 옷 사용 중지 컬럼 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스, 코드 그룹 `RETIRE_REASON` 5개)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
+- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움) → `V8__app_setting.sql`(6차: 앱 설정 `tb_app_setting`, 초기 테마 `nyang`) → `V9__wardrobe_item_retire.sql`(6차: 옷 사용 중지 컬럼 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스, 코드 그룹 `RETIRE_REASON` 5개) → `V10__auth_session_valkey.sql`(7차: `tb_refresh_token` 삭제 — 기존 로그인은 끊김, 로그인 이력 `tb_auth_event`)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
 - **AI 공급자 고르기** (07 문서 3장)
   - `bootRunMock`(`WEARLY_AI_PROVIDER=mock`)이면 언제나 목업. DB 설정은 무시한다.
   - 그 밖(`bootRun`, 기본 `db`)에는 `tb_ai_provider`에서 사용(`enabled`)·모델·키를 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패(시간 초과·HTTP 오류·응답 검증 실패)하면 다음 공급자로 넘어간다.
@@ -103,6 +106,9 @@ wearly:
 | `SPRING_DATASOURCE_URL` | `spring.datasource.url` | `jdbc:postgresql://localhost:5433/wearly` | DB 주소 (compose는 `db:5432`) |
 | `SPRING_DATASOURCE_USERNAME` | `spring.datasource.username` | `wearly` | |
 | `SPRING_DATASOURCE_PASSWORD` | `spring.datasource.password` | `wearly` | |
+| `SPRING_DATA_REDIS_HOST` | `spring.data.redis.host` | `localhost` | Valkey 주소 (compose는 `valkey`) |
+| `SPRING_DATA_REDIS_PORT` | `spring.data.redis.port` | `6380` | (compose는 `6379`) |
+| `SPRING_DATA_REDIS_DATABASE` | `spring.data.redis.database` | `0` | 하네스는 `1` |
 | `SERVER_PORT` | `server.port` | `8080` | |
 | `WEARLY_JWT_SECRET` | `wearly.jwt.secret` | 개발용 고정값 | HS256 키, 32바이트 이상. prod 프로필에서는 필수 |
 | `WEARLY_ACCESS_TTL` | `wearly.jwt.access-ttl` | `PT30M` | Access 토큰 수명 (ISO-8601 Duration) |
@@ -194,7 +200,7 @@ LC_ALL=C.UTF-8 ./gradlew check   # spotlessCheck + checkstyleMain + checkstyleTe
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/admin/dashboard` | 회원 수·7일 신규·아이템 수·오늘 AI 호출·공급자별 7일 통계 |
+| GET | `/admin/dashboard` | 회원 수·7일 신규·아이템 수·오늘 AI 호출·공급자별 7일 통계, 7차 `activeSessions`·`activeUsers24h` |
 | GET | `/admin/codes` | `/codes` 모양 + 그룹 `description`, 코드별 `usageCount` |
 | POST | `/admin/codes/{group}` | 코드 추가 → 201. 중복 409 `CODE_EXISTS` |
 | PATCH | `/admin/codes/{group}/{code}` | label·parent·sortOrder·active·attrs 수정 (attrs는 통째로) |
@@ -207,11 +213,16 @@ LC_ALL=C.UTF-8 ./gradlew check   # spotlessCheck + checkstyleMain + checkstyleTe
 | GET | `/admin/ai/types` | 지원 `type`과 `options` 설명 |
 | GET | `/admin/ai/logs`, `/admin/ai/logs/{id}` | AI 기록 검색(`providerId`·`status`·`userEmail`·`feature`(`ITEM_ANALYZE`·`ADMIN_TEST`·`OUTFIT_RECOMMEND`)·`from`·`to`) / 결과 JSON 전체 |
 | GET·PATCH | `/admin/users`, `/admin/users/{id}` | 회원 검색(`q`·`status`·`role`) / `{ status?, role? }` (자기 자신은 못 내리고 못 정지). `itemCount`는 사용 중인 옷, `retiredItemCount`는 사용 중지한 옷(6차) |
-| GET | `/admin/audit-logs` | 변경 이력 (`targetType` = `CODE`·`AI_PROVIDER`·`USER`·`APP_SETTING`) |
+| GET | `/admin/audit-logs` | 변경 이력 (`targetType` = `CODE`·`AI_PROVIDER`·`USER`·`APP_SETTING`·`SESSION`) |
+| GET | `/admin/sessions` | 7차: 로그인 세션 목록 `?q=&client=&page=&size=` (lastSeenAt 최신순, `current` = 내 세션) |
+| GET | `/admin/users/{id}/sessions` | 7차: `{ sessions, events }` — 그 회원의 세션 + 최근 로그인 이력 20개 |
+| DELETE | `/admin/sessions/{sessionId}` | 7차: 세션 하나 강제 로그아웃 204 (내 현재 세션 400, 없으면 404). 이력 `SESSION_REVOKE` |
+| DELETE | `/admin/users/{id}/sessions` | 7차: 회원의 모든 세션 강제 로그아웃 204 (자기 자신 400). 이력 `USER_SESSIONS_REVOKE` |
 | GET·PUT | `/admin/app/theme` | 6차: 전체 사용자 테마 `{ themeId, updatedAt, updatedBy }` / `{ themeId }`(`nyang`·`closeta`, 그 밖 400 `themeId`). 바뀌면 이력 `APP_THEME_UPDATE` |
 
 - 목록 응답은 `{ items, page, size, total }`, `page` 0부터, `size` 기본 20·최대 100.
-- 정지(`SUSPENDED`) 회원: 로그인 403 `ACCOUNT_SUSPENDED`(비밀번호가 맞을 때만), 남은 Access 토큰 401 `TOKEN_INVALID`, refresh 401 `REFRESH_INVALID`(정지할 때 Refresh 토큰을 모두 폐기).
+- 정지(`SUSPENDED`) 회원: 로그인 403 `ACCOUNT_SUSPENDED`(비밀번호가 맞을 때만), 남은 Access 토큰 401 `TOKEN_INVALID`, refresh 401 `REFRESH_INVALID`(정지할 때 로그인 세션을 모두 끊는다. 풀어도 예전 토큰은 살아나지 않는다).
+- 7차: Access 토큰에 `sid`(세션 ID)가 있고 매 요청 Valkey의 세션을 확인한다. 로그아웃·강제 로그아웃·정지·탈퇴·재사용 감지로 세션이 끊기면 남은 Access 수명과 상관없이 401 `TOKEN_INVALID`. `sid` 없는 옛 토큰도 401. 요청 헤더 `X-Wearly-Client: app|admin|web`(CORS 허용)로 기기 종류를 남긴다.
 - 권한은 매 요청 DB의 역할로 판단한다 (JWT `role` 클레임은 표시용). 역할을 내리면 같은 토큰으로도 바로 403.
 - 모든 관리자 변경은 `tb_admin_audit_log`에 before/after로 남는다.
 
@@ -245,7 +256,7 @@ LC_ALL=C.UTF-8 ./gradlew test    # 테스트만
 LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 ```
 
-- 통합 테스트는 **Testcontainers**로 `pgvector/pgvector:pg17` 컨테이너를 한 번 띄워 쓴다 (Docker 필요). 서버를 무작위 포트로 띄워 실제 HTTP로 부른다.
+- 통합 테스트는 **Testcontainers**로 `pgvector/pgvector:pg17`과 `valkey/valkey:9.1`(compose와 같은 이미지, `support/TestValkey`) 컨테이너를 한 번 띄워 쓴다 (Docker 필요). 서버를 무작위 포트로 띄워 실제 HTTP로 부른다. 응답 스냅샷 테스트는 Valkey DB 2를 비우고 쓴다. 떠 있는 Valkey를 쓰려면 `WEARLY_TEST_VALKEY_HOST`(·`WEARLY_TEST_VALKEY_PORT`).
 - Docker 없이 이미 떠 있는 DB로 돌리려면 `WEARLY_TEST_DB_URL`을 준다. 테스트는 매번 새 이메일로 데이터를 만들고 지우지 않으므로 **개발 DB가 아닌 빈 DB**를 쓴다.
 
   ```bash
@@ -261,8 +272,9 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 
 | 테스트 | 확인하는 것 |
 |---|---|
-| `AuthIntegrationTest` | 가입·로그인·토큰·refresh 회전·재사용 감지·탈퇴, 가입 회원의 `role=USER`와 JWT `role` 클레임, CORS(5173 포함), health |
-| `ShortAccessTtlIntegrationTest` | Access 수명 1초로 띄워 실제 만료 후 refresh |
+| `AuthIntegrationTest` | 가입·로그인·토큰·refresh 회전·재사용 감지·탈퇴, 가입 회원의 `role=USER`와 JWT `role`·`sid` 클레임, Valkey 키(`wearly:rt:*` 상태·`wearly:session:*`), `sid` 없는 토큰 401, 로그아웃 즉시 401, CORS(5173 포함), health |
+| `ShortAccessTtlIntegrationTest` | Access 수명 1초로 띄워 실제 만료 후 refresh (7차: exp 올림으로 가끔 실패하던 원인 수정, 2.1초 대기) |
+| `AdminSessionIntegrationTest` | 7차: 로그인 세션 기기 정보(`X-Wearly-Client`·UA 추정·`X-Forwarded-For`), 관리자 세션 목록 정렬·검색·기기 필터·`current`·대시보드 숫자, 세션 하나·회원 전체 강제 로그아웃 즉시 401·refresh 401·이력, 400·404·403, 정지 시 세션 삭제·FORCED_LOGOUT, 동시 refresh 한쪽만 성공, lastSeenAt 1분 간격, CORS `X-Wearly-Client` |
 | `ProfileIntegrationTest` | 기본값·저장·검증 (색·취향은 코드 검증) |
 | `WardrobeIntegrationTest` | CRUD·PATCH 병합·짝·필터·정렬·검색·통계(DRESS 키 포함)·bulk |
 | `CodeIntegrationTest` | `/codes` 형식·ETag 304·공개, 새 코드(DRESS·JEANS·denim·FLORAL…)로 등록, 모르는 코드·비활성 코드·parent 불일치 400, PATCH에서 안 바꾼 비활성 필드 통과, 비활성 종류의 하위 세부 종류, 통계 키 |
@@ -276,14 +288,14 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 | `AppConfigIntegrationTest` | (6차) `/app/config` 공개·형식·ETag 304·`no-cache`·틀린 토큰 무시·CORS `ETag` 노출, 관리자 GET·PUT, version 변경, 같은 값 PUT, 400·403·401, 변경 이력 `APP_THEME_UPDATE` |
 | `RetirementTest` · `ThemeSettingTest` · `AppSettingServiceTest` · `AdminAppThemeServiceTest` | (6차, Spring 없음) 사용 중지·다시 사용 규칙과 이유·메모 검증, 허용 테마·version, 테마 변경 저장·같은 값·400, 관리자 이메일·변경 이력 |
 | `HexagonalArchitectureTest` | 08 문서 3장·7장 규칙 19개 (ArchUnit): 의존 방향, 컨텍스트 사이는 `port.in`만, common·공유 커널은 컨텍스트를 모름, 출력 어댑터는 API 오류를 모름, `@Entity`·`@Mapper` 위치, 검증·Jackson 어노테이션은 웹 어댑터만, 컨트롤러는 `*Response`만 반환, 포트 DTO는 어댑터를 모름 |
-| `ApiResponseSnapshotTest` | (5차, 6차에 새 필드로 갱신) 155개 요청의 응답(상태·헤더 일부·본문)을 `src/test/resources/snapshots/api-responses.json`과 비교. 토큰·시각·버전 등 매번 다른 값만 정규화한다. 응답 모양을 바꾸면 실패한다. 파일을 지우고 돌리면 다시 만든다 |
+| `ApiResponseSnapshotTest` | (5차, 6차·7차에 새 필드로 갱신. 7차: 대시보드 `activeSessions`·`activeUsers24h`, `targetType` 오류 문구에 `SESSION`, 정지 해제 뒤 예전 토큰 401 단계 추가) 155개 요청의 응답(상태·헤더 일부·본문)을 `src/test/resources/snapshots/api-responses.json`과 비교. 토큰·시각·버전 등 매번 다른 값만 정규화한다. 응답 모양을 바꾸면 실패한다. 파일을 지우고 돌리면 다시 만든다 |
 | `*ServiceTest` (5차) | 서비스 단위 테스트(가짜 포트, Spring 없음): `AuthService`, `CodeManagementService`(색 짝·삭제 가드), `AdminUserService`(자기 정지 금지), `AdminAiService`(키 저장 순서), `AiCallRunner`(폴백·기록), `AiQuotaService`·`AiJsonGenerationService`(한도 예약), `WardrobeService` |
 | `AiQuotaConcurrencyIntegrationTest` | (5차) 12개 동시 예약·동시 사진 분석에서 한도 3개만 성공, 오래된 예약 무시 |
 | `CodeUsageSourceIntegrationTest` · `WardrobePatchIntegrationTest` · `AiLogSummaryMigrationTest` | (5차) 코드 사용 수를 옷장·프로필이 세는지, 옷장 PATCH 오류 모양, V7이 기존 기록 요약을 4차 문구대로 채우는지 |
 | `CandidateValidatorTest` · `OutfitPromptTest` | (Spring 없음) 후보 검증: 정상·남의 아이템·칸 불일치·TOP+DRESS 혼합·신발 없음·고정/중심 누락·제외/피하고 싶은 색/세탁 중·중복·형식. 스키마: 칸별 enum이 그 칸의 내 아이템만·세탁 중 제외·고정·원피스 고정·null 허용 규칙, 프롬프트 내용, 모자란 칸, 고정 확인, 목업 결정성 |
 | `OutfitRecommendIntegrationTest` | (목업) 응답 형식·규칙·결정성, 고정·중심·제외·색·후보 수, 옷 부족 400(기록 없음), 한도 429(사진 분석과 따로), 요청 검증 400·401, 기록 `feature`·관리자 AI 기록·대시보드 |
 | `OutfitProviderFallbackIntegrationTest` | (DB 공급자, 가짜 OpenAI·Gemini·Claude 서버) 오류·남은 후보 0개면 다음 공급자, 각 사 요청 형식(시스템 지시·텍스트·스키마 enum), 실패 기록, 전부 실패 502·한도 미차감, 공급자 없으면 502, 공급자 `today`·대시보드 |
-| `*domain*` 단위 테스트 | 코드 검증·attrs, refresh 회전·재사용 감지, 공급자 선택 순서, 옷장 검증·통계 키, 프로필 정리 (Spring 없음) |
+| `*domain*` 단위 테스트 | 코드 검증·attrs, refresh 토큰 상태 판단·기기 종류 추정, 공급자 선택 순서, 옷장 검증·통계 키, 프로필 정리 (Spring 없음) |
 | `AiProviderFallbackIntegrationTest` | (DB 공급자 실행) 공급자 없으면 502, priority 순 시도·실패 시 다음 공급자·실패 기록, 전부 실패 502·한도 미차감, 시험 분석(사용 여부 무관·한도 미차감·ADMIN_TEST), AI 기록 검색·상세·대시보드 |
 | `AdminUserIntegrationTest` | 시작 시 관리자 생성·기존 회원 승격, 회원 검색, 정지 시 로그인 403·토큰 401·refresh 401, 자기 자신 강등·정지 400, 대시보드 |
 | `AiAnalyzeIntegrationTest` | 목업 결정성, 일일 한도 429, 10MB 초과 413, 형식·파트 검증 |
@@ -297,7 +309,7 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 
 | | JPA (쓰기·단건) | MyBatis (읽기 전용) |
 |---|---|---|
-| 회원·자격 증명·Refresh 토큰 | `User`(역할·정지), `LocalCredential`, `RefreshToken` | 관리자 회원 목록 (`AdminQueryMapper.xml`) |
+| 회원·자격 증명·로그인 이력 | `User`(역할·정지), `LocalCredential`, 로그인 이력(`AuthEventJpaAdapter`, 네이티브 INSERT) | 관리자 회원 목록, 세션 목록의 회원 요약·로그인 이력 (`AdminQueryMapper.xml`) |
 | 프로필 | `UserProfile` | |
 | 옷장 | 등록·bulk·PATCH·삭제·단건 조회 (`WardrobeItem`) | 동적 필터 목록, `/wardrobe/stats` 집계, 코드 사용 수 (`WardrobeItemMapper.xml`) |
 | 프로필 | | 코드 사용 수 (`user/ProfileMapper.xml`) |
@@ -333,7 +345,7 @@ app.wearly.common                  컨텍스트를 모른다 (ArchUnit)
 ├── domain/                        FieldError, DomainValidationException, Zones
 ├── application/                   Patch(안 보냄·값·형식 오류), ImageUpload
 ├── error/                         오류 코드·ApiException·전역 예외 처리
-├── web/                           웹 어댑터 공용 (CurrentUser, PathIds, Uploads, Ids, Times, JsonPatches)
+├── web/                           웹 어댑터 공용 (CurrentUser, CurrentSession, PathIds, Uploads, Ids, Times, JsonPatches)
 ├── config/                        WearlyProperties, ClockConfig, CorsConfig
 ├── mybatis/                       TypeHandler, LikePatterns(LIKE 이스케이프, XML에서 <bind>)
 ├── persistence/                   PersistenceClock (엔티티 시각도 주입한 Clock)
@@ -342,14 +354,14 @@ app.wearly.common                  컨텍스트를 모른다 (ArchUnit)
 
 | 컨텍스트 | domain | 입력 포트 (주요) | 출력 어댑터 |
 |---|---|---|---|
-| `auth` | `RefreshToken`(회전·재사용 판단), `RefreshTokens`, `LocalCredential`, `EmailTakenException` | `AuthUseCase`, `AuthenticationUseCase`, `AccountUseCase` | JPA(자격 증명·Refresh 토큰), security(BCrypt, JWT 발급). 보안 필터 체인은 `auth.config.SecurityConfig` |
-| `user` | `User`(이름·상태·역할 불변식), `UserStatus`, `UserRole`, `UserProfile`, `WorkType` | `UserUseCase`, `ProfileUseCase`, `ProfileCodeUsageUseCase` | JPA(회원·프로필), MyBatis(프로필 코드 사용 수) |
+| `auth` | `RefreshToken`(회전·재사용 판단), `RefreshTokens`, `LoginSession`, `ClientKind`·`ClientInfo`, `AuthEvent`, `AccessTokenClaims`, `LocalCredential`, `EmailTakenException` | `AuthUseCase`, `AuthenticationUseCase`, `AccountUseCase`, `SessionUseCase`(7차) | valkey(세션·Refresh 토큰, Lua 스크립트 `ValkeyScripts`), JPA(자격 증명·로그인 이력), security(BCrypt, JWT 발급). 입력 어댑터 `adapter.in.user`(탈퇴 시 세션 삭제, user의 `UserDeletedListener` 구현). 보안 필터 체인은 `auth.config.SecurityConfig` |
+| `user` | `User`(이름·상태·역할 불변식), `UserStatus`, `UserRole`, `UserProfile`, `WorkType` | `UserUseCase`, `ProfileUseCase`, `ProfileCodeUsageUseCase`, `UserDeletedListener`(SPI: auth가 구현) | JPA(회원·프로필), MyBatis(프로필 코드 사용 수) |
 | `wardrobe` | `WardrobeItem`, `ItemInput`, `ItemRules`(불변식), `ItemCodeValidator`, `WardrobeStatsRules`, `Retirement`·`RetireRules`(6차 사용 중지) | `WardrobeUseCase`, `WardrobeStatsUseCase`, `ItemCodeUsageUseCase` | JPA(아이템 쓰기·단건), MyBatis(목록·통계·코드 사용 수) |
 | `code` | `Code`, `CodeAttrs`, `CodeRules` (스냅샷·검증 정책은 공유 커널) | `CodeCatalog`, `CodeManagementUseCase`, `CodeUsageSource`(SPI: 옷장·프로필이 구현) | JPA(코드 쓰기), MyBatis(스냅샷 캐시) |
 | `ai` | `AiProviderSetting`, `AiProviderSelection`, `AiRunMode`, `AiProviderType`, `ApiKeyRules`, `AnalysisPrompt`, `AiJsonPrompt`, `AiSuggestionValidator` … | `AnalyzeImageUseCase`, `ProviderTestUseCase`, `AiProviderAdminUseCase`, `AiProviderKeyUseCase`, `AiStatusUseCase`, `JsonGenerationUseCase` | JPA(공급자·호출 기록·웹 키·한도 예약), MyBatis(사용량·한도 잠금), ai/*(공급자 모듈: Claude SDK·OpenAI·Gemini REST·목업·키 확인), env, crypto(AES-GCM), transaction |
 | `outfit` | `OutfitPool`, `OutfitPrompt`, `CandidateValidator`, `MockOutfitPlanner`, `OutfitRequest` … | `RecommendOutfitUseCase` (기능 이름 `OutfitFeatures`) | 없음 (옷장·프로필·코드는 각 입력 포트, 공급자는 ai의 `JsonGenerationUseCase`) |
 | `appsetting` | `AppThemes`(허용 테마), `ThemeSetting`(변경·version) | `AppSettingUseCase` | JPA(`tb_app_setting`). 관리자 변경은 admin의 `AdminAppThemeService`가 이 포트로 부르고 이력을 남긴다 (6차) |
-| `admin` | `AuditTargets`, `SearchText` | `AdminDashboardUseCase`, `AdminUserUseCase`, `AdminCodeUseCase`, `AdminAiProviderUseCase`, `AdminAppThemeUseCase`(6차), `EnsureAdminUseCase` | JPA(변경 이력 = `RecordAuditPort`), MyBatis(대시보드·목록 읽기 모델 → `port.out.dto`) |
+| `admin` | `AuditTargets`, `SearchText` | `AdminDashboardUseCase`, `AdminUserUseCase`, `AdminCodeUseCase`, `AdminAiProviderUseCase`, `AdminAppThemeUseCase`(6차), `AdminSessionUseCase`(7차), `EnsureAdminUseCase` | JPA(변경 이력 = `RecordAuditPort`), MyBatis(대시보드·목록 읽기 모델 → `port.out.dto`) |
 
 - 컨텍스트 사이는 상대 `port.in`(과 `port.in.dto`)으로만 부른다. 관리자 API는 admin 컨텍스트가 code·ai·user·auth 유스케이스를 부르고, 같은 트랜잭션에서 변경 이력을 남긴다. 외부 HTTP가 끼는 웹 키 저장은 트랜잭션을 나눈다(`AdminAiKeyWriter`).
 - 사진 분석 `POST /wardrobe/items/analyze`는 경로는 옷장이지만 ai 컨텍스트의 `AiAnalyzeController`가 받는다.

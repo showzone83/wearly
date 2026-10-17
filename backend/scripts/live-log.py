@@ -75,7 +75,8 @@ def show_ai(r):
 def main():
     try:
         last_ai = max_id('tb_ai_analysis_log', 'ai_analysis_log_id')
-        last_tok = max_id('tb_refresh_token', 'refresh_token_id')
+        # 7차(doc/16): Refresh 토큰은 Valkey로 옮겼다. 로그인·로그아웃·강제 로그아웃은 tb_auth_event에 남는다
+        last_auth = max_id('tb_auth_event', 'auth_event_id')
         last_item = max_id('tb_wardrobe_item', 'item_id')
     except Exception as e:  # noqa: BLE001
         print(f'DB에 연결하지 못했습니다: {e}\n먼저 docker compose up -d 를 실행하세요.')
@@ -102,11 +103,17 @@ def main():
                 show_ai(r)
 
             for r in rows(
-                'select t.refresh_token_id id, u.email, t.replaced_by_id from tb_refresh_token t '
-                f'left join tb_user u using (user_id) where t.refresh_token_id > {last_tok} order by 1'
+                'select e.auth_event_id id, u.email, e.type, e.client, e.ip from tb_auth_event e '
+                f'left join tb_user u using (user_id) where e.auth_event_id > {last_auth} order by 1'
             ):
-                last_tok = r['id']
-                line('m', '토큰', f"{r['email']} · 새 Refresh 토큰 발급 (가입·로그인·갱신)")
+                last_auth = r['id']
+                label = {
+                    'LOGIN': '로그인(가입 포함)', 'LOGOUT': '로그아웃',
+                    'REFRESH_REUSED': 'Refresh 재사용 감지 → 세션 끊김',
+                    'FORCED_LOGOUT': '강제 로그아웃(관리자·정지)',
+                }.get(r['type'], r['type'])
+                color = 'r' if r['type'] in ('REFRESH_REUSED', 'FORCED_LOGOUT') else 'm'
+                line(color, '로그인', f"{r['email']} · {label} · {r['client'] or '-'} · {r['ip'] or '-'}")
 
             for r in rows(
                 'select i.item_id id, u.email, i.name, i.category, i.color from tb_wardrobe_item i '

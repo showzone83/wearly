@@ -19,6 +19,8 @@ import app.wearly.admin.application.port.out.dto.DashboardCountsDto;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.admin.domain.SearchText;
 import app.wearly.ai.application.port.in.AiFeatures;
+import app.wearly.auth.application.port.in.SessionUseCase;
+import app.wearly.auth.application.port.in.dto.SessionStatsDto;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.ApiException;
 import app.wearly.outfit.application.port.in.OutfitFeatures;
@@ -46,10 +48,12 @@ public class AdminDashboardService implements AdminDashboardUseCase {
   static final Set<String> FEATURES = Set.copyOf(FEATURE_NAMES);
 
   private final AdminQueryPort queries;
+  private final SessionUseCase sessions;
   private final Clock clock;
 
-  public AdminDashboardService(AdminQueryPort queries, Clock clock) {
+  public AdminDashboardService(AdminQueryPort queries, SessionUseCase sessions, Clock clock) {
     this.queries = queries;
+    this.sessions = sessions;
     this.clock = clock;
   }
 
@@ -73,12 +77,15 @@ public class AdminDashboardService implements AdminDashboardUseCase {
                         r.inputTokens(),
                         r.outputTokens()))
             .toList();
+    SessionStatsDto st = sessions.stats(now.minus(Duration.ofHours(24)));
     return new DashboardDto(
         c.users(),
         c.newUsers7d(),
         c.items(),
         new AiTodayDto(ai.total(), ai.success(), ai.failed()),
-        byProvider);
+        byProvider,
+        st.activeSessions(),
+        st.activeUsers());
   }
 
   @Override
@@ -138,8 +145,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
   public PageDto<AuditLogDto> auditLogs(String targetType, PagingDto paging) {
     String tt = SearchText.blankToNull(targetType);
     if (tt != null && !AuditTargets.ALL.contains(tt)) {
-      throw ApiException.validation(
-          "targetType", "CODE, AI_PROVIDER, USER, APP_SETTING 중 하나여야 해요.");
+      throw ApiException.validation("targetType", AuditTargets.NAMES + " 중 하나여야 해요.");
     }
     List<AuditLogDto> items =
         queries.findAuditLogs(tt, paging.size(), paging.offset()).stream()

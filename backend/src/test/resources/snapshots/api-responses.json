@@ -2698,7 +2698,9 @@
         "avgLatencyMs" : "<ms>",
         "inputTokens" : 0,
         "outputTokens" : 0
-      } ]
+      } ],
+      "activeSessions" : 5,
+      "activeUsers24h" : 3
     }
   },
   "admin.users" : {
@@ -2846,6 +2848,15 @@
       "itemCount" : 0,
       "retiredItemCount" : 0,
       "aiToday" : 0
+    }
+  },
+  "admin.users.patch.restoredOldToken" : {
+    "status" : 401,
+    "body" : {
+      "status" : 401,
+      "code" : "TOKEN_INVALID",
+      "message" : "로그인 정보가 올바르지 않아요.",
+      "fieldErrors" : [ ]
     }
   },
   "admin.users.patch.self" : {
@@ -8518,7 +8529,7 @@
       "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "targetType",
-        "message" : "CODE, AI_PROVIDER, USER, APP_SETTING 중 하나여야 해요."
+        "message" : "CODE, AI_PROVIDER, USER, APP_SETTING, SESSION 중 하나여야 해요."
       } ]
     }
   },
@@ -8547,7 +8558,9 @@
         "avgLatencyMs" : "<ms>",
         "inputTokens" : 0,
         "outputTokens" : 0
-      } ]
+      } ],
+      "activeSessions" : 4,
+      "activeUsers24h" : 3
     }
   },
   "error.unauthorized" : {

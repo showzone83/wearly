@@ -157,4 +157,20 @@
             <if test="targetType != null">a.target_type = #{targetType}</if>
         </where>
     </select>
+
+    <!-- 로그인 세션 목록에 붙일 회원 요약 (16 문서 4장). 세션은 Valkey에 있어 SQL 조인 대신 ID 목록으로 읽는다 -->
+    <select id="findUserBriefs" resultType="app.wearly.admin.application.port.out.dto.UserBriefRowDto">
+        SELECT u.user_id AS id, u.email, u.name, u.role
+          FROM tb_user u
+         WHERE u.user_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
+    <select id="findAuthEvents" resultType="app.wearly.admin.application.port.out.dto.AuthEventRowDto">
+        SELECT e.auth_event_id AS id, e.type, e.session_id, e.client, e.ip, e.user_agent, e.created_at
+          FROM tb_auth_event e
+         WHERE e.user_id = #{userId}
+         ORDER BY e.created_at DESC, e.auth_event_id DESC
+         LIMIT #{limit}
+    </select>
 </mapper>

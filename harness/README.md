@@ -20,8 +20,10 @@ cd harness && npm install     # 처음 한 번
 
 1. DB 컨테이너(`wearly-postgres`)가 꺼져 있으면 `docker compose up -d`로 켜고 healthy가 될 때까지 기다린다.
 2. 하네스 전용 DB `wearly_harness`를 지우고 새로 만든다. 개발용 `wearly` DB는 건드리지 않는다.
+   - 로그인 세션 저장소 Valkey(`wearly-valkey`, 호스트 6380, doc/16)가 꺼져 있으면 `docker compose up -d valkey`로 켜고, 하네스용 **DB 1만** `FLUSHDB`로 비운다. 개발 서버가 쓰는 DB 0은 건드리지 않는다.
 3. `../backend`를 `./gradlew bootRun`으로 포트 **18080**에 띄운다. 로그는 `harness/.logs/backend.log`.
    - `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wearly_harness`, `SERVER_PORT=18080`
+   - `SPRING_DATA_REDIS_HOST=localhost`, `SPRING_DATA_REDIS_PORT=6380`, `SPRING_DATA_REDIS_DATABASE=1`
    - `WEARLY_ACCESS_TTL=PT3S`, `WEARLY_AI_DAILY_LIMIT=3`, `WEARLY_AI_PROVIDER=mock`
    - `JAVA_HOME`은 JDK 21. `WEARLY_JWT_SECRET`이 없으면 하네스용 값을 넣고, `ANTHROPIC_API_KEY`는 비운다.
 4. `/actuator/health`가 UP이 될 때까지 최대 180초 기다린다. 그 안에 뜨지 않거나 프로세스가 죽으면 로그 끝부분을 보여 주고 실패로 끝난다.
@@ -38,7 +40,7 @@ cd harness && npm install     # 처음 한 번
 | `--external <url>` | DB 리셋·백엔드 기동 없이 이미 떠 있는 서버로 시나리오만 돌린다. Access 수명 3초에 기대는 시나리오 3개는 건너뛴다(SKIP). AI 한도 시나리오는 응답의 `remainingToday`를 따라가므로 그대로 돈다. |
 | `--only <키워드,...>` | 분류나 이름에 키워드가 들어간 시나리오만 실행한다. 예: `--only 토큰,AI` |
 | `--list` | 시나리오 목록만 출력한다. |
-| `--db-only` | `wearly_harness` DB만 새로 만들고 끝낸다. |
+| `--db-only` | `wearly_harness` DB를 새로 만들고 Valkey DB 1을 비우고 끝낸다. |
 
 | 환경변수 | 기본값 |
 |---|---|
@@ -102,6 +104,17 @@ npm run typecheck                             # 하네스 + mobile/src/api 타�
 | 36 | 옷 사용 중지 | (관리자) 새 이유 코드로 retire → 사용 중 코드 삭제 409 `CODE_IN_USE` → 비활성화하면 retire 400(`reason`), 회원 목록 `itemCount`·`retiredItemCount`, 정리 |
 | 37 | 옷 사용 중지 | AI 코디 추천(목업): 후보에 사용 중지 옷 없음, 고정·중심으로 주면 400("사용하지 않는 옷이에요.") |
 
+### 로그인 세션 (doc/16, 원시 HTTP)
+
+Refresh 토큰·세션이 Valkey로 옮겨 가면서 Access 토큰에 `sid`가 들어가고, 서버가 매 요청 세션이 살아 있는지 본다. 하네스 서버는 Access 수명이 3초라서 "끊은 뒤 다음 요청이 401"은 끊기 직전에 새로 로그인한 토큰으로 확인한다(만료가 먼저 오면 `TOKEN_EXPIRED`).
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 38 | 로그인 세션 | (관리자) `GET /admin/sessions?q=` 항목 키 12개, `X-Wearly-Client`·`X-Forwarded-For` 첫 값·User-Agent가 세션에 남음, 헤더 없는 Node fetch는 `APP`, lastSeenAt 최신순, `client=WEB` 필터·`TV` 400, 내 세션만 `current`, `GET /admin/users/{id}/sessions`(세션 + 이력 `LOGIN`), 대시보드 `activeSessions`·`activeUsers24h` |
+| 39 | 로그인 세션 | (관리자) `DELETE /admin/sessions/{sid}` 204 → 그 기기 다음 요청 401 `TOKEN_INVALID`, refresh 401 `REFRESH_INVALID`, 다른 기기 refresh는 200, 이미 끊긴 세션 404, 내 현재 세션 400(`sessionId`), 이력 `SESSION_REVOKE`·로그인 이력 `FORCED_LOGOUT` |
+| 40 | 로그인 세션 | (관리자) `DELETE /admin/users/{id}/sessions` 204 → 모든 기기 401·refresh 실패, 목록에서 사라짐, 다시 로그인은 됨, 자기 자신 400, 없는 회원 404, 이력 `USER_SESSIONS_REVOKE`(`before.sessionCount`) |
+| 41 | 로그인 세션 | 로그아웃하면 그 세션의 Access 토큰도 바로 401 `TOKEN_INVALID`, 다른 세션은 그대로, 일반 회원의 세션 API 403 |
+
 refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 요청을 기록해 센다. `tokenStore`도 감싸서 `set`·`clear` 횟수를 센다.
 
 ### 계약에 정해지지 않아 하네스가 고른 기대값
@@ -143,9 +156,9 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 
 | 파일 | 내용 |
 |---|---|
-| `run.sh` | DB 준비 → 백엔드 기동·종료 → 러너 실행 |
+| `run.sh` | DB·Valkey 준비 → 백엔드 기동·종료 → 러너 실행 |
 | `src/main.ts` | 러너. 인자 해석, 시나리오 실행, 결과 표 |
-| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`) |
+| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`) |
 | `src/lib/session.ts` | 앱 모듈로 클라이언트 만들기, 요청·토큰 저장·`onAuthLost` 기록 |
 | `src/lib/http.ts` | 원시 요청과 오류 본문 형식 검사 |
 | `src/lib/rawUser.ts` | 앱 모듈 없이 가입·관리자 로그인한 세션 (`TOKEN_EXPIRED`면 다시 로그인) |

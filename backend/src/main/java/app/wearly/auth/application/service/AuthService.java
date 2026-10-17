@@ -4,11 +4,13 @@ import app.wearly.auth.application.port.in.AccountUseCase;
 import app.wearly.auth.application.port.in.AuthUseCase;
 import app.wearly.auth.application.port.in.AuthenticationUseCase;
 import app.wearly.auth.application.port.in.dto.AuthResultDto;
+import app.wearly.auth.application.port.in.dto.ClientDto;
 import app.wearly.auth.application.port.in.dto.LoginDto;
 import app.wearly.auth.application.port.in.dto.SignupDto;
 import app.wearly.auth.application.port.out.AccessTokenIssuer;
 import app.wearly.auth.application.port.out.CredentialPort;
 import app.wearly.auth.application.port.out.PasswordHasher;
+import app.wearly.auth.domain.ClientInfo;
 import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
 import app.wearly.common.error.ApiException;
@@ -25,7 +27,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
 
   private final UserUseCase users;
   private final CredentialPort credentials;
-  private final RefreshTokenService refreshTokens;
+  private final SessionService sessions;
   private final AccessTokenIssuer accessTokens;
   private final PasswordHasher passwords;
   private final Clock clock;
@@ -36,13 +38,13 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
   public AuthService(
       UserUseCase users,
       CredentialPort credentials,
-      RefreshTokenService refreshTokens,
+      SessionService sessions,
       AccessTokenIssuer accessTokens,
       PasswordHasher passwords,
       Clock clock) {
     this.users = users;
     this.credentials = credentials;
-    this.refreshTokens = refreshTokens;
+    this.sessions = sessions;
     this.accessTokens = accessTokens;
     this.passwords = passwords;
     this.clock = clock;
@@ -51,19 +53,19 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
 
   @Override
   @Transactional
-  public AuthResultDto signup(SignupDto req) {
+  public AuthResultDto signup(SignupDto req, ClientDto client) {
     String email = LocalCredential.normalizeEmail(req.email());
     if (credentials.existsByEmail(email)) {
       throw new ApiException(ErrorCode.EMAIL_TAKEN);
     }
     UserAccountDto user = users.create(email, req.name().strip(), UserAccountDto.ROLE_USER);
     saveCredential(new LocalCredential(null, user.id(), email, passwords.encode(req.password())));
-    return issueTokens(user);
+    return issueTokens(user, client);
   }
 
   @Override
   @Transactional
-  public AuthResultDto login(LoginDto req) {
+  public AuthResultDto login(LoginDto req, ClientDto client) {
     Optional<LocalCredential> found =
         credentials.findByEmail(LocalCredential.normalizeEmail(req.email()));
     if (found.isEmpty()) {
@@ -80,28 +82,32 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
       throw new ApiException(ErrorCode.ACCOUNT_SUSPENDED);
     }
     credentials.markLogin(credential.id(), clock.instant());
-    return issueTokens(user);
+    return issueTokens(user, client);
   }
 
   @Override
   @Transactional(noRollbackFor = ApiException.class)
-  public AuthResultDto refresh(String rawRefreshToken) {
-    RefreshTokenService.Issued next = refreshTokens.rotate(rawRefreshToken);
+  public AuthResultDto refresh(String rawRefreshToken, ClientDto client) {
+    SessionService.Rotated next = sessions.rotate(rawRefreshToken, info(client));
     UserAccountDto user =
         users
-            .find(next.token().userId())
+            .find(next.userId())
             .filter(UserAccountDto::isActive)
             .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_INVALID));
-    return toResult(user, next.rawToken());
+    return toResult(user, next.rawToken(), next.sessionId());
   }
 
   @Override
-  public void logout(String rawRefreshToken) {
-    refreshTokens.revoke(rawRefreshToken);
+  public void logout(String rawRefreshToken, ClientDto client) {
+    sessions.logout(rawRefreshToken, info(client));
   }
 
+  /** 세션 확인(Valkey)을 먼저 하고 회원 상태(DB)를 본다 */
   @Override
-  public Optional<String> activeUserRole(long userId) {
+  public Optional<String> authenticate(long userId, String sessionId) {
+    if (!sessions.isActive(userId, sessionId)) {
+      return Optional.empty();
+    }
     return users.find(userId).filter(UserAccountDto::isActive).map(UserAccountDto::role);
   }
 
@@ -139,22 +145,23 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
     return passwords.matches(rawPassword, found.get().passwordHash());
   }
 
-  @Override
-  public void revokeAllRefreshTokens(long userId) {
-    refreshTokens.revokeAllForUser(userId);
+  /** 새 로그인 세션을 만들고 토큰을 준다 (LOGIN 기록) */
+  private AuthResultDto issueTokens(UserAccountDto user, ClientDto client) {
+    SessionService.Issued issued = sessions.start(user.id(), info(client));
+    return toResult(user, issued.rawToken(), issued.sessionId());
   }
 
-  private AuthResultDto issueTokens(UserAccountDto user) {
-    RefreshTokenService.Issued refresh = refreshTokens.issueNewFamily(user.id());
-    return toResult(user, refresh.rawToken());
-  }
-
-  private AuthResultDto toResult(UserAccountDto user, String rawRefreshToken) {
+  private AuthResultDto toResult(UserAccountDto user, String rawRefreshToken, String sessionId) {
     return new AuthResultDto(
-        accessTokens.issue(user.id(), user.role()),
+        accessTokens.issue(user.id(), user.role(), sessionId),
         accessTokens.accessTtlSeconds(),
         rawRefreshToken,
-        refreshTokens.refreshTtlSeconds(),
+        sessions.refreshTtlSeconds(),
         user);
+  }
+
+  private static ClientInfo info(ClientDto c) {
+    ClientDto v = c == null ? ClientDto.UNKNOWN : c;
+    return ClientInfo.of(v.clientHeader(), v.userAgent(), v.ip());
   }
 }

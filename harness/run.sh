@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Wearly 앱↔백엔드 연동 하네스 실행기 (doc/05_백엔드_API.md 9장)
 #
-#   ./run.sh                      DB 리셋 → 백엔드(18080) 기동 → 시나리오 → 백엔드 종료
+#   ./run.sh                      DB·Valkey(DB 1) 리셋 → 백엔드(18080) 기동 → 시나리오 → 백엔드 종료
 #   ./run.sh --keep               끝나도 백엔드를 남긴다
 #   ./run.sh --external <url>     DB 리셋·기동 없이 그 서버로 시나리오만 (TTL 의존 시나리오는 건너뜀)
-#   ./run.sh --db-only            하네스 DB(wearly_harness)만 다시 만들고 끝낸다
+#   ./run.sh --db-only            하네스 DB(wearly_harness)·Valkey DB 1만 비우고 끝낸다
 #   ./run.sh --only 토큰,AI       이름·분류에 키워드가 들어간 시나리오만 (러너로 그대로 넘김)
 #   ./run.sh --list               시나리오 목록만 보기
 set -euo pipefail
@@ -18,6 +18,10 @@ LOG_FILE="$LOG_DIR/backend.log"
 PORT=18080
 DB_CONTAINER=wearly-postgres
 DB_NAME=wearly_harness
+# 로그인 세션 저장소 (doc/16). compose의 wearly-valkey(호스트 6380)를 같이 쓰되, 개발 서버(DB 0)와 섞이지 않게 DB 1을 쓰고 시작 때 비운다
+VALKEY_CONTAINER=wearly-valkey
+VALKEY_PORT=6380
+VALKEY_DB=1
 BOOT_TIMEOUT="${HARNESS_BOOT_TIMEOUT:-180}"
 DEFAULT_JAVA_HOME=/Users/showzone/Library/Java/JavaVirtualMachines/openjdk-21.0.2/Contents/Home
 
@@ -84,7 +88,8 @@ require_node_modules() {
 
 # ── DB ──
 container_state() {
-  docker inspect -f '{{.State.Status}}/{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$DB_CONTAINER" 2>/dev/null || echo "missing/none"
+  # $1 = 컨테이너 이름 (기본: DB)
+  docker inspect -f '{{.State.Status}}/{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${1:-$DB_CONTAINER}" 2>/dev/null || echo "missing/none"
 }
 
 ensure_db() {
@@ -109,6 +114,35 @@ ensure_db() {
     done
   fi
   info "${C_GRN}healthy${C_0}"
+}
+
+ensure_valkey() {
+  step "Valkey 컨테이너 확인 ($VALKEY_CONTAINER, 포트 $VALKEY_PORT)"
+  local state
+  state="$(container_state "$VALKEY_CONTAINER")"
+  if [[ "$state" != "running/healthy" ]]; then
+    info "현재 상태: $state → docker compose up -d valkey"
+    (cd "$ROOT_DIR" && docker compose up -d valkey) >/dev/null
+    local waited=0
+    while :; do
+      state="$(container_state "$VALKEY_CONTAINER")"
+      [[ "$state" == "running/healthy" ]] && break
+      if (( waited >= 60 )); then
+        docker logs --tail 30 "$VALKEY_CONTAINER" 2>&1 || true
+        die "Valkey가 60초 안에 healthy가 되지 않았습니다 (상태: $state)."
+      fi
+      sleep 1; waited=$((waited + 1))
+    done
+  fi
+  info "${C_GRN}healthy${C_0}"
+}
+
+reset_valkey() {
+  step "하네스 Valkey 비우기 (DB $VALKEY_DB — 개발 서버가 쓰는 DB 0은 건드리지 않음)"
+  local out
+  out="$(docker exec "$VALKEY_CONTAINER" valkey-cli -n "$VALKEY_DB" FLUSHDB 2>&1)" || die "Valkey DB $VALKEY_DB 비우기 실패: $out"
+  [[ "$out" == "OK" ]] || die "Valkey DB $VALKEY_DB 비우기 응답이 OK가 아닙니다: $out"
+  info "${C_GRN}DB $VALKEY_DB 비움${C_0}"
 }
 
 reset_db() {
@@ -209,6 +243,9 @@ start_backend() {
       SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5433/$DB_NAME" \
       SPRING_DATASOURCE_USERNAME=wearly \
       SPRING_DATASOURCE_PASSWORD=wearly \
+      SPRING_DATA_REDIS_HOST=localhost \
+      SPRING_DATA_REDIS_PORT="$VALKEY_PORT" \
+      SPRING_DATA_REDIS_DATABASE="$VALKEY_DB" \
       WEARLY_ACCESS_TTL=PT3S \
       WEARLY_AI_DAILY_LIMIT=3 \
       WEARLY_AI_PROVIDER=mock \
@@ -258,6 +295,8 @@ fi
 if (( DB_ONLY )); then
   ensure_db
   reset_db
+  ensure_valkey
+  reset_valkey
   exit 0
 fi
 
@@ -288,6 +327,8 @@ resolve_java_home >/dev/null
 ensure_port_free
 ensure_db
 reset_db
+ensure_valkey
+reset_valkey
 start_backend
 
 step "시나리오 실행"

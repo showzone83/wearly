@@ -3,9 +3,15 @@ package app.wearly.admin.adapter.in.web.response;
 import app.wearly.admin.application.port.in.dto.DashboardDto;
 import java.util.List;
 
-/** GET /admin/dashboard (07 문서 4장) */
+/** GET /admin/dashboard (07 문서 4장). activeSessions·activeUsers24h는 16 문서 4장 */
 public record DashboardResponse(
-    long users, long newUsers7d, long items, AiToday aiToday, List<ProviderStat> aiByProvider7d) {
+    long users,
+    long newUsers7d,
+    long items,
+    AiToday aiToday,
+    List<ProviderStat> aiByProvider7d,
+    long activeSessions,
+    long activeUsers24h) {
 
   public record AiToday(long total, long success, long failed) {}
 
@@ -33,6 +39,8 @@ public record DashboardResponse(
                         p.avgLatencyMs(),
                         p.inputTokens(),
                         p.outputTokens()))
-            .toList());
+            .toList(),
+        d.activeSessions(),
+        d.activeUsers24h());
   }
 }

@@ -9,6 +9,8 @@
 > **3차 변경**: 백엔드 내부 구조를 헥사고날로 바꿨다 → [08_백엔드_구조.md](08_백엔드_구조.md) (API·DB는 그대로).
 > AI 키를 관리자 화면에서 넣는 기능(쓰기 전용 · 암호화 저장, `V4__ai_provider_secret.sql`)은 → 07 문서 6장.
 >
+> **7차 변경(2026-10-17)**: Refresh 토큰·로그인 세션을 DB에서 Valkey로 옮겼다(`tb_refresh_token` 삭제, `tb_auth_event` 추가, `V10__auth_session_valkey.sql`). Access 토큰에 `sid`(세션 ID)가 들어가고 매 요청 세션이 살아 있는지 확인한다. 관리자 로그인 사용자 보기·강제 로그아웃 → [16_세션_Valkey.md](16_세션_Valkey.md).
+>
 > **4차 변경**: AI 코디 추천 `POST /api/v1/outfits/recommendations`(`V5__outfit_recommend.sql`) → [09_AI_코디_추천.md](09_AI_코디_추천.md). 백엔드 코드 스타일(Google Java Style) → 08 문서 5장.
 
 ## 1. 범위
@@ -37,7 +39,7 @@
 
 ### 데이터 접근 분담
 
-- **JPA**: 쓰기와 단건 조회. 엔티티 생명주기·연관 삭제가 필요한 곳 (회원, 자격 증명, Refresh 토큰, 프로필, 아이템 등록·수정·삭제).
+- **JPA**: 쓰기와 단건 조회. 엔티티 생명주기·연관 삭제가 필요한 곳 (회원, 자격 증명, 로그인 이력, 프로필, 아이템 등록·수정·삭제). Refresh 토큰·로그인 세션은 7차부터 Valkey(16 문서).
 - **MyBatis**: 읽기 전용 조회. 동적 필터 목록, 집계 통계, AI 일일 사용량 집계처럼 SQL이 더 읽기 쉬운 곳.
 - 같은 트랜잭션 매니저를 쓴다. MyBatis 매퍼는 XML(`resources/mapper/*.xml`)로 둔다.
 
@@ -46,6 +48,7 @@
 2차에서 더한 테이블: `tb_code_group`·`tb_code`(06 문서 2장), `tb_ai_provider`·`tb_admin_audit_log`, `tb_user.role`(07 문서 2·3장).
 3차에서 더한 테이블: `tb_ai_provider_secret`(웹 입력 AI 키의 AES-256-GCM 암호문, 07 문서 6장).
 4차: `tb_ai_analysis_log.feature` CHECK에 `OUTFIT_RECOMMEND`(AI 코디 추천, 이미지 칸은 NULL)를 더하고, 한도 집계 인덱스를 `(user_id, feature, created_at) WHERE status = 'SUCCESS'`로 바꿨다 (09 문서).
+7차(2026-10-17): `V10__auth_session_valkey.sql` — `tb_refresh_token` 삭제(토큰·세션은 Valkey), `tb_auth_event`(로그인 이력: LOGIN·LOGOUT·REFRESH_REUSED·FORCED_LOGOUT, 16 문서 3장) 추가.
 6차(2026-10-17): `V8__app_setting.sql` — `tb_app_setting`(앱 전체 설정, 초기값 `theme` = `{"themeId":"nyang"}`, 12 문서 3장). `V9__wardrobe_item_retire.sql` — `tb_wardrobe_item`에 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스 `ix_wardrobe_item_in_use (user_id) WHERE retired_at IS NULL`, CHECK `ck_wardrobe_item_retired`(사용 중지면 시각·이유가 함께 있다), 코드 그룹 `RETIRE_REASON` 5개(13 문서 2장).
 
 모든 이름은 소문자 snake_case, 접두사 `tb_`. PK는 `BIGINT GENERATED ALWAYS AS IDENTITY`. 시각은 `TIMESTAMPTZ`, 날짜는 `DATE`. 회원 삭제 시 모든 하위 데이터는 `ON DELETE CASCADE`로 지운다.
@@ -55,7 +58,8 @@
 | `tb_user` | 회원 (`email` 참고용·nullable, `name`, `status`) | O |
 | `tb_user_local_credential` | 이메일·비밀번호 (임시). `email` 소문자 UNIQUE, `password_hash` | O |
 | `tb_user_social` | 소셜 계정 (D5 설계 그대로, `UNIQUE(provider, provider_user_id)`) | 테이블만 |
-| `tb_refresh_token` | `token_hash`(SHA-256 hex) UNIQUE, `family_id` UUID, `expires_at`, `revoked_at`, `replaced_by_id` | O |
+| ~~`tb_refresh_token`~~ | 7차에 삭제. Refresh 토큰·세션은 Valkey `wearly:rt:*`·`wearly:session:*` (16 문서 3장) | — |
+| `tb_auth_event` | 7차. 로그인 이력: `type`(LOGIN·LOGOUT·REFRESH_REUSED·FORCED_LOGOUT), `session_id`, `client`, `ip`, `user_agent` | O (16 문서) |
 | `tb_user_profile` | 앱 `Profile` + `onboarded`. 배열은 `TEXT[]`/`SMALLINT[]`, 알림은 `JSONB` | O |
 | `tb_user_style` | 취향 학습 점수 (`style_code`, `preference_score`) | 테이블만 |
 | `tb_wardrobe_item` | 옷장 아이템. `seasons`·`styles`는 `TEXT[]`, `ai_suggestion JSONB`. 사용 중지는 `retired_at`(NULL이면 사용 중)·`retire_reason`·`retire_memo` | O |
@@ -90,10 +94,10 @@
 | 400 | `VALIDATION_FAILED` | 입력 검증 실패. `fieldErrors: [{ field, message }]` |
 | 401 | `UNAUTHORIZED` | 토큰 없음 |
 | 401 | `TOKEN_EXPIRED` | Access 토큰 만료 → 앱이 자동 갱신 |
-| 401 | `TOKEN_INVALID` | 서명·형식 오류, 탈퇴한 회원 |
+| 401 | `TOKEN_INVALID` | 서명·형식 오류, 탈퇴·정지한 회원, `sid`가 없는 옛 토큰, 세션이 끊김(로그아웃·관리자 강제 로그아웃·정지·탈퇴·재사용 감지, 7차) |
 | 401 | `INVALID_CREDENTIALS` | 이메일 또는 비밀번호 불일치 (어느 쪽인지 알리지 않음) |
-| 401 | `REFRESH_INVALID` | Refresh 토큰 없음·만료·폐기 |
-| 401 | `REFRESH_REUSED` | 이미 회전된 Refresh 토큰 재사용 → 같은 family 전체 폐기 |
+| 401 | `REFRESH_INVALID` | Refresh 토큰 없음·만료·폐기(세션이 끊김) |
+| 401 | `REFRESH_REUSED` | 이미 회전된 Refresh 토큰 재사용 → 그 세션 전체 끊기 |
 | 403 | `FORBIDDEN` | 권한 없음 (관리자 API에 일반 회원 등) |
 | 403 | `ACCOUNT_SUSPENDED` | 정지된 회원의 로그인 (비밀번호가 맞을 때만, 07 문서 2장) |
 | 403 | `REAUTH_FAILED` | AI 키 넣기·지우기에서 관리자 비밀번호(`currentPassword`) 재확인 실패 (07 문서 6장) |
@@ -111,10 +115,13 @@
 
 | 항목 | 값 |
 |---|---|
-| Access | JWT HS256, `sub` = userId, `iss` = `wearly`, `role` = `USER`·`ADMIN`(2차), 기본 30분 (`WEARLY_ACCESS_TTL`, 예: `PT30M`) |
-| Refresh | 32바이트 난수 base64url (JWT 아님). DB에는 SHA-256만 저장. 기본 30일 (`WEARLY_REFRESH_TTL`) |
-| 회전 | `/auth/refresh`마다 새 Refresh를 주고 이전 것은 `revoked_at` + `replaced_by_id` |
-| 재사용 감지 | 이미 회전된 토큰이 다시 오면 같은 `family_id` 전체 폐기, `REFRESH_REUSED` |
+| Access | JWT HS256, `sub` = userId, `iss` = `wearly`, `role` = `USER`·`ADMIN`(2차), `sid` = 로그인 세션 ID(7차), 기본 30분 (`WEARLY_ACCESS_TTL`, 예: `PT30M`). `exp`는 초 단위 올림(수명이 설정값 이상) |
+| 매 요청 확인 | 서명·발급자·만료 → (7차) `sid`의 세션이 Valkey에 있고 그 회원 것인지 → 회원이 ACTIVE인지. 만료는 `TOKEN_EXPIRED`, 나머지는 `TOKEN_INVALID`. 세션을 끊으면 남은 Access 수명과 상관없이 바로 401 |
+| Refresh | 32바이트 난수 base64url (JWT 아님). 저장소(7차부터 Valkey)에는 SHA-256만 저장. 기본 30일 (`WEARLY_REFRESH_TTL`) |
+| 세션 | 가입·로그인 한 번 = 세션 하나(예전 family). 요청 헤더 `X-Wearly-Client: app\|admin\|web`(없으면 User-Agent로 추정)와 IP(`X-Forwarded-For` 첫 값)를 남긴다 (16 문서) |
+| 회전 | `/auth/refresh`마다 새 Refresh를 주고 이전 것은 ROTATED(+ `replacedBy`). 같은 세션이고 세션 만료가 연장된다. 동시에 같은 토큰으로 갱신하면 한쪽만 성공 |
+| 재사용 감지 | 이미 회전된 토큰이 다시 오면 그 세션 전체를 끊고 `REFRESH_REUSED` |
+| 로그아웃 | 그 Refresh 토큰의 세션을 끊는다 (그 세션의 Access 토큰도 바로 401) |
 | 비밀번호 | BCrypt. 8~64자, 영문과 숫자를 모두 포함 |
 
 ## 6. 엔드포인트
@@ -146,7 +153,7 @@ interface UserDto { id: string; email: string | null; name: string; role: 'USER'
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
 | GET | `/users/me` | — | `UserDto` |
-| DELETE | `/users/me` | — | 204. 회원과 모든 하위 데이터 삭제, Refresh 전부 무효 |
+| DELETE | `/users/me` | — | 204. 회원과 모든 하위 데이터 삭제, 로그인 세션 전부 삭제(Access·Refresh 모두 401) |
 | GET | `/users/me/profile` | — | `ProfileDto`. 저장 전이면 기본값과 `onboarded: false` |
 | PUT | `/users/me/profile` | `ProfileDto` | `ProfileDto` |
 

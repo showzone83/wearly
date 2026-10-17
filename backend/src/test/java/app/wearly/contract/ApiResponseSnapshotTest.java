@@ -6,6 +6,7 @@ import app.wearly.support.FakeHttpServer;
 import app.wearly.support.TestApi;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
+import app.wearly.support.TestValkey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -87,12 +88,17 @@ class ApiResponseSnapshotTest {
 
   static final FakeHttpServer FAKE = new FakeHttpServer();
 
+  /** 로그인 세션은 다른 통합 테스트와 같은 Valkey의 다른 DB 번호를 비워서 쓴다 (대시보드 activeSessions가 매번 같게) */
+  static final int VALKEY_DB = 2;
+
   static {
     POSTGRES.start();
+    TestValkey.flush(VALKEY_DB);
   }
 
   @DynamicPropertySource
   static void datasource(DynamicPropertyRegistry registry) {
+    TestValkey.register(registry, VALKEY_DB);
     registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
     registry.add("spring.datasource.username", POSTGRES::getUsername);
     registry.add("spring.datasource.password", POSTGRES::getPassword);
@@ -138,13 +144,14 @@ class ApiResponseSnapshotTest {
     analyze(a);
     outfit(a, b, ids);
     Session admin = login(ADMIN_EMAIL, ADMIN_PASSWORD);
-    adminUsers(admin, a, b);
+    // 정지하면 b의 세션이 끊기므로(16 문서) 해제 뒤 다시 로그인한 세션을 쓴다
+    final Session reloggedB = adminUsers(admin, a, b);
     adminCodes(admin);
     adminAi(admin);
     adminLogs(admin);
     errors(a);
-    record("users.delete", api.delete("/api/v1/users/me", b.accessToken()));
-    record("users.delete.after", api.get("/api/v1/users/me", b.accessToken()));
+    record("users.delete", api.delete("/api/v1/users/me", reloggedB.accessToken()));
+    record("users.delete.after", api.get("/api/v1/users/me", reloggedB.accessToken()));
   }
 
   private void auth() {
@@ -454,7 +461,7 @@ class ApiResponseSnapshotTest {
     return c;
   }
 
-  private void adminUsers(Session admin, Session a, Session b) {
+  private Session adminUsers(Session admin, Session a, Session b) {
     String t = admin.accessToken();
     record("admin.dashboard", api.get("/api/v1/admin/dashboard", t));
     record("admin.users", api.get("/api/v1/admin/users", t));
@@ -472,6 +479,9 @@ class ApiResponseSnapshotTest {
             null,
             Map.of("email", "snap-b@wearly.test", "password", "pass1234")));
     record("admin.users.patch.restore", api.patch(userPath, t, Map.of("status", "ACTIVE")));
+    // 16 문서: 정지 때 세션을 끊었으므로 해제해도 예전 Access 토큰은 401 TOKEN_INVALID (다시 로그인해야 한다)
+    record("admin.users.patch.restoredOldToken", api.get("/api/v1/users/me", b.accessToken()));
+    final Session relogged = login("snap-b@wearly.test", "pass1234");
     record(
         "admin.users.patch.self",
         api.patch(
@@ -487,6 +497,7 @@ class ApiResponseSnapshotTest {
     record("admin.users.patch.promote", api.patch(userPath, t, Map.of("role", "ADMIN")));
     record("admin.users.patch.demote", api.patch(userPath, t, Map.of("role", "USER")));
     record("admin.forbidden", api.get("/api/v1/admin/dashboard", a.accessToken()));
+    return relogged;
   }
 
   private void adminCodes(Session admin) {

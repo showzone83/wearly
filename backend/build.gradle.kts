@@ -37,6 +37,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    // 로그인 세션·Refresh 토큰 저장소 (Valkey, Redis 호환. 16 문서). 클라이언트는 Lettuce
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.mybatis.spring.boot:mybatis-spring-boot-starter:$mybatisStarterVersion")
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("com.anthropic:anthropic-java:$anthropicJavaVersion")
@@ -83,8 +85,11 @@ checkstyle {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-    // 외부 DB로 테스트할 때 쓰는 환경변수를 테스트 JVM에 그대로 넘긴다
-    listOf("WEARLY_TEST_DB_URL", "WEARLY_TEST_DB_USERNAME", "WEARLY_TEST_DB_PASSWORD").forEach { key ->
+    // 외부 DB·Valkey로 테스트할 때 쓰는 환경변수를 테스트 JVM에 그대로 넘긴다
+    listOf(
+        "WEARLY_TEST_DB_URL", "WEARLY_TEST_DB_USERNAME", "WEARLY_TEST_DB_PASSWORD",
+        "WEARLY_TEST_VALKEY_HOST", "WEARLY_TEST_VALKEY_PORT",
+    ).forEach { key ->
         System.getenv(key)?.let { environment(key, it) }
     }
     // 개발 PC의 config/application-local.yml(실제 AI 키·관리자 계정·마스터 키)이 테스트에 섞이지 않게

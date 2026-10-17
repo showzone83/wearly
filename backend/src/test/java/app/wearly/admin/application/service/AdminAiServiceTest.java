@@ -121,11 +121,6 @@ class AdminAiServiceTest {
         public long createAccount(String email, String rawPassword, String name, String role) {
           throw new UnsupportedOperationException();
         }
-
-        @Override
-        public void revokeAllRefreshTokens(long userId) {
-          throw new UnsupportedOperationException();
-        }
       };
 
   final RecordAuditPort audit =

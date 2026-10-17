@@ -3,6 +3,7 @@ package app.wearly.user.application.service;
 import app.wearly.common.domain.DomainValidationException;
 import app.wearly.common.domain.FieldError;
 import app.wearly.common.error.ApiException;
+import app.wearly.user.application.port.in.UserDeletedListener;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import app.wearly.user.application.port.out.UserPort;
@@ -17,9 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService implements UserUseCase {
 
   private final UserPort users;
+  private final List<UserDeletedListener> deletedListeners;
 
-  public UserService(UserPort users) {
+  public UserService(UserPort users, List<UserDeletedListener> deletedListeners) {
     this.users = users;
+    this.deletedListeners = List.copyOf(deletedListeners);
   }
 
   @Override
@@ -58,6 +61,7 @@ public class UserService implements UserUseCase {
   @Transactional
   public void delete(long userId) {
     users.deleteById(userId);
+    deletedListeners.forEach(l -> l.userDeleted(userId));
   }
 
   static UserAccountDto toAccount(User u) {

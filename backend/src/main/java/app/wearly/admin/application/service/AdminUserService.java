@@ -11,7 +11,7 @@ import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.application.port.out.dto.UserListRowDto;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.admin.domain.SearchText;
-import app.wearly.auth.application.port.in.AccountUseCase;
+import app.wearly.auth.application.port.in.SessionUseCase;
 import app.wearly.common.domain.FieldError;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.ApiException;
@@ -36,19 +36,19 @@ public class AdminUserService implements AdminUserUseCase {
 
   private final AdminQueryPort queries;
   private final UserUseCase users;
-  private final AccountUseCase accounts;
+  private final SessionUseCase sessions;
   private final RecordAuditPort audit;
   private final Clock clock;
 
   public AdminUserService(
       AdminQueryPort queries,
       UserUseCase users,
-      AccountUseCase accounts,
+      SessionUseCase sessions,
       RecordAuditPort audit,
       Clock clock) {
     this.queries = queries;
     this.users = users;
-    this.accounts = accounts;
+    this.sessions = sessions;
     this.audit = audit;
     this.clock = clock;
   }
@@ -120,7 +120,7 @@ public class AdminUserService implements AdminUserUseCase {
         !UserAccountDto.SUSPENDED.equals(user.status()) && UserAccountDto.SUSPENDED.equals(status);
     UserAccountDto after = users.changeAccess(userId, status, role);
     if (suspending) {
-      accounts.revokeAllRefreshTokens(userId);
+      sessions.endUserSessions(userId);
     }
     audit.record(
         adminId, "USER_UPDATE", AuditTargets.USER, Long.toString(userId), before, state(after));
