@@ -1,5 +1,6 @@
 package app.wearly.auth.adapter.out.persistence.jpa;
 
+import app.wearly.common.persistence.PersistenceClock;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -51,13 +52,13 @@ public class LocalCredentialEntity {
 
   @PrePersist
   void onCreate() {
-    createdAt = Instant.now();
+    createdAt = PersistenceClock.now();
     updatedAt = createdAt;
   }
 
   @PreUpdate
   void onUpdate() {
-    updatedAt = Instant.now();
+    updatedAt = PersistenceClock.now();
   }
 
   public void markLogin(Instant at) {

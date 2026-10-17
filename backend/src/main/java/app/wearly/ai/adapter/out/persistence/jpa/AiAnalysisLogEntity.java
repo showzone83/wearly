@@ -1,5 +1,6 @@
 package app.wearly.ai.adapter.out.persistence.jpa;
 
+import app.wearly.common.persistence.PersistenceClock;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -100,7 +101,7 @@ public class AiAnalysisLogEntity {
   @PrePersist
   void onCreate() {
     if (createdAt == null) {
-      createdAt = Instant.now();
+      createdAt = PersistenceClock.now();
     }
   }
 

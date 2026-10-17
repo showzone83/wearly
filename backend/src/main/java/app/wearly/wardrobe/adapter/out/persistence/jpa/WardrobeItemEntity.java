@@ -1,5 +1,6 @@
 package app.wearly.wardrobe.adapter.out.persistence.jpa;
 
+import app.wearly.common.persistence.PersistenceClock;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -79,13 +80,13 @@ public class WardrobeItemEntity {
 
   @PrePersist
   void onCreate() {
-    createdAt = Instant.now();
+    createdAt = PersistenceClock.now();
     updatedAt = createdAt;
   }
 
   @PreUpdate
   void onUpdate() {
-    updatedAt = Instant.now();
+    updatedAt = PersistenceClock.now();
   }
 
   /** 모든 값을 덮어쓴다 (등록과 PATCH 병합 결과 저장에 같이 쓴다). */

@@ -1,5 +1,6 @@
 package app.wearly.auth.adapter.out.persistence.jpa;
 
+import app.wearly.common.persistence.PersistenceClock;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -55,7 +56,7 @@ public class RefreshTokenEntity {
 
   @PrePersist
   void onCreate() {
-    createdAt = Instant.now();
+    createdAt = PersistenceClock.now();
   }
 
   /** 도메인 모델의 폐기·회전 상태를 옮긴다 (한 번 정해진 값은 도메인이 바꾸지 않는다) */

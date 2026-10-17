@@ -1,5 +1,6 @@
 package app.wearly.ai.adapter.out.persistence.jpa;
 
+import app.wearly.common.persistence.PersistenceClock;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -44,7 +45,7 @@ public class ProviderSecretEntity {
   @PrePersist
   @PreUpdate
   void touch() {
-    updatedAt = Instant.now();
+    updatedAt = PersistenceClock.now();
   }
 
   void apply(byte[] ciphertext, byte[] nonce, short keyVersion, String last4, Long updatedBy) {

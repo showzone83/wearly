@@ -1,5 +1,6 @@
 package app.wearly.user.adapter.out.persistence.jpa;
 
+import app.wearly.common.persistence.PersistenceClock;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -47,13 +48,13 @@ public class UserEntity {
 
   @PrePersist
   void onCreate() {
-    createdAt = Instant.now();
+    createdAt = PersistenceClock.now();
     updatedAt = createdAt;
   }
 
   @PreUpdate
   void onUpdate() {
-    updatedAt = Instant.now();
+    updatedAt = PersistenceClock.now();
   }
 
   public void changeStatus(String status) {

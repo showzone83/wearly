@@ -1,5 +1,6 @@
 package app.wearly.admin.adapter.out.persistence.jpa;
 
+import app.wearly.common.persistence.PersistenceClock;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -64,6 +65,6 @@ public class AuditLogEntity {
 
   @PrePersist
   void onCreate() {
-    createdAt = Instant.now();
+    createdAt = PersistenceClock.now();
   }
 }

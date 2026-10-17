@@ -1,5 +1,6 @@
 package app.wearly.code.adapter.out.persistence.jpa;
 
+import app.wearly.common.persistence.PersistenceClock;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -61,18 +62,18 @@ public class CodeEntity {
 
   @PrePersist
   void onCreate() {
-    createdAt = Instant.now();
+    createdAt = PersistenceClock.now();
     updatedAt = createdAt;
   }
 
   @PreUpdate
   void onUpdate() {
-    updatedAt = Instant.now();
+    updatedAt = PersistenceClock.now();
   }
 
   /** 버전 문자열이 확실히 바뀌도록, 내용이 같아도 updated_at을 올린다 (순서 바꾸기·pairs 반영) */
   public void touch() {
-    updatedAt = Instant.now();
+    updatedAt = PersistenceClock.now();
   }
 
   public void update(
