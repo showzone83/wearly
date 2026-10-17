@@ -21,6 +21,7 @@
   - `13_옷_사용_중지.md` — 사용하지 않는 옷(이유·기록 보존)과 완전 삭제
   - `14_DB_명령.md` — 로컬 DB 접속·조회·수정·백업 명령
   - `15_터미널_명령.md` — 서버·앱·관리자·하네스 실행 명령과 포트
+  - `16_세션_Valkey.md` — Refresh 토큰·세션을 Valkey로, 관리자 강제 로그아웃
 - `mobile/` — React Native(Expo SDK 57) 목업 앱. 백엔드 없이 기기 안에 데이터 저장. Expo 작업 규칙은 `mobile/AGENTS.md`를 따른다.
 
 git 저장소는 `wearly/` 루트 하나다 (원격: `github.com/showzone83/wearly`). `mobile/`은 별도 저장소가 아니다.
