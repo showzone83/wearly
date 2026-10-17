@@ -39,6 +39,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     static final String AUTH_PATH_PREFIX = "/api/v1/auth/";
+    static final String CODES_PATH = "/api/v1/codes";
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, RestAuthenticationEntryPoint entryPoint,
@@ -55,6 +56,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, CODES_PATH).permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
@@ -71,12 +74,12 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /** 공개 경로(/api/v1/auth/**)에서는 만료된 Authorization 헤더가 같이 와도 무시한다. */
+    /** 공개 경로(/api/v1/auth/**, /api/v1/codes)에서는 만료된 Authorization 헤더가 같이 와도 무시한다. */
     static BearerTokenResolver bearerTokenResolver() {
         DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
         return request -> {
             String path = request.getRequestURI().substring(request.getContextPath().length());
-            if (path.startsWith(AUTH_PATH_PREFIX)) {
+            if (path.startsWith(AUTH_PATH_PREFIX) || path.equals(CODES_PATH)) {
                 return null;
             }
             return delegate.resolve(request);
@@ -115,8 +118,8 @@ public class SecurityConfig {
         List<String> origins = properties.cors().allowedOrigins();
         config.setAllowedOrigins(origins == null ? List.of() : origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
-        config.setExposedHeaders(List.of("WWW-Authenticate"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "If-None-Match"));
+        config.setExposedHeaders(List.of("WWW-Authenticate", "ETag"));
         config.setAllowCredentials(false);
         config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

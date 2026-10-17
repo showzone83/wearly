@@ -59,14 +59,21 @@ wearly:
     access-ttl: ${WEARLY_ACCESS_TTL:PT30M}
     refresh-ttl: ${WEARLY_REFRESH_TTL:P30D}
   ai:
-    provider: ${WEARLY_AI_PROVIDER:claude}
-    model: ${WEARLY_AI_MODEL:claude-opus-5-5}
+    # db(기본): 관리자 화면의 AI 공급자(tb_ai_provider)를 우선순위 순으로 쓴다. mock: 언제나 목업 (./gradlew bootRunMock)
+    # 공급자 키는 각 행의 api_key_env가 가리키는 환경변수(ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY 등)에서 읽는다
+    provider: ${WEARLY_AI_PROVIDER:db}
     daily-limit: ${WEARLY_AI_DAILY_LIMIT:10}
-    api-key: ${ANTHROPIC_API_KEY:}
-    effort: ${WEARLY_AI_EFFORT:medium}
     timeout: ${WEARLY_AI_TIMEOUT:PT60S}
+  admin:
+    # 둘 다 있으면 시작할 때 이 계정을 만들거나 ADMIN으로 올린다
+    email: ${WEARLY_ADMIN_EMAIL:}
+    password: ${WEARLY_ADMIN_PASSWORD:}
+    name: ${WEARLY_ADMIN_NAME:관리자}
   cors:
     allowed-origins:
       - http://localhost:8081
       - http://localhost:19006
       - http://127.0.0.1:8081
+      # 관리자 사이트 개발 서버 (admin/, Vite)
+      - http://localhost:5173
+      - http://127.0.0.1:5173

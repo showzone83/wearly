@@ -19,6 +19,10 @@ public class AiAnalysisLog {
 
     public static final String SUCCESS = "SUCCESS";
     public static final String FAILED = "FAILED";
+    /** 회원의 사진 분석 (일일 한도에 센다) */
+    public static final String ITEM_ANALYZE = "ITEM_ANALYZE";
+    /** 관리자 시험 분석 (한도에 세지 않는다) */
+    public static final String ADMIN_TEST = "ADMIN_TEST";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,9 +33,9 @@ public class AiAnalysisLog {
     private Long userId;
 
     @Column(name = "feature", nullable = false, length = 30)
-    private String feature = "ITEM_ANALYZE";
+    private String feature = ITEM_ANALYZE;
 
-    @Column(name = "provider", nullable = false, length = 20)
+    @Column(name = "provider", nullable = false, length = 30)
     private String provider;
 
     @Column(name = "model", length = 100)
@@ -69,8 +73,10 @@ public class AiAnalysisLog {
     protected AiAnalysisLog() {
     }
 
-    private AiAnalysisLog(Long userId, String provider, String model, String status, int latencyMs, AiImage image) {
+    private AiAnalysisLog(Long userId, String feature, String provider, String model, String status, int latencyMs,
+            AiImage image) {
         this.userId = userId;
+        this.feature = feature;
         this.provider = provider;
         this.model = model;
         this.status = status;
@@ -79,18 +85,18 @@ public class AiAnalysisLog {
         this.imageBytes = image.bytes().length;
     }
 
-    public static AiAnalysisLog success(Long userId, String provider, AiResult result, Map<String, Object> resultJson,
-            int latencyMs, AiImage image) {
-        AiAnalysisLog log = new AiAnalysisLog(userId, provider, result.model(), SUCCESS, latencyMs, image);
+    public static AiAnalysisLog success(Long userId, String feature, String provider, AiResult result,
+            Map<String, Object> resultJson, int latencyMs, AiImage image) {
+        AiAnalysisLog log = new AiAnalysisLog(userId, feature, provider, result.model(), SUCCESS, latencyMs, image);
         log.inputTokens = toInt(result.inputTokens());
         log.outputTokens = toInt(result.outputTokens());
         log.result = resultJson;
         return log;
     }
 
-    public static AiAnalysisLog failure(Long userId, String provider, String model, String errorCode, int latencyMs,
-            AiImage image) {
-        AiAnalysisLog log = new AiAnalysisLog(userId, provider, model, FAILED, latencyMs, image);
+    public static AiAnalysisLog failure(Long userId, String feature, String provider, String model, String errorCode,
+            int latencyMs, AiImage image) {
+        AiAnalysisLog log = new AiAnalysisLog(userId, feature, provider, model, FAILED, latencyMs, image);
         log.errorCode = errorCode.length() > 50 ? errorCode.substring(0, 50) : errorCode;
         return log;
     }

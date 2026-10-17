@@ -1,11 +1,11 @@
 package app.wearly.wardrobe;
 
+import app.wearly.code.CodeCatalog;
+import app.wearly.code.CodeGroups;
+import app.wearly.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.common.error.ErrorResponse;
-import app.wearly.domain.Category;
-import app.wearly.domain.ColorKey;
-import app.wearly.domain.ItemStatus;
 import app.wearly.wardrobe.WardrobeDtos.ItemDto;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -34,21 +34,25 @@ public class WardrobeService {
     private final WardrobeQueryMapper queries;
     private final JsonMapper jsonMapper;
     private final Validator validator;
+    private final CodeCatalog codes;
 
     public WardrobeService(WardrobeItemRepository items, WardrobeQueryMapper queries, JsonMapper jsonMapper,
-            Validator validator) {
+            Validator validator, CodeCatalog codes) {
         this.items = items;
         this.queries = queries;
         this.jsonMapper = jsonMapper;
         this.validator = validator;
+        this.codes = codes;
     }
 
     @Transactional(readOnly = true)
     public List<ItemDto> list(long userId, String category, String status, String color, String q, String sort) {
         List<ErrorResponse.FieldError> errors = new ArrayList<>();
-        String categoryCode = parse(category, "category", errors, v -> Category.valueOf(v).name());
-        String statusCode = parse(status, "status", errors, v -> ItemStatus.valueOf(v).name());
-        String colorCode = parse(color, "color", errors, v -> ColorKey.fromCode(v).code());
+        CodeSnapshot snapshot = codes.snapshot();
+        // 필터는 저장된 값을 찾는 것이라 비활성 코드도 받는다. 모르는 값은 400
+        String categoryCode = parse(category, "category", errors, snapshot, CodeGroups.CATEGORY);
+        String statusCode = parse(status, "status", errors, snapshot, CodeGroups.ITEM_STATUS);
+        String colorCode = parse(color, "color", errors, snapshot, CodeGroups.COLOR);
         String sortKey = blankToNull(sort) == null ? "recent" : sort.strip();
         if (!SORTS.contains(sortKey)) {
             errors.add(new ErrorResponse.FieldError("sort", "recent, worn, name 중 하나여야 해요."));
@@ -69,14 +73,21 @@ public class WardrobeService {
 
     @Transactional
     public ItemDto create(long userId, ItemInput input) {
+        validateCodes(input, null);
         WardrobeItem item = new WardrobeItem(userId);
         ItemMapping.apply(item, input);
         return ItemMapping.toDto(items.saveAndFlush(item));
     }
 
-    /** 요청 순서대로 저장하고 같은 순서로 돌려준다. 하나라도 틀리면 전부 저장하지 않는다(@Valid에서 먼저 걸러짐). */
+    /** 요청 순서대로 저장하고 같은 순서로 돌려준다. 하나라도 틀리면 전부 저장하지 않는다. */
     @Transactional
     public List<ItemDto> bulkCreate(long userId, List<ItemInput> inputs) {
+        CodeSnapshot snapshot = codes.snapshot();
+        List<ErrorResponse.FieldError> errors = new ArrayList<>();
+        for (int i = 0; i < inputs.size(); i++) {
+            ItemCodeValidator.validate(snapshot, inputs.get(i), null, "items[" + i + "].", errors);
+        }
+        throwIfAny(errors);
         List<ItemDto> created = new ArrayList<>(inputs.size());
         for (ItemInput input : inputs) {
             WardrobeItem item = new WardrobeItem(userId);
@@ -86,14 +97,18 @@ public class WardrobeService {
         return created;
     }
 
-    /** 저장된 값 위에 보낸 필드만 덮어쓴 뒤 등록과 같은 검증을 한다. null을 보내면 그 값을 비운다. */
+    /**
+     * 저장된 값 위에 보낸 필드만 덮어쓴 뒤 등록과 같은 검증을 한다. null을 보내면 그 값을 비운다.
+     * 코드 검증에서 저장된 값과 같은 값은 비활성 코드여도 통과한다.
+     */
     @Transactional
     public ItemDto patch(long userId, long itemId, JsonNode patch) {
         WardrobeItem item = find(userId, itemId);
         if (patch == null || !patch.isObject()) {
             throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
         }
-        ObjectNode merged = jsonMapper.valueToTree(ItemMapping.toInput(item));
+        ItemInput previous = ItemMapping.toInput(item);
+        ObjectNode merged = jsonMapper.valueToTree(previous);
         for (var entry : patch.properties()) {
             if (PATCHABLE.contains(entry.getKey())) {
                 merged.set(entry.getKey(), entry.getValue());
@@ -108,6 +123,7 @@ public class WardrobeService {
             throw ApiException.validation(field, "허용되지 않는 값이에요.");
         }
         validate(input);
+        validateCodes(input, previous);
         ItemMapping.apply(item, input);
         return ItemMapping.toDto(items.saveAndFlush(item));
     }
@@ -133,21 +149,29 @@ public class WardrobeService {
         throw new ApiException(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage(), errors);
     }
 
-    private interface Parser {
-        String apply(String value);
+    private void validateCodes(ItemInput input, ItemInput previous) {
+        List<ErrorResponse.FieldError> errors = new ArrayList<>();
+        ItemCodeValidator.validate(codes.snapshot(), input, previous, "", errors);
+        throwIfAny(errors);
     }
 
-    private static String parse(String raw, String field, List<ErrorResponse.FieldError> errors, Parser parser) {
+    private static void throwIfAny(List<ErrorResponse.FieldError> errors) {
+        if (!errors.isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage(), errors);
+        }
+    }
+
+    private static String parse(String raw, String field, List<ErrorResponse.FieldError> errors, CodeSnapshot snapshot,
+            String group) {
         String value = blankToNull(raw);
         if (value == null) {
             return null;
         }
-        try {
-            return parser.apply(value.strip());
-        } catch (IllegalArgumentException e) {
+        if (!snapshot.exists(group, value.strip())) {
             errors.add(new ErrorResponse.FieldError(field, "허용되지 않는 값이에요."));
             return null;
         }
+        return value.strip();
     }
 
     private static String blankToNull(String s) {

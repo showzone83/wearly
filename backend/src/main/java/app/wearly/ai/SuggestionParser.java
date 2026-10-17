@@ -1,21 +1,16 @@
 package app.wearly.ai;
 
-import app.wearly.domain.Category;
-import app.wearly.domain.ColorKey;
-import app.wearly.domain.Pattern;
-import app.wearly.domain.Season;
-import app.wearly.domain.StyleTag;
-import app.wearly.domain.SubType;
+import app.wearly.code.CodeGroups;
+import app.wearly.code.CodeSnapshot;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 공급자가 준 JSON을 검증해 AiSuggestion으로 바꾼다.
- * 허용 목록 밖 값, 카테고리·세부 종류 짝 불일치, 범위 밖 숫자는 모두 거부한다.
+ * 공급자가 준 JSON을 검증해 AiSuggestion으로 바꾼다 (세 공급자 공통).
+ * 활성 코드 밖의 값, 종류·세부 종류 짝 불일치, 범위 밖 숫자는 모두 거부한다.
  */
 public final class SuggestionParser {
 
@@ -27,7 +22,7 @@ public final class SuggestionParser {
         this.jsonMapper = jsonMapper;
     }
 
-    public AiSuggestion parse(String json) {
+    public AiSuggestion parse(String json, CodeSnapshot codes) {
         JsonNode root;
         try {
             root = jsonMapper.readTree(json);
@@ -44,15 +39,15 @@ public final class SuggestionParser {
         if (name.length() > NAME_MAX) {
             name = name.substring(0, NAME_MAX).strip();
         }
-        Category category = one(root, "category", Category::valueOf);
-        SubType subType = one(root, "subType", SubType::valueOf);
-        if (!subType.belongsTo(category)) {
+        String category = one(root, "category", codes, CodeGroups.CATEGORY);
+        String subType = one(root, "subType", codes, CodeGroups.SUB_TYPE);
+        if (!codes.belongsTo(subType, category)) {
             throw reject("category와 subType의 짝이 맞지 않아요: " + category + "/" + subType);
         }
-        ColorKey color = one(root, "color", ColorKey::fromCode);
-        Pattern pattern = one(root, "pattern", Pattern::valueOf);
-        List<Season> seasons = many(root, "seasons", Season::valueOf);
-        List<StyleTag> styles = many(root, "styles", StyleTag::valueOf);
+        String color = one(root, "color", codes, CodeGroups.COLOR);
+        String pattern = one(root, "pattern", codes, CodeGroups.PATTERN);
+        List<String> seasons = many(root, "seasons", codes, CodeGroups.SEASON);
+        List<String> styles = many(root, "styles", codes, CodeGroups.STYLE);
         JsonNode formalityNode = root.get("formality");
         if (formalityNode == null || !formalityNode.isIntegralNumber()
                 || formalityNode.asInt() < 1 || formalityNode.asInt() > 3) {
@@ -78,32 +73,30 @@ public final class SuggestionParser {
         return node.asString();
     }
 
-    private static <T> T one(JsonNode root, String field, Function<String, T> parser) {
+    private static String one(JsonNode root, String field, CodeSnapshot codes, String group) {
         String value = text(root, field);
-        try {
-            return parser.apply(value);
-        } catch (IllegalArgumentException e) {
+        if (!codes.selectable(group, value)) {
             throw reject(field + " 값이 허용 목록 밖이에요: " + value);
         }
+        return value;
     }
 
-    private static <T> List<T> many(JsonNode root, String field, Function<String, T> parser) {
+    private static List<String> many(JsonNode root, String field, CodeSnapshot codes, String group) {
         JsonNode node = root.get(field);
         if (node == null || !node.isArray()) {
             throw reject(field + "가 배열이 아니에요.");
         }
-        List<T> values = new ArrayList<>();
+        List<String> values = new ArrayList<>();
         for (JsonNode item : node) {
             if (!item.isString()) {
                 throw reject(field + "에 문자열이 아닌 값이 있어요.");
             }
-            try {
-                T value = parser.apply(item.asString());
-                if (!values.contains(value)) {
-                    values.add(value);
-                }
-            } catch (IllegalArgumentException e) {
-                throw reject(field + " 값이 허용 목록 밖이에요: " + item.asString());
+            String value = item.asString();
+            if (!codes.selectable(group, value)) {
+                throw reject(field + " 값이 허용 목록 밖이에요: " + value);
+            }
+            if (!values.contains(value)) {
+                values.add(value);
             }
         }
         return values;

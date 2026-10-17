@@ -1,68 +1,43 @@
 package app.wearly.ai;
 
-import app.wearly.config.WearlyProperties;
-import com.anthropic.client.AnthropicClient;
-import com.anthropic.client.okhttp.AnthropicOkHttpClient;
-import java.util.Locale;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
- * WEARLY_AI_PROVIDER로 공급자를 고른다.
- * - claude(기본): Claude. ANTHROPIC_API_KEY가 없으면 서버 시작을 실패시킨다 (조용히 목업으로 바뀌지 않는다).
- * - mock: 목업. 명시했을 때만 쓴다 (./gradlew bootRunMock).
- * 그 밖의 값(예전 auto 포함)은 시작 실패.
+ * 시작 로그 (doc/07_관리자_사이트.md 3장 5번).
+ * - 목업 실행: INFO 한 줄.
+ * - 그 밖: 쓸 수 있는 공급자 목록을 INFO로, 하나도 없으면 WARN (시작은 한다. 관리자가 화면에서 고칠 수 있게).
+ * WEARLY_AI_PROVIDER 값이 틀리면 AiProviderRegistry를 만들 때 시작이 실패한다(AiProviderConfigException).
  */
 @Configuration
 public class AiProviderConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AiProviderConfig.class);
 
-    static final String MISSING_KEY_MESSAGE = "ANTHROPIC_API_KEY가 없습니다. "
-            + "backend/.env에 ANTHROPIC_API_KEY=... 를 넣거나 환경변수로 주세요. "
-            + "목업으로 띄우려면 ./gradlew bootRunMock (또는 WEARLY_AI_PROVIDER=mock)";
+    static final String NONE_USABLE = "쓸 수 있는 AI 공급자가 없습니다. 사진 분석은 502 AI_UNAVAILABLE로 응답합니다. "
+            + "관리자 화면(AI 공급자)에서 공급자를 켜고 모델을 넣거나, 키 환경변수(예: ANTHROPIC_API_KEY)를 backend/.env에 넣으세요. "
+            + "목업으로 띄우려면 ./gradlew bootRunMock";
 
-    /** 지연 초기화(spring.main.lazy-initialization)가 켜져도 설정 오류는 시작 시점에 드러나게 즉시 만든다. */
     @Bean
-    @Lazy(false)
-    AiProvider aiProvider(WearlyProperties properties, JsonMapper jsonMapper) {
-        WearlyProperties.Ai ai = properties.ai();
-        String mode = ai.provider().strip().toLowerCase(Locale.ROOT);
-        return switch (mode) {
-            case "mock" -> new MockAiProvider();
-            case "claude" -> {
-                if (!ai.hasApiKey()) {
-                    throw new AiProviderConfigException(MISSING_KEY_MESSAGE);
-                }
-                AnthropicClient client = AnthropicOkHttpClient.builder()
-                        .apiKey(ai.apiKey())
-                        .timeout(ai.timeout())
-                        .maxRetries(2)
-                        .build();
-                yield new ClaudeAiProvider(client, ai.model(), ai.effort(), new SuggestionParser(jsonMapper));
-            }
-            case "auto" -> throw new AiProviderConfigException(
-                    "WEARLY_AI_PROVIDER=auto는 더 이상 지원하지 않습니다. 기본값 claude를 쓰거나(키 필요), "
-                            + "목업은 WEARLY_AI_PROVIDER=mock 또는 ./gradlew bootRunMock으로 띄우세요.");
-            default -> throw new AiProviderConfigException(
-                    "WEARLY_AI_PROVIDER는 claude(기본) 또는 mock이어야 합니다: " + ai.provider());
-        };
-    }
-
-    /** 서버가 요청을 받기 시작할 때 선택된 공급자를 한 줄 남긴다. */
-    @Bean
-    ApplicationListener<ApplicationReadyEvent> aiProviderStartupLog(AiProvider aiProvider, WearlyProperties properties) {
+    ApplicationListener<ApplicationReadyEvent> aiProviderStartupLog(AiProviderRegistry registry) {
         return event -> {
-            if ("claude".equals(aiProvider.name())) {
-                log.info("AI 공급자: claude (model={}, effort={})", aiProvider.model(), properties.ai().effort());
+            if (registry.mode() == AiMode.MOCK) {
+                log.info("AI 공급자: mock (목업 실행 — DB 설정을 무시하고 실제 AI를 호출하지 않음)");
+                return;
+            }
+            List<AiProviderSetting> usable = registry.usableSettings();
+            if (usable.isEmpty()) {
+                log.warn(NONE_USABLE);
             } else {
-                log.info("AI 공급자: {} (목업 — 실제 Claude를 호출하지 않음)", aiProvider.name());
+                log.info("AI 공급자(우선순위 순): {}", usable.stream()
+                        .map(s -> s.getProviderId() + "(" + s.getType() + ", model=" + s.getModel() + ")")
+                        .collect(Collectors.joining(", ")));
             }
         };
     }

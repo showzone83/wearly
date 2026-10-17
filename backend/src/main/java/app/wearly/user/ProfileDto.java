@@ -1,8 +1,6 @@
 package app.wearly.user;
 
-import app.wearly.domain.ColorKey;
 import app.wearly.domain.DressCode;
-import app.wearly.domain.StyleTag;
 import app.wearly.domain.WorkType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -25,11 +23,13 @@ public class ProfileDto {
     @NotNull(message = "필수 값이에요.")
     private List<@NotNull(message = "허용되지 않는 값이에요.") DressCode> dressCodes;
 
+    /** STYLE 코드. 값 검증은 ProfileService가 코드 테이블로 한다 */
     @NotNull(message = "필수 값이에요.")
-    private List<@NotNull(message = "허용되지 않는 값이에요.") StyleTag> moods;
+    private List<@NotNull(message = "허용되지 않는 값이에요.") String> moods;
 
+    /** COLOR 코드 */
     @NotNull(message = "필수 값이에요.")
-    private List<@NotNull(message = "허용되지 않는 값이에요.") ColorKey> colors;
+    private List<@NotNull(message = "허용되지 않는 값이에요.") String> colors;
 
     @NotNull(message = "필수 값이에요.")
     private WorkType workType;
@@ -54,7 +54,7 @@ public class ProfileDto {
     public ProfileDto() {
     }
 
-    public ProfileDto(String name, List<DressCode> dressCodes, List<StyleTag> moods, List<ColorKey> colors,
+    public ProfileDto(String name, List<DressCode> dressCodes, List<String> moods, List<String> colors,
             WorkType workType, List<Integer> workDays, Boolean workRule, Boolean offRule, Notify notify,
             Boolean onboarded) {
         this.name = name;
@@ -80,8 +80,8 @@ public class ProfileDto {
         return new ProfileDto(
                 name,
                 List.of(DressCode.BIZ_CASUAL),
-                List.of(StyleTag.NEAT, StyleTag.MINIMAL),
-                List.of(ColorKey.NAVY, ColorKey.BEIGE, ColorKey.WHITE),
+                List.of("NEAT", "MINIMAL"),
+                List.of("navy", "beige", "white"),
                 WorkType.WEEKDAY,
                 List.of(1, 2, 3, 4, 5),
                 true,
@@ -106,19 +106,19 @@ public class ProfileDto {
         this.dressCodes = dressCodes;
     }
 
-    public List<StyleTag> getMoods() {
+    public List<String> getMoods() {
         return moods;
     }
 
-    public void setMoods(List<StyleTag> moods) {
+    public void setMoods(List<String> moods) {
         this.moods = moods;
     }
 
-    public List<ColorKey> getColors() {
+    public List<String> getColors() {
         return colors;
     }
 
-    public void setColors(List<ColorKey> colors) {
+    public void setColors(List<String> colors) {
         this.colors = colors;
     }
 

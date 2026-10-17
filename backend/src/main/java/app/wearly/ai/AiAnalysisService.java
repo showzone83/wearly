@@ -1,5 +1,7 @@
 package app.wearly.ai;
 
+import app.wearly.code.CodeCatalog;
+import app.wearly.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.config.ClockConfig;
@@ -11,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,8 +23,9 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 사진 분석: 형식·크기 검사 → 일일 한도 확인(MyBatis 집계) → 공급자 호출 → 기록(JPA).
- * 성공한 호출만 한도에 센다. 날짜는 Asia/Seoul 기준.
+ * 사진 분석: 형식·크기 검사 → 일일 한도 확인(MyBatis 집계) → 공급자를 우선순위 순으로 시도 → 호출마다 기록(JPA).
+ * 앞 공급자가 실패하면(시간 초과, API 오류, 거절, 응답 검증 실패) 다음 공급자로 넘어가고, 실패도 각각 기록한다.
+ * 성공한 회원 분석(ITEM_ANALYZE)만 한도에 센다. 날짜는 Asia/Seoul 기준.
  */
 @Service
 public class AiAnalysisService {
@@ -30,21 +34,28 @@ public class AiAnalysisService {
 
     private static final Logger log = LoggerFactory.getLogger(AiAnalysisService.class);
 
-    private final AiProvider provider;
+    private final AiProviderRegistry registry;
+    private final CodeCatalog codes;
     private final AiUsageMapper usage;
     private final AiAnalysisLogRepository logs;
     private final WearlyProperties.Ai props;
     private final JsonMapper jsonMapper;
     private final Clock clock;
 
-    public AiAnalysisService(AiProvider provider, AiUsageMapper usage, AiAnalysisLogRepository logs,
-            WearlyProperties properties, JsonMapper jsonMapper, Clock clock) {
-        this.provider = provider;
+    public AiAnalysisService(AiProviderRegistry registry, CodeCatalog codes, AiUsageMapper usage,
+            AiAnalysisLogRepository logs, WearlyProperties properties, JsonMapper jsonMapper, Clock clock) {
+        this.registry = registry;
+        this.codes = codes;
         this.usage = usage;
         this.logs = logs;
         this.props = properties.ai();
         this.jsonMapper = jsonMapper;
         this.clock = clock;
+    }
+
+    /** 한 공급자 호출 결과 */
+    public record Attempt(String providerId, String model, boolean ok, AiResult result, String errorCode,
+            String errorMessage, int latencyMs) {
     }
 
     public AnalyzeResponse analyze(long userId, MultipartFile file) {
@@ -56,28 +67,51 @@ public class AiAnalysisService {
             throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED);
         }
 
-        long started = System.nanoTime();
-        AiResult result;
-        try {
-            result = provider.analyze(image);
-        } catch (AiProviderException e) {
-            logs.save(AiAnalysisLog.failure(userId, provider.name(), provider.model(), e.reason(), elapsedMs(started), image));
-            log.warn("AI 분석 실패 provider={} reason={} message={}", provider.name(), e.reason(), e.getMessage());
-            throw new ApiException(ErrorCode.AI_UNAVAILABLE);
-        } catch (RuntimeException e) {
-            logs.save(AiAnalysisLog.failure(userId, provider.name(), provider.model(), "UNEXPECTED", elapsedMs(started), image));
-            log.error("AI 분석 중 예상하지 못한 오류 provider={}", provider.name(), e);
+        List<AiProvider> candidates = registry.candidates();
+        if (candidates.isEmpty()) {
+            log.warn("AI 분석 불가: 쓸 수 있는 공급자가 없습니다 (사용·모델·키를 갖춘 tb_ai_provider 행이 없음)");
             throw new ApiException(ErrorCode.AI_UNAVAILABLE);
         }
-
-        Map<String, Object> resultJson = jsonMapper.convertValue(result.suggestion(), new TypeReference<>() {
-        });
-        logs.save(AiAnalysisLog.success(userId, provider.name(), result, resultJson, elapsedMs(started), image));
-        int remaining = (int) Math.max(0, limit - (used + 1));
-        return new AnalyzeResponse(result.suggestion(), provider.name(), result.model(), remaining);
+        CodeSnapshot snapshot = codes.snapshot();
+        for (AiProvider provider : candidates) {
+            Attempt attempt = attempt(userId, AiAnalysisLog.ITEM_ANALYZE, provider, image, snapshot);
+            if (attempt.ok()) {
+                int remaining = (int) Math.max(0, limit - (used + 1));
+                return new AnalyzeResponse(attempt.result().suggestion(), provider.id(), attempt.result().model(),
+                        remaining);
+            }
+        }
+        throw new ApiException(ErrorCode.AI_UNAVAILABLE);
     }
 
-    /** 오늘(한국 시간) 성공한 분석 수 */
+    /** 관리자 시험 분석: 사용 여부와 관계없이 그 공급자로 한 번 호출한다. 기록은 ADMIN_TEST(한도에 안 셈). */
+    public Attempt adminTest(long adminUserId, AiProvider provider, MultipartFile file) {
+        return attempt(adminUserId, AiAnalysisLog.ADMIN_TEST, provider, readImage(file), codes.snapshot());
+    }
+
+    private Attempt attempt(long userId, String feature, AiProvider provider, AiImage image, CodeSnapshot snapshot) {
+        long started = System.nanoTime();
+        try {
+            AiResult result = provider.analyze(image, snapshot);
+            Map<String, Object> resultJson = jsonMapper.convertValue(result.suggestion(), new TypeReference<>() {
+            });
+            int latency = elapsedMs(started);
+            logs.save(AiAnalysisLog.success(userId, feature, provider.id(), result, resultJson, latency, image));
+            return new Attempt(provider.id(), result.model(), true, result, null, null, latency);
+        } catch (AiProviderException e) {
+            int latency = elapsedMs(started);
+            logs.save(AiAnalysisLog.failure(userId, feature, provider.id(), provider.model(), e.reason(), latency, image));
+            log.warn("AI 분석 실패 provider={} reason={} message={}", provider.id(), e.reason(), e.getMessage());
+            return new Attempt(provider.id(), provider.model(), false, null, e.reason(), e.getMessage(), latency);
+        } catch (RuntimeException e) {
+            int latency = elapsedMs(started);
+            logs.save(AiAnalysisLog.failure(userId, feature, provider.id(), provider.model(), "UNEXPECTED", latency, image));
+            log.error("AI 분석 중 예상하지 못한 오류 provider={} type={}", provider.id(), e.getClass().getName());
+            return new Attempt(provider.id(), provider.model(), false, null, "UNEXPECTED", "예상하지 못한 오류", latency);
+        }
+    }
+
+    /** 오늘(한국 시간) 성공한 회원 분석 수 */
     public long usedToday(long userId) {
         LocalDate today = LocalDate.now(clock.withZone(ClockConfig.SEOUL));
         Instant from = today.atStartOfDay(ClockConfig.SEOUL).toInstant();

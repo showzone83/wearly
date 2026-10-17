@@ -14,6 +14,11 @@ import java.time.Instant;
 @Table(name = "tb_user")
 public class User {
 
+    public static final String ACTIVE = "ACTIVE";
+    public static final String SUSPENDED = "SUSPENDED";
+    public static final String ROLE_USER = "USER";
+    public static final String ROLE_ADMIN = "ADMIN";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
@@ -26,7 +31,11 @@ public class User {
     private String name;
 
     @Column(name = "status", nullable = false, length = 20)
-    private String status = "ACTIVE";
+    private String status = ACTIVE;
+
+    /** USER | ADMIN (doc/07_관리자_사이트.md 2장) */
+    @Column(name = "role", nullable = false, length = 20)
+    private String role = ROLE_USER;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -54,7 +63,23 @@ public class User {
     }
 
     public boolean isActive() {
-        return "ACTIVE".equals(status);
+        return ACTIVE.equals(status);
+    }
+
+    public boolean isSuspended() {
+        return SUSPENDED.equals(status);
+    }
+
+    public boolean isAdmin() {
+        return ROLE_ADMIN.equals(role);
+    }
+
+    public void changeStatus(String status) {
+        this.status = status;
+    }
+
+    public void changeRole(String role) {
+        this.role = role;
     }
 
     public void rename(String name) {
@@ -75,6 +100,10 @@ public class User {
 
     public String getStatus() {
         return status;
+    }
+
+    public String getRole() {
+        return role;
     }
 
     public Instant getCreatedAt() {

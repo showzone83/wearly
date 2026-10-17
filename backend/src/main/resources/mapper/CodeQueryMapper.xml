@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 코드 테이블 전체 읽기. 서버는 이 결과를 메모리에 캐시한다 (CodeCatalog) -->
+<mapper namespace="app.wearly.code.CodeQueryMapper">
+
+    <resultMap id="codeRow" type="app.wearly.code.CodeRow">
+        <result property="groupCode" column="group_code"/>
+        <result property="code" column="code"/>
+        <result property="label" column="label"/>
+        <result property="parentCode" column="parent_code"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="active" column="active"/>
+        <result property="attrs" column="attrs" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="findGroups" resultType="app.wearly.code.CodeGroupRow">
+        SELECT group_code, name, description, sort_order
+          FROM tb_code_group
+         ORDER BY sort_order ASC, group_code ASC
+    </select>
+
+    <select id="findCodes" resultMap="codeRow">
+        SELECT c.group_code, c.code, c.label, c.parent_code, c.sort_order, c.active, c.attrs, c.updated_at
+          FROM tb_code c
+          JOIN tb_code_group g ON g.group_code = c.group_code
+         ORDER BY g.sort_order ASC, c.group_code ASC, c.sort_order ASC, c.code_id ASC
+    </select>
+</mapper>

@@ -7,6 +7,7 @@ import java.util.Map;
 public class AiLogRow {
 
     private Long id;
+    private String feature;
     private String provider;
     private String model;
     private String status;
@@ -20,6 +21,14 @@ public class AiLogRow {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getFeature() {
+        return feature;
+    }
+
+    public void setFeature(String feature) {
+        this.feature = feature;
     }
 
     public String getProvider() {

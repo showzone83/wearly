@@ -10,7 +10,7 @@ class AiProviderFailureAnalyzer extends AbstractFailureAnalyzer<AiProviderConfig
     protected FailureAnalysis analyze(Throwable rootFailure, AiProviderConfigException cause) {
         return new FailureAnalysis(
                 "AI 공급자 설정 오류: " + cause.getMessage(),
-                "실제 Claude로 띄우려면 backend/.env에 ANTHROPIC_API_KEY를 넣고 ./gradlew bootRun, "
+                "WEARLY_AI_PROVIDER를 비우거나 db로 두면 관리자 화면의 AI 공급자 설정(tb_ai_provider)을 쓰고, "
                         + "목업으로 띄우려면 ./gradlew bootRunMock (WEARLY_AI_PROVIDER=mock)을 쓰세요.",
                 cause);
     }
