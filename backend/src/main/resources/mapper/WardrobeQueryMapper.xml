@@ -47,7 +47,8 @@
          ORDER BY worn_count DESC, last_worn_at DESC NULLS LAST, item_id DESC
             </when>
             <when test="sort == 'name'">
-         ORDER BY name ASC, item_id ASC
+         <!-- DB 로케일과 상관없이 가나다(유니코드) 순. glibc en_US 정렬은 한글 순서가 어긋난다 -->
+         ORDER BY lower(name) COLLATE "C" ASC, item_id ASC
             </when>
             <otherwise>
          ORDER BY created_at DESC, item_id DESC
