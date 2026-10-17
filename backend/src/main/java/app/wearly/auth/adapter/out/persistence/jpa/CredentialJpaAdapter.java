@@ -1,9 +1,8 @@
 package app.wearly.auth.adapter.out.persistence.jpa;
 
 import app.wearly.auth.application.port.out.CredentialPort;
+import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
-import app.wearly.common.error.ApiException;
-import app.wearly.common.error.ErrorCode;
 import java.time.Instant;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,8 +38,8 @@ class CredentialJpaAdapter implements CredentialPort {
     try {
       credentials.saveAndFlush(new LocalCredentialEntity(c.userId(), c.email(), c.passwordHash()));
     } catch (DataIntegrityViolationException e) {
-      // 동시에 같은 이메일로 가입한 경우 (uq_user_local_credential_email)
-      throw new ApiException(ErrorCode.EMAIL_TAKEN);
+      // 동시에 같은 이메일로 가입한 경우 (uq_user_local_credential_email). API 오류로는 서비스가 바꾼다 (L1)
+      throw new EmailTakenException(c.email());
     }
   }
 

@@ -107,6 +107,16 @@ class HexagonalArchitectureTest {
           .resideInAnyPackage("app.wearly.*.application.service..", "app.wearly.*.adapter.in..");
 
   @ArchTest
+  static final ArchRule 출력_어댑터는_API_오류를_모른다 =
+      noClasses()
+          .that()
+          .resideInAPackage("app.wearly.*.adapter.out..")
+          .should()
+          .dependOnClassesThat()
+          .resideInAPackage("app.wearly.common.error..")
+          .because("저장·외부 호출 실패는 도메인·애플리케이션 예외로 던지고 서비스가 API 오류로 바꾼다 (L1)");
+
+  @ArchTest
   static final ArchRule 컨텍스트_사이에는_입력_포트로만_의존한다 =
       classes()
           .that()

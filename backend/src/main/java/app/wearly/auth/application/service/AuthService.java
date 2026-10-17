@@ -9,6 +9,7 @@ import app.wearly.auth.application.port.in.dto.SignupDto;
 import app.wearly.auth.application.port.out.AccessTokenIssuer;
 import app.wearly.auth.application.port.out.CredentialPort;
 import app.wearly.auth.application.port.out.PasswordHasher;
+import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
@@ -55,10 +56,8 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
     if (credentials.existsByEmail(email)) {
       throw new ApiException(ErrorCode.EMAIL_TAKEN);
     }
-    // 동시에 같은 이메일로 가입하면 자격 증명 저장에서 409 EMAIL_TAKEN (영속성 어댑터가 바꾼다)
     UserAccountDto user = users.create(email, req.name().strip(), UserAccountDto.ROLE_USER);
-    credentials.create(
-        new LocalCredential(null, user.id(), email, passwords.encode(req.password())));
+    saveCredential(new LocalCredential(null, user.id(), email, passwords.encode(req.password())));
     return issueTokens(user);
   }
 
@@ -116,8 +115,17 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
   @Transactional
   public long createAccount(String email, String rawPassword, String name, String role) {
     UserAccountDto user = users.create(email, name, role);
-    credentials.create(new LocalCredential(null, user.id(), email, passwords.encode(rawPassword)));
+    saveCredential(new LocalCredential(null, user.id(), email, passwords.encode(rawPassword)));
     return user.id();
+  }
+
+  /** 동시에 같은 이메일로 가입하면 고유 제약에 걸린다 → 409 EMAIL_TAKEN (트랜잭션은 롤백되어 회원도 남지 않는다) */
+  private void saveCredential(LocalCredential credential) {
+    try {
+      credentials.create(credential);
+    } catch (EmailTakenException e) {
+      throw new ApiException(ErrorCode.EMAIL_TAKEN);
+    }
   }
 
   @Override

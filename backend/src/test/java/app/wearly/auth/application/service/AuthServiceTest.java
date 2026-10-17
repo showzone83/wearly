@@ -10,6 +10,7 @@ import app.wearly.auth.application.port.out.AccessTokenIssuer;
 import app.wearly.auth.application.port.out.CredentialPort;
 import app.wearly.auth.application.port.out.PasswordHasher;
 import app.wearly.auth.application.port.out.RefreshTokenPort;
+import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
 import app.wearly.auth.domain.RefreshToken;
 import app.wearly.auth.domain.TokenPolicy;
@@ -41,6 +42,9 @@ class AuthServiceTest {
   final List<String> checkedHashes = new ArrayList<>();
   final List<Long> loginMarks = new ArrayList<>();
 
+  /** 확인과 저장 사이에 다른 요청이 같은 이메일로 먼저 가입한 상황 */
+  boolean concurrentSignup;
+
   final CredentialPort credentials =
       new CredentialPort() {
         @Override
@@ -60,6 +64,9 @@ class AuthServiceTest {
 
         @Override
         public void create(LocalCredential c) {
+          if (concurrentSignup) {
+            throw new EmailTakenException(c.email());
+          }
           long id = credentialRows.size() + 1L;
           credentialRows.put(id, new LocalCredential(id, c.userId(), c.email(), c.passwordHash()));
         }
@@ -164,6 +171,16 @@ class AuthServiceTest {
         .isInstanceOfSatisfying(
             ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.EMAIL_TAKEN));
     assertThat(users.rows).hasSize(1);
+  }
+
+  @Test
+  void 동시_가입으로_저장이_막히면_EMAIL_TAKEN() {
+    concurrentSignup = true;
+
+    assertThatThrownBy(() -> service.signup(new SignupDto("race@wearly.test", "pass1234", "경쟁")))
+        .isInstanceOfSatisfying(
+            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.EMAIL_TAKEN));
+    assertThat(tokenRows).isEmpty();
   }
 
   @Test
