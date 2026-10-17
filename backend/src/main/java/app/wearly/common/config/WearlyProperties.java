@@ -24,11 +24,53 @@ public record WearlyProperties(
     Admin admin,
     // WEARLY_SECRET_KEY: 웹 입력 AI 키를 암호화하는 마스터 키 (base64 32바이트).
     // 없으면 웹 키 기능이 꺼진다 (07 문서 6장)
-    String secretKey) {
+    String secretKey,
+    // 날씨 정보 (17 문서 5장). 운영값(주기·예보 일수·공급자 사용 여부)은 DB와 관리자 화면에 있다
+    @Valid Weather weather) {
 
   @Override
   public Admin admin() {
     return admin == null ? new Admin(null, null, null) : admin;
+  }
+
+  @Override
+  public Weather weather() {
+    return weather == null ? new Weather(null, null, 0, true, null, null) : weather;
+  }
+
+  /** 날씨 공급자 고정값과 키. 키 값은 config/application-local.yml(git 제외)에 둔다 */
+  public record Weather(
+      // db(기본): 관리자 공급자 설정(tb_weather_provider)대로 부른다. mock: 공급자 대신 목업 날씨
+      String provider,
+      Duration timeout,
+      // 실행·호출 이력 보관 일수 (매일 04:00에 지난 이력을 지운다)
+      @Min(0) int logRetentionDays,
+      // false면 주기 실행·시작 실행·이력 정리를 하지 않는다 (테스트용). 관리자 "지금 실행"은 그대로 된다
+      boolean schedulerEnabled,
+      // 공급자 코드(WEATHERAPI) → API 주소
+      Map<String, String> baseUrls,
+      // 공급자 행의 키 이름(key_name) → 키 값. 없으면 같은 이름의 OS 환경변수를 본다
+      Map<String, String> keys) {
+
+    @Override
+    public Duration timeout() {
+      return timeout == null ? Duration.ofSeconds(10) : timeout;
+    }
+
+    @Override
+    public int logRetentionDays() {
+      return logRetentionDays <= 0 ? 90 : logRetentionDays;
+    }
+
+    @Override
+    public Map<String, String> baseUrls() {
+      return baseUrls == null ? Map.of() : baseUrls;
+    }
+
+    @Override
+    public Map<String, String> keys() {
+      return keys == null ? Map.of() : keys;
+    }
   }
 
   public record Jwt(

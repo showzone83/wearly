@@ -20,6 +20,13 @@ wearly:
       # OPENAI_API_KEY: ""
       # GEMINI_API_KEY: ""
 
+  weather:
+    # 날씨 공급자 키 (doc/17_날씨.md). 이름은 관리자 사이트 '날씨 > 공급자'의 '서버 설정 키'(tb_weather_provider.key_name)와 같아야 한다.
+    # https://www.weatherapi.com/ 에 가입하면 대시보드에서 키를 받는다. 비워 두면 그 공급자는 건너뛴다(키 없음).
+    # 키 없이 화면만 보려면 WEARLY_WEATHER_PROVIDER=mock 으로 띄운다
+    keys:
+      WEATHERAPI_KEY: ""
+
   # 관리자 사이트에서 웹으로 넣은 AI 키를 AES-256-GCM으로 암호화하는 마스터 키 (base64로 인코딩한 32바이트).
   # 만들기: openssl rand -base64 32. 비워 두면 웹 키 입력이 꺼진다 (저장 API 409 SECRET_KEY_MISSING, 서버 설정 키는 그대로 씀).
   # 이 값을 바꾸거나 잃어버리면 이미 넣은 웹 키는 복호화되지 않는다 → 관리자 화면에서 다시 넣어야 한다.

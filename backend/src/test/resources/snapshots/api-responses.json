@@ -331,7 +331,7 @@
   "codes" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#107",
+      "version" : "<version>#124",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -1451,12 +1451,186 @@
           "active" : true,
           "attrs" : { }
         } ]
+      }, {
+        "group" : "REGION",
+        "name" : "날씨 지역",
+        "codes" : [ {
+          "code" : "SEOUL",
+          "label" : "서울",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.5665,
+            "lon" : 126.978
+          }
+        }, {
+          "code" : "BUSAN",
+          "label" : "부산",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.1796,
+            "lon" : 129.0756
+          }
+        }, {
+          "code" : "DAEGU",
+          "label" : "대구",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.8714,
+            "lon" : 128.6014
+          }
+        }, {
+          "code" : "INCHEON",
+          "label" : "인천",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.4563,
+            "lon" : 126.7052
+          }
+        }, {
+          "code" : "GWANGJU",
+          "label" : "광주",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.1595,
+            "lon" : 126.8526
+          }
+        }, {
+          "code" : "DAEJEON",
+          "label" : "대전",
+          "parent" : null,
+          "sortOrder" : 60,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.3504,
+            "lon" : 127.3845
+          }
+        }, {
+          "code" : "ULSAN",
+          "label" : "울산",
+          "parent" : null,
+          "sortOrder" : 70,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.5384,
+            "lon" : 129.3114
+          }
+        }, {
+          "code" : "SEJONG",
+          "label" : "세종",
+          "parent" : null,
+          "sortOrder" : 80,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.48,
+            "lon" : 127.289
+          }
+        }, {
+          "code" : "GYEONGGI",
+          "label" : "경기",
+          "parent" : null,
+          "sortOrder" : 90,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.2636,
+            "lon" : 127.0286
+          }
+        }, {
+          "code" : "GANGWON",
+          "label" : "강원",
+          "parent" : null,
+          "sortOrder" : 100,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.8813,
+            "lon" : 127.7298
+          }
+        }, {
+          "code" : "CHUNGBUK",
+          "label" : "충북",
+          "parent" : null,
+          "sortOrder" : 110,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.6424,
+            "lon" : 127.489
+          }
+        }, {
+          "code" : "CHUNGNAM",
+          "label" : "충남",
+          "parent" : null,
+          "sortOrder" : 120,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.6588,
+            "lon" : 126.6728
+          }
+        }, {
+          "code" : "JEONBUK",
+          "label" : "전북",
+          "parent" : null,
+          "sortOrder" : 130,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.8242,
+            "lon" : 127.148
+          }
+        }, {
+          "code" : "JEONNAM",
+          "label" : "전남",
+          "parent" : null,
+          "sortOrder" : 140,
+          "active" : true,
+          "attrs" : {
+            "lat" : 34.8161,
+            "lon" : 126.4629
+          }
+        }, {
+          "code" : "GYEONGBUK",
+          "label" : "경북",
+          "parent" : null,
+          "sortOrder" : 150,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.576,
+            "lon" : 128.5056
+          }
+        }, {
+          "code" : "GYEONGNAM",
+          "label" : "경남",
+          "parent" : null,
+          "sortOrder" : 160,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.228,
+            "lon" : 128.6811
+          }
+        }, {
+          "code" : "JEJU",
+          "label" : "제주",
+          "parent" : null,
+          "sortOrder" : 170,
+          "active" : true,
+          "attrs" : {
+            "lat" : 33.4996,
+            "lon" : 126.5312
+          }
+        } ]
       } ]
     }
   },
   "codes.notModified" : {
     "status" : 304,
-    "etag" : "<version>#107",
+    "etag" : "<version>#124",
     "cacheControl" : "no-cache"
   },
   "wardrobe.create" : {
@@ -2950,7 +3124,7 @@
   "admin.codes" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#107",
+      "version" : "<version>#124",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -4185,6 +4359,198 @@
           "attrs" : { },
           "usageCount" : 0
         } ]
+      }, {
+        "group" : "REGION",
+        "name" : "날씨 지역",
+        "description" : "날씨를 받아 두는 지역. attrs.lat(위도 -90~90), lon(경도 -180~180). 활성 지역만 주기적으로 받는다",
+        "codes" : [ {
+          "code" : "SEOUL",
+          "label" : "서울",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.5665,
+            "lon" : 126.978
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "BUSAN",
+          "label" : "부산",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.1796,
+            "lon" : 129.0756
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "DAEGU",
+          "label" : "대구",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.8714,
+            "lon" : 128.6014
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "INCHEON",
+          "label" : "인천",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.4563,
+            "lon" : 126.7052
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "GWANGJU",
+          "label" : "광주",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.1595,
+            "lon" : 126.8526
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "DAEJEON",
+          "label" : "대전",
+          "parent" : null,
+          "sortOrder" : 60,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.3504,
+            "lon" : 127.3845
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "ULSAN",
+          "label" : "울산",
+          "parent" : null,
+          "sortOrder" : 70,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.5384,
+            "lon" : 129.3114
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "SEJONG",
+          "label" : "세종",
+          "parent" : null,
+          "sortOrder" : 80,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.48,
+            "lon" : 127.289
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "GYEONGGI",
+          "label" : "경기",
+          "parent" : null,
+          "sortOrder" : 90,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.2636,
+            "lon" : 127.0286
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "GANGWON",
+          "label" : "강원",
+          "parent" : null,
+          "sortOrder" : 100,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.8813,
+            "lon" : 127.7298
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "CHUNGBUK",
+          "label" : "충북",
+          "parent" : null,
+          "sortOrder" : 110,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.6424,
+            "lon" : 127.489
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "CHUNGNAM",
+          "label" : "충남",
+          "parent" : null,
+          "sortOrder" : 120,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.6588,
+            "lon" : 126.6728
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "JEONBUK",
+          "label" : "전북",
+          "parent" : null,
+          "sortOrder" : 130,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.8242,
+            "lon" : 127.148
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "JEONNAM",
+          "label" : "전남",
+          "parent" : null,
+          "sortOrder" : 140,
+          "active" : true,
+          "attrs" : {
+            "lat" : 34.8161,
+            "lon" : 126.4629
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "GYEONGBUK",
+          "label" : "경북",
+          "parent" : null,
+          "sortOrder" : 150,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.576,
+            "lon" : 128.5056
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "GYEONGNAM",
+          "label" : "경남",
+          "parent" : null,
+          "sortOrder" : 160,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.228,
+            "lon" : 128.6811
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "JEJU",
+          "label" : "제주",
+          "parent" : null,
+          "sortOrder" : 170,
+          "active" : true,
+          "attrs" : {
+            "lat" : 33.4996,
+            "lon" : 126.5312
+          },
+          "usageCount" : 0
+        } ]
       } ]
     }
   },
@@ -4364,7 +4730,7 @@
   "admin.codes.reorder" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#109",
+      "version" : "<version>#126",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -5624,6 +5990,198 @@
           "attrs" : { },
           "usageCount" : 0
         } ]
+      }, {
+        "group" : "REGION",
+        "name" : "날씨 지역",
+        "description" : "날씨를 받아 두는 지역. attrs.lat(위도 -90~90), lon(경도 -180~180). 활성 지역만 주기적으로 받는다",
+        "codes" : [ {
+          "code" : "SEOUL",
+          "label" : "서울",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.5665,
+            "lon" : 126.978
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "BUSAN",
+          "label" : "부산",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.1796,
+            "lon" : 129.0756
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "DAEGU",
+          "label" : "대구",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.8714,
+            "lon" : 128.6014
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "INCHEON",
+          "label" : "인천",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.4563,
+            "lon" : 126.7052
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "GWANGJU",
+          "label" : "광주",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.1595,
+            "lon" : 126.8526
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "DAEJEON",
+          "label" : "대전",
+          "parent" : null,
+          "sortOrder" : 60,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.3504,
+            "lon" : 127.3845
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "ULSAN",
+          "label" : "울산",
+          "parent" : null,
+          "sortOrder" : 70,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.5384,
+            "lon" : 129.3114
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "SEJONG",
+          "label" : "세종",
+          "parent" : null,
+          "sortOrder" : 80,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.48,
+            "lon" : 127.289
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "GYEONGGI",
+          "label" : "경기",
+          "parent" : null,
+          "sortOrder" : 90,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.2636,
+            "lon" : 127.0286
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "GANGWON",
+          "label" : "강원",
+          "parent" : null,
+          "sortOrder" : 100,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.8813,
+            "lon" : 127.7298
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "CHUNGBUK",
+          "label" : "충북",
+          "parent" : null,
+          "sortOrder" : 110,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.6424,
+            "lon" : 127.489
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "CHUNGNAM",
+          "label" : "충남",
+          "parent" : null,
+          "sortOrder" : 120,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.6588,
+            "lon" : 126.6728
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "JEONBUK",
+          "label" : "전북",
+          "parent" : null,
+          "sortOrder" : 130,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.8242,
+            "lon" : 127.148
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "JEONNAM",
+          "label" : "전남",
+          "parent" : null,
+          "sortOrder" : 140,
+          "active" : true,
+          "attrs" : {
+            "lat" : 34.8161,
+            "lon" : 126.4629
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "GYEONGBUK",
+          "label" : "경북",
+          "parent" : null,
+          "sortOrder" : 150,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.576,
+            "lon" : 128.5056
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "GYEONGNAM",
+          "label" : "경남",
+          "parent" : null,
+          "sortOrder" : 160,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.228,
+            "lon" : 128.6811
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "JEJU",
+          "label" : "제주",
+          "parent" : null,
+          "sortOrder" : 170,
+          "active" : true,
+          "attrs" : {
+            "lat" : 33.4996,
+            "lon" : 126.5312
+          },
+          "usageCount" : 0
+        } ]
       } ]
     }
   },
@@ -5673,7 +6231,7 @@
   "codes.afterAdmin" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#108",
+      "version" : "<version>#125",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -6804,6 +7362,180 @@
           "active" : true,
           "attrs" : { }
         } ]
+      }, {
+        "group" : "REGION",
+        "name" : "날씨 지역",
+        "codes" : [ {
+          "code" : "SEOUL",
+          "label" : "서울",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.5665,
+            "lon" : 126.978
+          }
+        }, {
+          "code" : "BUSAN",
+          "label" : "부산",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.1796,
+            "lon" : 129.0756
+          }
+        }, {
+          "code" : "DAEGU",
+          "label" : "대구",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.8714,
+            "lon" : 128.6014
+          }
+        }, {
+          "code" : "INCHEON",
+          "label" : "인천",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.4563,
+            "lon" : 126.7052
+          }
+        }, {
+          "code" : "GWANGJU",
+          "label" : "광주",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.1595,
+            "lon" : 126.8526
+          }
+        }, {
+          "code" : "DAEJEON",
+          "label" : "대전",
+          "parent" : null,
+          "sortOrder" : 60,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.3504,
+            "lon" : 127.3845
+          }
+        }, {
+          "code" : "ULSAN",
+          "label" : "울산",
+          "parent" : null,
+          "sortOrder" : 70,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.5384,
+            "lon" : 129.3114
+          }
+        }, {
+          "code" : "SEJONG",
+          "label" : "세종",
+          "parent" : null,
+          "sortOrder" : 80,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.48,
+            "lon" : 127.289
+          }
+        }, {
+          "code" : "GYEONGGI",
+          "label" : "경기",
+          "parent" : null,
+          "sortOrder" : 90,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.2636,
+            "lon" : 127.0286
+          }
+        }, {
+          "code" : "GANGWON",
+          "label" : "강원",
+          "parent" : null,
+          "sortOrder" : 100,
+          "active" : true,
+          "attrs" : {
+            "lat" : 37.8813,
+            "lon" : 127.7298
+          }
+        }, {
+          "code" : "CHUNGBUK",
+          "label" : "충북",
+          "parent" : null,
+          "sortOrder" : 110,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.6424,
+            "lon" : 127.489
+          }
+        }, {
+          "code" : "CHUNGNAM",
+          "label" : "충남",
+          "parent" : null,
+          "sortOrder" : 120,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.6588,
+            "lon" : 126.6728
+          }
+        }, {
+          "code" : "JEONBUK",
+          "label" : "전북",
+          "parent" : null,
+          "sortOrder" : 130,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.8242,
+            "lon" : 127.148
+          }
+        }, {
+          "code" : "JEONNAM",
+          "label" : "전남",
+          "parent" : null,
+          "sortOrder" : 140,
+          "active" : true,
+          "attrs" : {
+            "lat" : 34.8161,
+            "lon" : 126.4629
+          }
+        }, {
+          "code" : "GYEONGBUK",
+          "label" : "경북",
+          "parent" : null,
+          "sortOrder" : 150,
+          "active" : true,
+          "attrs" : {
+            "lat" : 36.576,
+            "lon" : 128.5056
+          }
+        }, {
+          "code" : "GYEONGNAM",
+          "label" : "경남",
+          "parent" : null,
+          "sortOrder" : 160,
+          "active" : true,
+          "attrs" : {
+            "lat" : 35.228,
+            "lon" : 128.6811
+          }
+        }, {
+          "code" : "JEJU",
+          "label" : "제주",
+          "parent" : null,
+          "sortOrder" : 170,
+          "active" : true,
+          "attrs" : {
+            "lat" : 33.4996,
+            "lon" : 126.5312
+          }
+        } ]
       } ]
     }
   },
@@ -7085,8 +7817,8 @@
       "enabled" : true,
       "priority" : 8,
       "options" : {
-        "detail" : "low",
-        "baseUrl" : "<fake>/v1"
+        "baseUrl" : "<fake>/v1",
+        "detail" : "low"
       },
       "usable" : true,
       "today" : {
@@ -8606,7 +9338,7 @@
       "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "targetType",
-        "message" : "CODE, AI_PROVIDER, USER, APP_SETTING, SESSION 중 하나여야 해요."
+        "message" : "CODE, AI_PROVIDER, USER, APP_SETTING, SESSION, WEATHER_SETTING, WEATHER_PROVIDER, WEATHER_REFRESH 중 하나여야 해요."
       } ]
     }
   },

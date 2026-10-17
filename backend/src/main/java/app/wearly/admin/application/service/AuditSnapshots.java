@@ -2,6 +2,8 @@ package app.wearly.admin.application.service;
 
 import app.wearly.admin.application.port.in.dto.AdminCodesDto.AdminCodeDto;
 import app.wearly.admin.application.port.in.dto.AdminProviderDto;
+import app.wearly.weather.application.port.in.dto.WeatherProviderDto;
+import app.wearly.weather.application.port.in.dto.WeatherSettingDto;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -42,6 +44,30 @@ final class AuditSnapshots {
     Map<String, Object> m = new LinkedHashMap<>();
     m.put("keySource", keySource);
     m.put("keyLast4", keyLast4);
+    return m;
+  }
+
+  /** 날씨 스케줄 설정 (17 문서 6장, 관리자 API 응답의 setting과 같은 필드) */
+  static Map<String, Object> weatherSetting(WeatherSettingDto s) {
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("enabled", s.enabled());
+    m.put("intervalMinutes", s.intervalMinutes());
+    m.put("forecastDays", s.forecastDays());
+    m.put("failureThreshold", s.failureThreshold());
+    m.put("cooldownMinutes", s.cooldownMinutes());
+    return m;
+  }
+
+  /** 날씨 공급자: 관리자가 바꾸는 설정과 상태 (사용량·시각은 남기지 않는다) */
+  static Map<String, Object> weatherProvider(WeatherProviderDto p) {
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("code", p.code());
+    m.put("enabled", p.enabled());
+    m.put("priority", p.priority());
+    m.put("monthlyQuota", p.monthlyQuota());
+    m.put("maxForecastDays", p.maxForecastDays());
+    m.put("status", p.status());
+    m.put("consecutiveFailures", p.consecutiveFailures());
     return m;
   }
 

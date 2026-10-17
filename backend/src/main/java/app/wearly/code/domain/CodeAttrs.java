@@ -38,6 +38,7 @@ public final class CodeAttrs {
           case CodeGroups.SUB_TYPE -> Set.of("volume", "warmth", "shape");
           case CodeGroups.COLOR -> Set.of("hex", "neutral", "light", "pairs");
           case CodeGroups.ITEM_STATUS -> Set.of("recommendable");
+          case CodeGroups.REGION -> Set.of("lat", "lon");
           default -> Set.of();
         };
     for (String key : in.keySet()) {
@@ -82,6 +83,10 @@ public final class CodeAttrs {
         out.put("pairs", pairs(in.get("pairs"), self, codes, errors));
       }
       case CodeGroups.ITEM_STATUS -> out.put("recommendable", bool(in, "recommendable", errors));
+      case CodeGroups.REGION -> {
+        out.put("lat", number(in, "lat", -90, 90, errors));
+        out.put("lon", number(in, "lon", -180, 180, errors));
+      }
       default -> {
         // PATTERN·SEASON·STYLE: attrs 없음
       }
@@ -137,6 +142,18 @@ public final class CodeAttrs {
       return v;
     }
     return ((Number) v).intValue();
+  }
+
+  private static Object number(
+      Map<String, Object> in, String key, double min, double max, List<FieldError> errors) {
+    Object v = in.get(key);
+    if (!(v instanceof Number n)
+        || Double.isNaN(n.doubleValue())
+        || n.doubleValue() < min
+        || n.doubleValue() > max) {
+      errors.add(new FieldError("attrs." + key, (int) min + "~" + (int) max + " 숫자여야 해요."));
+    }
+    return v;
   }
 
   private static Object bool(Map<String, Object> in, String key, List<FieldError> errors) {

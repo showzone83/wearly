@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 날씨 실행·호출 이력 조회 (17 문서 6장). 최신순. 날짜 경계는 서비스에서 계산해 넘긴다 -->
+<mapper namespace="app.wearly.weather.adapter.out.persistence.mybatis.mapper.WeatherLogMapper">
+
+    <sql id="runWhere">
+        <where>
+            <if test="f.runId != null">r.run_id = #{f.runId}</if>
+            <if test="f.trigger != null">AND r.trigger_type = #{f.trigger}</if>
+            <if test="f.status != null">AND r.status = #{f.status}</if>
+        </where>
+    </sql>
+
+    <select id="findRuns" resultType="app.wearly.weather.application.port.out.dto.RunRowDto">
+        SELECT r.run_id, r.trigger_type, r.requested_by, u.email AS requested_by_email, r.region_code, r.status,
+               r.skip_reason, r.success_count, r.fail_count, r.fallback_count, r.started_at, r.finished_at
+          FROM tb_weather_refresh_run r
+          LEFT JOIN tb_user u ON u.user_id = r.requested_by
+        <include refid="runWhere"/>
+         ORDER BY r.started_at DESC, r.run_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countRuns" resultType="long">
+        SELECT count(*) FROM tb_weather_refresh_run r
+        <include refid="runWhere"/>
+    </select>
+
+    <sql id="callWhere">
+        <where>
+            <if test="f.runId != null">c.run_id = #{f.runId}</if>
+            <if test="f.providerCode != null">AND c.provider_code = #{f.providerCode}</if>
+            <if test="f.regionCode != null">AND c.region_code = #{f.regionCode}</if>
+            <if test="f.success != null">AND c.success = #{f.success}</if>
+            <if test="f.fallback != null">AND c.fallback = #{f.fallback}</if>
+            <if test="f.errorCode != null">AND c.error_code = #{f.errorCode}</if>
+            <if test="f.from != null">AND c.called_at &gt;= #{f.from}</if>
+            <if test="f.to != null">AND c.called_at &lt; #{f.to}</if>
+        </where>
+    </sql>
+
+    <select id="findCalls" resultType="app.wearly.weather.application.port.out.dto.CallRowDto">
+        SELECT c.call_id, c.run_id, r.trigger_type, c.region_code, c.provider_code, c.call_kind, c.fallback,
+               c.http_status, c.success, c.error_code, c.error_message, c.duration_ms, c.response_bytes, c.called_at
+          FROM tb_weather_call_log c
+          JOIN tb_weather_refresh_run r ON r.run_id = c.run_id
+        <include refid="callWhere"/>
+         ORDER BY c.called_at DESC, c.call_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countCalls" resultType="long">
+        SELECT count(*) FROM tb_weather_call_log c
+        <include refid="callWhere"/>
+    </select>
+
+    <!-- 월 한도 계산: 실패한 호출도 공급자 쪽 사용량에 들어가므로 센다 -->
+    <select id="usage" resultType="app.wearly.weather.application.port.out.dto.ProviderUsageRowDto">
+        SELECT provider_code, count(*) AS calls
+          FROM tb_weather_call_log
+         WHERE called_at &gt;= #{from} AND called_at &lt; #{to}
+         GROUP BY provider_code
+         ORDER BY provider_code
+    </select>
+
+    <select id="summary" resultType="app.wearly.weather.application.port.out.dto.CallSummaryRowDto">
+        SELECT count(*) AS calls,
+               count(*) FILTER (WHERE NOT success) AS failures,
+               count(*) FILTER (WHERE fallback) AS fallbacks,
+               avg(duration_ms)::DOUBLE PRECISION AS avg_duration_ms
+          FROM tb_weather_call_log
+         WHERE called_at &gt;= #{from} AND called_at &lt; #{to}
+    </select>
+</mapper>
