@@ -26,7 +26,8 @@ import java.util.regex.Pattern;
 @AnalyzeClasses(packages = "app.wearly", importOptions = ImportOption.DoNotIncludeTests.class)
 class HexagonalArchitectureTest {
 
-  static final List<String> CONTEXTS = List.of("auth", "user", "wardrobe", "code", "ai", "admin");
+  static final List<String> CONTEXTS =
+      List.of("auth", "user", "wardrobe", "code", "ai", "admin", "outfit");
   static final Pattern CONTEXT_CLASS =
       Pattern.compile("^app\\.wearly\\.(" + String.join("|", CONTEXTS) + ")\\.(.*)$");
 

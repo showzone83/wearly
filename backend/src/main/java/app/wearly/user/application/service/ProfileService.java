@@ -7,6 +7,7 @@ import app.wearly.common.domain.code.CodeGroups;
 import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
 import app.wearly.user.application.port.in.ProfileData;
+import app.wearly.user.application.port.in.ProfileTaste;
 import app.wearly.user.application.port.in.ProfileUseCase;
 import app.wearly.user.application.port.out.ProfilePort;
 import app.wearly.user.application.port.out.UserPort;
@@ -37,6 +38,14 @@ public class ProfileService implements ProfileUseCase {
     User user = users.findById(userId).orElseThrow(ApiException::notFound);
     return new ProfileData(
         user.name(), profiles.findByUserId(userId).orElseGet(UserProfile::defaults));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public ProfileTaste taste(long userId) {
+    UserProfile p = get(userId).profile();
+    return new ProfileTaste(
+        p.dressCodes().stream().map(Enum::name).toList(), p.moods(), p.colors());
   }
 
   @Override

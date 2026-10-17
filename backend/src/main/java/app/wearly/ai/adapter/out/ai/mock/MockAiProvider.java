@@ -2,6 +2,8 @@ package app.wearly.ai.adapter.out.ai.mock;
 
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.domain.AiImage;
+import app.wearly.ai.domain.AiJsonPrompt;
+import app.wearly.ai.domain.AiJsonResult;
 import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiProviderRules;
 import app.wearly.ai.domain.AiResult;
@@ -58,6 +60,15 @@ public class MockAiProvider implements AiModelPort {
             formality,
             Math.round(confidence * 100) / 100.0);
     return new AiResult(suggestion, null, null, null);
+  }
+
+  /** 호출한 쪽이 만든 결정적 응답(mockOutput)을 그대로 돌려준다 (규칙에 맞는 후보는 호출한 쪽이 만든다) */
+  @Override
+  public AiJsonResult generateJson(AiJsonPrompt prompt) {
+    if (prompt.mockOutput() == null) {
+      throw new AiProviderException("NO_MOCK_OUTPUT", "목업 응답이 없는 요청이에요.");
+    }
+    return new AiJsonResult(prompt.mockOutput(), null, null, null);
   }
 
   private static CodeEntry pick(List<CodeEntry> values, byte b) {

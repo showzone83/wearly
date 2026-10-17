@@ -39,6 +39,8 @@ public record WearlyProperties(
       // 공급자·모델·키 환경변수 이름은 tb_ai_provider에 있다
       String provider,
       @Min(0) int dailyLimit,
+      // WEARLY_AI_OUTFIT_DAILY_LIMIT: 회원별 하루 AI 코디 추천 횟수 (사진 분석과 따로, 성공만 센다)
+      @Min(0) int outfitDailyLimit,
       /* 공급자 호출 제한 시간 기본값 (공급자 options.timeoutSeconds가 있으면 그 값) */
       @NotNull Duration timeout,
       /* true일 때만 공급자 options.baseUrl을 쓴다 (테스트·프록시용). 기본 false: 키를 다른 주소로 보내지 않게 */

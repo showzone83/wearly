@@ -183,7 +183,11 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   /** 오늘(한국 시간) 성공한 사진 분석 수 (관리자 시험 분석 제외) */
   public long usedToday(long userId) {
     LocalDate today = Zones.today(clock);
-    return usage.countSuccess(userId, Zones.startOf(today), Zones.startOf(today.plusDays(1)));
+    return usage.countSuccess(
+        userId,
+        AiCallRecord.FEATURE_ITEM_ANALYZE,
+        Zones.startOf(today),
+        Zones.startOf(today.plusDays(1)));
   }
 
   /** 검사 순서: 파트 없음·빈 파일 → 10MB 초과 → 읽기 실패 → 형식 */

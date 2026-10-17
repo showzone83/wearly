@@ -1,6 +1,8 @@
 package app.wearly.ai.application.port.out;
 
 import app.wearly.ai.domain.AiImage;
+import app.wearly.ai.domain.AiJsonPrompt;
+import app.wearly.ai.domain.AiJsonResult;
 import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiResult;
 import app.wearly.common.domain.code.CodeSnapshot;
@@ -23,4 +25,11 @@ public interface AiModelPort {
    * @throws AiProviderException 공급자 오류, 시간 초과, 거절, 허용 목록 밖 응답
    */
   AiResult analyze(AiImage image, CodeSnapshot codes);
+
+  /**
+   * 이미지 없이 프롬프트와 JSON 스키마로 구조화 JSON을 만든다 (사진 분석과 같은 구조화 출력 방식). 내용 검증은 호출한 쪽이 한다.
+   *
+   * @throws AiProviderException 공급자 오류, 시간 초과, 거절, 잘림, JSON 객체가 아닌 응답
+   */
+  AiJsonResult generateJson(AiJsonPrompt prompt);
 }

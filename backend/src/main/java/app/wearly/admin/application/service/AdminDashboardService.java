@@ -17,6 +17,7 @@ import app.wearly.admin.application.port.out.AdminRows.AuditRow;
 import app.wearly.admin.application.port.out.AdminRows.Counts;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.admin.domain.SearchText;
+import app.wearly.ai.application.port.in.AiFeatures;
 import app.wearly.common.domain.Ids;
 import app.wearly.common.domain.Times;
 import app.wearly.common.domain.Zones;
@@ -38,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminDashboardService implements AdminDashboardUseCase {
 
   static final Set<String> STATUSES = Set.of("SUCCESS", "FAILED");
-  static final Set<String> FEATURES = Set.of("ITEM_ANALYZE", "ADMIN_TEST");
+  static final Set<String> FEATURES = Set.copyOf(AiFeatures.ALL);
 
   private final AdminQueryPort queries;
   private final Clock clock;
@@ -81,7 +82,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
     }
     String ft = SearchText.blankToNull(search.feature());
     if (ft != null && !FEATURES.contains(ft)) {
-      throw ApiException.validation("feature", "ITEM_ANALYZE 또는 ADMIN_TEST여야 해요.");
+      throw ApiException.validation("feature", String.join(", ", AiFeatures.ALL) + " 중 하나여야 해요.");
     }
     String email = SearchText.blankToNull(search.userEmail());
     AiLogFilter filter =
@@ -169,10 +170,13 @@ public class AdminDashboardService implements AdminDashboardUseCase {
         Times.iso(r.createdAt));
   }
 
-  /** 결과 요약: "네이비 울 니트 · TOP/KNIT · navy" */
+  /** 결과 요약: 사진 분석 "네이비 울 니트 · TOP/KNIT · navy", 코디 추천 "코디 후보 3개" */
   static String summary(Map<String, Object> result) {
     if (result == null) {
       return null;
+    }
+    if (result.get("candidates") instanceof List<?> candidates) {
+      return "코디 후보 " + candidates.size() + "개";
     }
     return Objects.toString(result.get("name"), "")
         + " · "

@@ -5,6 +5,8 @@ import app.wearly.ai.adapter.out.ai.Secrets;
 import app.wearly.ai.adapter.out.ai.SuggestionParser;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.domain.AiImage;
+import app.wearly.ai.domain.AiJsonPrompt;
+import app.wearly.ai.domain.AiJsonResult;
 import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiResult;
 import app.wearly.ai.domain.AiSuggestion;
@@ -78,7 +80,23 @@ public class OpenAiProvider implements AiModelPort {
 
   @Override
   public AiResult analyze(AiImage image, CodeSnapshot codes) {
-    String body = json.writeValueAsString(requestBody(image, codes));
+    return toResult(send(requestBody(image, codes)), codes);
+  }
+
+  /** 이미지 없는 구조화 JSON: instructions + user input_text, text.format = 호출한 쪽의 스키마 */
+  @Override
+  public AiJsonResult generateJson(AiJsonPrompt prompt) {
+    JsonNode root = send(jsonRequestBody(prompt));
+    JsonNode usage = root.path("usage");
+    return new AiJsonResult(
+        parser.parseObject(outputText(root)),
+        root.path("model").asString(model),
+        longOrNull(usage, "input_tokens"),
+        longOrNull(usage, "output_tokens"));
+  }
+
+  private JsonNode send(Map<String, Object> requestBody) {
+    String body = json.writeValueAsString(requestBody);
     HttpCall.Result res =
         HttpCall.postJson(
             client,
@@ -96,7 +114,33 @@ public class OpenAiProvider implements AiModelPort {
     if (root == null || !root.isObject()) {
       throw new AiProviderException("INVALID_RESPONSE", "OpenAI 응답이 JSON이 아니에요.");
     }
-    return toResult(root, codes);
+    return root;
+  }
+
+  Map<String, Object> jsonRequestBody(AiJsonPrompt prompt) {
+    Map<String, Object> message = new LinkedHashMap<>();
+    message.put("role", "user");
+    message.put("content", List.of(Map.of("type", "input_text", "text", prompt.prompt())));
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("model", model);
+    body.put("instructions", prompt.instructions());
+    body.put("input", List.of(message));
+    body.put("text", Map.of("format", format(prompt.schemaName(), prompt.schema())));
+    body.put("max_output_tokens", maxOutputTokens);
+    if (temperature != null) {
+      body.put("temperature", temperature);
+    }
+    body.put("store", false);
+    return body;
+  }
+
+  private static Map<String, Object> format(String name, Map<String, Object> schema) {
+    Map<String, Object> format = new LinkedHashMap<>();
+    format.put("type", "json_schema");
+    format.put("name", name);
+    format.put("schema", schema);
+    format.put("strict", true);
+    return format;
   }
 
   Map<String, Object> requestBody(AiImage image, CodeSnapshot codes) {
@@ -115,16 +159,10 @@ public class OpenAiProvider implements AiModelPort {
         "content",
         List.of(Map.of("type", "input_text", "text", AnalysisPrompt.prompt(codes)), imagePart));
 
-    Map<String, Object> format = new LinkedHashMap<>();
-    format.put("type", "json_schema");
-    format.put("name", SCHEMA_NAME);
-    format.put("schema", AnalysisPrompt.schema(codes));
-    format.put("strict", true);
-
     Map<String, Object> body = new LinkedHashMap<>();
     body.put("model", model);
     body.put("input", List.of(message));
-    body.put("text", Map.of("format", format));
+    body.put("text", Map.of("format", format(SCHEMA_NAME, AnalysisPrompt.schema(codes))));
     body.put("max_output_tokens", maxOutputTokens);
     if (temperature != null) {
       body.put("temperature", temperature);
@@ -135,6 +173,17 @@ public class OpenAiProvider implements AiModelPort {
   }
 
   AiResult toResult(JsonNode root, CodeSnapshot codes) {
+    AiSuggestion suggestion = parser.parse(outputText(root), codes);
+    JsonNode usage = root.path("usage");
+    return new AiResult(
+        suggestion,
+        root.path("model").asString(model),
+        longOrNull(usage, "input_tokens"),
+        longOrNull(usage, "output_tokens"));
+  }
+
+  /** 미완료·실패·거절을 걸러 내고 output_text를 이어 붙인다 */
+  private String outputText(JsonNode root) {
     String status = root.path("status").asString("");
     if ("incomplete".equals(status)) {
       String reason = root.path("incomplete_details").path("reason").asString("");
@@ -169,13 +218,7 @@ public class OpenAiProvider implements AiModelPort {
     if (text.isEmpty() || text.toString().isBlank()) {
       throw new AiProviderException("EMPTY_OUTPUT", "OpenAI 응답에 텍스트가 없어요.");
     }
-    AiSuggestion suggestion = parser.parse(text.toString(), codes);
-    JsonNode usage = root.path("usage");
-    return new AiResult(
-        suggestion,
-        root.path("model").asString(model),
-        longOrNull(usage, "input_tokens"),
-        longOrNull(usage, "output_tokens"));
+    return text.toString();
   }
 
   private JsonNode readJson(String body) {

@@ -6,22 +6,40 @@ import app.wearly.common.domain.code.CodeGroups;
 import app.wearly.common.domain.code.CodeSnapshot;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 공급자가 준 JSON을 검증해 AiSuggestion으로 바꾼다. 세 공급자가 같은 검증을 거친다. 활성 코드 밖 값, 종류·세부 종류 짝 불일치, 범위 밖 숫자는 모두
- * 거부한다.
+ * 거부한다. 이미지 없는 구조화 JSON 생성(parseObject)은 JSON 객체인지만 보고 내용 검증은 호출한 쪽에 맡긴다.
  */
 public final class SuggestionParser {
 
   static final int NAME_MAX = 40;
 
+  private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
+
   private final JsonMapper jsonMapper;
 
   public SuggestionParser(JsonMapper jsonMapper) {
     this.jsonMapper = jsonMapper;
+  }
+
+  /** 구조화 출력 텍스트를 JSON 객체(Map·List·값)로 읽는다. JSON 객체가 아니면 INVALID_OUTPUT */
+  public Map<String, Object> parseObject(String json) {
+    JsonNode root;
+    try {
+      root = jsonMapper.readTree(json);
+    } catch (JacksonException e) {
+      throw reject("JSON이 아니에요.");
+    }
+    if (root == null || !root.isObject()) {
+      throw reject("JSON 객체가 아니에요.");
+    }
+    return jsonMapper.convertValue(root, MAP);
   }
 
   public AiSuggestion parse(String json, CodeSnapshot codes) {

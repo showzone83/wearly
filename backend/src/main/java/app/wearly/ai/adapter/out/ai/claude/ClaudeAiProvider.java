@@ -4,6 +4,8 @@ import app.wearly.ai.adapter.out.ai.Secrets;
 import app.wearly.ai.adapter.out.ai.SuggestionParser;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.domain.AiImage;
+import app.wearly.ai.domain.AiJsonPrompt;
+import app.wearly.ai.domain.AiJsonResult;
 import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiResult;
 import app.wearly.ai.domain.AiSuggestion;
@@ -85,9 +87,23 @@ public class ClaudeAiProvider implements AiModelPort {
       throw new AiProviderException(
           "UNSUPPORTED_MEDIA", "Claude가 받지 않는 형식이에요: " + image.mediaType());
     }
-    Message message;
+    return toResult(send(buildParams(image, codes)), codes);
+  }
+
+  /** 이미지 없는 구조화 JSON: system + user 텍스트, output_config.format = 호출한 쪽의 스키마 */
+  @Override
+  public AiJsonResult generateJson(AiJsonPrompt prompt) {
+    Message message = send(buildJsonParams(prompt));
+    return new AiJsonResult(
+        parser.parseObject(outputText(message)),
+        message.model().asString(),
+        message.usage().inputTokens(),
+        message.usage().outputTokens());
+  }
+
+  private Message send(MessageCreateParams params) {
     try {
-      message = client.messages().create(buildParams(image, codes));
+      return client.messages().create(params);
     } catch (AnthropicServiceException e) {
       throw new AiProviderException(
           "API_" + e.statusCode(),
@@ -97,7 +113,22 @@ public class ClaudeAiProvider implements AiModelPort {
       throw new AiProviderException(
           reason, "Claude 호출 실패: " + Secrets.scrub(e.getMessage(), apiKey));
     }
-    return toResult(message, codes);
+  }
+
+  MessageCreateParams buildJsonParams(AiJsonPrompt prompt) {
+    return MessageCreateParams.builder()
+        .model(model)
+        .maxTokens(maxTokens)
+        .system(prompt.instructions())
+        .addUserMessage(prompt.prompt())
+        .outputConfig(
+            OutputConfig.builder()
+                .effort(effort)
+                .format(JsonOutputFormat.builder().schema(schema(prompt.schema())).build())
+                .build())
+        .putAdditionalHeader("anthropic-beta", FALLBACK_BETA)
+        .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
+        .build();
   }
 
   MessageCreateParams buildParams(AiImage image, CodeSnapshot codes) {
@@ -118,7 +149,8 @@ public class ClaudeAiProvider implements AiModelPort {
         .outputConfig(
             OutputConfig.builder()
                 .effort(effort)
-                .format(JsonOutputFormat.builder().schema(schema(codes)).build())
+                .format(
+                    JsonOutputFormat.builder().schema(schema(AnalysisPrompt.schema(codes))).build())
                 .build())
         .putAdditionalHeader("anthropic-beta", FALLBACK_BETA)
         .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
@@ -126,6 +158,16 @@ public class ClaudeAiProvider implements AiModelPort {
   }
 
   AiResult toResult(Message message, CodeSnapshot codes) {
+    AiSuggestion suggestion = parser.parse(outputText(message), codes);
+    return new AiResult(
+        suggestion,
+        message.model().asString(),
+        message.usage().inputTokens(),
+        message.usage().outputTokens());
+  }
+
+  /** 거절·잘림을 걸러 내고 text 블록을 이어 붙인다 */
+  private static String outputText(Message message) {
     StopReason stop = message.stopReason().orElse(null);
     if (StopReason.REFUSAL.equals(stop)) {
       throw new AiProviderException("REFUSAL", "Claude가 분석을 거절했어요.");
@@ -141,17 +183,12 @@ public class ClaudeAiProvider implements AiModelPort {
     if (text.isBlank()) {
       throw new AiProviderException("EMPTY_OUTPUT", "응답에 텍스트가 없어요.");
     }
-    AiSuggestion suggestion = parser.parse(text, codes);
-    return new AiResult(
-        suggestion,
-        message.model().asString(),
-        message.usage().inputTokens(),
-        message.usage().outputTokens());
+    return text;
   }
 
-  static JsonOutputFormat.Schema schema(CodeSnapshot codes) {
+  static JsonOutputFormat.Schema schema(Map<String, Object> jsonSchema) {
     JsonOutputFormat.Schema.Builder builder = JsonOutputFormat.Schema.builder();
-    for (Map.Entry<String, Object> e : AnalysisPrompt.schema(codes).entrySet()) {
+    for (Map.Entry<String, Object> e : jsonSchema.entrySet()) {
       builder.putAdditionalProperty(e.getKey(), JsonValue.from(e.getValue()));
     }
     return builder.build();

@@ -20,6 +20,7 @@ public enum ErrorCode {
   PROVIDER_EXISTS(409, "이미 있는 공급자 ID예요."),
   SECRET_KEY_MISSING(409, "서버에 WEARLY_SECRET_KEY가 없어 웹에서 API 키를 넣을 수 없어요."),
   API_KEY_INVALID(400, "API 키를 확인하지 못했어요."),
+  WARDROBE_INSUFFICIENT(400, "코디를 만들 옷이 모자라요."),
   IMAGE_TOO_LARGE(413, "사진은 10MB까지 올릴 수 있어요."),
   UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 형식이에요."),
   AI_LIMIT_EXCEEDED(429, "오늘 AI 분석 횟수를 모두 썼어요."),

@@ -19,6 +19,7 @@ import org.testcontainers.utility.DockerImageName;
     properties = {
       "wearly.ai.provider=mock",
       "wearly.ai.daily-limit=3",
+      "wearly.ai.outfit-daily-limit=3",
       "wearly.ai.allow-base-url=true",
       "spring.config.import=",
       "wearly.admin.email=" + IntegrationTestBase.ADMIN_EMAIL,

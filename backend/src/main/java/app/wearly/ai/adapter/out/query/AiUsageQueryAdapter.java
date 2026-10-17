@@ -15,7 +15,7 @@ class AiUsageQueryAdapter implements AiUsagePort {
   }
 
   @Override
-  public long countSuccess(long userId, Instant from, Instant to) {
-    return mapper.countSuccess(userId, from, to);
+  public long countSuccess(long userId, String feature, Instant from, Instant to) {
+    return mapper.countSuccess(userId, feature, from, to);
   }
 }
