@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
-/** CodePort 구현 (JPA). 엔티티 ↔ 도메인 모델 변환 */
+/** CodePort 구현 (JPA). 엔티티 ↔ 도메인 모델 변환. 쓰기는 모두 flush하고 돌아온다 (M5) */
 @Component
 class CodeJpaAdapter implements CodePort {
 
@@ -52,21 +52,17 @@ class CodeJpaAdapter implements CodePort {
 
   @Override
   public Code save(Code c) {
-    return toDomain(codes.save(apply(c)));
+    return toDomain(codes.saveAndFlush(apply(c)));
   }
 
   @Override
-  public void saveAllAndFlush(List<Code> list) {
+  public void saveAll(List<Code> list) {
     codes.saveAllAndFlush(list.stream().map(this::apply).toList());
   }
 
   @Override
   public void delete(Code c) {
     codes.findById(c.id()).ifPresent(codes::delete);
-  }
-
-  @Override
-  public void flush() {
     codes.flush();
   }
 

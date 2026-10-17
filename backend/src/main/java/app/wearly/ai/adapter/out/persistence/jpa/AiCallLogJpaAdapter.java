@@ -25,7 +25,7 @@ class AiCallLogJpaAdapter implements AiCallLogPort {
   public void save(AiCallRecord r) {
     Map<String, Object> result =
         r.result() == null ? null : jsonMapper.convertValue(r.result(), MAP);
-    logs.save(
+    logs.saveAndFlush(
         new AiAnalysisLogEntity(
             r.userId(),
             r.feature(),

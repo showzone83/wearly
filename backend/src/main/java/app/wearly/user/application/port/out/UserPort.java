@@ -8,7 +8,7 @@ public interface UserPort {
 
   Optional<User> findById(long userId);
 
-  /** 새 회원이면 만들고(id·createdAt 채움), 있으면 이름·상태·역할을 바꾼다. 바로 flush한다 */
+  /** 새 회원이면 만들고(id·createdAt 채움), 있으면 이름·상태·역할을 바꾼다 */
   User save(User user);
 
   void deleteById(long userId);

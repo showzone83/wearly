@@ -47,6 +47,7 @@ class WardrobeItemJpaAdapter implements ItemPort {
   @Override
   public void delete(WardrobeItem item) {
     items.findById(item.id()).ifPresent(items::delete);
+    items.flush();
   }
 
   static WardrobeItem toDomain(WardrobeItemEntity e) {

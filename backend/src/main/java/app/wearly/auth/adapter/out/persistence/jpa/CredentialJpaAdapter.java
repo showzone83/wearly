@@ -47,6 +47,7 @@ class CredentialJpaAdapter implements CredentialPort {
   @Override
   public void markLogin(long credentialId, Instant at) {
     credentials.findById(credentialId).ifPresent(c -> c.markLogin(at));
+    credentials.flush();
   }
 
   private static LocalCredential toDomain(LocalCredentialEntity e) {

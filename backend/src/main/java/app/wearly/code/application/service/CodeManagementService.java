@@ -85,7 +85,6 @@ public class CodeManagementService implements CodeManagementUseCase {
                 sortOrder,
                 req.active() == null || req.active(),
                 attrs));
-    codes.flush();
     if (CodeGroups.COLOR.equals(group)) {
       syncPairs(code, List.of(), CodeAttrs.pairsOf(attrs));
     }
@@ -124,7 +123,6 @@ public class CodeManagementService implements CodeManagementUseCase {
     List<String> oldPairs = CodeAttrs.pairsOf(entity.attrs());
     entity.update(label, parent, sortOrder, active, attrs);
     final Code saved = codes.save(entity);
-    codes.flush();
     if (CodeGroups.COLOR.equals(group)) {
       syncPairs(code, oldPairs, CodeAttrs.pairsOf(attrs));
     }
@@ -146,7 +144,7 @@ public class CodeManagementService implements CodeManagementUseCase {
     for (int i = 0; i < order.size(); i++) {
       byCode.get(order.get(i)).moveTo((i + 1) * 10);
     }
-    codes.saveAllAndFlush(all);
+    codes.saveAll(all);
     snapshots.refreshAfterCommit();
     return before;
   }
@@ -177,7 +175,6 @@ public class CodeManagementService implements CodeManagementUseCase {
       syncPairs(code, CodeAttrs.pairsOf(entity.attrs()), List.of());
     }
     codes.delete(entity);
-    codes.flush();
     snapshots.refreshAfterCommit();
     return before;
   }
@@ -203,7 +200,6 @@ public class CodeManagementService implements CodeManagementUseCase {
         codes.save(other);
       }
     }
-    codes.flush();
   }
 
   private CodeSnapshot requireGroup(String group) {

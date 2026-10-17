@@ -9,7 +9,7 @@ public interface ItemPort {
   /** 남의 아이템은 찾지 못한 것으로 본다 (404) */
   Optional<WardrobeItem> find(long userId, long itemId);
 
-  /** 새 아이템이면 넣고, 있으면 바꾼다. 바로 flush하고 저장된 모습(id·createdAt 포함)을 돌려준다 */
+  /** 새 아이템이면 넣고, 있으면 바꾼다. 저장된 모습(id·createdAt 포함)을 돌려준다 */
   WardrobeItem save(WardrobeItem item);
 
   void delete(WardrobeItem item);

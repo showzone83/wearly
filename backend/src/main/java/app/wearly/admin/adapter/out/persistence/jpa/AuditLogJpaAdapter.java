@@ -38,7 +38,7 @@ class AuditLogJpaAdapter implements RecordAuditPort {
       String targetId,
       Map<String, Object> before,
       Map<String, Object> after) {
-    logs.save(
+    logs.saveAndFlush(
         new AuditLogEntity(
             adminUserId, action, targetType, targetId, toJson(before), toJson(after)));
   }
