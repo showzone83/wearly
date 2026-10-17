@@ -161,7 +161,8 @@ class AuthIntegrationTest extends IntegrationTestBase {
     @Test
     void 없거나_빈_refresh_토큰은_REFRESH_INVALID() {
         api().post("/api/v1/auth/refresh", null, Map.of("refreshToken", "nope")).expectError(401, "REFRESH_INVALID");
-        api().post("/api/v1/auth/refresh", null, Map.of("refreshToken", "")).expectError(400, "VALIDATION_FAILED");
+        api().post("/api/v1/auth/refresh", null, Map.of("refreshToken", "")).expectError(401, "REFRESH_INVALID");
+        api().post("/api/v1/auth/refresh", null, Map.of()).expectError(401, "REFRESH_INVALID");
     }
 
     @Test

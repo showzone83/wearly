@@ -31,7 +31,8 @@ public final class AuthDtos {
             @NotBlank(message = "비밀번호를 입력해 주세요.") String password) {
     }
 
-    public record RefreshRequest(@NotBlank(message = "refreshToken이 필요해요.") String refreshToken) {
+    /** 토큰이 없거나 비어 있어도 400이 아니라 401 REFRESH_INVALID로 응답한다 (계약 4장 "Refresh 토큰 없음"). */
+    public record RefreshRequest(String refreshToken) {
     }
 
     /** 로그아웃은 토큰이 없거나 틀려도 204라서 검증하지 않는다. */

@@ -50,6 +50,9 @@ public class RefreshTokenService {
      */
     @Transactional(noRollbackFor = ApiException.class)
     public Issued rotate(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            throw new ApiException(ErrorCode.REFRESH_INVALID);
+        }
         Instant now = clock.instant();
         RefreshToken current = tokens.findByTokenHashForUpdate(hash(rawToken))
                 .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_INVALID));
