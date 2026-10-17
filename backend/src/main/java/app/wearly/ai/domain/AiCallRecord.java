@@ -30,23 +30,6 @@ public record AiCallRecord(
 
   static final int ERROR_CODE_MAX = 50;
 
-  public static AiCallRecord success(
-      long userId, String feature, String provider, AiResult result, int latencyMs, AiImage image) {
-    return new AiCallRecord(
-        userId,
-        feature,
-        provider,
-        result.model(),
-        SUCCESS,
-        latencyMs,
-        result.inputTokens(),
-        result.outputTokens(),
-        image.sha256(),
-        image.bytes().length,
-        result.suggestion(),
-        null);
-  }
-
   public static AiCallRecord failure(
       long userId,
       String feature,
@@ -68,29 +51,6 @@ public record AiCallRecord(
         image.bytes().length,
         null,
         cut(errorCode));
-  }
-
-  /** 이미지 없는 구조화 JSON 호출의 성공 기록. result는 기록용 JSON(Map·List·값) */
-  public static AiCallRecord jsonSuccess(
-      long userId,
-      String feature,
-      String provider,
-      AiJsonResult result,
-      int latencyMs,
-      Object logResult) {
-    return new AiCallRecord(
-        userId,
-        feature,
-        provider,
-        result.model(),
-        SUCCESS,
-        latencyMs,
-        result.inputTokens(),
-        result.outputTokens(),
-        null,
-        null,
-        logResult,
-        null);
   }
 
   /** 이미지 없는 구조화 JSON 호출의 실패 기록. 응답을 받았으면 토큰 수를 남긴다 */

@@ -2,16 +2,11 @@ package app.wearly.ai.application.service;
 
 import app.wearly.ai.application.port.in.JsonGenerationUseCase;
 import app.wearly.ai.application.port.in.JsonOutputHandler;
-import app.wearly.ai.application.port.in.RejectedOutputException;
 import app.wearly.ai.application.port.in.dto.GenerateJsonDto;
 import app.wearly.ai.application.port.in.dto.GeneratedJsonDto;
-import app.wearly.ai.application.port.out.AiCallLogPort;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.application.port.out.AiUsagePort;
-import app.wearly.ai.domain.AiCallRecord;
 import app.wearly.ai.domain.AiJsonPrompt;
-import app.wearly.ai.domain.AiJsonResult;
-import app.wearly.ai.domain.AiProviderException;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
@@ -33,14 +28,14 @@ public class AiJsonGenerationService implements JsonGenerationUseCase {
 
   private final AiProviderRegistry registry;
   private final AiUsagePort usage;
-  private final AiCallLogPort logs;
+  private final AiCallRunner runner;
   private final Clock clock;
 
   public AiJsonGenerationService(
-      AiProviderRegistry registry, AiUsagePort usage, AiCallLogPort logs, Clock clock) {
+      AiProviderRegistry registry, AiUsagePort usage, AiCallRunner runner, Clock clock) {
     this.registry = registry;
     this.usage = usage;
-    this.logs = logs;
+    this.runner = runner;
     this.clock = clock;
   }
 
@@ -58,56 +53,14 @@ public class AiJsonGenerationService implements JsonGenerationUseCase {
             command.prompt(),
             command.schema(),
             command.mockOutput() == null ? null : command::mockOutput);
-    for (AiModelPort provider : candidates) {
-      long started = System.nanoTime();
-      AiJsonResult received = null;
-      String errorCode;
-      try {
-        received = provider.generateJson(prompt);
-        JsonOutputHandler.Accepted<T> accepted = handler.accept(received.json());
-        logs.save(
-            AiCallRecord.jsonSuccess(
-                command.userId(),
-                command.feature(),
-                provider.name(),
-                received,
-                elapsedMs(started),
-                accepted.logResult()));
-        return new GeneratedJsonDto<>(accepted.value(), provider.name(), received.model());
-      } catch (AiProviderException e) {
-        log.warn(
-            "AI {} 실패 provider={} reason={} message={}",
-            command.feature(),
-            provider.name(),
-            e.reason(),
-            e.getMessage());
-        errorCode = e.reason();
-      } catch (RejectedOutputException e) {
-        log.warn(
-            "AI {} 응답 거부 provider={} message={}",
-            command.feature(),
-            provider.name(),
-            e.getMessage());
-        errorCode = RejectedOutputException.REASON;
-      } catch (RuntimeException e) {
-        log.error(
-            "AI {} 중 예상하지 못한 오류 provider={} type={}",
-            command.feature(),
-            provider.name(),
-            e.getClass().getName());
-        errorCode = "UNEXPECTED";
-      }
-      logs.save(
-          AiCallRecord.jsonFailure(
-              command.userId(),
-              command.feature(),
-              provider.name(),
-              provider.model(),
-              errorCode,
-              elapsedMs(started),
-              received));
-    }
-    throw new ApiException(ErrorCode.AI_UNAVAILABLE);
+    AiCallRunner.Attempt<T> ok =
+        runner
+            .first(
+                candidates,
+                new AiCallRunner.Call(command.userId(), command.feature(), prompt, null),
+                handler)
+            .orElseThrow(() -> new ApiException(ErrorCode.AI_UNAVAILABLE));
+    return new GeneratedJsonDto<>(ok.value(), ok.provider(), ok.model());
   }
 
   @Override
@@ -115,9 +68,5 @@ public class AiJsonGenerationService implements JsonGenerationUseCase {
     LocalDate today = Zones.today(clock);
     return usage.countSuccess(
         userId, feature, Zones.startOf(today), Zones.startOf(today.plusDays(1)));
-  }
-
-  private static int elapsedMs(long startedNanos) {
-    return (int) ((System.nanoTime() - startedNanos) / 1_000_000);
   }
 }
