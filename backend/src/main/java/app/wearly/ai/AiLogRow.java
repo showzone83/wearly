@@ -7,9 +7,11 @@ import java.util.Map;
 public class AiLogRow {
 
     private Long id;
+    private String feature;
     private String provider;
     private String model;
     private String status;
+    private String errorCode;
     private String imageSha256;
     private Map<String, Object> result;
     private Instant createdAt;
@@ -20,6 +22,22 @@ public class AiLogRow {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getFeature() {
+        return feature;
+    }
+
+    public void setFeature(String feature) {
+        this.feature = feature;
+    }
+
+    public String getErrorCode() {
+        return errorCode;
+    }
+
+    public void setErrorCode(String errorCode) {
+        this.errorCode = errorCode;
     }
 
     public String getProvider() {

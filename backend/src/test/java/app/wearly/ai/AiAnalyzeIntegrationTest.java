@@ -2,8 +2,7 @@ package app.wearly.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.wearly.domain.Category;
-import app.wearly.domain.SubType;
+import app.wearly.code.CodeCatalog;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
@@ -24,6 +23,9 @@ class AiAnalyzeIntegrationTest extends IntegrationTestBase {
     @Autowired
     JdbcTemplate jdbc;
 
+    @Autowired
+    CodeCatalog catalog;
+
     @Test
     void 같은_사진은_같은_결과이고_짝이_맞는_제안을_준다() {
         Session s = signup();
@@ -38,8 +40,8 @@ class AiAnalyzeIntegrationTest extends IntegrationTestBase {
         assertThat(b.body().get("remainingToday").asInt()).isEqualTo(1);
 
         var sug = a.body().get("suggestion");
-        SubType subType = SubType.valueOf(sug.get("subType").asString());
-        assertThat(subType.category()).isEqualTo(Category.valueOf(sug.get("category").asString()));
+        String subType = sug.get("subType").asString();
+        assertThat(catalog.current().belongsTo(subType, sug.get("category").asString())).isTrue();
         assertThat(sug.get("name").asString()).isNotBlank();
         assertThat(sug.get("formality").asInt()).isBetween(1, 3);
         assertThat(sug.get("confidence").asDouble()).isBetween(0.0, 1.0);
@@ -52,7 +54,8 @@ class AiAnalyzeIntegrationTest extends IntegrationTestBase {
             assertThat(row.getStatus()).isEqualTo("SUCCESS");
             assertThat(row.getProvider()).isEqualTo("mock");
             assertThat(row.getImageSha256()).isEqualTo(AiAnalysisService.sha256(photo));
-            assertThat(row.getResult()).containsEntry("subType", subType.name());
+            assertThat(row.getFeature()).isEqualTo("ITEM_ANALYZE");
+            assertThat(row.getResult()).containsEntry("subType", subType);
         });
     }
 

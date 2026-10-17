@@ -1,0 +1,85 @@
+package app.wearly.code;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+/**
+ * 코드 메모리 캐시 (06 문서 4장 "캐시"). 시작할 때 읽고, 관리자 API로 코드가 바뀌면 커밋 뒤에 다시 읽는다.
+ * 읽기는 잠금 없이 volatile 스냅샷을 돌려준다.
+ */
+@Component
+public class CodeCatalog {
+
+    private static final Logger log = LoggerFactory.getLogger(CodeCatalog.class);
+
+    private final CodeQueryMapper mapper;
+    private volatile CodeSnapshot snapshot;
+
+    public CodeCatalog(CodeQueryMapper mapper) {
+        this.mapper = mapper;
+    }
+
+    /** 현재 스냅샷. 아직 읽지 않았으면 지금 읽는다 */
+    public CodeSnapshot current() {
+        CodeSnapshot s = snapshot;
+        if (s == null) {
+            synchronized (this) {
+                if (snapshot == null) {
+                    snapshot = load();
+                }
+                s = snapshot;
+            }
+        }
+        return s;
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void warmUp() {
+        CodeSnapshot s = reload();
+        log.info("코드 캐시: {}개 그룹, {}개 코드 (version={})", s.groups().size(),
+                s.groups().stream().mapToInt(g -> g.codes().size()).sum(), s.version());
+    }
+
+    public synchronized CodeSnapshot reload() {
+        snapshot = load();
+        return snapshot;
+    }
+
+    /** 진행 중인 트랜잭션이 커밋되면 다시 읽는다 (트랜잭션 밖이면 바로) */
+    public void reloadAfterCommit() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    reload();
+                }
+            });
+        } else {
+            reload();
+        }
+    }
+
+    private CodeSnapshot load() {
+        Map<String, List<CodeEntry>> byGroup = new LinkedHashMap<>();
+        for (CodeRow r : mapper.findCodes()) {
+            Map<String, Object> attrs = r.getAttrs() == null ? Map.of() : Collections.unmodifiableMap(r.getAttrs());
+            byGroup.computeIfAbsent(r.getGroupCode(), k -> new ArrayList<>())
+                    .add(new CodeEntry(r.getCode(), r.getLabel(), r.getParentCode(), r.getSortOrder(), r.isActive(), attrs));
+        }
+        List<CodeGroupEntry> groups = mapper.findGroups().stream()
+                .map(g -> new CodeGroupEntry(g.getGroupCode(), g.getName(), g.getDescription(), g.getSortOrder(),
+                        List.copyOf(byGroup.getOrDefault(g.getGroupCode(), List.of()))))
+                .toList();
+        return new CodeSnapshot(mapper.version(), groups);
+    }
+}

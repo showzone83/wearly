@@ -2,10 +2,10 @@ package app.wearly.wardrobe;
 
 import app.wearly.common.Ids;
 import app.wearly.config.ClockConfig;
-import app.wearly.domain.Category;
-import app.wearly.domain.ColorKey;
-import app.wearly.domain.ItemStatus;
-import app.wearly.domain.StyleTag;
+import app.wearly.code.CodeCatalog;
+import app.wearly.code.CodeEntry;
+import app.wearly.code.CodeGroups;
+import app.wearly.code.CodeSnapshot;
 import app.wearly.wardrobe.WardrobeDtos.CountByColor;
 import app.wearly.wardrobe.WardrobeDtos.CountByStyle;
 import app.wearly.wardrobe.WardrobeDtos.WardrobeStats;
@@ -13,7 +13,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -29,10 +30,12 @@ public class WardrobeStatsService {
 
     private final WardrobeQueryMapper queries;
     private final Clock clock;
+    private final CodeCatalog catalog;
 
-    public WardrobeStatsService(WardrobeQueryMapper queries, Clock clock) {
+    public WardrobeStatsService(WardrobeQueryMapper queries, Clock clock, CodeCatalog catalog) {
         this.queries = queries;
         this.clock = clock;
+        this.catalog = catalog;
     }
 
     @Transactional(readOnly = true)
@@ -40,23 +43,15 @@ public class WardrobeStatsService {
         LocalDate today = LocalDate.now(clock.withZone(ClockConfig.SEOUL));
         long total = queries.countAll(userId);
 
-        Map<Category, Long> byCategory = new EnumMap<>(Category.class);
-        for (Category c : Category.values()) {
-            byCategory.put(c, 0L);
-        }
-        queries.countByCategory(userId).forEach(r -> byCategory.put(Category.valueOf(r.getKey()), r.getCount()));
-
-        Map<ItemStatus, Long> byStatus = new EnumMap<>(ItemStatus.class);
-        for (ItemStatus s : ItemStatus.values()) {
-            byStatus.put(s, 0L);
-        }
-        queries.countByStatus(userId).forEach(r -> byStatus.put(ItemStatus.valueOf(r.getKey()), r.getCount()));
+        CodeSnapshot codes = catalog.current();
+        Map<String, Long> byCategory = keyed(codes, CodeGroups.CATEGORY, queries.countByCategory(userId));
+        Map<String, Long> byStatus = keyed(codes, CodeGroups.ITEM_STATUS, queries.countByStatus(userId));
 
         List<CountByColor> byColor = queries.countByColor(userId).stream()
-                .map(r -> new CountByColor(ColorKey.fromCode(r.getKey()), r.getCount()))
+                .map(r -> new CountByColor(r.getKey(), r.getCount()))
                 .toList();
         List<CountByStyle> byStyle = queries.countByStyle(userId).stream()
-                .map(r -> new CountByStyle(StyleTag.valueOf(r.getKey()), r.getCount()))
+                .map(r -> new CountByStyle(r.getKey(), r.getCount()))
                 .toList();
 
         // 오늘을 포함한 최근 30일: today-29 ~ today
@@ -69,5 +64,23 @@ public class WardrobeStatsService {
                 .toList();
 
         return new WardrobeStats(total, byCategory, byColor, byStyle, byStatus, worn, utilization, sleeping);
+    }
+
+    /**
+     * 활성 코드는 0이어도 키로 넣고, 비활성 코드는 아이템이 있을 때만 넣는다 (06 문서 4장). 순서는 코드 순서.
+     * 코드 테이블에 없는 값이 저장돼 있으면(이론상 없음) 맨 뒤에 붙인다.
+     */
+    static Map<String, Long> keyed(CodeSnapshot codes, String group, List<CountRow> rows) {
+        Map<String, Long> counts = new HashMap<>();
+        rows.forEach(r -> counts.put(r.getKey(), r.getCount()));
+        Map<String, Long> out = new LinkedHashMap<>();
+        for (CodeEntry c : codes.codes(group)) {
+            long n = counts.getOrDefault(c.code(), 0L);
+            if (c.active() || n > 0) {
+                out.put(c.code(), n);
+            }
+        }
+        counts.forEach((k, v) -> out.putIfAbsent(k, v));
+        return out;
     }
 }

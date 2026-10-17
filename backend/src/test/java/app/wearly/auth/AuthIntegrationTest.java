@@ -39,6 +39,10 @@ class AuthIntegrationTest extends IntegrationTestBase {
         assertThat(r.body().get("user").get("email").asString()).isEqualTo(email); // 소문자로 저장
         assertThat(r.body().get("user").get("name").asString()).isEqualTo("민지");
         assertThat(r.body().get("user").get("createdAt").asString()).endsWith("Z");
+        assertThat(r.body().get("user").get("role").asString()).isEqualTo("USER"); // 가입으로는 관리자를 만들 수 없다
+        String payload = new String(java.util.Base64.getUrlDecoder()
+                .decode(r.body().get("accessToken").asString().split("\\.")[1]), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(payload).contains("\"role\":\"USER\"");
 
         String hash = jdbc.queryForObject("select token_hash from tb_refresh_token where user_id = ?", String.class,
                 Long.parseLong(r.body().get("user").get("id").asString()));
@@ -233,6 +237,10 @@ class AuthIntegrationTest extends IntegrationTestBase {
                 .getAccessControlAllowOrigin()).isEqualTo("http://localhost:19006");
         assertThat(api().options("/api/v1/auth/login", "http://127.0.0.1:8081", "POST").headers()
                 .getAccessControlAllowOrigin()).isEqualTo("http://127.0.0.1:8081");
+
+        // 관리자 사이트 개발 서버
+        assertThat(api().options("/api/v1/admin/dashboard", "http://localhost:5173", "GET").headers()
+                .getAccessControlAllowOrigin()).isEqualTo("http://localhost:5173");
 
         Resp denied = api().options("/api/v1/users/me", "http://evil.example", "GET");
         assertThat(denied.status()).isEqualTo(403);

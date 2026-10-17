@@ -79,7 +79,7 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
         api().patch("/api/v1/wardrobe/items/" + id, s.accessToken(), Map.of("category", "BOTTOM", "subType", "WIDE"))
                 .expect(200);
         api().patch("/api/v1/wardrobe/items/" + id, s.accessToken(), "{\"name\":null}").expectError(400, "VALIDATION_FAILED");
-        api().patch("/api/v1/wardrobe/items/" + id, s.accessToken(), "{\"color\":\"pink\"}")
+        api().patch("/api/v1/wardrobe/items/" + id, s.accessToken(), "{\"color\":\"fuchsia\"}")
                 .expectError(400, "VALIDATION_FAILED");
         api().patch("/api/v1/wardrobe/items/" + id, s.accessToken(), "{\"formality\":4}")
                 .expectError(400, "VALIDATION_FAILED");
@@ -162,7 +162,7 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
                 .containsExactly("화이트 셔츠");
         assertThat(names(api().get("/api/v1/wardrobe/items?category=&q=", t))).hasSize(3);
 
-        Resp bad = api().get("/api/v1/wardrobe/items?category=HAT&sort=price&color=pink&status=GONE", t)
+        Resp bad = api().get("/api/v1/wardrobe/items?category=HAT&sort=price&color=fuchsia&status=GONE", t)
                 .expectError(400, "VALIDATION_FAILED");
         assertThat(bad.body().get("fieldErrors").findValuesAsString("field"))
                 .containsExactlyInAnyOrder("category", "sort", "color", "status");
@@ -181,7 +181,7 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
         assertThat(empty.body().get("total").asLong()).isZero();
         assertThat(empty.body().get("utilization30d").asDouble()).isZero();
         assertThat(empty.body().get("byCategory").toString())
-                .isEqualTo("{\"TOP\":0,\"BOTTOM\":0,\"OUTER\":0,\"SHOES\":0,\"BAG\":0,\"ACC\":0}");
+                .isEqualTo("{\"TOP\":0,\"BOTTOM\":0,\"DRESS\":0,\"OUTER\":0,\"SHOES\":0,\"BAG\":0,\"ACC\":0}");
         assertThat(empty.body().get("byStatus").toString()).isEqualTo("{\"OWNED\":0,\"LAUNDRY\":0,\"REPAIR\":0}");
 
         List<Map<String, Object>> inputs = List.of(
@@ -201,7 +201,7 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
         JsonNode st = api().get("/api/v1/wardrobe/stats", t).expect(200).body();
         assertThat(st.get("total").asLong()).isEqualTo(6);
         assertThat(st.get("byCategory").toString())
-                .isEqualTo("{\"TOP\":2,\"BOTTOM\":1,\"OUTER\":1,\"SHOES\":1,\"BAG\":0,\"ACC\":1}");
+                .isEqualTo("{\"TOP\":2,\"BOTTOM\":1,\"DRESS\":0,\"OUTER\":1,\"SHOES\":1,\"BAG\":0,\"ACC\":1}");
         assertThat(st.get("byColor").toString()).isEqualTo(
                 "[{\"color\":\"black\",\"count\":2},{\"color\":\"white\",\"count\":2},"
                         + "{\"color\":\"camel\",\"count\":1},{\"color\":\"navy\",\"count\":1}]");

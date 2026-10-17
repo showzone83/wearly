@@ -30,16 +30,16 @@ public class WardrobeItem {
     @Column(name = "name", nullable = false, length = 40)
     private String name;
 
-    @Column(name = "category", nullable = false, length = 10)
+    @Column(name = "category", nullable = false, length = 30)
     private String category;
 
-    @Column(name = "sub_type", nullable = false, length = 20)
+    @Column(name = "sub_type", nullable = false, length = 30)
     private String subType;
 
-    @Column(name = "color", nullable = false, length = 20)
+    @Column(name = "color", nullable = false, length = 30)
     private String color;
 
-    @Column(name = "pattern", nullable = false, length = 10)
+    @Column(name = "pattern", nullable = false, length = 30)
     private String pattern;
 
     @JdbcTypeCode(SqlTypes.ARRAY)
@@ -53,7 +53,7 @@ public class WardrobeItem {
     @Column(name = "formality", nullable = false)
     private short formality;
 
-    @Column(name = "status", nullable = false, length = 10)
+    @Column(name = "status", nullable = false, length = 30)
     private String status;
 
     @Column(name = "brand", length = 40)

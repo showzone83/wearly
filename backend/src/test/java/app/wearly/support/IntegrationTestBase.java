@@ -17,11 +17,22 @@ import org.testcontainers.utility.DockerImageName;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "wearly.ai.provider=mock",
-        "wearly.ai.api-key=",
         "wearly.ai.daily-limit=3",
+        "wearly.ai.allow-base-url=true",
         "spring.config.import=",
+        "wearly.admin.email=" + IntegrationTestBase.ADMIN_EMAIL,
+        "wearly.admin.password=" + IntegrationTestBase.ADMIN_PASSWORD,
+        "wearly.admin.name=테스트관리자",
+        // 개발자 PC의 실제 키가 테스트에 섞이지 않게 비워 둔다. 테스트용 가짜 키는 TEST_*_API_KEY
+        "ANTHROPIC_API_KEY=",
+        "OPENAI_API_KEY=",
+        "GEMINI_API_KEY=",
+        "TEST_CRUD_API_KEY=test-crud-key-value",
 })
 public abstract class IntegrationTestBase {
+
+    public static final String ADMIN_EMAIL = "admin@wearly.test";
+    public static final String ADMIN_PASSWORD = "admin1234";
 
     static final String EXTERNAL_URL = System.getenv("WEARLY_TEST_DB_URL");
 
@@ -67,6 +78,12 @@ public abstract class IntegrationTestBase {
 
     protected static String uniqueEmail() {
         return "user-" + UUID.randomUUID().toString().substring(0, 12) + "@wearly.test";
+    }
+
+    /** 시작 시 만들어진 관리자(WEARLY_ADMIN_*)로 로그인한다. */
+    protected TestApi.Session admin() {
+        return TestApi.session(api().post("/api/v1/auth/login", null,
+                java.util.Map.of("email", ADMIN_EMAIL, "password", ADMIN_PASSWORD)).expect(200));
     }
 
     /** 새 회원을 만들고 토큰이 든 세션을 돌려준다. */

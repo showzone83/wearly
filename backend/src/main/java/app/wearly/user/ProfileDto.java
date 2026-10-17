@@ -1,8 +1,6 @@
 package app.wearly.user;
 
-import app.wearly.domain.ColorKey;
 import app.wearly.domain.DressCode;
-import app.wearly.domain.StyleTag;
 import app.wearly.domain.WorkType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -13,7 +11,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 /**
- * 앱 Profile과 같은 모양 + onboarded (계약 6장).
+ * 앱 Profile과 같은 모양 + onboarded (05 문서 6장). moods는 STYLE 코드, colors는 COLOR 코드 (06 문서).
  * 필드 이름 notify가 Object.notify()와 겹쳐 record로 만들 수 없어 일반 클래스로 둔다.
  */
 public class ProfileDto {
@@ -26,10 +24,10 @@ public class ProfileDto {
     private List<@NotNull(message = "허용되지 않는 값이에요.") DressCode> dressCodes;
 
     @NotNull(message = "필수 값이에요.")
-    private List<@NotNull(message = "허용되지 않는 값이에요.") StyleTag> moods;
+    private List<@NotNull(message = "허용되지 않는 값이에요.") String> moods;
 
     @NotNull(message = "필수 값이에요.")
-    private List<@NotNull(message = "허용되지 않는 값이에요.") ColorKey> colors;
+    private List<@NotNull(message = "허용되지 않는 값이에요.") String> colors;
 
     @NotNull(message = "필수 값이에요.")
     private WorkType workType;
@@ -54,7 +52,7 @@ public class ProfileDto {
     public ProfileDto() {
     }
 
-    public ProfileDto(String name, List<DressCode> dressCodes, List<StyleTag> moods, List<ColorKey> colors,
+    public ProfileDto(String name, List<DressCode> dressCodes, List<String> moods, List<String> colors,
             WorkType workType, List<Integer> workDays, Boolean workRule, Boolean offRule, Notify notify,
             Boolean onboarded) {
         this.name = name;
@@ -80,8 +78,8 @@ public class ProfileDto {
         return new ProfileDto(
                 name,
                 List.of(DressCode.BIZ_CASUAL),
-                List.of(StyleTag.NEAT, StyleTag.MINIMAL),
-                List.of(ColorKey.NAVY, ColorKey.BEIGE, ColorKey.WHITE),
+                List.of("NEAT", "MINIMAL"),
+                List.of("navy", "beige", "white"),
                 WorkType.WEEKDAY,
                 List.of(1, 2, 3, 4, 5),
                 true,
@@ -106,19 +104,19 @@ public class ProfileDto {
         this.dressCodes = dressCodes;
     }
 
-    public List<StyleTag> getMoods() {
+    public List<String> getMoods() {
         return moods;
     }
 
-    public void setMoods(List<StyleTag> moods) {
+    public void setMoods(List<String> moods) {
         this.moods = moods;
     }
 
-    public List<ColorKey> getColors() {
+    public List<String> getColors() {
         return colors;
     }
 
-    public void setColors(List<ColorKey> colors) {
+    public void setColors(List<String> colors) {
         this.colors = colors;
     }
 
