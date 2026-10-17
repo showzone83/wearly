@@ -63,8 +63,12 @@ public class AuthService {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         }
         LocalCredential credential = found.get();
-        if (!passwordEncoder.matches(req.password(), credential.getPasswordHash()) || !credential.getUser().isActive()) {
+        if (!passwordEncoder.matches(req.password(), credential.getPasswordHash())) {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
+        }
+        // 비밀번호가 맞을 때만 정지 여부를 알린다 (07 문서 2장)
+        if (!credential.getUser().isActive()) {
+            throw new ApiException(ErrorCode.ACCOUNT_SUSPENDED);
         }
         credential.markLogin(clock.instant());
         return issueTokens(credential.getUser());
@@ -89,7 +93,7 @@ public class AuthService {
     }
 
     private AuthResponse toResponse(User user, String rawRefreshToken) {
-        return new AuthResponse(jwt.issue(user.getId()), jwt.accessTtlSeconds(), rawRefreshToken,
+        return new AuthResponse(jwt.issue(user.getId(), user.getRole()), jwt.accessTtlSeconds(), rawRefreshToken,
                 refreshTokens.refreshTtlSeconds(), UserDto.from(user));
     }
 

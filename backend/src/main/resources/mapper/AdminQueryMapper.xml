@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 관리자 화면 조회: 대시보드 집계, 회원·AI 기록·변경 이력 목록. 날짜 경계는 서비스에서 계산해 넘긴다 -->
+<mapper namespace="app.wearly.admin.AdminQueryMapper">
+
+    <resultMap id="aiLogRow" type="app.wearly.admin.AdminRows$AiLogRow">
+        <id property="id" column="ai_analysis_log_id"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="userId" column="user_id"/>
+        <result property="userEmail" column="user_email"/>
+        <result property="feature" column="feature"/>
+        <result property="providerId" column="provider"/>
+        <result property="model" column="model"/>
+        <result property="status" column="status"/>
+        <result property="latencyMs" column="latency_ms"/>
+        <result property="inputTokens" column="input_tokens"/>
+        <result property="outputTokens" column="output_tokens"/>
+        <result property="imageBytes" column="image_bytes"/>
+        <result property="imageSha256" column="image_sha256"/>
+        <result property="errorCode" column="error_code"/>
+        <result property="result" column="result" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+    </resultMap>
+
+    <resultMap id="auditRow" type="app.wearly.admin.AdminRows$AuditRow">
+        <id property="id" column="audit_id"/>
+        <result property="adminUserId" column="admin_user_id"/>
+        <result property="adminEmail" column="admin_email"/>
+        <result property="action" column="action"/>
+        <result property="targetType" column="target_type"/>
+        <result property="targetId" column="target_id"/>
+        <result property="before" column="before" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+        <result property="after" column="after" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <select id="counts" resultType="app.wearly.admin.AdminRows$Counts">
+        SELECT (SELECT count(*) FROM tb_user) AS users,
+               (SELECT count(*) FROM tb_user WHERE created_at &gt;= #{since}) AS new_users7d,
+               (SELECT count(*) FROM tb_wardrobe_item) AS items
+    </select>
+
+    <select id="aiCounts" resultType="app.wearly.admin.AdminRows$AiCounts">
+        SELECT count(*) AS total,
+               count(*) FILTER (WHERE status = 'SUCCESS') AS success,
+               count(*) FILTER (WHERE status = 'FAILED') AS failed
+          FROM tb_ai_analysis_log
+         WHERE created_at &gt;= #{from} AND created_at &lt; #{to}
+    </select>
+
+    <select id="providerStats" resultType="app.wearly.admin.AdminRows$ProviderStat">
+        SELECT provider AS provider_id,
+               count(*) FILTER (WHERE status = 'SUCCESS') AS success,
+               count(*) FILTER (WHERE status = 'FAILED') AS failed,
+               round(avg(latency_ms))::BIGINT AS avg_latency_ms,
+               coalesce(sum(input_tokens), 0) AS input_tokens,
+               coalesce(sum(output_tokens), 0) AS output_tokens
+          FROM tb_ai_analysis_log
+         WHERE created_at &gt;= #{from} AND created_at &lt; #{to}
+         GROUP BY provider
+         ORDER BY provider
+    </select>
+
+    <sql id="userWhere">
+        <where>
+            <if test="f.id != null">u.user_id = #{f.id}</if>
+            <if test="f.qPattern != null">AND
+                (u.email ILIKE #{f.qPattern} ESCAPE '\' OR u.name ILIKE #{f.qPattern} ESCAPE '\')
+            </if>
+            <if test="f.status != null">AND u.status = #{f.status}</if>
+            <if test="f.role != null">AND u.role = #{f.role}</if>
+        </where>
+    </sql>
+
+    <select id="findUsers" resultType="app.wearly.admin.AdminRows$UserRow">
+        SELECT u.user_id AS id, u.email, u.name, u.role, u.status, u.created_at,
+               (SELECT count(*) FROM tb_wardrobe_item i WHERE i.user_id = u.user_id) AS item_count,
+               (SELECT count(*) FROM tb_ai_analysis_log l
+                 WHERE l.user_id = u.user_id AND l.feature = 'ITEM_ANALYZE' AND l.status = 'SUCCESS'
+                   AND l.created_at &gt;= #{todayFrom} AND l.created_at &lt; #{todayTo}) AS ai_today
+          FROM tb_user u
+        <include refid="userWhere"/>
+         ORDER BY u.created_at DESC, u.user_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countUsers" resultType="long">
+        SELECT count(*) FROM tb_user u
+        <include refid="userWhere"/>
+    </select>
+
+    <sql id="aiLogWhere">
+        <where>
+            <if test="f.providerId != null">l.provider = #{f.providerId}</if>
+            <if test="f.status != null">AND l.status = #{f.status}</if>
+            <if test="f.feature != null">AND l.feature = #{f.feature}</if>
+            <if test="f.emailPattern != null">AND u.email ILIKE #{f.emailPattern} ESCAPE '\'</if>
+            <if test="f.from != null">AND l.created_at &gt;= #{f.from}</if>
+            <if test="f.to != null">AND l.created_at &lt; #{f.to}</if>
+        </where>
+    </sql>
+
+    <select id="findAiLogs" resultMap="aiLogRow">
+        SELECT l.ai_analysis_log_id, l.created_at, l.user_id, u.email AS user_email, l.feature, l.provider, l.model,
+               l.status, l.latency_ms, l.input_tokens, l.output_tokens, l.image_bytes, l.image_sha256, l.error_code,
+               l.result
+          FROM tb_ai_analysis_log l
+          LEFT JOIN tb_user u ON u.user_id = l.user_id
+        <include refid="aiLogWhere"/>
+         ORDER BY l.created_at DESC, l.ai_analysis_log_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAiLogs" resultType="long">
+        SELECT count(*)
+          FROM tb_ai_analysis_log l
+          LEFT JOIN tb_user u ON u.user_id = l.user_id
+        <include refid="aiLogWhere"/>
+    </select>
+
+    <select id="findAiLog" resultMap="aiLogRow">
+        SELECT l.ai_analysis_log_id, l.created_at, l.user_id, u.email AS user_email, l.feature, l.provider, l.model,
+               l.status, l.latency_ms, l.input_tokens, l.output_tokens, l.image_bytes, l.image_sha256, l.error_code,
+               l.result
+          FROM tb_ai_analysis_log l
+          LEFT JOIN tb_user u ON u.user_id = l.user_id
+         WHERE l.ai_analysis_log_id = #{id}
+    </select>
+
+    <select id="findAuditLogs" resultMap="auditRow">
+        SELECT a.audit_id, a.admin_user_id, u.email AS admin_email, a.action, a.target_type, a.target_id,
+               a.before, a.after, a.created_at
+          FROM tb_admin_audit_log a
+          LEFT JOIN tb_user u ON u.user_id = a.admin_user_id
+        <where>
+            <if test="targetType != null">a.target_type = #{targetType}</if>
+        </where>
+         ORDER BY a.created_at DESC, a.audit_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAuditLogs" resultType="long">
+        SELECT count(*) FROM tb_admin_audit_log a
+        <where>
+            <if test="targetType != null">a.target_type = #{targetType}</if>
+        </where>
+    </select>
+</mapper>

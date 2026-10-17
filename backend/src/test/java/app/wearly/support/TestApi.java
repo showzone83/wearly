@@ -82,6 +82,16 @@ public class TestApi {
         return toResp(spec.retrieve().toEntity(String.class));
     }
 
+    /** 헤더를 더해 GET (If-None-Match 등) */
+    public Resp get(String path, String token, HttpHeaders headers) {
+        RestClient.RequestHeadersSpec<?> spec = client.get().uri(path).accept(MediaType.APPLICATION_JSON)
+                .headers(h -> h.addAll(headers));
+        if (token != null) {
+            spec.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+        }
+        return toResp(spec.retrieve().toEntity(String.class));
+    }
+
     public Resp post(String path, String token, Object body) {
         return exchange(HttpMethod.POST, path, token, body);
     }

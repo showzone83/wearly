@@ -60,7 +60,8 @@ tasks.withType<Test> {
     }
 }
 
-// 기본 ./gradlew bootRun은 실제 Claude만 쓴다 (ANTHROPIC_API_KEY 없으면 시작 실패).
+// 기본 ./gradlew bootRun은 관리자 화면의 AI 공급자 설정(tb_ai_provider)을 우선순위 순으로 쓴다.
+// 쓸 수 있는 공급자가 없으면 시작은 하되 WARN을 남기고, 사진 분석은 502 AI_UNAVAILABLE (목업으로 대신하지 않음).
 // 목업 공급자는 이 태스크로만 켠다: ./gradlew bootRunMock
 tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("bootRunMock") {
     group = "application"

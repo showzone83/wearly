@@ -13,7 +13,11 @@ import org.springframework.validation.annotation.Validated;
 /** wearly.* 설정. application.yml에서 환경변수로 덮어쓴다. */
 @Validated
 @ConfigurationProperties("wearly")
-public record WearlyProperties(@Valid @NotNull Jwt jwt, @Valid @NotNull Ai ai, @Valid @NotNull Cors cors) {
+public record WearlyProperties(@Valid @NotNull Jwt jwt, @Valid @NotNull Ai ai, @Valid @NotNull Cors cors, Admin admin) {
+
+    public Admin admin() {
+        return admin == null ? new Admin(null, null, null) : admin;
+    }
 
     public record Jwt(
             @NotBlank String issuer,
@@ -24,17 +28,20 @@ public record WearlyProperties(@Valid @NotNull Jwt jwt, @Valid @NotNull Ai ai, @
     }
 
     public record Ai(
-            /* claude(기본) | mock. 검증은 AiProviderConfig가 한다 */
-            @NotBlank String provider,
-            @NotBlank String model,
+            /* db(기본) | mock. 검증은 AiProviderRegistry가 한다. 공급자·모델·키 환경변수 이름은 tb_ai_provider에 있다 */
+            String provider,
             @Min(0) int dailyLimit,
-            String apiKey,
-            /* Claude effort: low | medium | high | xhigh | max */
-            @NotBlank String effort,
-            @NotNull Duration timeout) {
+            /* 공급자 호출 제한 시간 기본값 (공급자 options.timeoutSeconds가 있으면 그 값) */
+            @NotNull Duration timeout,
+            /* true일 때만 공급자 options.baseUrl을 쓴다 (테스트·프록시용). 기본 false: 키를 다른 주소로 보내지 않게 */
+            boolean allowBaseUrl) {
+    }
 
-        public boolean hasApiKey() {
-            return apiKey != null && !apiKey.isBlank();
+    /* 시작 시 만들거나 ADMIN으로 올릴 관리자 계정 (07 문서 2장). email·password가 둘 다 있을 때만 */
+    public record Admin(String email, String password, String name) {
+
+        public boolean configured() {
+            return email != null && !email.isBlank() && password != null && !password.isBlank();
         }
     }
 

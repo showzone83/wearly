@@ -1,24 +1,23 @@
 package app.wearly.ai;
 
-import app.wearly.domain.Category;
-import app.wearly.domain.ColorKey;
-import app.wearly.domain.Pattern;
-import app.wearly.domain.Season;
-import app.wearly.domain.StyleTag;
-import app.wearly.domain.SubType;
+import app.wearly.code.CodeEntry;
+import app.wearly.code.CodeGroups;
+import app.wearly.code.CodeSnapshot;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 
 /**
- * 목업 공급자. 사진 바이트의 SHA-256으로 값을 정한다 (같은 사진 = 같은 결과).
- * 세부 종류를 먼저 고르고 카테고리는 그 짝으로 정하므로 항상 짝이 맞는다.
+ * 목업 공급자 (WEARLY_AI_PROVIDER=mock일 때만). 사진 바이트의 SHA-256으로 활성 코드 중에서 값을 고른다
+ * (같은 사진 + 같은 코드 = 같은 결과). 세부 종류를 먼저 고르고 종류는 그 parent로 정하므로 항상 짝이 맞는다.
  */
 public class MockAiProvider implements AiProvider {
 
+    public static final String ID = "mock";
+
     @Override
     public String name() {
-        return "mock";
+        return ID;
     }
 
     @Override
@@ -27,34 +26,43 @@ public class MockAiProvider implements AiProvider {
     }
 
     @Override
-    public AiResult analyze(AiImage image) {
+    public AiResult analyze(AiImage image, CodeSnapshot codes) {
         byte[] h = HexFormat.of().parseHex(image.sha256());
-        SubType subType = pick(SubType.values(), h[0]);
-        Category category = subType.category();
-        ColorKey color = pick(ColorKey.values(), h[1]);
-        Pattern pattern = pick(Pattern.values(), h[2]);
-        List<Season> seasons = pickSome(Season.values(), h[3], h[4]);
-        List<StyleTag> styles = pickSome(StyleTag.values(), h[5], h[6]);
+        List<CodeEntry> subTypes = codes.selectableCodes(CodeGroups.SUB_TYPE);
+        if (subTypes.isEmpty()) {
+            throw new AiProviderException("NO_CODES", "고를 수 있는 세부 종류가 없어요.");
+        }
+        CodeEntry subType = pick(subTypes, h[0]);
+        CodeEntry color = pick(codes.selectableCodes(CodeGroups.COLOR), h[1]);
+        CodeEntry pattern = pick(codes.selectableCodes(CodeGroups.PATTERN), h[2]);
+        List<String> seasons = pickSome(codes.selectableCodes(CodeGroups.SEASON), h[3], h[4]);
+        List<String> styles = pickSome(codes.selectableCodes(CodeGroups.STYLE), h[5], h[6]);
         int formality = 1 + Math.floorMod(h[7], 3);
         double confidence = 0.6 + Math.floorMod(h[8], 36) / 100.0; // 0.60 ~ 0.95
-        String name = color.label() + " " + subType.label();
-        AiSuggestion suggestion = new AiSuggestion(name, category, subType, color, pattern, seasons, styles, formality,
-                Math.round(confidence * 100) / 100.0);
+        String name = (color.label() + " " + subType.label()).strip();
+        AiSuggestion suggestion = new AiSuggestion(name, subType.parent(), subType.code(), color.code(), pattern.code(),
+                seasons, styles, formality, Math.round(confidence * 100) / 100.0);
         return new AiResult(suggestion, null, null, null);
     }
 
-    private static <T> T pick(T[] values, byte b) {
-        return values[Math.floorMod(b, values.length)];
+    private static CodeEntry pick(List<CodeEntry> values, byte b) {
+        if (values.isEmpty()) {
+            throw new AiProviderException("NO_CODES", "고를 수 있는 코드가 없어요.");
+        }
+        return values.get(Math.floorMod(b, values.size()));
     }
 
-    /** 1~2개를 원래 열거 순서대로 고른다 */
-    private static <T> List<T> pickSome(T[] values, byte first, byte second) {
-        int a = Math.floorMod(first, values.length);
-        int b = Math.floorMod(second, values.length);
-        List<T> picked = new ArrayList<>();
-        for (int i = 0; i < values.length; i++) {
+    /** 1~2개를 코드 순서대로 고른다 */
+    private static List<String> pickSome(List<CodeEntry> values, byte first, byte second) {
+        if (values.isEmpty()) {
+            return List.of();
+        }
+        int a = Math.floorMod(first, values.size());
+        int b = Math.floorMod(second, values.size());
+        List<String> picked = new ArrayList<>();
+        for (int i = 0; i < values.size(); i++) {
             if (i == a || i == b) {
-                picked.add(values[i]);
+                picked.add(values.get(i).code());
             }
         }
         return picked;
