@@ -4,6 +4,7 @@ import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-na
 import { Image } from 'expo-image';
 
 import type { WardrobeItem } from '@/data/types';
+import { photoSource } from '@/lib/samplePhotos';
 import { makeStyles, useColors } from '@/theme';
 import { GarmentArt } from './GarmentArt';
 import { Icon } from './Icon';
@@ -30,12 +31,13 @@ export const ItemThumb = ({ item, size, tag, style, height, dim, heart, radius }
   const h = height ?? size;
   const art = Math.min(size, h) * 0.72;
   const r = radius ?? (size < 70 ? 12 : 16);
+  const photo = photoSource(item?.imageUri);
 
   return (
     <View style={[s.tile, { width: size, height: h, borderRadius: r }, style]}>
-      {item?.imageUri && !broken ? (
+      {photo && !broken ? (
         <Image
-          source={{ uri: item.imageUri }}
+          source={photo}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           onError={() => setBroken(true)}

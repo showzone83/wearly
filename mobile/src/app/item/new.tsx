@@ -17,18 +17,14 @@ import { activeCodes, defaultStatus, isActiveCode, subTypeMeta, subTypesOf } fro
 import { MOCK_MODE } from '@/lib/mode';
 import { canRecommend } from '@/lib/recommend';
 import { draftFromSuggestion } from '@/lib/serverItems';
+import { photoSource, samplePhotoUri, type TSamplePhoto } from '@/lib/samplePhotos';
 import { useStore } from '@/store/useStore';
 import { makeStyles, useColors } from '@/theme';
 
 type Step = 1 | 2 | 3 | 4;
 
-/** 1단계 "예시 이미지" 줄: 이렇게 찍으면 된다는 보기 (일러스트) */
-const EXAMPLES: { subType: SubType; category: Category; color: ColorKey; pattern?: string }[] = [
-  { subType: 'COAT', category: 'OUTER', color: 'khaki' },
-  { subType: 'KNIT', category: 'TOP', color: 'lightblue', pattern: 'STRIPE' },
-  { subType: 'JEANS', category: 'BOTTOM', color: 'denim' },
-  { subType: 'SNEAKER', category: 'SHOES', color: 'white' },
-];
+/** 1단계 "예시 이미지" 줄: 이렇게 찍으면 된다는 보기. 디자인 보드와 같은 옷 사진(샘플 옷장 사진)을 쓴다 */
+const EXAMPLES: TSamplePhoto[] = ['nyang_olive_jacket', 'nyang_stripe_knit', 'nyang_jeans', 'nyang_white_sneakers'];
 
 const ANALYSIS_STEPS = ['종류 인식', '색상 추출', '패턴 · 계절 판단'];
 /** 분석 진행 표시를 끝까지 보여 주는 최소 시간 */
@@ -376,9 +372,9 @@ export default function NewItem() {
 
       <Text style={s.exampleLabel}>예시 이미지</Text>
       <View style={s.examples}>
-        {EXAMPLES.map((e) => (
-          <View key={e.subType} style={s.example}>
-            <GarmentArt subType={e.subType} category={e.category} color={e.color} pattern={e.pattern} size={54} />
+        {EXAMPLES.map((key) => (
+          <View key={key} style={s.example}>
+            <Image source={photoSource(samplePhotoUri(key))} style={StyleSheet.absoluteFill} contentFit="cover" />
           </View>
         ))}
       </View>
@@ -426,8 +422,7 @@ const useStyles = makeStyles((t) => ({
     aspectRatio: 1,
     borderRadius: t.radius.md,
     backgroundColor: t.colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
   },
   tip: {
     flexDirection: 'row',

@@ -202,7 +202,7 @@ export default function Coordi() {
         <FailurePanel failure={failure} onRule={submitRule} onRetry={() => void submit()} onBack={reset} />
       ) : !ready.ok ? (
         <View style={{ paddingTop: 20, alignItems: 'center', gap: 14 }}>
-          <Mascot pose="closet" size={160} />
+          <Mascot pose="closet" size={160} sceneWidth={290} />
           <Text style={{ color: colors.textSub, textAlign: 'center', lineHeight: 21 }}>
             코디를 만들려면 {ready.missing.join(', ')}이(가) 필요해요.{'\n'}(원피스 한 벌로도 시작할 수 있어요) 옷장에 먼저 등록해 주세요.
           </Text>

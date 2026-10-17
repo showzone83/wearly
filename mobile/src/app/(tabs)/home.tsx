@@ -197,7 +197,7 @@ export default function Home() {
 
       {!ready.ok ? (
         <Card style={s.empty}>
-          <Mascot pose="closet" size={150} />
+          <Mascot pose="closet" size={150} sceneWidth={250} />
           <Title style={{ fontSize: 20, textAlign: 'center', marginTop: 8 }}>
             새 옷을 사기 전에,{'\n'}내 옷장부터.
           </Title>

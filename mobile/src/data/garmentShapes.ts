@@ -2,12 +2,14 @@
 // SUB_TYPE 코드의 attrs.shape 키로 고른다(doc/06_코드_관리.md 3장). 앱(GarmentArt)과 관리자 사이트(admin/)가 함께 쓴다.
 // 순수 TypeScript: react-native·expo-*·@/ 별칭을 import하지 않는다.
 //
-// 그리는 순서 (목업 p.40의 평면 일러스트 스타일):
-//   1. GARMENT_SHAPES[key]   몸판. 옷 색으로 채우고 조금 진한 색으로 테두리
+// 그리는 순서 (디자인 보드 옷장 사진 카드 느낌의 부드러운 평면 일러스트). 색은 garmentTones()가 정한다:
+//   0. 그림자                garmentShadow(): 몸판 아래 옅은 타원 (가운데 진하고 가장자리로 사라지는 방사형 그라데이션)
+//   1. GARMENT_SHAPES[key]   몸판. 위는 밝고 아래는 어두운 세로 그라데이션(top → fill → bottom), 얇은 테두리(edge)
 //   2. 패턴                  몸판 모양으로 잘라(clip) 그린다
-//   3. GARMENT_LIGHT[key]    밝은 면(시계 문자판·안경알). 흰색에 가깝게 채운다
-//   4. GARMENT_DETAILS[key]  솔기·칼라·지퍼 같은 선. 테두리 색, 채우지 않음, 굵기 GARMENT_DETAIL_WIDTH[key] ?? 1.2
-//   5. GARMENT_BUTTONS[key]  단추·구멍 [x, y]. 테두리 색 작은 원
+//   3. GARMENT_FOLDS[key]    접힌 주름·드레이프 선. line 색, 옅게(GARMENT_FOLD_OPACITY), 굵기 GARMENT_FOLD_WIDTH
+//   4. GARMENT_LIGHT[key]    밝은 면(시계 문자판·안경알). 흰색에 가깝게 채운다
+//   5. GARMENT_DETAILS[key]  솔기·칼라·지퍼 같은 선. line 색, 채우지 않음, 굵기 GARMENT_DETAIL_WIDTH[key] ?? 1.1
+//   6. GARMENT_BUTTONS[key]  단추·구멍 [x, y]. line 색 작은 원
 
 export const GARMENT_SHAPES: Record<string, string> = {
   // ── 상의 ──
@@ -106,12 +108,12 @@ export const GARMENT_DETAILS: Record<string, string> = {
   JUMPSUIT: 'M36 40 L64 40 M50 12 L50 40',
 
   CARDIGAN: 'M50 36 L50 88',
-  JACKET: 'M50 36 L50 88',
+  JACKET: 'M44 13 L41 25 L48 31 M56 13 L59 25 L52 31 M50 36 L50 88 M31 68 L41 68 M59 68 L69 68',
   BLAZER: 'M44 12 L41 25 L47 29 M56 12 L59 25 L53 29 M50 36 L50 90 M33 66 L43 66 M57 66 L67 66',
   DENIM_JACKET: 'M50 20 L50 78 M43 12 L41 22 L50 20 L59 22 L57 12 M35 34 L45 34 L45 42 L35 42 Z M55 34 L65 34 L65 42 L55 42 Z M30 72 L70 72',
   JUMPER: 'M50 17 L50 80 M30 74 L70 74 M15 66 L25 68 M85 66 L75 68',
   TRENCH: 'M44 8 L40 20 L47 26 M56 8 L60 20 L53 26 M28 50 L72 50 M54 26 L57 94',
-  COAT: 'M50 30 L50 94',
+  COAT: 'M44 10 L40 23 L48 28 M56 10 L60 23 L52 28 M50 30 L50 94 M31 72 L41 72 M59 72 L69 72',
   PADDING: 'M28 32 L72 32 M28 48 L72 48 M28 64 L72 64 M28 79 L72 79 M50 13 L50 90 M16 46 L25 46 M75 46 L84 46 M14 62 L25 62 M75 62 L86 62',
   FLEECE: 'M50 8 L50 86 M42 8 L42 15 Q50 18 58 15 L58 8 M31 81 L69 81',
 
@@ -135,7 +137,7 @@ export const GARMENT_DETAILS: Record<string, string> = {
   CAP: 'M50 28 L50 60 M78 60 L24 64',
 };
 
-/** 선 굵기 (기본 1.2). 가방 손잡이·운동화 밑창처럼 굵게 그릴 것만 */
+/** 선 굵기 (기본 GARMENT_DETAIL_DEFAULT_WIDTH). 가방 손잡이·운동화 밑창처럼 굵게 그릴 것만 */
 export const GARMENT_DETAIL_WIDTH: Record<string, number> = {
   TOTE: 3,
   SHOULDER: 2,
@@ -146,6 +148,65 @@ export const GARMENT_DETAIL_WIDTH: Record<string, number> = {
   SANDAL: 2,
   BOOTS: 1.6,
 };
+
+/** 세부선 기본 굵기 */
+export const GARMENT_DETAIL_DEFAULT_WIDTH = 1.1;
+
+/**
+ * 접힌 주름·드레이프 선 (채우지 않음). 사진처럼 보이게 하려는 것이 아니라 평평한 면에 결을 살짝 주는 정도로,
+ * 옆구리 드레이프·팔꿈치 주름·바지 주름선·스커트 플리츠 같은 선을 옅게 그린다.
+ */
+export const GARMENT_FOLDS: Record<string, string> = {
+  TEE: 'M36 42 Q40 52 38 62 M64 42 Q60 52 62 62 M42 77 Q50 79 58 76',
+  LONG_TEE: 'M36 44 Q40 54 38 66 M64 44 Q60 54 62 66 M21 50 Q25 52 23 57 M79 50 Q75 52 77 57',
+  POLO: 'M36 44 Q40 54 38 64 M64 44 Q60 54 62 64 M42 77 Q50 79 58 76',
+  SHIRT: 'M37 46 Q41 58 38 72 M63 46 Q59 58 62 72 M21 52 Q25 54 23 59 M79 52 Q75 54 77 59',
+  BLOUSE: 'M38 46 Q44 62 40 80 M62 46 Q56 62 60 80 M20 40 Q24 42 22 46 M80 40 Q76 42 78 46',
+  KNIT: 'M37 46 Q41 58 38 72 M63 46 Q59 58 62 72 M21 50 Q25 52 23 57 M79 50 Q75 52 77 57 M17 68 L25 69 M83 68 L75 69',
+  SWEATSHIRT: 'M37 46 Q41 58 38 72 M63 46 Q59 58 62 72 M20 50 Q24 52 22 57 M80 50 Q76 52 78 57',
+  HOODIE: 'M37 48 Q41 56 38 62 M63 48 Q59 56 62 62 M20 52 Q24 54 22 59 M80 52 Q76 54 78 59',
+  SLEEVELESS: 'M38 42 Q42 58 38 76 M62 42 Q58 58 62 76',
+  VEST: 'M36 42 Q38 54 36 68 M64 42 Q62 54 64 68',
+
+  SLACKS: 'M40 32 L39 88 M60 32 L61 88 M35 62 Q39 64 44 62 M56 62 Q61 64 65 62',
+  WIDE: 'M40 34 L36 88 M60 34 L64 88',
+  CHINO: 'M41 38 Q40 64 39 88 M59 38 Q60 64 61 88 M35 66 Q39 68 44 66 M56 66 Q61 68 65 66',
+  JEANS: 'M35 58 Q39 61 44 58 M56 58 Q61 61 65 58 M33 78 Q38 80 44 78 M56 78 Q62 80 67 78',
+  JOGGER: 'M38 42 Q40 58 38 74 M62 42 Q60 58 62 74',
+  SHORTS: 'M38 36 Q40 50 37 62 M62 36 Q60 50 63 62',
+  SKIRT: 'M44 22 L37 80 M50 22 L50 80 M56 22 L63 80',
+  PENCIL_SKIRT: 'M41 30 Q43 50 41 70 M59 30 Q57 50 59 70',
+  LONG_SKIRT: 'M41 30 L31 90 M59 30 L69 90',
+
+  DRESS: 'M44 46 L35 86 M50 46 L50 88 M56 46 L65 86',
+  SHIRT_DRESS: 'M42 52 L37 88 M58 52 L63 88 M27 22 Q30 24 29 27 M73 22 Q70 24 71 27',
+  KNIT_DRESS: 'M40 36 Q43 60 40 84 M60 36 Q57 60 60 84 M27 44 Q30 46 28 51 M73 44 Q70 46 72 51',
+  JUMPSUIT: 'M42 60 L41 90 M58 60 L59 90',
+
+  CARDIGAN: 'M37 48 Q40 60 38 74 M63 48 Q60 60 62 74 M21 52 Q25 54 23 59 M79 52 Q75 54 77 59',
+  JACKET: 'M36 46 Q39 56 37 64 M64 46 Q61 56 63 64 M20 52 Q24 54 22 60 M80 52 Q76 54 78 60',
+  BLAZER: 'M36 46 Q39 56 37 64 M64 46 Q61 56 63 64 M20 52 Q24 54 22 60 M80 52 Q76 54 78 60',
+  DENIM_JACKET: 'M20 50 Q24 52 22 57 M80 50 Q76 52 78 57 M37 50 Q40 58 38 66 M63 50 Q60 58 62 66',
+  JUMPER: 'M36 46 Q40 56 37 66 M64 46 Q60 56 63 66 M19 50 Q23 52 21 57 M81 50 Q77 52 79 57',
+  TRENCH: 'M36 56 Q40 74 33 92 M64 56 Q60 74 67 92 M20 48 Q24 50 22 56 M80 48 Q76 50 78 56',
+  COAT: 'M36 36 Q39 50 37 62 M64 36 Q61 50 63 62 M34 78 Q37 86 34 92 M66 78 Q63 86 66 92 M21 48 Q25 50 23 56 M79 48 Q75 50 77 56',
+  FLEECE: 'M37 46 Q40 60 38 74 M63 46 Q60 60 62 74 M20 50 Q24 52 22 57 M80 50 Q76 52 78 57',
+
+  LOAFER: 'M58 58 Q68 60 76 65',
+  DRESS_SHOES: 'M60 58 Q70 60 78 64',
+  SNEAKER: 'M33 51 L39 49 M37 54 L43 52 M41 56 L47 54 M60 58 Q70 60 78 64',
+  BOOTS: 'M28 36 Q34 38 42 36 M27 52 Q33 54 41 52',
+
+  TOTE: 'M34 46 L32 82 M66 46 L68 82',
+  SHOULDER: 'M23 57 Q50 62 77 57',
+  BACKPACK: 'M36 28 Q50 32 64 28',
+
+  SCARF: 'M44 38 L43 84 M60 38 L61 80',
+};
+
+/** 주름 선 굵기·진하기 */
+export const GARMENT_FOLD_WIDTH = 0.9;
+export const GARMENT_FOLD_OPACITY = 0.38;
 
 /** 단추·구멍 위치 [x, y] */
 export const GARMENT_BUTTONS: Record<string, [number, number][]> = {
@@ -193,4 +254,70 @@ export function resolveShape(shape: string | null | undefined, category?: string
 /** 몸판 SVG path (viewBox 0 0 100 100) */
 export function shapePath(shape: string | null | undefined, category?: string | null): string {
   return GARMENT_SHAPES[resolveShape(shape, category)];
+}
+
+// ── 색과 그림자 (앱 GarmentArt와 관리자 사이트 미리보기가 같은 규칙으로 그린다) ──
+
+/** 진하게(음수)·연하게(양수) 조정한 색. #RRGGBB만 받는다 */
+export function shadeHex(hex: string, amount: number): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  if (Number.isNaN(n)) return hex;
+  const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v + amount * 255)));
+  const r = ch(n >> 16);
+  const g = ch((n >> 8) & 0xff);
+  const b = ch(n & 0xff);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+export interface IGarmentTones {
+  /** 몸판 그라데이션: 위(밝게) → 가운데(옷 색) → 아래(어둡게) */
+  top: string;
+  fill: string;
+  bottom: string;
+  /** 몸판 외곽선: 옷 색보다 약간 어둡게 */
+  edge: string;
+  /** 세부선·주름·단추: 어두운 옷은 밝게, 밝은 옷은 어둡게 해서 보이게 */
+  line: string;
+}
+
+/** 옷 색(hex)과 밝기(COLOR attrs.light, 0~1) → 그릴 색 */
+export function garmentTones(hex: string, light: number): IGarmentTones {
+  const dark = light < 0.25;
+  return {
+    top: shadeHex(hex, dark ? 0.1 : 0.06),
+    fill: hex,
+    bottom: shadeHex(hex, dark ? -0.04 : -0.08),
+    edge: shadeHex(hex, light > 0.6 ? -0.2 : -0.1),
+    line: dark ? shadeHex(hex, 0.16) : shadeHex(hex, light > 0.6 ? -0.26 : -0.16),
+  };
+}
+
+export interface IShapeBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+/**
+ * path의 대략적인 경계 상자. M·L·Q·Z만 쓰는 몸판 path용(숫자를 x, y 쌍으로 읽고 Q의 조절점도 넣는다).
+ * 원호(A)가 들어간 path에는 쓰지 않는다.
+ */
+export function pathBounds(d: string): IShapeBounds {
+  const nums = (d.match(/-?\d*\.?\d+/g) ?? []).map(Number);
+  const b: IShapeBounds = { minX: 100, minY: 100, maxX: 0, maxY: 0 };
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    b.minX = Math.min(b.minX, nums[i]);
+    b.maxX = Math.max(b.maxX, nums[i]);
+    b.minY = Math.min(b.minY, nums[i + 1]);
+    b.maxY = Math.max(b.maxY, nums[i + 1]);
+  }
+  return b.minX > b.maxX ? { minX: 20, minY: 20, maxX: 80, maxY: 80 } : b;
+}
+
+/** 몸판 아래 그림자 타원 (viewBox 0 0 100 100) */
+export function garmentShadow(shape: string | null | undefined, category?: string | null) {
+  const b = pathBounds(shapePath(shape, category));
+  const w = b.maxX - b.minX;
+  return { cx: (b.minX + b.maxX) / 2, cy: Math.min(b.maxY + 2, 97), rx: Math.max(w * 0.42, 10), ry: 3.4 };
 }

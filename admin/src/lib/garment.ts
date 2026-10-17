@@ -2,15 +2,21 @@
 import {
   DEFAULT_SHAPE_BY_CATEGORY,
   GARMENT_BUTTONS,
+  GARMENT_DETAIL_DEFAULT_WIDTH,
   GARMENT_DETAIL_WIDTH,
   GARMENT_DETAILS,
+  GARMENT_FOLD_OPACITY,
+  GARMENT_FOLD_WIDTH,
+  GARMENT_FOLDS,
   GARMENT_LIGHT,
   GARMENT_SHAPES,
+  garmentShadow,
+  garmentTones,
   resolveShape,
   shapePath,
 } from '@garment-shapes';
 
-export { DEFAULT_SHAPE_BY_CATEGORY, GARMENT_SHAPES, resolveShape };
+export { DEFAULT_SHAPE_BY_CATEGORY, GARMENT_FOLD_OPACITY, GARMENT_FOLD_WIDTH, GARMENT_SHAPES, garmentTones, resolveShape };
 
 /** 앱 데이터를 찾았는지 (대체 파일이면 false) */
 export const HAS_APP_SHAPES = Object.keys(GARMENT_SHAPES).length > 0;
@@ -18,11 +24,13 @@ export const HAS_APP_SHAPES = Object.keys(GARMENT_SHAPES).length > 0;
 /** 모양 키 목록 (선택 목록용, 알파벳 순) */
 export const SHAPE_KEYS: string[] = Object.keys(GARMENT_SHAPES).sort();
 
-/** 앱 GarmentArt와 같은 층: 몸판 → 밝은 면 → 세부선 → 단추 */
+/** 앱 GarmentArt와 같은 층: 그림자 → 몸판(그라데이션) → 주름 → 밝은 면 → 세부선 → 단추 */
 export interface IGarmentLayers {
   /** 실제로 그린 모양 키 (모르는 키면 종류 기본 모양) */
   key: string;
+  shadow: { cx: number; cy: number; rx: number; ry: number };
   body: string;
+  folds?: string;
   light?: string;
   details?: string;
   detailWidth: number;
@@ -36,10 +44,12 @@ export const garmentLayers = (
   const key = resolveShape(shape ?? '', category ?? '');
   return {
     key,
+    shadow: garmentShadow(shape ?? '', category ?? ''),
     body: shapePath(shape ?? '', category ?? ''),
+    folds: GARMENT_FOLDS[key],
     light: GARMENT_LIGHT[key],
     details: GARMENT_DETAILS[key],
-    detailWidth: GARMENT_DETAIL_WIDTH[key] ?? 1.2,
+    detailWidth: GARMENT_DETAIL_WIDTH[key] ?? GARMENT_DETAIL_DEFAULT_WIDTH,
     buttons: GARMENT_BUTTONS[key] ?? [],
   };
 };
@@ -47,17 +57,6 @@ export const garmentLayers = (
 /** 이 모양 키를 앱이 아는지 */
 export const isKnownShape = (shape: string | null | undefined): boolean => {
   return !!shape && Object.prototype.hasOwnProperty.call(GARMENT_SHAPES, shape);
-};
-
-/** 진하게(음수)·연하게(양수) 조정한 색 */
-export const shade = (hex: string, amount: number): string => {
-  const n = parseInt(hex.replace('#', ''), 16);
-  if (Number.isNaN(n)) return hex;
-  const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v + amount * 255)));
-  const r = ch(n >> 16);
-  const g = ch((n >> 8) & 0xff);
-  const b = ch(n & 0xff);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 };
 
 /** hex의 밝기(0~1, 소수 둘째 자리). COLOR attrs.light 제안값 */

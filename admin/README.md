@@ -19,7 +19,7 @@ npm run dev          # http://localhost:5173
 VITE_API_URL=http://localhost:8080
 ```
 
-docker로 띄우기: 저장소 루트에서 `docker compose up -d --build`를 하면 DB·백엔드와 함께 관리자 사이트 컨테이너(`wearly-admin`, nginx)가 `http://localhost:5173`에 뜬다. 이미지는 `admin/Dockerfile`(빌드 컨텍스트는 저장소 루트, `mobile/src/data/garmentShapes.ts`도 복사)로 만들고, API 주소는 빌드 인자 `VITE_API_URL`(기본 `http://localhost:8080`)로 번들에 들어간다. `npm run dev`와 포트(5173)가 겹치므로 개발 서버를 쓸 때는 `docker compose up -d --build db backend`만 띄운다. 코드를 고친 뒤 컨테이너에 반영하려면 `docker compose up -d --build admin`.
+docker로 띄우기: 저장소 루트에서 `docker compose up -d --build`를 하면 DB·백엔드와 함께 관리자 사이트 컨테이너(`wearly-admin`, nginx)가 `http://localhost:5173`에 뜬다. 이미지는 `admin/Dockerfile`(빌드 컨텍스트는 저장소 루트, 앱의 `mobile/src/data` 순수 TS와 마스코트 PNG도 복사)로 만들고, API 주소는 빌드 인자 `VITE_API_URL`(기본 `http://localhost:8080`)로 번들에 들어간다. `npm run dev`와 포트(5173)가 겹치므로 개발 서버를 쓸 때는 `docker compose up -d --build db backend`만 띄운다. 코드를 고친 뒤 컨테이너에 반영하려면 `docker compose up -d --build admin`.
 
 검사:
 
@@ -79,7 +79,8 @@ admin/
   eslint.config.js         코드 규칙(아래 "코드 규칙")
   eslint-rules/            로컬 ESLint 규칙: component-order.js(컴포넌트 본문 순서), import-groups.js(import 그룹), rules.test.js(단위 테스트)
   vite.config.ts           포트 5173, '@' → src, 앱 데이터 별칭(fs.allow로 ../mobile/src/data 폴더만 허용):
-                           '@garment-shapes' → garmentShapes.ts, '@app-themes' → themes.ts, '@app-mascots' → mascots/index.ts
+                           '@garment-shapes' → garmentShapes.ts, '@app-themes' → themes.ts, '@app-mascots' → mascots/index.ts,
+                           '@app-mascot-images' → mobile/assets/mascots (마스코트 PNG 폴더, fs.allow에도 추가)
   src/
     api/                   관리자 API 클라이언트와 계약 타입 (앱 코드를 import하지 않음)
       client.ts            토큰 갱신 single-flight, 응답 정규화
@@ -87,7 +88,7 @@ admin/
       types.ts · errors.ts · index.ts
     stores/                zustand 스토어: useAuthStore(로그인 사용자·상태, 로그인·로그아웃, 로그인 잃음 처리), useToastStore(토스트)
     components/            Layout(왼쪽 메뉴), ui(버튼·표·패널 등), Garment(일러스트·색 칩), Toaster(토스트 표시),
-                           Mascot(마스코트 DOM SVG), ThemePreview(색 견본·작은 앱 화면)
+                           Mascot(마스코트 PNG), ThemePreview(색 견본·작은 앱 화면)
     lib/                   queryClient(React Query 캐시), garment(앱 일러스트 데이터 래퍼), appTheme(앱 테마·마스코트 데이터 래퍼),
                            queries(TanStack Query 키·훅), format, providerTypes
     pages/                 Dashboard · codes/ · providers/(ApiKeySection = API 키 웹 입력) · AiLogs · Users · AppTheme · AuditLogs · Login
@@ -101,11 +102,11 @@ admin/
 
 ### 옷 일러스트 데이터
 
-`src/lib/garment.ts`가 앱의 `mobile/src/data/garmentShapes.ts`(순수 TS)를 그대로 가져와 앱 `GarmentArt`와 같은 순서(몸판 → 밝은 면 → 세부선 → 단추)로 SVG를 그린다. 앱 파일이 없으면 `src/lib/garmentShapesFallback.ts`(빈 데이터, 사각형)로 빌드되고 코드 관리 화면에 안내가 뜬다.
+`src/lib/garment.ts`가 앱의 `mobile/src/data/garmentShapes.ts`(순수 TS)를 그대로 가져와 앱 `GarmentArt`와 같은 순서·색 규칙(그림자 → 몸판 그라데이션 → 주름 → 밝은 면 → 세부선 → 단추, `garmentTones()`)으로 SVG를 그린다. 앱 파일이 없으면 `src/lib/garmentShapesFallback.ts`(빈 데이터, 사각형)로 빌드되고 코드 관리 화면에 안내가 뜬다.
 
 ### 앱 테마·마스코트 데이터
 
-`src/lib/appTheme.ts`가 앱의 `mobile/src/data/themes.ts`(`THEMES`·`THEME_IDS`)와 `mobile/src/data/mascots/`(`mascotArt(id, pose)`·`MASCOT_POSES`)를 그대로 가져온다. 마스코트는 앱 `Mascot`과 같은 규칙(도형을 위에서부터, `fill` 기본값 `none`)으로 DOM SVG를 그린다(`components/Mascot.tsx`). 이 두 파일에는 대체 파일이 없어 없으면 빌드가 실패한다. docker 이미지(`admin/Dockerfile`, 루트 `.dockerignore`)는 `garmentShapes.ts`·`themes.ts`·`mascots/` 폴더를 함께 복사한다.
+`src/lib/appTheme.ts`가 앱의 `mobile/src/data/themes.ts`(`THEMES`·`THEME_IDS`)와 `mobile/src/data/mascots/`(`mascotImage(id, pose)`·`MASCOT_POSES` — 자세별 PNG 파일 매핑)를 그대로 가져오고, 마스코트 PNG는 `import.meta.glob('@app-mascot-images/**/*.png')`로 `mobile/assets/mascots/` 폴더에서 읽어 주소를 얻는다(`mascotImageUrl(file)`). `components/Mascot.tsx`(`MascotImage`)가 앱과 같은 규칙(투명 그림은 정사각형에 맞춰, 장면 그림은 가로 폭에 높이는 비율대로·둥근 모서리)으로 `<img>`를 그린다. 이 파일들에는 대체 파일이 없어 없으면 빌드가 실패한다. docker 이미지(`admin/Dockerfile`, 루트 `.dockerignore`)는 `garmentShapes.ts`·`themes.ts`·`mascots/` 폴더와 `mobile/assets/mascots/`를 함께 복사한다.
 
 ## 코드 규칙
 

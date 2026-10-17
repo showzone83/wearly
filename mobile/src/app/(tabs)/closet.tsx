@@ -150,7 +150,7 @@ export default function Closet() {
       {list.length === 0 ? (
         items.length === 0 ? (
           <View style={s.empty}>
-            <Mascot pose="closet" size={170} />
+            <Mascot pose="closet" size={170} sceneWidth={290} />
             <Text style={s.emptyText}>아직 등록한 옷이 없어요.{'\n'}아래 + 버튼으로 첫 옷을 등록해 보세요.</Text>
             <Button title="옷 등록하기" onPress={() => router.push('/item/new')} style={{ alignSelf: 'stretch' }} />
           </View>

@@ -3,7 +3,7 @@
 // 백엔드가 아직 이 API를 모르면(404) 안내만 띄우고 미리보기는 그대로 보여 준다.
 import { useState } from 'react';
 
-import { MascotSvg } from '@/components/Mascot';
+import { MascotImage } from '@/components/Mascot';
 import { ColorSwatches, MiniAppPreview } from '@/components/ThemePreview';
 import { Badge, Button, Card, ErrorBox, Loading, Modal, Notice, PageHeader } from '@/components/ui';
 
@@ -69,7 +69,7 @@ const ThemeCard = ({
       <ul className="pose-grid" style={{ background: theme.colors.bg }}>
         {MASCOT_POSES.map((pose) => (
           <li key={pose} className="pose">
-            <MascotSvg mascot={theme.mascot} pose={pose} size={76} title={`${theme.name} ${POSE_LABELS[pose]}`} />
+            <MascotImage mascot={theme.mascot} pose={pose} size={76} title={`${theme.name} ${POSE_LABELS[pose]}`} />
             <span className="pose-label">{POSE_LABELS[pose]}</span>
             <span className="pose-key mono">{pose}</span>
           </li>

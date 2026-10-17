@@ -169,8 +169,15 @@ export async function finishAccountOnboarding(profile: Profile, withSample: bool
   if (existing.length) {
     items = existing.map((d) => itemFromDto(d));
   } else if (withSample) {
-    const created = (await api.wardrobe.bulkCreate(seedItems().map(inputFromItem))).items;
-    items = created.map((d) => itemFromDto(d));
+    const seed = seedItems();
+    const created = (await api.wardrobe.bulkCreate(seed.map(inputFromItem))).items;
+    // 서버는 사진을 받지 않는다. 응답은 요청 순서대로라(doc/05) 같은 자리의 샘플 사진을 서버 id에 붙인다
+    const s = useStore.getState();
+    items = created.map((d, i) => {
+      const photo = seed[i]?.imageUri;
+      if (photo) s.setPhoto(d.id, photo);
+      return itemFromDto(d, photo);
+    });
     seeded = true;
   } else {
     items = [];

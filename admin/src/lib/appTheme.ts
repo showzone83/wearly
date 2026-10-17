@@ -1,14 +1,25 @@
 // 앱 디자인 테마 값과 마스코트 그림을 가져온다 (doc/12 2·4·6장).
-// vite.config.ts의 별칭 '@app-themes' → mobile/src/data/themes.ts, '@app-mascots' → mobile/src/data/mascots/index.ts
+// vite.config.ts의 별칭 '@app-themes' → mobile/src/data/themes.ts, '@app-mascots' → mobile/src/data/mascots/index.ts,
+// '@app-mascot-images' → mobile/assets/mascots (디자인 보드에서 잘라 온 PNG 폴더)
 import type { CSSProperties } from 'react';
 
-import { MASCOT_POSES, mascotArt } from '@app-mascots';
+import { MASCOT_FILES, MASCOT_IMAGES, MASCOT_POSES, mascotImage } from '@app-mascots';
 import { DEFAULT_THEME_ID, isThemeId, THEME_IDS, THEMES } from '@app-themes';
-import type { IMascotArt, IMascotShape, TMascotId, TMascotPose } from '@app-mascots';
+import type { IMascotImage, TMascotId, TMascotPose } from '@app-mascots';
 import type { ITheme, IThemeColors, TThemeId } from '@app-themes';
 
-export { DEFAULT_THEME_ID, isThemeId, MASCOT_POSES, mascotArt, THEME_IDS, THEMES };
-export type { IMascotArt, IMascotShape, ITheme, IThemeColors, TMascotId, TMascotPose, TThemeId };
+export { DEFAULT_THEME_ID, isThemeId, MASCOT_FILES, MASCOT_IMAGES, MASCOT_POSES, mascotImage, THEME_IDS, THEMES };
+export type { IMascotImage, ITheme, IThemeColors, TMascotId, TMascotPose, TThemeId };
+
+// 폴더의 PNG를 빌드에 넣고 주소를 받는다. 키는 빌드 도구가 정한 경로라 'mascots/' 뒤만 떼어 매핑 파일 이름과 맞춘다.
+const MASCOT_URLS: Record<string, string> = Object.fromEntries(
+  Object.entries(
+    import.meta.glob<string>('@app-mascot-images/**/*.png', { eager: true, query: '?url', import: 'default' }),
+  ).map(([path, url]) => [path.replace(/^.*mascots\//, ''), url]),
+);
+
+/** 마스코트 그림 파일(예: 'nyang/hello.png') → 이미지 주소. 폴더에 없으면 undefined */
+export const mascotImageUrl = (file: string): string | undefined => MASCOT_URLS[file];
 
 /** 자세 이름 → 화면에 보일 이름 (doc/12 4장 표) */
 export const POSE_LABELS: Record<TMascotPose, string> = {

@@ -1,6 +1,6 @@
 // 앱 테마 미리보기: 색 견본과 작은 앱 화면(홈 화면 모양을 그 테마 색으로 줄여 그림, doc/12 5장).
 // 색은 컨테이너에 CSS 변수(--t-primary 등)로 넣고 styles.css의 .tp-* 클래스가 읽는다.
-import { MascotSvg } from '@/components/Mascot';
+import { MascotImage } from '@/components/Mascot';
 
 import { COLOR_TOKENS, themeVars } from '@/lib/appTheme';
 import type { ITheme } from '@/lib/appTheme';
@@ -33,7 +33,7 @@ export const MiniAppPreview = ({ theme }: { theme: ITheme }) => {
             <div className="tp-title">안녕하세요!</div>
             <div className="tp-sub">오늘 뭐 입지? 이제 고민 끝.</div>
           </div>
-          <MascotSvg mascot={theme.mascot} pose="hello" size={46} />
+          <MascotImage mascot={theme.mascot} pose="hello" size={46} />
         </div>
         <div className="tp-card tp-weather">
           <span className="tp-sun" aria-hidden>

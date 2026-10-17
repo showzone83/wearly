@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 # Wearly 관리자 사이트 이미지. 빌드 컨텍스트는 저장소 루트다 (docker-compose.yml의 admin 서비스):
 # vite 별칭 '@garment-shapes'·'@app-themes'·'@app-mascots'가 ../mobile/src/data의 순수 TS(옷 일러스트 모양,
-# 디자인 테마 값, 마스코트 그림)를 가져오므로 그 파일들도 함께 복사한다.
+# 디자인 테마 값, 마스코트 그림 매핑)를, '@app-mascot-images'가 ../mobile/assets/mascots의 PNG를 가져오므로
+# 그 파일들도 함께 복사한다.
 # 무엇을 컨텍스트에 넣을지는 루트 .dockerignore가 정한다 (node_modules·dist 제외).
 
 # ── 빌드: tsc -b && vite build ──
@@ -12,6 +13,7 @@ RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 COPY admin/ ./
 COPY mobile/src/data/garmentShapes.ts mobile/src/data/themes.ts /repo/mobile/src/data/
 COPY mobile/src/data/mascots/ /repo/mobile/src/data/mascots/
+COPY mobile/assets/mascots/ /repo/mobile/assets/mascots/
 # 브라우저가 부를 백엔드 주소. 빌드할 때 번들에 들어간다 (/api/v1은 붙이지 않음)
 ARG VITE_API_URL=http://localhost:8080
 ENV VITE_API_URL=${VITE_API_URL}

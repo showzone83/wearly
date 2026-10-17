@@ -8,6 +8,10 @@ export const GARMENT_DETAILS: Record<string, string> = {};
 export const GARMENT_DETAIL_WIDTH: Record<string, number> = {};
 export const GARMENT_BUTTONS: Record<string, [number, number][]> = {};
 export const GARMENT_LIGHT: Record<string, string> = {};
+export const GARMENT_FOLDS: Record<string, string> = {};
+export const GARMENT_DETAIL_DEFAULT_WIDTH = 1.1;
+export const GARMENT_FOLD_WIDTH = 0.9;
+export const GARMENT_FOLD_OPACITY = 0.38;
 export const DEFAULT_SHAPE_BY_CATEGORY: Record<string, string> = {};
 export const FALLBACK_SHAPE = 'BOX';
 
@@ -19,4 +23,16 @@ export const resolveShape = (shape: string | null | undefined, category?: string
 
 export const shapePath = (shape: string | null | undefined, category?: string | null): string => {
   return GARMENT_SHAPES[resolveShape(shape, category)] ?? 'M30 20 L70 20 L70 80 L30 80 Z';
+};
+
+/** 대체 파일은 그라데이션 없이 단색으로 칠한다 */
+export const garmentTones = (hex: string, _light: number) => {
+  void _light;
+  return { top: hex, fill: hex, bottom: hex, edge: '#8A8F98', line: '#8A8F98' };
+};
+
+export const garmentShadow = (_shape: string | null | undefined, _category?: string | null) => {
+  void _shape;
+  void _category;
+  return { cx: 50, cy: 83, rx: 18, ry: 3 };
 };

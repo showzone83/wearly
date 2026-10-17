@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, useWindowDimensions, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
-import { Mascot } from '@/components/Mascot';
+import { Mascot, useMascotIsScene } from '@/components/Mascot';
 import { StylePrefs, WorkPattern } from '@/components/StyleForm';
 import { Button, Header, Kicker, notify, Screen, StepDots, Title } from '@/components/ui';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DEFAULT_PROFILE } from '@/data/seed';
+import { DEFAULT_PROFILE, SAMPLE_ITEM_COUNT } from '@/data/seed';
 import type { Profile } from '@/data/types';
 import { finishAccountOnboarding } from '@/lib/account';
 import { errorMessage } from '@/lib/api';
@@ -22,7 +22,7 @@ type Step = 0 | 1 | 2 | 3;
 const STEP_TEXT: Record<1 | 2 | 3, { title: string; desc: string }> = {
   1: {
     title: '잊고 있던 옷이\n새로운 스타일로!',
-    desc: '지금, 장롱 속 옷을 꺼내 AI가 추천하는 코디를 만나보세요. 샘플 옷장(옷 19벌 · 지난 기록 2건 · 예정 2건)으로 먼저 둘러봐도 괜찮아요.',
+    desc: `지금, 장롱 속 옷을 꺼내 AI가 추천하는 코디를 만나보세요. 샘플 옷장(옷 ${SAMPLE_ITEM_COUNT}벌 · 지난 기록 2건 · 예정 2건)으로 먼저 둘러봐도 괜찮아요.`,
   },
   2: { title: '어떤 스타일을\n좋아하세요?', desc: '취향을 반영할수록 더 나에게 딱 맞는 코디를 추천해드려요. 나중에 더보기 > 스타일 설정에서 바꿀 수 있어요.' },
   3: { title: '언제\n출근하세요?', desc: '근무 요일을 알려주시면 근무일엔 출근 코디, 쉬는 날엔 편한 코디를 추천해요.' },
@@ -43,6 +43,8 @@ export default function Onboarding() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  // 냥깨비의 옷장 그림은 배경 있는 장면이라 둘레 상자 없이 화면 폭 카드로 보인다
+  const closetIsScene = useMascotIsScene('closet');
 
   // 스플래시에서 로그인하고 돌아온 경우: 서버 프로필(가입 이름 포함)로 이어서 진행한다
   useEffect(() => {
@@ -142,8 +144,8 @@ export default function Onboarding() {
           </View>
         }
       >
-        <View style={s.hero}>
-          <Mascot pose="closet" size={Math.min(width, 480) * 0.62} />
+        <View style={closetIsScene ? s.heroScene : s.hero}>
+          <Mascot pose="closet" size={Math.min(width, 480) * 0.62} sceneWidth={Math.min(width, 480) - 40} />
         </View>
         <Kicker>STEP 1 / 3</Kicker>
         <Title style={s.title}>{text.title}</Title>
@@ -192,6 +194,7 @@ const useStyles = makeStyles((t) => ({
   loginText: { color: t.colors.text, fontSize: 15, fontWeight: '700' },
   note: { color: t.colors.textMuted, fontSize: 12, textAlign: 'center', lineHeight: 18 },
   skip: { color: t.colors.textSub, fontSize: 14, fontWeight: '600' },
+  heroScene: { alignItems: 'center', marginTop: 6, marginBottom: 24 },
   hero: {
     alignItems: 'center',
     justifyContent: 'center',
