@@ -1,2 +1,2 @@
 org.springframework.boot.diagnostics.FailureAnalyzer=\
-app.wearly.ai.AiProviderFailureAnalyzer
+app.wearly.common.config.AiProviderFailureAnalyzer

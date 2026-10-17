@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 옷장 읽기 전용 조회: 동적 필터 목록과 /wardrobe/stats 집계 -->
+<mapper namespace="app.wearly.wardrobe.adapter.out.query.WardrobeQueryMapper">
+
+    <resultMap id="itemRow" type="app.wearly.wardrobe.adapter.out.query.ItemRow">
+        <id property="id" column="item_id"/>
+        <result property="name" column="name"/>
+        <result property="category" column="category"/>
+        <result property="subType" column="sub_type"/>
+        <result property="color" column="color"/>
+        <result property="pattern" column="pattern"/>
+        <result property="seasons" column="seasons" typeHandler="app.wearly.common.mybatis.StringListArrayTypeHandler"/>
+        <result property="styles" column="styles" typeHandler="app.wearly.common.mybatis.StringListArrayTypeHandler"/>
+        <result property="formality" column="formality"/>
+        <result property="status" column="status"/>
+        <result property="brand" column="brand"/>
+        <result property="wornCount" column="worn_count"/>
+        <result property="lastWornAt" column="last_worn_at"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <resultMap id="countRow" type="app.wearly.wardrobe.adapter.out.query.CountRow">
+        <result property="key" column="key"/>
+        <result property="count" column="count"/>
+    </resultMap>
+
+    <select id="findItems" parameterType="app.wearly.wardrobe.application.port.out.ItemFilter" resultMap="itemRow">
+        SELECT item_id, name, category, sub_type, color, pattern, seasons, styles, formality, status, brand,
+               worn_count, last_worn_at, created_at
+          FROM tb_wardrobe_item
+         WHERE user_id = #{userId}
+        <if test="category != null">
+           AND category = #{category}
+        </if>
+        <if test="status != null">
+           AND status = #{status}
+        </if>
+        <if test="color != null">
+           AND color = #{color}
+        </if>
+        <if test="qPattern != null">
+           AND (name ILIKE #{qPattern} ESCAPE '\' OR brand ILIKE #{qPattern} ESCAPE '\')
+        </if>
+        <choose>
+            <when test="sort == 'worn'">
+         ORDER BY worn_count DESC, last_worn_at DESC NULLS LAST, item_id DESC
+            </when>
+            <when test="sort == 'name'">
+         <!-- DB 로케일과 상관없이 가나다(유니코드) 순. glibc en_US 정렬은 한글 순서가 어긋난다 -->
+         ORDER BY lower(name) COLLATE "C" ASC, item_id ASC
+            </when>
+            <otherwise>
+         ORDER BY created_at DESC, item_id DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="countAll" resultType="long">
+        SELECT count(*) FROM tb_wardrobe_item WHERE user_id = #{userId}
+    </select>
+
+    <select id="countByCategory" resultMap="countRow">
+        SELECT category AS key, count(*) AS count
+          FROM tb_wardrobe_item
+         WHERE user_id = #{userId}
+         GROUP BY category
+    </select>
+
+    <select id="countByColor" resultMap="countRow">
+        SELECT color AS key, count(*) AS count
+          FROM tb_wardrobe_item
+         WHERE user_id = #{userId}
+         GROUP BY color
+         ORDER BY count DESC, color ASC
+    </select>
+
+    <!-- styles는 TEXT[]라서 펼쳐서 센다 -->
+    <select id="countByStyle" resultMap="countRow">
+        SELECT s.style AS key, count(*) AS count
+          FROM tb_wardrobe_item i
+         CROSS JOIN LATERAL unnest(i.styles) AS s(style)
+         WHERE i.user_id = #{userId}
+         GROUP BY s.style
+         ORDER BY count DESC, s.style ASC
+    </select>
+
+    <select id="countByStatus" resultMap="countRow">
+        SELECT status AS key, count(*) AS count
+          FROM tb_wardrobe_item
+         WHERE user_id = #{userId}
+         GROUP BY status
+    </select>
+
+    <select id="countWornSince" resultType="long">
+        SELECT count(*)
+          FROM tb_wardrobe_item
+         WHERE user_id = #{userId}
+           AND last_worn_at &gt;= #{since}
+    </select>
+
+    <!-- 한 번도 안 입었거나 기준일 전에 마지막으로 입은 아이템. 오래 잠든 것부터 -->
+    <select id="findSleepingIds" resultType="long">
+        SELECT item_id
+          FROM tb_wardrobe_item
+         WHERE user_id = #{userId}
+           AND (last_worn_at IS NULL OR last_worn_at &lt; #{before})
+         ORDER BY last_worn_at ASC NULLS FIRST, created_at ASC, item_id ASC
+         LIMIT #{limit}
+    </select>
+</mapper>

@@ -1,5 +1,6 @@
 package app.wearly.common.error;
 
+import app.wearly.common.domain.FieldError;
 import jakarta.validation.ConstraintViolationException;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,24 +36,24 @@ public class GlobalExceptionHandler {
     /** @Valid 본문 검증 실패 (MethodArgumentNotValidException 포함) */
     @ExceptionHandler(BindException.class)
     ResponseEntity<ErrorResponse> handleBind(BindException e) {
-        List<ErrorResponse.FieldError> errors = new ArrayList<>();
-        e.getFieldErrors().forEach(fe -> errors.add(new ErrorResponse.FieldError(fe.getField(), fe.getDefaultMessage())));
-        e.getGlobalErrors().forEach(ge -> errors.add(new ErrorResponse.FieldError(ge.getObjectName(), ge.getDefaultMessage())));
+        List<FieldError> errors = new ArrayList<>();
+        e.getFieldErrors().forEach(fe -> errors.add(new FieldError(fe.getField(), fe.getDefaultMessage())));
+        e.getGlobalErrors().forEach(ge -> errors.add(new FieldError(ge.getObjectName(), ge.getDefaultMessage())));
         return validation(errors);
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
     ResponseEntity<ErrorResponse> handleMethodValidation(HandlerMethodValidationException e) {
-        List<ErrorResponse.FieldError> errors = new ArrayList<>();
+        List<FieldError> errors = new ArrayList<>();
         e.getParameterValidationResults().forEach(r -> r.getResolvableErrors().forEach(err ->
-                errors.add(new ErrorResponse.FieldError(r.getMethodParameter().getParameterName(), err.getDefaultMessage()))));
+                errors.add(new FieldError(r.getMethodParameter().getParameterName(), err.getDefaultMessage()))));
         return validation(errors);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     ResponseEntity<ErrorResponse> handleConstraint(ConstraintViolationException e) {
-        List<ErrorResponse.FieldError> errors = e.getConstraintViolations().stream()
-                .map(v -> new ErrorResponse.FieldError(v.getPropertyPath().toString(), v.getMessage()))
+        List<FieldError> errors = e.getConstraintViolations().stream()
+                .map(v -> new FieldError(v.getPropertyPath().toString(), v.getMessage()))
                 .toList();
         return validation(errors);
     }
@@ -61,24 +62,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<ErrorResponse> handleNotReadable(HttpMessageNotReadableException e) {
         if (e.getCause() instanceof DatabindException de && !de.getPath().isEmpty()) {
-            return validation(List.of(new ErrorResponse.FieldError(JsonPaths.of(de.getPath()), "허용되지 않는 값이에요.")));
+            return validation(List.of(new FieldError(JsonPaths.of(de.getPath()), "허용되지 않는 값이에요.")));
         }
-        return validation(List.of(new ErrorResponse.FieldError("body", "요청 본문을 읽을 수 없어요.")));
+        return validation(List.of(new FieldError("body", "요청 본문을 읽을 수 없어요.")));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
-        return validation(List.of(new ErrorResponse.FieldError(e.getName(), "허용되지 않는 값이에요.")));
+        return validation(List.of(new FieldError(e.getName(), "허용되지 않는 값이에요.")));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException e) {
-        return validation(List.of(new ErrorResponse.FieldError(e.getParameterName(), "필수 값이에요.")));
+        return validation(List.of(new FieldError(e.getParameterName(), "필수 값이에요.")));
     }
 
     @ExceptionHandler(MissingServletRequestPartException.class)
     ResponseEntity<ErrorResponse> handleMissingPart(MissingServletRequestPartException e) {
-        return validation(List.of(new ErrorResponse.FieldError(e.getRequestPartName(), "필수 값이에요.")));
+        return validation(List.of(new FieldError(e.getRequestPartName(), "필수 값이에요.")));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -91,7 +92,7 @@ public class GlobalExceptionHandler {
         if (isSizeExceeded(e)) {
             return respond(ErrorCode.IMAGE_TOO_LARGE, ErrorCode.IMAGE_TOO_LARGE.defaultMessage(), List.of());
         }
-        return validation(List.of(new ErrorResponse.FieldError("image", "사진을 읽을 수 없어요.")));
+        return validation(List.of(new FieldError("image", "사진을 읽을 수 없어요.")));
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
@@ -125,11 +126,11 @@ public class GlobalExceptionHandler {
         return false;
     }
 
-    private static ResponseEntity<ErrorResponse> validation(List<ErrorResponse.FieldError> errors) {
+    private static ResponseEntity<ErrorResponse> validation(List<FieldError> errors) {
         return respond(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage(), errors);
     }
 
-    private static ResponseEntity<ErrorResponse> respond(ErrorCode code, String message, List<ErrorResponse.FieldError> errors) {
+    private static ResponseEntity<ErrorResponse> respond(ErrorCode code, String message, List<FieldError> errors) {
         return ResponseEntity.status(code.status()).body(ErrorResponse.of(code, message, errors));
     }
 }

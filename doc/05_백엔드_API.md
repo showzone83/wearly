@@ -5,6 +5,9 @@
 > **2차 변경**: 옷 속성 값(종류·세부 종류·색·패턴·계절·스타일·보유 상태)은 DB 코드 테이블로 옮겼다 → [06_코드_관리.md](06_코드_관리.md).
 > 관리자 역할·관리자 API·AI 공급자(Claude·OpenAI·Gemini) 관리는 → [07_관리자_사이트.md](07_관리자_사이트.md).
 > 이 문서에서 두 문서와 겹치는 부분은 06·07 문서가 우선이다.
+>
+> **3차 변경**: 백엔드 내부 구조를 헥사고날로 바꿨다 → [08_백엔드_구조.md](08_백엔드_구조.md) (API·DB는 그대로).
+> AI 키를 관리자 화면에서 넣는 기능(쓰기 전용 · 암호화 저장, `V4__ai_provider_secret.sql`)은 → 07 문서 6장.
 
 ## 1. 범위
 
@@ -28,7 +31,7 @@
 | DB | `docker compose up -d` → `wearly-postgres`, `localhost:5433`, DB·계정·비밀번호 모두 `wearly` (로컬 전용) |
 | 스키마 | Flyway가 만든다. JPA는 `ddl-auto: validate` |
 | 서버 포트 | 8080 |
-| 비밀 값 | `backend/.env` (git 제외). `ANTHROPIC_API_KEY`·`OPENAI_API_KEY`·`GEMINI_API_KEY`(공급자 행의 `api_key_env`가 가리키는 이름), `WEARLY_JWT_SECRET`, `WEARLY_ADMIN_EMAIL`·`WEARLY_ADMIN_PASSWORD`(·`WEARLY_ADMIN_NAME`) |
+| 비밀 값 | `backend/.env` (git 제외). `ANTHROPIC_API_KEY`·`OPENAI_API_KEY`·`GEMINI_API_KEY`(공급자 행의 `api_key_env`가 가리키는 이름), `WEARLY_JWT_SECRET`, `WEARLY_ADMIN_EMAIL`·`WEARLY_ADMIN_PASSWORD`(·`WEARLY_ADMIN_NAME`), 3차 `WEARLY_SECRET_KEY`(웹 입력 AI 키의 마스터 키, base64 32바이트) |
 
 ### 데이터 접근 분담
 
@@ -36,9 +39,10 @@
 - **MyBatis**: 읽기 전용 조회. 동적 필터 목록, 집계 통계, AI 일일 사용량 집계처럼 SQL이 더 읽기 쉬운 곳.
 - 같은 트랜잭션 매니저를 쓴다. MyBatis 매퍼는 XML(`resources/mapper/*.xml`)로 둔다.
 
-## 3. 테이블 (Flyway `V1__init.sql`, 2차 `V2__codes.sql`·`V3__admin_ai.sql`)
+## 3. 테이블 (Flyway `V1__init.sql`, 2차 `V2__codes.sql`·`V3__admin_ai.sql`, 3차 `V4__ai_provider_secret.sql`)
 
 2차에서 더한 테이블: `tb_code_group`·`tb_code`(06 문서 2장), `tb_ai_provider`·`tb_admin_audit_log`, `tb_user.role`(07 문서 2·3장).
+3차에서 더한 테이블: `tb_ai_provider_secret`(웹 입력 AI 키의 AES-256-GCM 암호문, 07 문서 6장).
 
 모든 이름은 소문자 snake_case, 접두사 `tb_`. PK는 `BIGINT GENERATED ALWAYS AS IDENTITY`. 시각은 `TIMESTAMPTZ`, 날짜는 `DATE`. 회원 삭제 시 모든 하위 데이터는 `ON DELETE CASCADE`로 지운다.
 
@@ -87,9 +91,12 @@
 | 401 | `REFRESH_REUSED` | 이미 회전된 Refresh 토큰 재사용 → 같은 family 전체 폐기 |
 | 403 | `FORBIDDEN` | 권한 없음 (관리자 API에 일반 회원 등) |
 | 403 | `ACCOUNT_SUSPENDED` | 정지된 회원의 로그인 (비밀번호가 맞을 때만, 07 문서 2장) |
+| 403 | `REAUTH_FAILED` | AI 키 넣기·지우기에서 관리자 비밀번호(`currentPassword`) 재확인 실패 (07 문서 6장) |
 | 404 | `NOT_FOUND` | 없거나 남의 리소스 (남의 것도 404) |
 | 409 | `EMAIL_TAKEN` | 가입 이메일 중복 |
 | 409 | `CODE_EXISTS` · `CODE_IN_USE` · `PROVIDER_EXISTS` | 관리자 코드 중복·사용 중 삭제, AI 공급자 ID 중복 (07 문서 4장) |
+| 409 | `SECRET_KEY_MISSING` | 서버에 `WEARLY_SECRET_KEY`가 없어 AI 키를 웹에서 넣을 수 없음 (07 문서 6장) |
+| 400 | `API_KEY_INVALID` | 저장 전 키 확인(각 사 모델 목록 조회) 실패 (07 문서 6장) |
 | 413 | `IMAGE_TOO_LARGE` | 분석 이미지 10MB 초과 |
 | 429 | `AI_LIMIT_EXCEEDED` | AI 분석 일일 한도 초과 |
 | 502 | `AI_UNAVAILABLE` | AI 공급자 오류 |
@@ -228,12 +235,13 @@ interface AnalyzeResponse {
 - 공급자 구현: `ClaudeAiProvider`(Anthropic Java SDK), `OpenAiProvider`(Responses API, REST), `GeminiAiProvider`(generateContent, REST), `MockAiProvider`.
 - `WEARLY_AI_PROVIDER` = `db`(기본, 1차 값 `claude`도 같은 뜻) | `mock`. 그 밖의 값(예전 `auto` 포함)은 시작 실패.
   - `mock`(`./gradlew bootRunMock`, 하네스·테스트)이면 언제나 목업. DB 설정은 무시한다.
-  - 그 밖에는 `tb_ai_provider`에서 사용·모델·키 환경변수 값을 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패하면 다음 공급자로 넘어간다. 실패도 각각 기록한다.
+  - 그 밖에는 `tb_ai_provider`에서 사용·모델·키를 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패하면 다음 공급자로 넘어간다. 실패도 각각 기록한다.
+  - 키 고르기(3차, 07 문서 6장): 관리자 화면에서 넣은 키(DB, 복호화되면) → `api_key_env` 환경변수 → 없음. `WEARLY_SECRET_KEY`가 없으면 DB 키는 보지 않고 환경변수 키만 쓴다.
   - 쓸 수 있는 공급자가 없으면 502 `AI_UNAVAILABLE`. **목업으로 대신하지 않는다.** 서버는 이때도 시작하고 WARN을 남긴다 (1차의 "키 없으면 시작 실패"는 없어졌다).
 - 세 공급자 모두 이미지와 함께 **활성 코드**로 만든 허용 값 목록(코드+한국어 라벨, 세부 종류는 종류별)과 JSON 스키마를 주고 구조화 출력으로 받는다. 허용 목록 밖 값·짝 불일치는 서버가 거부하고 다음 공급자로 넘어간다 (06 문서 4장).
 - 목업은 이미지 바이트의 SHA-256으로 활성 코드 중에서 값을 정한다 (같은 사진 + 같은 코드 = 같은 결과).
 - 일일 한도 `WEARLY_AI_DAILY_LIMIT` (기본 10). 성공한 사진 분석(`feature='ITEM_ANALYZE'`)만 센다. 관리자 시험 분석(`ADMIN_TEST`)은 세지 않는다. 집계는 `tb_ai_analysis_log`를 MyBatis로 센다 (Asia/Seoul 날짜 기준).
-- 이미지는 저장하지 않는다. 로그에는 결과 JSON과 메타만 남긴다. 키 값·키 일부는 어떤 응답·로그에도 내보내지 않는다.
+- 이미지는 저장하지 않는다. 로그에는 결과 JSON과 메타만 남긴다. 키 값은 어떤 응답·로그·변경 이력에도 내보내지 않는다 (3차: 관리자 응답의 `keyLast4`(웹 입력 키의 끝 4자)만 예외, 07 문서 6장).
 
 ## 8. 앱 API 모듈 계약 (`mobile/src/api/`)
 

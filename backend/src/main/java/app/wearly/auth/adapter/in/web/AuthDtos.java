@@ -1,0 +1,75 @@
+package app.wearly.auth.adapter.in.web;
+
+import app.wearly.auth.application.port.in.AuthResult;
+import app.wearly.auth.application.port.in.LoginCommand;
+import app.wearly.auth.application.port.in.SignupCommand;
+import app.wearly.common.domain.Ids;
+import app.wearly.common.domain.Times;
+import app.wearly.user.application.port.in.UserAccount;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+/** 계약 6장 인증 요청·응답 */
+public final class AuthDtos {
+
+    private AuthDtos() {
+    }
+
+    public record SignupRequest(
+            @NotBlank(message = "이메일을 입력해 주세요.")
+            @Email(message = "이메일 형식이 아니에요.")
+            @Size(max = 255, message = "이메일이 너무 길어요.")
+            String email,
+            @NotBlank(message = "비밀번호를 입력해 주세요.")
+            @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*[0-9]).{8,64}$",
+                    message = "비밀번호는 8~64자, 영문과 숫자를 모두 포함해야 해요.")
+            String password,
+            @NotBlank(message = "이름을 입력해 주세요.")
+            @Size(max = 20, message = "이름은 20자까지 쓸 수 있어요.")
+            String name) {
+
+        SignupCommand toCommand() {
+            return new SignupCommand(email, password, name);
+        }
+    }
+
+    public record LoginRequest(
+            @NotBlank(message = "이메일을 입력해 주세요.") String email,
+            @NotBlank(message = "비밀번호를 입력해 주세요.") String password) {
+
+        LoginCommand toCommand() {
+            return new LoginCommand(email, password);
+        }
+    }
+
+    /** 토큰이 없거나 비어 있어도 400이 아니라 401 REFRESH_INVALID로 응답한다 (계약 4장 "Refresh 토큰 없음"). */
+    public record RefreshRequest(String refreshToken) {
+    }
+
+    /** 로그아웃은 토큰이 없거나 틀려도 204라서 검증하지 않는다. */
+    public record LogoutRequest(String refreshToken) {
+    }
+
+    public record AuthResponse(
+            String accessToken,
+            long accessTokenExpiresIn,
+            String refreshToken,
+            long refreshTokenExpiresIn,
+            UserDto user) {
+
+        static AuthResponse from(AuthResult r) {
+            return new AuthResponse(r.accessToken(), r.accessTokenExpiresIn(), r.refreshToken(), r.refreshTokenExpiresIn(),
+                    UserDto.from(r.user()));
+        }
+    }
+
+    /** 응답의 user (user 컨텍스트의 /users/me 응답과 같은 모양). role은 USER | ADMIN */
+    public record UserDto(String id, String email, String name, String role, String createdAt) {
+
+        static UserDto from(UserAccount u) {
+            return new UserDto(Ids.format(u.id()), u.email(), u.name(), u.role(), Times.iso(u.createdAt()));
+        }
+    }
+}

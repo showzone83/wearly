@@ -2,6 +2,7 @@ package app.wearly.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.wearly.auth.application.service.RefreshTokenService;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi;
 import app.wearly.support.TestApi.Resp;

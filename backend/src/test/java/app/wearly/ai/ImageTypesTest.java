@@ -2,6 +2,7 @@ package app.wearly.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.wearly.ai.domain.ImageTypes;
 import org.junit.jupiter.api.Test;
 
 class ImageTypesTest {

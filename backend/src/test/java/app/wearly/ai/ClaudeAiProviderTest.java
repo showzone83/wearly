@@ -3,7 +3,12 @@ package app.wearly.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import app.wearly.code.CodeSnapshot;
+import app.wearly.ai.adapter.out.ai.SuggestionParser;
+import app.wearly.ai.adapter.out.ai.claude.ClaudeAiProvider;
+import app.wearly.ai.domain.AiImage;
+import app.wearly.ai.domain.AiProviderException;
+import app.wearly.ai.domain.AiResult;
+import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.support.TestCodes;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
