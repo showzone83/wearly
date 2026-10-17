@@ -18,7 +18,7 @@ docker compose up -d
 
 # 2) 서버 실행 (backend/ 에서)
 cd backend
-cp .env.example .env   # 처음 한 번. 필요한 값만 채운다 (비워 두면 기본값)
+cp .env.example .env   # 처음 한 번. 필요한 값만 채운다 (기본값을 쓸 항목은 주석으로 둔다)
 ./gradlew bootRun
 ```
 

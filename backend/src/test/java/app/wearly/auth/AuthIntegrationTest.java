@@ -65,6 +65,12 @@ class AuthIntegrationTest extends IntegrationTestBase {
         api().post("/api/v1/auth/signup", null, Map.of("email", uniqueEmail(), "password", "abcd1234", "name", "가".repeat(21)))
                 .expectError(400, "VALIDATION_FAILED");
         api().post("/api/v1/auth/signup", null, "{not json").expectError(400, "VALIDATION_FAILED");
+
+        // 64자 이내지만 UTF-8로 72바이트(BCrypt 한도)를 넘는 비밀번호: 500이 아니라 400
+        Resp tooLong = api().post("/api/v1/auth/signup", null,
+                Map.of("email", uniqueEmail(), "password", "가".repeat(30) + "abc123", "name", "a"))
+                .expectError(400, "VALIDATION_FAILED");
+        assertThat(tooLong.body().get("fieldErrors").findValuesAsString("field")).containsExactly("password");
     }
 
     @Test

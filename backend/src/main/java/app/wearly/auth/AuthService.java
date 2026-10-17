@@ -8,6 +8,7 @@ import app.wearly.common.error.ErrorCode;
 import app.wearly.user.User;
 import app.wearly.user.UserDto;
 import app.wearly.user.UserRepository;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.Locale;
 import java.util.Optional;
@@ -18,6 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
+
+    /** BCrypt가 받는 비밀번호 최대 길이 */
+    static final int BCRYPT_MAX_BYTES = 72;
 
     private final UserRepository users;
     private final LocalCredentialRepository credentials;
@@ -41,6 +45,10 @@ public class AuthService {
 
     @Transactional
     public AuthResponse signup(SignupRequest req) {
+        if (req.password().getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES) {
+            // 64자 이내라도 한글 등은 한 글자가 3바이트라 BCrypt 한도를 넘을 수 있다 (넘기면 encode가 예외를 던져 500)
+            throw ApiException.validation("password", "비밀번호가 너무 길어요. 한글이 섞이면 더 짧게 써 주세요.");
+        }
         String email = normalizeEmail(req.email());
         if (credentials.existsByEmail(email)) {
             throw new ApiException(ErrorCode.EMAIL_TAKEN);
