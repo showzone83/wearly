@@ -54,10 +54,15 @@ public class WardrobeService implements WardrobeUseCase {
     }
     ApiException.throwIfAny(errors);
     String query = blankToNull(q.q());
-    String pattern = query == null ? null : "%" + escapeLike(query.strip()) + "%";
     return queries
         .findItems(
-            new ItemFilter(q.userId(), categoryCode, statusCode, colorCode, pattern, sortKey))
+            new ItemFilter(
+                q.userId(),
+                categoryCode,
+                statusCode,
+                colorCode,
+                query == null ? null : query.strip(),
+                sortKey))
         .stream()
         .map(ItemDto::from)
         .toList();
@@ -155,9 +160,5 @@ public class WardrobeService implements WardrobeUseCase {
 
   private static String blankToNull(String s) {
     return s == null || s.isBlank() ? null : s;
-  }
-
-  static String escapeLike(String s) {
-    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
 }

@@ -145,7 +145,7 @@ class WardrobeServiceTest {
                     .containsExactly("category", "color", "sort"));
     assertThat(filters).isEmpty();
 
-    service.list(new ItemSearchDto(USER, " TOP ", "", "navy", "  ", null));
+    service.list(new ItemSearchDto(USER, " TOP ", "", "navy", " 100%_셔츠 ", null));
     assertThat(filters)
         .singleElement()
         .satisfies(
@@ -155,6 +155,8 @@ class WardrobeServiceTest {
               assertThat(f.status()).isNull();
               assertThat(f.color()).isEqualTo("navy");
               assertThat(f.sort()).isEqualTo("recent");
+              // LIKE 패턴은 쿼리 어댑터가 만든다 (L3). 포트에는 원래 검색어가 간다
+              assertThat(f.query()).isEqualTo("100%_셔츠");
             });
   }
 

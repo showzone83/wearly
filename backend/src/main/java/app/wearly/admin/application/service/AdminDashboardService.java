@@ -92,7 +92,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
         new AiLogFilter(
             SearchText.blankToNull(search.providerId()),
             st,
-            email == null ? null : SearchText.containsPattern(email.strip()),
+            email,
             ft,
             time("from", search.from(), false),
             time("to", search.to(), true));

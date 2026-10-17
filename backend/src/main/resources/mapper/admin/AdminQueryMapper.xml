@@ -68,8 +68,9 @@
     <sql id="userWhere">
         <where>
             <if test="f.id != null">u.user_id = #{f.id}</if>
-            <if test="f.queryPattern != null">AND
-                (u.email ILIKE #{f.queryPattern} ESCAPE '\' OR u.name ILIKE #{f.queryPattern} ESCAPE '\')
+            <if test="f.query != null">
+                <bind name="queryPattern" value="@app.wearly.common.mybatis.LikePatterns@contains(f.query)"/>
+                AND (u.email ILIKE #{queryPattern} ESCAPE '\' OR u.name ILIKE #{queryPattern} ESCAPE '\')
             </if>
             <if test="f.status != null">AND u.status = #{f.status}</if>
             <if test="f.role != null">AND u.role = #{f.role}</if>
@@ -98,7 +99,10 @@
             <if test="f.providerId != null">l.provider = #{f.providerId}</if>
             <if test="f.status != null">AND l.status = #{f.status}</if>
             <if test="f.feature != null">AND l.feature = #{f.feature}</if>
-            <if test="f.emailPattern != null">AND u.email ILIKE #{f.emailPattern} ESCAPE '\'</if>
+            <if test="f.email != null">
+                <bind name="emailPattern" value="@app.wearly.common.mybatis.LikePatterns@contains(f.email)"/>
+                AND u.email ILIKE #{emailPattern} ESCAPE '\'
+            </if>
             <if test="f.from != null">AND l.created_at &gt;= #{f.from}</if>
             <if test="f.to != null">AND l.created_at &lt; #{f.to}</if>
         </where>

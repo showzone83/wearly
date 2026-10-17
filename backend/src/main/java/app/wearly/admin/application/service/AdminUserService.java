@@ -64,9 +64,7 @@ public class AdminUserService implements AdminUserUseCase {
     if (rl != null && !ROLES.contains(rl)) {
       throw ApiException.validation("role", "USER 또는 ADMIN이어야 해요.");
     }
-    String query = SearchText.blankToNull(q);
-    UserFilter filter =
-        new UserFilter(null, query == null ? null : SearchText.containsPattern(query), st, rl);
+    UserFilter filter = new UserFilter(null, SearchText.blankToNull(q), st, rl);
     return page(filter, paging);
   }
 

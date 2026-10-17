@@ -35,7 +35,8 @@
         <if test="color != null">
            AND color = #{color}
         </if>
-        <if test="queryPattern != null">
+        <if test="query != null">
+            <bind name="queryPattern" value="@app.wearly.common.mybatis.LikePatterns@contains(query)"/>
            AND (name ILIKE #{queryPattern} ESCAPE '\' OR brand ILIKE #{queryPattern} ESCAPE '\')
         </if>
         <choose>

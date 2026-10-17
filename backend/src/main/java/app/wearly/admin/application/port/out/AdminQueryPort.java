@@ -37,13 +37,8 @@ public interface AdminQueryPort {
   long countAuditLogs(String targetType);
 
   /** id가 있으면 그 회원 하나만 */
-  record UserFilter(Long id, String queryPattern, String status, String role) {}
+  record UserFilter(Long id, String query, String status, String role) {}
 
   record AiLogFilter(
-      String providerId,
-      String status,
-      String emailPattern,
-      String feature,
-      Instant from,
-      Instant to) {}
+      String providerId, String status, String email, String feature, Instant from, Instant to) {}
 }
