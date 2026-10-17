@@ -25,6 +25,19 @@
            AND created_at &lt; #{to}
     </select>
 
+    <select id="countReservations" resultType="long">
+        SELECT count(*)
+          FROM tb_ai_usage_reservation
+         WHERE user_id = #{userId}
+           AND feature = #{feature}
+           AND created_at &gt;= #{since}
+    </select>
+
+    <!-- 같은 회원·기능의 한도 확인을 한 줄로 세운다 (M7). 트랜잭션이 끝나면 풀린다 -->
+    <select id="lockQuota" resultType="int">
+        SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended('ai-quota:' || #{userId} || ':' || #{feature}, 0))) l
+    </select>
+
     <select id="findRecent" resultMap="aiLogRow">
         SELECT ai_analysis_log_id, feature, provider, model, status, error_code, image_sha256, result, created_at
           FROM tb_ai_analysis_log

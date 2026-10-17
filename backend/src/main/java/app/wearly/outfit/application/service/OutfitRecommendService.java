@@ -1,6 +1,8 @@
 package app.wearly.outfit.application.service;
 
 import app.wearly.ai.application.port.in.AiFeatures;
+import app.wearly.ai.application.port.in.AiLimitExceededException;
+import app.wearly.ai.application.port.in.AiUnavailableException;
 import app.wearly.ai.application.port.in.JsonGenerationUseCase;
 import app.wearly.ai.application.port.in.JsonOutputHandler;
 import app.wearly.ai.application.port.in.RejectedOutputException;
@@ -36,8 +38,8 @@ import org.springframework.stereotype.Service;
  * AI 코디 추천 (09 문서). 옷장·프로필·코드는 각 컨텍스트의 입력 포트로 읽고, 공급자 호출·기록은 ai 컨텍스트의 JsonGenerationUseCase에 맡긴다.
  * 프롬프트·스키마·후보 검증은 이 컨텍스트(공급자와 무관)에 있다.
  *
- * <p>순서: 요청 검증 400 → 고정·중심 아이템 확인 400 → 옷 부족 400 WARDROBE_INSUFFICIENT → 일일 한도 429 → 공급자 시도 → 모두 실패
- * 502. AI를 부르기 전 단계에서 끝나면 기록을 남기지 않는다.
+ * <p>순서: 요청 검증 400 → 고정·중심 아이템 확인 400 → 옷 부족 400 WARDROBE_INSUFFICIENT → 일일 한도 429(ai가 예약) → 공급자 시도
+ * → 모두 실패 502. AI를 부르기 전 단계에서 끝나면 기록을 남기지 않는다.
  */
 @Service
 public class OutfitRecommendService implements RecommendOutfitUseCase {
@@ -92,33 +94,29 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
           ErrorCode.WARDROBE_INSUFFICIENT, "추천할 수 있는 옷이 모자라요: " + String.join(", ", missing));
     }
 
-    int limit = settings.dailyLimit();
-    long used = generation.successToday(userId, AiFeatures.OUTFIT_RECOMMEND);
-    if (used >= limit) {
-      throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED, "오늘 AI 코디 추천 횟수를 모두 썼어요.");
-    }
-
     ProfileTasteDto taste = profiles.taste(userId);
+    int limit = settings.dailyLimit();
     GenerateJsonDto generate =
         new GenerateJsonDto(
             userId,
             AiFeatures.OUTFIT_RECOMMEND,
+            limit,
             OutfitPrompt.SCHEMA_NAME,
             OutfitPrompt.instructions(),
             OutfitPrompt.prompt(
                 pool, new OutfitTaste(taste.dressCodes(), taste.moods(), taste.colors()), codes),
             OutfitPrompt.schema(pool),
-            MockOutfitPlanner.plan(pool));
+            // 목업 실행일 때만 계산한다 (L8)
+            () -> MockOutfitPlanner.plan(pool));
     GeneratedJsonDto<List<OutfitCandidate>> result;
     try {
       result = generation.generate(generate, json -> accept(json, pool));
-    } catch (ApiException e) {
-      if (e.code() == ErrorCode.AI_UNAVAILABLE) {
-        throw new ApiException(ErrorCode.AI_UNAVAILABLE, "AI 코디 추천을 지금 받을 수 없어요. 잠시 후 다시 시도해 주세요.");
-      }
-      throw e;
+    } catch (AiLimitExceededException e) {
+      throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED, "오늘 AI 코디 추천 횟수를 모두 썼어요.");
+    } catch (AiUnavailableException e) {
+      throw new ApiException(ErrorCode.AI_UNAVAILABLE, "AI 코디 추천을 지금 받을 수 없어요. 잠시 후 다시 시도해 주세요.");
     }
-    int remaining = (int) Math.max(0, limit - (used + 1));
+    int remaining = (int) Math.max(0, limit - result.usedToday());
     return new OutfitRecommendationDto(
         result.value().stream().map(OutfitCandidateDto::from).toList(),
         result.provider(),

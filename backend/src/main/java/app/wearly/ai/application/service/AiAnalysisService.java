@@ -8,7 +8,6 @@ import app.wearly.ai.application.port.in.dto.AnalyzeResultDto;
 import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.application.port.out.AiProviderPort;
-import app.wearly.ai.application.port.out.AiUsagePort;
 import app.wearly.ai.domain.AiCallRecord;
 import app.wearly.ai.domain.AiImage;
 import app.wearly.ai.domain.AiImages;
@@ -21,12 +20,9 @@ import app.wearly.ai.domain.AnalysisPrompt;
 import app.wearly.ai.domain.ImageTypes;
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.application.ImageUpload;
-import app.wearly.common.domain.Zones;
 import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
-import java.time.Clock;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -47,26 +43,23 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   private final AiProviderRegistry registry;
   private final AiProviderPort providers;
   private final CodeCatalog catalog;
-  private final AiUsagePort usage;
+  private final AiQuotaService quota;
   private final AiCallRunner runner;
   private final AiSettings settings;
-  private final Clock clock;
 
   public AiAnalysisService(
       AiProviderRegistry registry,
       AiProviderPort providers,
       CodeCatalog catalog,
-      AiUsagePort usage,
+      AiQuotaService quota,
       AiCallRunner runner,
-      AiSettings settings,
-      Clock clock) {
+      AiSettings settings) {
     this.registry = registry;
     this.providers = providers;
     this.catalog = catalog;
-    this.usage = usage;
+    this.quota = quota;
     this.runner = runner;
     this.settings = settings;
-    this.clock = clock;
   }
 
   @Override
@@ -74,27 +67,33 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
     AiImage image = readImage(upload);
 
     int limit = settings.dailyLimit();
-    long used = usedToday(userId);
-    if (used >= limit) {
-      throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED);
+    AiQuotaService.Reservation reservation =
+        quota
+            .reserve(userId, AiCallRecord.FEATURE_ITEM_ANALYZE, limit)
+            .orElseThrow(() -> new ApiException(ErrorCode.AI_LIMIT_EXCEEDED));
+    try {
+      List<AiModelPort> candidates = registry.candidates();
+      if (candidates.isEmpty()) {
+        log.warn("AI 분석 불가: 쓸 수 있는 AI 공급자가 없음 (관리자 화면에서 공급자·모델·키 환경변수를 확인)");
+        throw new ApiException(ErrorCode.AI_UNAVAILABLE);
+      }
+      CodeSnapshot codes = catalog.current();
+      AiCallRunner.Call call =
+          new AiCallRunner.Call(
+              userId,
+              AiCallRecord.FEATURE_ITEM_ANALYZE,
+              AnalysisPrompt.request(image, codes),
+              image);
+      AiCallRunner.Attempt<AiSuggestion> ok =
+          runner
+              .first(candidates, call, json -> suggestion(json, codes))
+              .orElseThrow(() -> new ApiException(ErrorCode.AI_UNAVAILABLE));
+      int remaining = (int) Math.max(0, limit - reservation.used());
+      return new AnalyzeResultDto(
+          AiSuggestionDto.from(ok.value()), ok.provider(), ok.model(), remaining);
+    } finally {
+      quota.release(reservation);
     }
-
-    List<AiModelPort> candidates = registry.candidates();
-    if (candidates.isEmpty()) {
-      log.warn("AI 분석 불가: 쓸 수 있는 AI 공급자가 없음 (관리자 화면에서 공급자·모델·키 환경변수를 확인)");
-      throw new ApiException(ErrorCode.AI_UNAVAILABLE);
-    }
-    CodeSnapshot codes = catalog.current();
-    AiCallRunner.Call call =
-        new AiCallRunner.Call(
-            userId, AiCallRecord.FEATURE_ITEM_ANALYZE, AnalysisPrompt.request(image, codes), image);
-    AiCallRunner.Attempt<AiSuggestion> ok =
-        runner
-            .first(candidates, call, json -> suggestion(json, codes))
-            .orElseThrow(() -> new ApiException(ErrorCode.AI_UNAVAILABLE));
-    int remaining = (int) Math.max(0, limit - (used + 1));
-    return new AnalyzeResultDto(
-        AiSuggestionDto.from(ok.value()), ok.provider(), ok.model(), remaining);
   }
 
   @Override
@@ -143,12 +142,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
 
   /** 오늘(한국 시간) 성공한 사진 분석 수 (관리자 시험 분석 제외) */
   public long usedToday(long userId) {
-    LocalDate today = Zones.today(clock);
-    return usage.countSuccess(
-        userId,
-        AiCallRecord.FEATURE_ITEM_ANALYZE,
-        Zones.startOf(today),
-        Zones.startOf(today.plusDays(1)));
+    return quota.successToday(userId, AiCallRecord.FEATURE_ITEM_ANALYZE);
   }
 
   /** 검사 순서: 파트 없음·빈 파일 → 10MB 초과 → 읽기 실패 → 형식 */

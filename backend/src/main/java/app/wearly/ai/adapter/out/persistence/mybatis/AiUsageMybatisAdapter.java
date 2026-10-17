@@ -19,4 +19,14 @@ class AiUsageMybatisAdapter implements AiUsagePort {
   public long countSuccess(long userId, String feature, Instant from, Instant to) {
     return mapper.countSuccess(userId, feature, from, to);
   }
+
+  @Override
+  public long countReservations(long userId, String feature, Instant since) {
+    return mapper.countReservations(userId, feature, since);
+  }
+
+  @Override
+  public void lockQuota(long userId, String feature) {
+    mapper.lockQuota(userId, feature);
+  }
 }
