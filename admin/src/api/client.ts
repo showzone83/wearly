@@ -117,6 +117,14 @@ function toAudit(r: Record<string, unknown>): AuditLog {
 
 /** `/admin/ai/types`: 배열 또는 `{ CLAUDE: {...} }` 객체, options는 배열 또는 `{ key: 설명 }` 객체 모두 받는다 */
 function toTypeSpecs(raw: unknown): ProviderTypeSpec[] {
+  // 백엔드 실제 형식: { types: [{ type, description, options: [{ name, kind, description, defaultValue, min, max, values }] }],
+  //                   baseUrlAllowed, mockMode }. baseUrlAllowed가 false면 baseUrl 입력칸을 숨긴다(보내면 400).
+  const wrapped = raw as { types?: unknown; baseUrlAllowed?: unknown } | null;
+  if (wrapped && !Array.isArray(wrapped) && Array.isArray(wrapped.types)) {
+    const specs = toTypeSpecs(wrapped.types);
+    if (wrapped.baseUrlAllowed === false) for (const t of specs) t.options = t.options.filter((o) => o.key !== 'baseUrl');
+    return specs;
+  }
   const list: Record<string, unknown>[] = Array.isArray(raw)
     ? (raw as Record<string, unknown>[])
     : Array.isArray((raw as { items?: unknown })?.items)
@@ -128,7 +136,12 @@ function toTypeSpecs(raw: unknown): ProviderTypeSpec[] {
     if (Array.isArray(rawOpts)) {
       options = rawOpts.map((o) => {
         const obj = (typeof o === 'string' ? { key: o } : o) as Record<string, unknown>;
-        return { ...(obj as object), key: String(obj.key ?? obj.name ?? '') } as ProviderOptionSpec;
+        return {
+          ...(obj as object),
+          key: String(obj.key ?? obj.name ?? ''),
+          type: (obj.type ?? obj.kind) as string | undefined,
+          default: obj.default ?? obj.defaultValue,
+        } as ProviderOptionSpec;
       });
     } else if (rawOpts && typeof rawOpts === 'object') {
       options = Object.entries(rawOpts as Record<string, unknown>).map(([key, v]) =>
