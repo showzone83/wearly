@@ -286,8 +286,8 @@ CREATE TABLE tb_ai_analysis_log (
     feature            VARCHAR(30)  NOT NULL DEFAULT 'ITEM_ANALYZE',
     provider           VARCHAR(20)  NOT NULL,
     model              VARCHAR(100),
-    status             VARCHAR(20)  NOT NULL,
-    latency_ms         INTEGER      NOT NULL,
+    status             VARCHAR(20)  NOT NULL,     -- PENDING(호출 중) → SUCCESS | FAILED
+    latency_ms         INTEGER,                   -- 호출이 끝난 뒤에 채운다
     input_tokens       INTEGER,
     output_tokens      INTEGER,
     image_sha256       CHAR(64),                    -- 이미지 자체는 저장하지 않는다
@@ -295,9 +295,11 @@ CREATE TABLE tb_ai_analysis_log (
     result             JSONB,
     error_code         VARCHAR(50),
     created_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    completed_at       TIMESTAMPTZ,
     CONSTRAINT ck_ai_analysis_log_feature CHECK (feature IN ('ITEM_ANALYZE')),
     CONSTRAINT ck_ai_analysis_log_provider CHECK (provider IN ('mock', 'claude')),
-    CONSTRAINT ck_ai_analysis_log_status CHECK (status IN ('SUCCESS', 'FAILED'))
+    CONSTRAINT ck_ai_analysis_log_status CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED'))
 );
--- 일일 한도 집계용 (성공 호출만 센다)
-CREATE INDEX ix_ai_analysis_log_user_success ON tb_ai_analysis_log (user_id, created_at) WHERE status = 'SUCCESS';
+-- 일일 한도 집계용 (성공 + 진행 중인 호출을 센다)
+CREATE INDEX ix_ai_analysis_log_user_counted ON tb_ai_analysis_log (user_id, created_at)
+    WHERE status IN ('SUCCESS', 'PENDING');

@@ -9,8 +9,12 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface AiUsageMapper {
 
-    /** [from, to) 구간의 성공 호출 수 */
-    long countSuccess(@Param("userId") long userId, @Param("from") Instant from, @Param("to") Instant to);
+    /**
+     * [from, to) 구간에서 한도로 세는 호출 수: 성공 + 진행 중(pendingSince 이후 시작).
+     * 실패한 호출은 세지 않는다.
+     */
+    long countUsed(@Param("userId") long userId, @Param("from") Instant from, @Param("to") Instant to,
+            @Param("pendingSince") Instant pendingSince);
 
     /** 최근 기록 (운영 확인·테스트용) */
     List<AiLogRow> findRecent(@Param("userId") long userId, @Param("limit") int limit);

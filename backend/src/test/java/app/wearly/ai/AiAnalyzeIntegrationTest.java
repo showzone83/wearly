@@ -5,10 +5,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.wearly.domain.Category;
 import app.wearly.domain.SubType;
 import app.wearly.support.IntegrationTestBase;
+import app.wearly.support.TestApi;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,6 +30,9 @@ class AiAnalyzeIntegrationTest extends IntegrationTestBase {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    AiAnalysisService service;
 
     @Test
     void 같은_사진은_같은_결과이고_짝이_맞는_제안을_준다() {
@@ -104,6 +114,47 @@ class AiAnalyzeIntegrationTest extends IntegrationTestBase {
 
         api().upload(PATH, null, "image", png, "a.png", "image/png").expectError(401, "UNAUTHORIZED");
         assertThat(usageMapper.findRecent(Long.parseLong(s.userId()), 10)).hasSize(2);
+    }
+
+    /** 같은 회원이 동시에 여러 장을 보내도 성공은 한도(3)까지만 난다 (회원 행 잠금 + PENDING 자리 잡기) */
+    @Test
+    void 동시에_보내도_일일_한도를_넘지_않는다() throws Exception {
+        Session s = signup();
+        TestApi api = api();
+        int requests = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(requests);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Integer>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < requests; i++) {
+                byte[] photo = bytes(2000, 100 + i);
+                futures.add(pool.submit(() -> {
+                    start.await();
+                    return api.upload(PATH, s.accessToken(), "image", photo, "p.png", "image/png").status();
+                }));
+            }
+            start.countDown();
+            List<Integer> statuses = new ArrayList<>();
+            for (Future<Integer> f : futures) {
+                statuses.add(f.get(60, TimeUnit.SECONDS));
+            }
+            assertThat(statuses).containsOnly(200, 429);
+            assertThat(statuses).filteredOn(code -> code == 200).hasSize(3);
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(usageMapper.findRecent(Long.parseLong(s.userId()), 20))
+                .extracting(AiLogRow::getStatus)
+                .containsExactly("SUCCESS", "SUCCESS", "SUCCESS");
+    }
+
+    @Test
+    void 진행_중인_호출은_세고_오래된_PENDING은_세지_않는다() {
+        long userId = Long.parseLong(signup().userId());
+        String insert = "insert into tb_ai_analysis_log (user_id, provider, status, created_at) values (?, 'mock', 'PENDING', %s)";
+        jdbc.update(insert.formatted("now()"), userId);
+        jdbc.update(insert.formatted("now() - interval '10 minutes'"), userId); // 서버가 호출 중에 죽은 경우
+        assertThat(service.usedToday(userId)).isEqualTo(1);
     }
 
     private static byte[] bytes(int size, long seed) {

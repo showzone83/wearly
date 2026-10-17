@@ -5,18 +5,21 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Map;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** AI 호출 기록. 이미지는 남기지 않고 해시·크기·결과 JSON·메타만 둔다. */
+/**
+ * AI 호출 기록. 이미지는 남기지 않고 해시·크기·결과 JSON·메타만 둔다.
+ * 호출 전에 PENDING으로 자리를 잡고(한도 동시성 보호), 끝나면 SUCCESS 또는 FAILED로 바꾼다.
+ */
 @Entity
 @Table(name = "tb_ai_analysis_log")
 public class AiAnalysisLog {
 
+    public static final String PENDING = "PENDING";
     public static final String SUCCESS = "SUCCESS";
     public static final String FAILED = "FAILED";
 
@@ -40,8 +43,8 @@ public class AiAnalysisLog {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    @Column(name = "latency_ms", nullable = false)
-    private int latencyMs;
+    @Column(name = "latency_ms")
+    private Integer latencyMs;
 
     @Column(name = "input_tokens")
     private Integer inputTokens;
@@ -66,40 +69,42 @@ public class AiAnalysisLog {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
     protected AiAnalysisLog() {
     }
 
-    private AiAnalysisLog(Long userId, String provider, String model, String status, int latencyMs, AiImage image) {
-        this.userId = userId;
-        this.provider = provider;
-        this.model = model;
-        this.status = status;
-        this.latencyMs = latencyMs;
-        this.imageSha256 = image.sha256();
-        this.imageBytes = image.bytes().length;
-    }
-
-    public static AiAnalysisLog success(Long userId, String provider, AiResult result, Map<String, Object> resultJson,
-            int latencyMs, AiImage image) {
-        AiAnalysisLog log = new AiAnalysisLog(userId, provider, result.model(), SUCCESS, latencyMs, image);
-        log.inputTokens = toInt(result.inputTokens());
-        log.outputTokens = toInt(result.outputTokens());
-        log.result = resultJson;
+    /** 공급자를 부르기 전에 남기는 기록. 진행 중인 호출도 한도에 센다 (AiUsageMapper.countUsed). */
+    public static AiAnalysisLog pending(Long userId, String provider, String model, AiImage image, Instant now) {
+        AiAnalysisLog log = new AiAnalysisLog();
+        log.userId = userId;
+        log.provider = provider;
+        log.model = model;
+        log.status = PENDING;
+        log.imageSha256 = image.sha256();
+        log.imageBytes = image.bytes().length;
+        log.createdAt = now;
         return log;
     }
 
-    public static AiAnalysisLog failure(Long userId, String provider, String model, String errorCode, int latencyMs,
-            AiImage image) {
-        AiAnalysisLog log = new AiAnalysisLog(userId, provider, model, FAILED, latencyMs, image);
-        log.errorCode = errorCode.length() > 50 ? errorCode.substring(0, 50) : errorCode;
-        return log;
-    }
-
-    @PrePersist
-    void onCreate() {
-        if (createdAt == null) {
-            createdAt = Instant.now();
+    public void succeed(AiResult result, Map<String, Object> resultJson, int latencyMs, Instant now) {
+        this.status = SUCCESS;
+        if (result.model() != null) {
+            this.model = result.model(); // 폴백으로 다른 모델이 답했으면 실제 모델을 남긴다
         }
+        this.inputTokens = toInt(result.inputTokens());
+        this.outputTokens = toInt(result.outputTokens());
+        this.result = resultJson;
+        this.latencyMs = latencyMs;
+        this.completedAt = now;
+    }
+
+    public void fail(String errorCode, int latencyMs, Instant now) {
+        this.status = FAILED;
+        this.errorCode = errorCode.length() > 50 ? errorCode.substring(0, 50) : errorCode;
+        this.latencyMs = latencyMs;
+        this.completedAt = now;
     }
 
     private static Integer toInt(Long value) {
