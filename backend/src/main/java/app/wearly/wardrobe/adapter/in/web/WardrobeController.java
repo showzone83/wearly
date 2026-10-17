@@ -31,59 +31,67 @@ import tools.jackson.databind.json.JsonMapper;
 @RequestMapping("/api/v1/wardrobe")
 public class WardrobeController {
 
-    private final WardrobeUseCase wardrobe;
-    private final WardrobeStatsUseCase stats;
-    private final JsonMapper jsonMapper;
-    private final Validator validator;
+  private final WardrobeUseCase wardrobe;
+  private final WardrobeStatsUseCase stats;
+  private final JsonMapper jsonMapper;
+  private final Validator validator;
 
-    public WardrobeController(WardrobeUseCase wardrobe, WardrobeStatsUseCase stats, JsonMapper jsonMapper,
-            Validator validator) {
-        this.wardrobe = wardrobe;
-        this.stats = stats;
-        this.jsonMapper = jsonMapper;
-        this.validator = validator;
-    }
+  public WardrobeController(
+      WardrobeUseCase wardrobe,
+      WardrobeStatsUseCase stats,
+      JsonMapper jsonMapper,
+      Validator validator) {
+    this.wardrobe = wardrobe;
+    this.stats = stats;
+    this.jsonMapper = jsonMapper;
+    this.validator = validator;
+  }
 
-    @GetMapping("/items")
-    public ItemList list(@CurrentUser long userId,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String color,
-            @RequestParam(required = false) String q,
-            @RequestParam(required = false) String sort) {
-        return new ItemList(wardrobe.list(new ListItemsQuery(userId, category, status, color, q, sort)));
-    }
+  @GetMapping("/items")
+  public ItemList list(
+      @CurrentUser long userId,
+      @RequestParam(required = false) String category,
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false) String color,
+      @RequestParam(required = false) String q,
+      @RequestParam(required = false) String sort) {
+    return new ItemList(
+        wardrobe.list(new ListItemsQuery(userId, category, status, color, q, sort)));
+  }
 
-    @GetMapping("/items/{id}")
-    public ItemView get(@CurrentUser long userId, @PathVariable String id) {
-        return wardrobe.get(userId, PathIds.parse(id));
-    }
+  @GetMapping("/items/{id}")
+  public ItemView get(@CurrentUser long userId, @PathVariable String id) {
+    return wardrobe.get(userId, PathIds.parse(id));
+  }
 
-    @PostMapping("/items")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ItemView create(@CurrentUser long userId, @Valid @RequestBody ItemRequest input) {
-        return wardrobe.create(userId, input.toInput());
-    }
+  @PostMapping("/items")
+  @ResponseStatus(HttpStatus.CREATED)
+  public ItemView create(@CurrentUser long userId, @Valid @RequestBody ItemRequest input) {
+    return wardrobe.create(userId, input.toInput());
+  }
 
-    @PostMapping("/items/bulk")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ItemList bulk(@CurrentUser long userId, @Valid @RequestBody BulkRequest request) {
-        return new ItemList(wardrobe.bulkCreate(userId, request.items().stream().map(ItemRequest::toInput).toList()));
-    }
+  @PostMapping("/items/bulk")
+  @ResponseStatus(HttpStatus.CREATED)
+  public ItemList bulk(@CurrentUser long userId, @Valid @RequestBody BulkRequest request) {
+    return new ItemList(
+        wardrobe.bulkCreate(userId, request.items().stream().map(ItemRequest::toInput).toList()));
+  }
 
-    @PatchMapping("/items/{id}")
-    public ItemView patch(@CurrentUser long userId, @PathVariable String id, @RequestBody JsonNode patch) {
-        return wardrobe.patch(userId, PathIds.parse(id), new JsonItemPatch(patch, jsonMapper, validator));
-    }
+  @PatchMapping("/items/{id}")
+  public ItemView patch(
+      @CurrentUser long userId, @PathVariable String id, @RequestBody JsonNode patch) {
+    return wardrobe.patch(
+        userId, PathIds.parse(id), new JsonItemPatch(patch, jsonMapper, validator));
+  }
 
-    @DeleteMapping("/items/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@CurrentUser long userId, @PathVariable String id) {
-        wardrobe.delete(userId, PathIds.parse(id));
-    }
+  @DeleteMapping("/items/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void delete(@CurrentUser long userId, @PathVariable String id) {
+    wardrobe.delete(userId, PathIds.parse(id));
+  }
 
-    @GetMapping("/stats")
-    public WardrobeStats stats(@CurrentUser long userId) {
-        return stats.stats(userId);
-    }
+  @GetMapping("/stats")
+  public WardrobeStats stats(@CurrentUser long userId) {
+    return stats.stats(userId);
+  }
 }

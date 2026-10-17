@@ -13,43 +13,44 @@ import org.springframework.stereotype.Component;
 @Component
 class ProfilePersistenceAdapter implements ProfilePort {
 
-    private final UserProfileRepository profiles;
+  private final UserProfileRepository profiles;
 
-    ProfilePersistenceAdapter(UserProfileRepository profiles) {
-        this.profiles = profiles;
-    }
+  ProfilePersistenceAdapter(UserProfileRepository profiles) {
+    this.profiles = profiles;
+  }
 
-    @Override
-    public Optional<UserProfile> findByUserId(long userId) {
-        return profiles.findByUserId(userId).map(ProfilePersistenceAdapter::toDomain);
-    }
+  @Override
+  public Optional<UserProfile> findByUserId(long userId) {
+    return profiles.findByUserId(userId).map(ProfilePersistenceAdapter::toDomain);
+  }
 
-    @Override
-    public void save(long userId, UserProfile p) {
-        UserProfileEntity entity = profiles.findByUserId(userId).orElseGet(() -> new UserProfileEntity(userId));
-        entity.update(
-                EnumCodes.names(p.dressCodes()),
-                p.moods(),
-                p.colors(),
-                p.workType().name(),
-                p.workDays().stream().map(Integer::shortValue).toList(),
-                p.workRule(),
-                p.offRule(),
-                p.notifications().toMap(),
-                p.onboarded());
-        profiles.saveAndFlush(entity);
-    }
+  @Override
+  public void save(long userId, UserProfile p) {
+    UserProfileEntity entity =
+        profiles.findByUserId(userId).orElseGet(() -> new UserProfileEntity(userId));
+    entity.update(
+        EnumCodes.names(p.dressCodes()),
+        p.moods(),
+        p.colors(),
+        p.workType().name(),
+        p.workDays().stream().map(Integer::shortValue).toList(),
+        p.workRule(),
+        p.offRule(),
+        p.notifications().toMap(),
+        p.onboarded());
+    profiles.saveAndFlush(entity);
+  }
 
-    private static UserProfile toDomain(UserProfileEntity e) {
-        return new UserProfile(
-                EnumCodes.parse(e.getDressCodes(), DressCode::valueOf),
-                List.copyOf(e.getMoods()),
-                List.copyOf(e.getColors()),
-                WorkType.valueOf(e.getWorkType()),
-                e.getWorkDays().stream().map(Short::intValue).toList(),
-                e.isWorkRule(),
-                e.isOffRule(),
-                UserProfile.Notify.fromMap(e.getNotify()),
-                e.isOnboarded());
-    }
+  private static UserProfile toDomain(UserProfileEntity e) {
+    return new UserProfile(
+        EnumCodes.parse(e.getDressCodes(), DressCode::valueOf),
+        List.copyOf(e.getMoods()),
+        List.copyOf(e.getColors()),
+        WorkType.valueOf(e.getWorkType()),
+        e.getWorkDays().stream().map(Short::intValue).toList(),
+        e.isWorkRule(),
+        e.isOffRule(),
+        UserProfile.Notify.fromMap(e.getNotify()),
+        e.isOnboarded());
+  }
 }

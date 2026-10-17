@@ -16,14 +16,16 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/wardrobe")
 public class AiAnalyzeController {
 
-    private final AnalyzeImageUseCase analyze;
+  private final AnalyzeImageUseCase analyze;
 
-    public AiAnalyzeController(AnalyzeImageUseCase analyze) {
-        this.analyze = analyze;
-    }
+  public AiAnalyzeController(AnalyzeImageUseCase analyze) {
+    this.analyze = analyze;
+  }
 
-    @PostMapping(path = "/items/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public AnalyzeResult analyze(@CurrentUser long userId, @RequestPart(name = "image", required = false) MultipartFile image) {
-        return analyze.analyze(userId, Uploads.of(image));
-    }
+  @PostMapping(path = "/items/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public AnalyzeResult analyze(
+      @CurrentUser long userId,
+      @RequestPart(name = "image", required = false) MultipartFile image) {
+    return analyze.analyze(userId, Uploads.of(image));
+  }
 }

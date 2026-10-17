@@ -7,130 +7,130 @@ import java.util.List;
 /** MyBatis 목록 조회 결과 한 행 */
 public class ItemRow {
 
-    private Long id;
-    private String name;
-    private String category;
-    private String subType;
-    private String color;
-    private String pattern;
-    private List<String> seasons;
-    private List<String> styles;
-    private short formality;
-    private String status;
-    private String brand;
-    private int wornCount;
-    private LocalDate lastWornAt;
-    private Instant createdAt;
+  private Long id;
+  private String name;
+  private String category;
+  private String subType;
+  private String color;
+  private String pattern;
+  private List<String> seasons;
+  private List<String> styles;
+  private short formality;
+  private String status;
+  private String brand;
+  private int wornCount;
+  private LocalDate lastWornAt;
+  private Instant createdAt;
 
-    public Long getId() {
-        return id;
-    }
+  public Long getId() {
+    return id;
+  }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+  public void setId(Long id) {
+    this.id = id;
+  }
 
-    public String getName() {
-        return name;
-    }
+  public String getName() {
+    return name;
+  }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+  public void setName(String name) {
+    this.name = name;
+  }
 
-    public String getCategory() {
-        return category;
-    }
+  public String getCategory() {
+    return category;
+  }
 
-    public void setCategory(String category) {
-        this.category = category;
-    }
+  public void setCategory(String category) {
+    this.category = category;
+  }
 
-    public String getSubType() {
-        return subType;
-    }
+  public String getSubType() {
+    return subType;
+  }
 
-    public void setSubType(String subType) {
-        this.subType = subType;
-    }
+  public void setSubType(String subType) {
+    this.subType = subType;
+  }
 
-    public String getColor() {
-        return color;
-    }
+  public String getColor() {
+    return color;
+  }
 
-    public void setColor(String color) {
-        this.color = color;
-    }
+  public void setColor(String color) {
+    this.color = color;
+  }
 
-    public String getPattern() {
-        return pattern;
-    }
+  public String getPattern() {
+    return pattern;
+  }
 
-    public void setPattern(String pattern) {
-        this.pattern = pattern;
-    }
+  public void setPattern(String pattern) {
+    this.pattern = pattern;
+  }
 
-    public List<String> getSeasons() {
-        return seasons;
-    }
+  public List<String> getSeasons() {
+    return seasons;
+  }
 
-    public void setSeasons(List<String> seasons) {
-        this.seasons = seasons;
-    }
+  public void setSeasons(List<String> seasons) {
+    this.seasons = seasons;
+  }
 
-    public List<String> getStyles() {
-        return styles;
-    }
+  public List<String> getStyles() {
+    return styles;
+  }
 
-    public void setStyles(List<String> styles) {
-        this.styles = styles;
-    }
+  public void setStyles(List<String> styles) {
+    this.styles = styles;
+  }
 
-    public short getFormality() {
-        return formality;
-    }
+  public short getFormality() {
+    return formality;
+  }
 
-    public void setFormality(short formality) {
-        this.formality = formality;
-    }
+  public void setFormality(short formality) {
+    this.formality = formality;
+  }
 
-    public String getStatus() {
-        return status;
-    }
+  public String getStatus() {
+    return status;
+  }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
+  public void setStatus(String status) {
+    this.status = status;
+  }
 
-    public String getBrand() {
-        return brand;
-    }
+  public String getBrand() {
+    return brand;
+  }
 
-    public void setBrand(String brand) {
-        this.brand = brand;
-    }
+  public void setBrand(String brand) {
+    this.brand = brand;
+  }
 
-    public int getWornCount() {
-        return wornCount;
-    }
+  public int getWornCount() {
+    return wornCount;
+  }
 
-    public void setWornCount(int wornCount) {
-        this.wornCount = wornCount;
-    }
+  public void setWornCount(int wornCount) {
+    this.wornCount = wornCount;
+  }
 
-    public LocalDate getLastWornAt() {
-        return lastWornAt;
-    }
+  public LocalDate getLastWornAt() {
+    return lastWornAt;
+  }
 
-    public void setLastWornAt(LocalDate lastWornAt) {
-        this.lastWornAt = lastWornAt;
-    }
+  public void setLastWornAt(LocalDate lastWornAt) {
+    this.lastWornAt = lastWornAt;
+  }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
 
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
+  public void setCreatedAt(Instant createdAt) {
+    this.createdAt = createdAt;
+  }
 }

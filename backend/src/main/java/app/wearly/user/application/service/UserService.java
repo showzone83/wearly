@@ -12,46 +12,46 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserService implements UserUseCase {
 
-    private final UserPort users;
+  private final UserPort users;
 
-    public UserService(UserPort users) {
-        this.users = users;
-    }
+  public UserService(UserPort users) {
+    this.users = users;
+  }
 
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<UserAccount> find(long userId) {
-        return users.findById(userId).map(UserService::toAccount);
-    }
+  @Override
+  @Transactional(readOnly = true)
+  public Optional<UserAccount> find(long userId) {
+    return users.findById(userId).map(UserService::toAccount);
+  }
 
-    @Override
-    @Transactional(readOnly = true)
-    public UserAccount get(long userId) {
-        return find(userId).orElseThrow(ApiException::notFound);
-    }
+  @Override
+  @Transactional(readOnly = true)
+  public UserAccount get(long userId) {
+    return find(userId).orElseThrow(ApiException::notFound);
+  }
 
-    @Override
-    @Transactional
-    public UserAccount create(String email, String name, String role) {
-        return toAccount(users.save(User.newUser(email, name, role)));
-    }
+  @Override
+  @Transactional
+  public UserAccount create(String email, String name, String role) {
+    return toAccount(users.save(User.newUser(email, name, role)));
+  }
 
-    @Override
-    @Transactional
-    public UserAccount changeAccess(long userId, String status, String role) {
-        User user = users.findById(userId).orElseThrow(ApiException::notFound);
-        user.changeStatus(status);
-        user.changeRole(role);
-        return toAccount(users.save(user));
-    }
+  @Override
+  @Transactional
+  public UserAccount changeAccess(long userId, String status, String role) {
+    User user = users.findById(userId).orElseThrow(ApiException::notFound);
+    user.changeStatus(status);
+    user.changeRole(role);
+    return toAccount(users.save(user));
+  }
 
-    @Override
-    @Transactional
-    public void delete(long userId) {
-        users.deleteById(userId);
-    }
+  @Override
+  @Transactional
+  public void delete(long userId) {
+    users.deleteById(userId);
+  }
 
-    static UserAccount toAccount(User u) {
-        return new UserAccount(u.id(), u.email(), u.name(), u.role(), u.status(), u.createdAt());
-    }
+  static UserAccount toAccount(User u) {
+    return new UserAccount(u.id(), u.email(), u.name(), u.role(), u.status(), u.createdAt());
+  }
 }

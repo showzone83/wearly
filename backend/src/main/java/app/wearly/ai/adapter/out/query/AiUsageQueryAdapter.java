@@ -8,14 +8,14 @@ import org.springframework.stereotype.Component;
 @Component
 class AiUsageQueryAdapter implements AiUsagePort {
 
-    private final AiUsageMapper mapper;
+  private final AiUsageMapper mapper;
 
-    AiUsageQueryAdapter(AiUsageMapper mapper) {
-        this.mapper = mapper;
-    }
+  AiUsageQueryAdapter(AiUsageMapper mapper) {
+    this.mapper = mapper;
+  }
 
-    @Override
-    public long countSuccess(long userId, Instant from, Instant to) {
-        return mapper.countSuccess(userId, from, to);
-    }
+  @Override
+  public long countSuccess(long userId, String feature, Instant from, Instant to) {
+    return mapper.countSuccess(userId, feature, from, to);
+  }
 }

@@ -10,19 +10,19 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class ErrorResponseWriter {
 
-    private final JsonMapper jsonMapper;
+  private final JsonMapper jsonMapper;
 
-    public ErrorResponseWriter(JsonMapper jsonMapper) {
-        this.jsonMapper = jsonMapper;
-    }
+  public ErrorResponseWriter(JsonMapper jsonMapper) {
+    this.jsonMapper = jsonMapper;
+  }
 
-    public void write(HttpServletResponse response, ErrorCode code) throws IOException {
-        if (response.isCommitted()) {
-            return;
-        }
-        response.setStatus(code.status());
-        response.setCharacterEncoding("UTF-8");
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        jsonMapper.writeValue(response.getOutputStream(), ErrorResponse.of(code));
+  public void write(HttpServletResponse response, ErrorCode code) throws IOException {
+    if (response.isCommitted()) {
+      return;
     }
+    response.setStatus(code.status());
+    response.setCharacterEncoding("UTF-8");
+    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+    jsonMapper.writeValue(response.getOutputStream(), ErrorResponse.of(code));
+  }
 }

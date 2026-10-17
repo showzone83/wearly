@@ -16,21 +16,21 @@ import org.springframework.web.context.request.WebRequest;
 @RequestMapping("/api/v1/codes")
 public class CodeController {
 
-    private final CodeCatalog catalog;
+  private final CodeCatalog catalog;
 
-    public CodeController(CodeCatalog catalog) {
-        this.catalog = catalog;
-    }
+  public CodeController(CodeCatalog catalog) {
+    this.catalog = catalog;
+  }
 
-    @GetMapping
-    public ResponseEntity<CodesResponse> codes(WebRequest request) {
-        CodeSnapshot snapshot = catalog.current();
-        String etag = "\"" + snapshot.version() + "\"";
-        // 캐시는 해도 매번 서버에 확인하게 한다 (no-cache = 재검증 필수)
-        CacheControl cache = CacheControl.noCache();
-        if (request.checkNotModified(etag)) {
-            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).cacheControl(cache).build();
-        }
-        return ResponseEntity.ok().eTag(etag).cacheControl(cache).body(CodeDtos.from(snapshot));
+  @GetMapping
+  public ResponseEntity<CodesResponse> codes(WebRequest request) {
+    CodeSnapshot snapshot = catalog.current();
+    String etag = "\"" + snapshot.version() + "\"";
+    // 캐시는 해도 매번 서버에 확인하게 한다 (no-cache = 재검증 필수)
+    CacheControl cache = CacheControl.noCache();
+    if (request.checkNotModified(etag)) {
+      return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).cacheControl(cache).build();
     }
+    return ResponseEntity.ok().eTag(etag).cacheControl(cache).body(CodeDtos.from(snapshot));
+  }
 }

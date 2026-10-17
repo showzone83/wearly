@@ -1,4 +1,3 @@
 package app.wearly.auth.application.port.in;
 
-public record LoginCommand(String email, String password) {
-}
+public record LoginCommand(String email, String password) {}

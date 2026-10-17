@@ -1,7 +1,10 @@
 plugins {
     java
+    checkstyle
     id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
+    // 08 문서 5장 코드 스타일: google-java-format으로 포맷 검사 (./gradlew spotlessApply로 고침)
+    id("com.diffplug.spotless") version "8.10.4"
 }
 
 group = "app.wearly"
@@ -22,6 +25,9 @@ repositories {
 val mybatisStarterVersion = "4.1.0"
 val anthropicJavaVersion = "2.73.0"
 val archunitVersion = "1.5.1"
+// 08 문서 5장 코드 스타일 도구
+val googleJavaFormatVersion = "1.36.1"
+val checkstyleVersion = "14.3.0"
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
@@ -49,6 +55,30 @@ dependencies {
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
     options.compilerArgs.add("-parameters")
+}
+
+// 08 문서 5장: Google Java Style. check가 spotlessCheck(포맷)와 checkstyleMain·checkstyleTest(이름 규칙 등)를 함께 돌린다
+spotless {
+    java {
+        target("src/**/*.java")
+        googleJavaFormat(googleJavaFormatVersion)
+        // google-java-format이 하지 않는 것: 와일드카드 import 금지 (쓰지 않는 import는 위가 지운다)
+        forbidWildcardImports()
+    }
+}
+
+checkstyle {
+    toolVersion = checkstyleVersion
+    configFile = file("config/checkstyle/google_checks.xml")
+    // 배포본 google_checks.xml의 기본 심각도는 warning이다. error로 올려 위반하면 빌드가 실패하게 하고,
+    // Javadoc 관련 모듈만 설정 파일에서 warning으로 둔다
+    configProperties = mapOf(
+        "org.checkstyle.google.severity" to "error",
+        // 한국어 테스트 이름 예외 (테스트 소스만)
+        "org.checkstyle.google.suppressionfilter.config" to file("config/checkstyle/checkstyle-suppressions.xml").path,
+    )
+    maxWarnings = Int.MAX_VALUE
+    isIgnoreFailures = false
 }
 
 tasks.withType<Test> {

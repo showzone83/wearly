@@ -40,80 +40,94 @@ import tools.jackson.databind.json.JsonMapper;
 @RequestMapping("/api/v1/admin/ai")
 public class AdminAiController {
 
-    private final AdminAiProviderUseCase providers;
-    private final AdminDashboardUseCase logs;
-    private final JsonMapper jsonMapper;
+  private final AdminAiProviderUseCase providers;
+  private final AdminDashboardUseCase logs;
+  private final JsonMapper jsonMapper;
 
-    public AdminAiController(AdminAiProviderUseCase providers, AdminDashboardUseCase logs, JsonMapper jsonMapper) {
-        this.providers = providers;
-        this.logs = logs;
-        this.jsonMapper = jsonMapper;
-    }
+  public AdminAiController(
+      AdminAiProviderUseCase providers, AdminDashboardUseCase logs, JsonMapper jsonMapper) {
+    this.providers = providers;
+    this.logs = logs;
+    this.jsonMapper = jsonMapper;
+  }
 
-    @GetMapping("/providers")
-    public List<ProviderView> providers() {
-        return providers.list();
-    }
+  @GetMapping("/providers")
+  public List<ProviderView> providers() {
+    return providers.list();
+  }
 
-    @PostMapping("/providers")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ProviderView create(@CurrentUser long adminId, @RequestBody(required = false) CreateProviderCommand request) {
-        return providers.create(adminId, request);
-    }
+  @PostMapping("/providers")
+  @ResponseStatus(HttpStatus.CREATED)
+  public ProviderView create(
+      @CurrentUser long adminId, @RequestBody(required = false) CreateProviderCommand request) {
+    return providers.create(adminId, request);
+  }
 
-    @PatchMapping("/providers/{providerId}")
-    public ProviderView patch(@CurrentUser long adminId, @PathVariable String providerId,
-            @RequestBody(required = false) JsonNode body) {
-        return providers.patch(adminId, providerId, new JsonPatchBody(body, jsonMapper));
-    }
+  @PatchMapping("/providers/{providerId}")
+  public ProviderView patch(
+      @CurrentUser long adminId,
+      @PathVariable String providerId,
+      @RequestBody(required = false) JsonNode body) {
+    return providers.patch(adminId, providerId, new JsonPatchBody(body, jsonMapper));
+  }
 
-    @DeleteMapping("/providers/{providerId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@CurrentUser long adminId, @PathVariable String providerId) {
-        providers.delete(adminId, providerId);
-    }
+  @DeleteMapping("/providers/{providerId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void delete(@CurrentUser long adminId, @PathVariable String providerId) {
+    providers.delete(adminId, providerId);
+  }
 
-    /** 웹 키 넣기·바꾸기 (쓰기 전용, 07 문서 6장) */
-    @PutMapping("/providers/{providerId}/api-key")
-    public ProviderView setKey(@CurrentUser long adminId, @PathVariable String providerId,
-            @RequestBody(required = false) ApiKeyRequest request) {
-        ApiKeyRequest r = request == null ? new ApiKeyRequest(null, null, null) : request;
-        return providers.setKey(adminId, providerId, r.apiKey(), r.currentPassword(), r.verify());
-    }
+  /** 웹 키 넣기·바꾸기 (쓰기 전용, 07 문서 6장) */
+  @PutMapping("/providers/{providerId}/api-key")
+  public ProviderView setKey(
+      @CurrentUser long adminId,
+      @PathVariable String providerId,
+      @RequestBody(required = false) ApiKeyRequest request) {
+    ApiKeyRequest r = request == null ? new ApiKeyRequest(null, null, null) : request;
+    return providers.setKey(adminId, providerId, r.apiKey(), r.currentPassword(), r.verify());
+  }
 
-    /** 웹 키 지우기 (환경변수 키로 되돌아감) */
-    @DeleteMapping("/providers/{providerId}/api-key")
-    public ProviderView deleteKey(@CurrentUser long adminId, @PathVariable String providerId,
-            @RequestBody(required = false) ReauthRequest request) {
-        return providers.deleteKey(adminId, providerId, request == null ? null : request.currentPassword());
-    }
+  /** 웹 키 지우기 (환경변수 키로 되돌아감) */
+  @DeleteMapping("/providers/{providerId}/api-key")
+  public ProviderView deleteKey(
+      @CurrentUser long adminId,
+      @PathVariable String providerId,
+      @RequestBody(required = false) ReauthRequest request) {
+    return providers.deleteKey(
+        adminId, providerId, request == null ? null : request.currentPassword());
+  }
 
-    @PostMapping(path = "/providers/{providerId}/test", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ProviderTestResult test(@CurrentUser long adminId, @PathVariable String providerId,
-            @RequestPart(name = "image", required = false) MultipartFile image) {
-        return providers.test(adminId, providerId, Uploads.of(image));
-    }
+  @PostMapping(
+      path = "/providers/{providerId}/test",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ProviderTestResult test(
+      @CurrentUser long adminId,
+      @PathVariable String providerId,
+      @RequestPart(name = "image", required = false) MultipartFile image) {
+    return providers.test(adminId, providerId, Uploads.of(image));
+  }
 
-    @GetMapping("/types")
-    public TypesResponse types() {
-        return TypesResponse.from(providers.types());
-    }
+  @GetMapping("/types")
+  public TypesResponse types() {
+    return TypesResponse.from(providers.types());
+  }
 
-    @GetMapping("/logs")
-    public Page<AiLogView> logs(
-            @RequestParam(required = false) String providerId,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String userEmail,
-            @RequestParam(required = false) String feature,
-            @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size) {
-        return logs.aiLogs(new AiLogSearch(providerId, status, userEmail, feature, from, to), Page.paging(page, size));
-    }
+  @GetMapping("/logs")
+  public Page<AiLogView> logs(
+      @RequestParam(required = false) String providerId,
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false) String userEmail,
+      @RequestParam(required = false) String feature,
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to,
+      @RequestParam(required = false) Integer page,
+      @RequestParam(required = false) Integer size) {
+    return logs.aiLogs(
+        new AiLogSearch(providerId, status, userEmail, feature, from, to), Page.paging(page, size));
+  }
 
-    @GetMapping("/logs/{id}")
-    public AiLogDetailView log(@PathVariable String id) {
-        return logs.aiLog(PathIds.parse(id));
-    }
+  @GetMapping("/logs/{id}")
+  public AiLogDetailView log(@PathVariable String id) {
+    return logs.aiLog(PathIds.parse(id));
+  }
 }

@@ -18,31 +18,31 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
-    private final AuthUseCase authService;
+  private final AuthUseCase authService;
 
-    public AuthController(AuthUseCase authService) {
-        this.authService = authService;
-    }
+  public AuthController(AuthUseCase authService) {
+    this.authService = authService;
+  }
 
-    @PostMapping("/signup")
-    @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse signup(@Valid @RequestBody SignupRequest request) {
-        return AuthResponse.from(authService.signup(request.toCommand()));
-    }
+  @PostMapping("/signup")
+  @ResponseStatus(HttpStatus.CREATED)
+  public AuthResponse signup(@Valid @RequestBody SignupRequest request) {
+    return AuthResponse.from(authService.signup(request.toCommand()));
+  }
 
-    @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        return AuthResponse.from(authService.login(request.toCommand()));
-    }
+  @PostMapping("/login")
+  public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+    return AuthResponse.from(authService.login(request.toCommand()));
+  }
 
-    @PostMapping("/refresh")
-    public AuthResponse refresh(@RequestBody(required = false) RefreshRequest request) {
-        return AuthResponse.from(authService.refresh(request == null ? null : request.refreshToken()));
-    }
+  @PostMapping("/refresh")
+  public AuthResponse refresh(@RequestBody(required = false) RefreshRequest request) {
+    return AuthResponse.from(authService.refresh(request == null ? null : request.refreshToken()));
+  }
 
-    @PostMapping("/logout")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@RequestBody(required = false) LogoutRequest request) {
-        authService.logout(request == null ? null : request.refreshToken());
-    }
+  @PostMapping("/logout")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void logout(@RequestBody(required = false) LogoutRequest request) {
+    authService.logout(request == null ? null : request.refreshToken());
+  }
 }

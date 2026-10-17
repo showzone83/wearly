@@ -9,17 +9,18 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Component
 class TransactionHooksAdapter implements TransactionHooksPort {
 
-    @Override
-    public void afterCompletion(Runnable action) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCompletion(int status) {
-                    action.run();
-                }
-            });
-        } else {
-            action.run();
-        }
+  @Override
+  public void afterCompletion(Runnable action) {
+    if (TransactionSynchronizationManager.isSynchronizationActive()) {
+      TransactionSynchronizationManager.registerSynchronization(
+          new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+              action.run();
+            }
+          });
+    } else {
+      action.run();
     }
+  }
 }

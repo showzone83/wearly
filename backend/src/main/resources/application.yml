@@ -68,6 +68,8 @@ wearly:
     #   웹 입력 키(DB) → wearly.ai.keys.<키 이름>(application-local.yml) → 같은 이름의 OS 환경변수
     provider: ${WEARLY_AI_PROVIDER:db}
     daily-limit: ${WEARLY_AI_DAILY_LIMIT:10}
+    # AI 코디 추천 일일 한도 (회원별, 사진 분석과 따로 센다. 성공만)
+    outfit-daily-limit: ${WEARLY_AI_OUTFIT_DAILY_LIMIT:20}
     timeout: ${WEARLY_AI_TIMEOUT:PT60S}
     allow-base-url: ${WEARLY_AI_ALLOW_BASE_URL:false}
   # 웹에서 넣은 AI 키를 암호화하는 마스터 키 (base64 32바이트, openssl rand -base64 32). 없으면 웹 키 입력이 꺼진다

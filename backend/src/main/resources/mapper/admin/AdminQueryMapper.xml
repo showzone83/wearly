@@ -63,8 +63,8 @@
     <sql id="userWhere">
         <where>
             <if test="f.id != null">u.user_id = #{f.id}</if>
-            <if test="f.qPattern != null">AND
-                (u.email ILIKE #{f.qPattern} ESCAPE '\' OR u.name ILIKE #{f.qPattern} ESCAPE '\')
+            <if test="f.queryPattern != null">AND
+                (u.email ILIKE #{f.queryPattern} ESCAPE '\' OR u.name ILIKE #{f.queryPattern} ESCAPE '\')
             </if>
             <if test="f.status != null">AND u.status = #{f.status}</if>
             <if test="f.role != null">AND u.role = #{f.role}</if>

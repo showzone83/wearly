@@ -11,41 +11,50 @@ import org.springframework.stereotype.Component;
 @Component
 class RefreshTokenPersistenceAdapter implements RefreshTokenPort {
 
-    private final RefreshTokenRepository tokens;
+  private final RefreshTokenRepository tokens;
 
-    RefreshTokenPersistenceAdapter(RefreshTokenRepository tokens) {
-        this.tokens = tokens;
-    }
+  RefreshTokenPersistenceAdapter(RefreshTokenRepository tokens) {
+    this.tokens = tokens;
+  }
 
-    @Override
-    public Optional<RefreshToken> findByHashForUpdate(String tokenHash) {
-        return tokens.findByTokenHashForUpdate(tokenHash).map(RefreshTokenPersistenceAdapter::toDomain);
-    }
+  @Override
+  public Optional<RefreshToken> findByHashForUpdate(String tokenHash) {
+    return tokens.findByTokenHashForUpdate(tokenHash).map(RefreshTokenPersistenceAdapter::toDomain);
+  }
 
-    @Override
-    public RefreshToken save(RefreshToken t) {
-        RefreshTokenEntity entity;
-        if (t.id() == null) {
-            entity = new RefreshTokenEntity(t.userId(), t.tokenHash(), t.familyId(), t.expiresAt());
-        } else {
-            entity = tokens.findById(t.id()).orElseThrow(() -> new IllegalStateException("토큰이 없어요: " + t.id()));
-        }
-        entity.applyState(t.revokedAt(), t.replacedById());
-        return toDomain(tokens.saveAndFlush(entity));
+  @Override
+  public RefreshToken save(RefreshToken t) {
+    RefreshTokenEntity entity;
+    if (t.id() == null) {
+      entity = new RefreshTokenEntity(t.userId(), t.tokenHash(), t.familyId(), t.expiresAt());
+    } else {
+      entity =
+          tokens
+              .findById(t.id())
+              .orElseThrow(() -> new IllegalStateException("토큰이 없어요: " + t.id()));
     }
+    entity.applyState(t.revokedAt(), t.replacedById());
+    return toDomain(tokens.saveAndFlush(entity));
+  }
 
-    @Override
-    public void revokeFamily(UUID familyId, Instant at) {
-        tokens.revokeFamily(familyId, at);
-    }
+  @Override
+  public void revokeFamily(UUID familyId, Instant at) {
+    tokens.revokeFamily(familyId, at);
+  }
 
-    @Override
-    public void revokeAllForUser(long userId, Instant at) {
-        tokens.revokeAllForUser(userId, at);
-    }
+  @Override
+  public void revokeAllForUser(long userId, Instant at) {
+    tokens.revokeAllForUser(userId, at);
+  }
 
-    private static RefreshToken toDomain(RefreshTokenEntity e) {
-        return new RefreshToken(e.getId(), e.getUserId(), e.getTokenHash(), e.getFamilyId(), e.getExpiresAt(),
-                e.getRevokedAt(), e.getReplacedById());
-    }
+  private static RefreshToken toDomain(RefreshTokenEntity e) {
+    return new RefreshToken(
+        e.getId(),
+        e.getUserId(),
+        e.getTokenHash(),
+        e.getFamilyId(),
+        e.getExpiresAt(),
+        e.getRevokedAt(),
+        e.getReplacedById());
+  }
 }

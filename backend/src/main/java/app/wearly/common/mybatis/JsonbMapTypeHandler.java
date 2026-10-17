@@ -18,32 +18,34 @@ import tools.jackson.databind.json.JsonMapper;
 @MappedJdbcTypes(value = JdbcType.OTHER, includeNullJdbcType = false)
 public class JsonbMapTypeHandler extends BaseTypeHandler<Map<String, Object>> {
 
-    private static final JsonMapper JSON = JsonMapper.builder().build();
-    private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {
-    };
+  private static final JsonMapper JSON = JsonMapper.builder().build();
+  private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
 
-    @Override
-    public void setNonNullParameter(PreparedStatement ps, int i, Map<String, Object> parameter, JdbcType jdbcType)
-            throws SQLException {
-        ps.setObject(i, JSON.writeValueAsString(parameter), Types.OTHER);
-    }
+  @Override
+  public void setNonNullParameter(
+      PreparedStatement ps, int i, Map<String, Object> parameter, JdbcType jdbcType)
+      throws SQLException {
+    ps.setObject(i, JSON.writeValueAsString(parameter), Types.OTHER);
+  }
 
-    @Override
-    public Map<String, Object> getNullableResult(ResultSet rs, String columnName) throws SQLException {
-        return parse(rs.getString(columnName));
-    }
+  @Override
+  public Map<String, Object> getNullableResult(ResultSet rs, String columnName)
+      throws SQLException {
+    return parse(rs.getString(columnName));
+  }
 
-    @Override
-    public Map<String, Object> getNullableResult(ResultSet rs, int columnIndex) throws SQLException {
-        return parse(rs.getString(columnIndex));
-    }
+  @Override
+  public Map<String, Object> getNullableResult(ResultSet rs, int columnIndex) throws SQLException {
+    return parse(rs.getString(columnIndex));
+  }
 
-    @Override
-    public Map<String, Object> getNullableResult(CallableStatement cs, int columnIndex) throws SQLException {
-        return parse(cs.getString(columnIndex));
-    }
+  @Override
+  public Map<String, Object> getNullableResult(CallableStatement cs, int columnIndex)
+      throws SQLException {
+    return parse(cs.getString(columnIndex));
+  }
 
-    private static Map<String, Object> parse(String json) {
-        return json == null ? null : JSON.readValue(json, MAP);
-    }
+  private static Map<String, Object> parse(String json) {
+    return json == null ? null : JSON.readValue(json, MAP);
+  }
 }

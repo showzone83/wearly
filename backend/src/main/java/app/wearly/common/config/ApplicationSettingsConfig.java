@@ -3,6 +3,7 @@ package app.wearly.common.config;
 import app.wearly.ai.domain.AiRunMode;
 import app.wearly.ai.domain.AiSettings;
 import app.wearly.auth.domain.TokenPolicy;
+import app.wearly.outfit.domain.OutfitSettings;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,15 +11,20 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ApplicationSettingsConfig {
 
-    @Bean
-    TokenPolicy tokenPolicy(WearlyProperties properties) {
-        return new TokenPolicy(properties.jwt().refreshTtl());
-    }
+  @Bean
+  TokenPolicy tokenPolicy(WearlyProperties properties) {
+    return new TokenPolicy(properties.jwt().refreshTtl());
+  }
 
-    /** WEARLY_AI_PROVIDER가 틀리면 여기서 시작이 멈춘다 (AiProviderFailureAnalyzer가 안내) */
-    @Bean
-    AiSettings aiSettings(WearlyProperties properties) {
-        WearlyProperties.Ai ai = properties.ai();
-        return new AiSettings(AiRunMode.isMock(ai.provider()), ai.dailyLimit(), ai.allowBaseUrl());
-    }
+  /** WEARLY_AI_PROVIDER가 틀리면 여기서 시작이 멈춘다 (AiProviderFailureAnalyzer가 안내) */
+  @Bean
+  AiSettings aiSettings(WearlyProperties properties) {
+    WearlyProperties.Ai ai = properties.ai();
+    return new AiSettings(AiRunMode.isMock(ai.provider()), ai.dailyLimit(), ai.allowBaseUrl());
+  }
+
+  @Bean
+  OutfitSettings outfitSettings(WearlyProperties properties) {
+    return new OutfitSettings(properties.ai().outfitDailyLimit());
+  }
 }

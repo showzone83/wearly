@@ -8,6 +8,8 @@
 >
 > **3차 변경**: 백엔드 내부 구조를 헥사고날로 바꿨다 → [08_백엔드_구조.md](08_백엔드_구조.md) (API·DB는 그대로).
 > AI 키를 관리자 화면에서 넣는 기능(쓰기 전용 · 암호화 저장, `V4__ai_provider_secret.sql`)은 → 07 문서 6장.
+>
+> **4차 변경**: AI 코디 추천 `POST /api/v1/outfits/recommendations`(`V5__outfit_recommend.sql`) → [09_AI_코디_추천.md](09_AI_코디_추천.md). 백엔드 코드 스타일(Google Java Style) → 08 문서 5장.
 
 ## 1. 범위
 
@@ -39,10 +41,11 @@
 - **MyBatis**: 읽기 전용 조회. 동적 필터 목록, 집계 통계, AI 일일 사용량 집계처럼 SQL이 더 읽기 쉬운 곳.
 - 같은 트랜잭션 매니저를 쓴다. MyBatis 매퍼는 XML(`resources/mapper/*.xml`)로 둔다.
 
-## 3. 테이블 (Flyway `V1__init.sql`, 2차 `V2__codes.sql`·`V3__admin_ai.sql`, 3차 `V4__ai_provider_secret.sql`)
+## 3. 테이블 (Flyway `V1__init.sql`, 2차 `V2__codes.sql`·`V3__admin_ai.sql`, 3차 `V4__ai_provider_secret.sql`, 4차 `V5__outfit_recommend.sql`)
 
 2차에서 더한 테이블: `tb_code_group`·`tb_code`(06 문서 2장), `tb_ai_provider`·`tb_admin_audit_log`, `tb_user.role`(07 문서 2·3장).
 3차에서 더한 테이블: `tb_ai_provider_secret`(웹 입력 AI 키의 AES-256-GCM 암호문, 07 문서 6장).
+4차: `tb_ai_analysis_log.feature` CHECK에 `OUTFIT_RECOMMEND`(AI 코디 추천, 이미지 칸은 NULL)를 더하고, 한도 집계 인덱스를 `(user_id, feature, created_at) WHERE status = 'SUCCESS'`로 바꿨다 (09 문서).
 
 모든 이름은 소문자 snake_case, 접두사 `tb_`. PK는 `BIGINT GENERATED ALWAYS AS IDENTITY`. 시각은 `TIMESTAMPTZ`, 날짜는 `DATE`. 회원 삭제 시 모든 하위 데이터는 `ON DELETE CASCADE`로 지운다.
 
@@ -97,8 +100,9 @@
 | 409 | `CODE_EXISTS` · `CODE_IN_USE` · `PROVIDER_EXISTS` | 관리자 코드 중복·사용 중 삭제, AI 공급자 ID 중복 (07 문서 4장) |
 | 409 | `SECRET_KEY_MISSING` | 서버에 마스터 키(`wearly.secret-key` / 환경변수 `WEARLY_SECRET_KEY`)가 없어 AI 키를 웹에서 넣을 수 없음 (07 문서 6장) |
 | 400 | `API_KEY_INVALID` | 저장 전 키 확인(각 사 모델 목록 조회) 실패 (07 문서 6장) |
+| 400 | `WARDROBE_INSUFFICIENT` | AI 코디 추천에 쓸 옷이 모자람. `message`에 모자란 칸 코드 (예: `BOTTOM 또는 DRESS, SHOES`) (09 문서) |
 | 413 | `IMAGE_TOO_LARGE` | 분석 이미지 10MB 초과 |
-| 429 | `AI_LIMIT_EXCEEDED` | AI 분석 일일 한도 초과 |
+| 429 | `AI_LIMIT_EXCEEDED` | AI 사진 분석·AI 코디 추천 일일 한도 초과 (기능별로 따로 센다) |
 | 502 | `AI_UNAVAILABLE` | AI 공급자 오류 |
 
 ## 5. 토큰
@@ -240,7 +244,7 @@ interface AnalyzeResponse {
   - 쓸 수 있는 공급자가 없으면 502 `AI_UNAVAILABLE`. **목업으로 대신하지 않는다.** 서버는 이때도 시작하고 WARN을 남긴다 (1차의 "키 없으면 시작 실패"는 없어졌다).
 - 세 공급자 모두 이미지와 함께 **활성 코드**로 만든 허용 값 목록(코드+한국어 라벨, 세부 종류는 종류별)과 JSON 스키마를 주고 구조화 출력으로 받는다. 허용 목록 밖 값·짝 불일치는 서버가 거부하고 다음 공급자로 넘어간다 (06 문서 4장).
 - 목업은 이미지 바이트의 SHA-256으로 활성 코드 중에서 값을 정한다 (같은 사진 + 같은 코드 = 같은 결과).
-- 일일 한도 `WEARLY_AI_DAILY_LIMIT` (기본 10). 성공한 사진 분석(`feature='ITEM_ANALYZE'`)만 센다. 관리자 시험 분석(`ADMIN_TEST`)은 세지 않는다. 집계는 `tb_ai_analysis_log`를 MyBatis로 센다 (Asia/Seoul 날짜 기준).
+- 일일 한도 `WEARLY_AI_DAILY_LIMIT` (기본 10). 성공한 사진 분석(`feature='ITEM_ANALYZE'`)만 센다. 4차 AI 코디 추천은 `WEARLY_AI_OUTFIT_DAILY_LIMIT`(기본 20)로 따로 센다(`feature='OUTFIT_RECOMMEND'`, 09 문서). 관리자 시험 분석(`ADMIN_TEST`)은 세지 않는다. 집계는 `tb_ai_analysis_log`를 MyBatis로 센다 (Asia/Seoul 날짜 기준).
 - 이미지는 저장하지 않는다. 로그에는 결과 JSON과 메타만 남긴다. 키 값은 어떤 응답·로그·변경 이력에도 내보내지 않는다 (3차: 관리자 응답의 `keyLast4`(웹 입력 키의 끝 4자)만 예외, 07 문서 6장).
 
 ## 8. 앱 API 모듈 계약 (`mobile/src/api/`)

@@ -6,7 +6,7 @@ import java.util.Optional;
 /** 프로필 저장·로드 (JPA) */
 public interface ProfilePort {
 
-    Optional<UserProfile> findByUserId(long userId);
+  Optional<UserProfile> findByUserId(long userId);
 
-    void save(long userId, UserProfile profile);
+  void save(long userId, UserProfile profile);
 }

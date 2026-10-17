@@ -6,8 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface AiProviderRepository extends JpaRepository<AiProviderEntity, String> {
 
-    List<AiProviderEntity> findAllByOrderByPriorityAscProviderIdAsc();
+  List<AiProviderEntity> findAllByOrderByPriorityAscProviderIdAsc();
 
-    @Query("select coalesce(max(p.priority), 0) from AiProviderEntity p")
-    int maxPriority();
+  @Query("select coalesce(max(p.priority), 0) from AiProviderEntity p")
+  int maxPriority();
 }

@@ -5,9 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface LocalCredentialRepository extends JpaRepository<LocalCredentialEntity, Long> {
 
-    Optional<LocalCredentialEntity> findByEmail(String email);
+  Optional<LocalCredentialEntity> findByEmail(String email);
 
-    boolean existsByEmail(String email);
+  boolean existsByEmail(String email);
 
-    Optional<LocalCredentialEntity> findByUserId(Long userId);
+  Optional<LocalCredentialEntity> findByUserId(Long userId);
 }
