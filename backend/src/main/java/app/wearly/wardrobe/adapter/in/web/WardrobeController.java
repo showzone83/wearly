@@ -4,6 +4,7 @@ import app.wearly.common.web.CurrentUser;
 import app.wearly.common.web.PathIds;
 import app.wearly.wardrobe.adapter.in.web.request.BulkItemsRequest;
 import app.wearly.wardrobe.adapter.in.web.request.ItemRequest;
+import app.wearly.wardrobe.adapter.in.web.request.PatchItemRequest;
 import app.wearly.wardrobe.adapter.in.web.response.ItemListResponse;
 import app.wearly.wardrobe.adapter.in.web.response.ItemResponse;
 import app.wearly.wardrobe.adapter.in.web.response.WardrobeStatsResponse;
@@ -81,7 +82,8 @@ public class WardrobeController {
   public ItemResponse patch(
       @CurrentUser long userId, @PathVariable String id, @RequestBody JsonNode patch) {
     return ItemResponse.from(
-        wardrobe.patch(userId, PathIds.parse(id), new JsonItemPatch(patch, jsonMapper, validator)));
+        wardrobe.patch(
+            userId, PathIds.parse(id), PatchItemRequest.read(patch, jsonMapper, validator)));
   }
 
   @DeleteMapping("/items/{id}")

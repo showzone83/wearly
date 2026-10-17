@@ -3,9 +3,9 @@ package app.wearly.admin.application.port.in;
 import app.wearly.admin.application.port.in.dto.AdminProviderDto;
 import app.wearly.admin.application.port.in.dto.ProviderTypesDto;
 import app.wearly.ai.application.port.in.dto.CreateProviderDto;
+import app.wearly.ai.application.port.in.dto.PatchProviderDto;
 import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
 import app.wearly.common.application.ImageUpload;
-import app.wearly.common.domain.PatchBody;
 import java.util.List;
 
 /** 관리자 AI 공급자 API (07 문서 3·4장). 실제 변경은 ai 컨텍스트가 하고, 변경 이력을 같은 트랜잭션에 남긴다 */
@@ -15,7 +15,7 @@ public interface AdminAiProviderUseCase {
 
   AdminProviderDto create(long adminId, CreateProviderDto command);
 
-  AdminProviderDto patch(long adminId, String providerId, PatchBody body);
+  AdminProviderDto patch(long adminId, String providerId, PatchProviderDto patch);
 
   void delete(long adminId, String providerId);
 

@@ -2,8 +2,8 @@ package app.wearly.ai.application.port.in;
 
 import app.wearly.ai.application.port.in.dto.AiProviderDto;
 import app.wearly.ai.application.port.in.dto.CreateProviderDto;
+import app.wearly.ai.application.port.in.dto.PatchProviderDto;
 import app.wearly.ai.application.port.in.dto.ProviderTypeDto;
-import app.wearly.common.domain.PatchBody;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,7 +20,7 @@ public interface AiProviderAdminUseCase {
   AiProviderDto create(CreateProviderDto command);
 
   /** 보낸 필드만 바꾼다. options를 보내면 options 전체를 바꾼다. enabled=true로 두려면 모델이 있어야 한다 */
-  AiProviderDto patch(String providerId, PatchBody body);
+  AiProviderDto patch(String providerId, PatchProviderDto patch);
 
   /** 행만 지운다. 분석 기록(tb_ai_analysis_log.provider)은 남는다. @return 지우기 전 모습 */
   AiProviderDto delete(String providerId);

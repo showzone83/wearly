@@ -13,11 +13,14 @@ import app.wearly.admin.application.port.in.AdminAiProviderUseCase;
 import app.wearly.admin.application.port.in.AdminDashboardUseCase;
 import app.wearly.admin.application.port.in.dto.AiLogSearchDto;
 import app.wearly.admin.application.port.in.dto.PagingDto;
+import app.wearly.ai.application.port.in.dto.PatchProviderDto;
+import app.wearly.common.application.Patch;
 import app.wearly.common.web.CurrentUser;
-import app.wearly.common.web.JsonPatchBody;
+import app.wearly.common.web.JsonPatches;
 import app.wearly.common.web.PathIds;
 import app.wearly.common.web.Uploads;
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -70,8 +73,7 @@ public class AdminAiController {
       @CurrentUser long adminId,
       @PathVariable String providerId,
       @RequestBody(required = false) JsonNode body) {
-    return ProviderResponse.from(
-        providers.patch(adminId, providerId, new JsonPatchBody(body, jsonMapper)));
+    return ProviderResponse.from(providers.patch(adminId, providerId, toPatch(body)));
   }
 
   @DeleteMapping("/providers/{providerId}")
@@ -137,5 +139,25 @@ public class AdminAiController {
   @GetMapping("/logs/{id}")
   public AiLogDetailResponse log(@PathVariable String id) {
     return AiLogDetailResponse.from(logs.aiLog(PathIds.parse(id)));
+  }
+
+  /** JSON → 공급자 부분 수정. 형식(JSON 타입) 판단과 그 오류 문구는 여기서 정한다 (M4) */
+  private PatchProviderDto toPatch(JsonNode body) {
+    if (!JsonPatches.isObject(body)) {
+      return null;
+    }
+    Patch<Map<String, Object>> options =
+        body.has("options") && body.get("options").isNull()
+            ? Patch.of(Map.of())
+            : JsonPatches.object(body, "options", jsonMapper, "JSON 객체여야 해요.");
+    return new PatchProviderDto(
+        JsonPatches.scalar(body, "providerId"),
+        JsonPatches.text(body, "type"),
+        JsonPatches.text(body, "displayName"),
+        JsonPatches.text(body, "model"),
+        JsonPatches.text(body, "apiKeyEnv"),
+        JsonPatches.bool(body, "enabled", "true 또는 false여야 해요."),
+        JsonPatches.integer(body, "priority", "0~10000 정수여야 해요."),
+        options);
   }
 }

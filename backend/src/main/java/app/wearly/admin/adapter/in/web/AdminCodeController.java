@@ -5,8 +5,10 @@ import app.wearly.admin.adapter.in.web.request.OrderRequest;
 import app.wearly.admin.adapter.in.web.response.AdminCodeResponse;
 import app.wearly.admin.adapter.in.web.response.AdminCodesResponse;
 import app.wearly.admin.application.port.in.AdminCodeUseCase;
+import app.wearly.code.application.port.in.dto.PatchCodeDto;
+import app.wearly.common.application.Patch;
 import app.wearly.common.web.CurrentUser;
-import app.wearly.common.web.JsonPatchBody;
+import app.wearly.common.web.JsonPatches;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -65,8 +67,7 @@ public class AdminCodeController {
       @PathVariable String group,
       @PathVariable String code,
       @RequestBody(required = false) JsonNode body) {
-    return AdminCodeResponse.from(
-        service.patch(adminId, group, code, new JsonPatchBody(body, jsonMapper)));
+    return AdminCodeResponse.from(service.patch(adminId, group, code, toPatch(body)));
   }
 
   @DeleteMapping("/{group}/{code}")
@@ -74,5 +75,25 @@ public class AdminCodeController {
   public void delete(
       @CurrentUser long adminId, @PathVariable String group, @PathVariable String code) {
     service.delete(adminId, group, code);
+  }
+
+  /** JSON → 코드 부분 수정. 형식(JSON 타입) 판단과 그 오류 문구는 여기서 정한다 (M4) */
+  private PatchCodeDto toPatch(JsonNode body) {
+    if (!JsonPatches.isObject(body)) {
+      return null;
+    }
+    Patch<String> parent = Patch.absent();
+    if (body.has("parent")) {
+      JsonNode p = body.get("parent");
+      // 문자열이 아닌 값은 빈 값으로 본다 (세부 종류면 "상위 종류가 필요해요")
+      parent = Patch.of(p.isNull() ? null : p.isString() ? p.asString() : "");
+    }
+    return new PatchCodeDto(
+        JsonPatches.scalar(body, "code"),
+        JsonPatches.string(body, "label"),
+        parent,
+        JsonPatches.integer(body, "sortOrder", "정수여야 해요."),
+        JsonPatches.bool(body, "active", "true 또는 false여야 해요."),
+        JsonPatches.object(body, "attrs", jsonMapper, "JSON 객체여야 해요."));
   }
 }

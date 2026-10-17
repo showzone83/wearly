@@ -5,11 +5,11 @@ import app.wearly.common.domain.FieldError;
 import app.wearly.common.domain.code.CodeGroups;
 import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
-import app.wearly.wardrobe.application.port.in.ItemPatch;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
 import app.wearly.wardrobe.application.port.in.dto.CreateItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
+import app.wearly.wardrobe.application.port.in.dto.PatchItemDto;
 import app.wearly.wardrobe.application.port.out.ItemFilter;
 import app.wearly.wardrobe.application.port.out.ItemPort;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
@@ -104,10 +104,24 @@ public class WardrobeService implements WardrobeUseCase {
 
   @Override
   @Transactional
-  public ItemDto patch(long userId, long itemId, ItemPatch patch) {
+  public ItemDto patch(long userId, long itemId, PatchItemDto patch) {
     WardrobeItem item = find(userId, itemId);
+    ApiException.throwIfAny(patch.inputErrors());
     ItemInput previous = item.toInput();
-    ItemInput input = patch.applyTo(previous);
+    ItemInput input =
+        new ItemInput(
+            patch.name().orElse(previous.name()),
+            patch.category().orElse(previous.category()),
+            patch.subType().orElse(previous.subType()),
+            patch.color().orElse(previous.color()),
+            patch.pattern().orElse(previous.pattern()),
+            patch.seasons().orElse(previous.seasons()),
+            patch.styles().orElse(previous.styles()),
+            patch.formality().orElse(previous.formality()),
+            patch.status().orElse(previous.status()),
+            patch.brand().orElse(previous.brand()),
+            patch.wornCount().orElse(previous.wornCount()),
+            patch.lastWornAt().orElse(previous.lastWornAt()));
     ApiException.throwIfAny(ItemRules.validate(input, ""));
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, previous, "", errors);

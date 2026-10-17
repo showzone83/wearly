@@ -3,6 +3,7 @@ package app.wearly.ai.application.service;
 import app.wearly.ai.application.port.in.AiProviderAdminUseCase;
 import app.wearly.ai.application.port.in.dto.AiProviderDto;
 import app.wearly.ai.application.port.in.dto.CreateProviderDto;
+import app.wearly.ai.application.port.in.dto.PatchProviderDto;
 import app.wearly.ai.application.port.in.dto.ProviderTypeDto;
 import app.wearly.ai.application.port.out.AiProviderPort;
 import app.wearly.ai.application.port.out.ApiKeyVerifierPort;
@@ -17,7 +18,6 @@ import app.wearly.ai.domain.AiSettings;
 import app.wearly.ai.domain.ApiKeyRules;
 import app.wearly.ai.domain.ProviderSecret;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.PatchBody;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.user.application.port.in.UserUseCase;
@@ -151,55 +151,34 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
 
   @Override
   @Transactional
-  public AiProviderDto patch(String providerId, PatchBody body) {
+  public AiProviderDto patch(String providerId, PatchProviderDto patch) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
-    if (body == null || !body.isObject()) {
+    if (patch == null) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
     List<FieldError> errors = new ArrayList<>();
-    if (body.has("providerId") && !providerId.equals(body.string("providerId"))) {
+    if (patch.providerId().present() && !providerId.equals(patch.providerId().value())) {
       errors.add(new FieldError("providerId", "공급자 ID는 바꿀 수 없어요."));
     }
     final AiProviderType type =
-        body.has("type") ? AiProviderRules.type(body.text("type"), errors) : s.type();
+        patch.type().present() ? AiProviderRules.type(patch.type().value(), errors) : s.type();
     final String displayName =
-        body.has("displayName")
-            ? AiProviderRules.displayName(body.text("displayName"), errors)
+        patch.displayName().present()
+            ? AiProviderRules.displayName(patch.displayName().value(), errors)
             : s.displayName();
     final String model =
-        body.has("model") ? AiProviderRules.model(body.text("model"), errors) : s.model();
+        patch.model().present() ? AiProviderRules.model(patch.model().value(), errors) : s.model();
     final String apiKeyEnv =
-        body.has("apiKeyEnv")
-            ? AiProviderRules.apiKeyEnv(body.text("apiKeyEnv"), errors)
+        patch.apiKeyEnv().present()
+            ? AiProviderRules.apiKeyEnv(patch.apiKeyEnv().value(), errors)
             : s.apiKeyEnv();
-    boolean enabled = s.enabled();
-    if (body.has("enabled")) {
-      if (body.isBoolean("enabled")) {
-        enabled = body.bool("enabled");
-      } else {
-        errors.add(new FieldError("enabled", "true 또는 false여야 해요."));
-      }
+    boolean enabled = patch.enabled().apply("enabled", s.enabled(), errors);
+    int priority = patch.priority().apply("priority", s.priority(), errors);
+    if (patch.priority().present() && !patch.priority().invalid() && !validPriority(priority)) {
+      errors.add(new FieldError("priority", "0~10000 정수여야 해요."));
+      priority = s.priority();
     }
-    int priority = s.priority();
-    if (body.has("priority")) {
-      if (body.isInt("priority")
-          && body.intValue("priority") >= 0
-          && body.intValue("priority") <= 10000) {
-        priority = body.intValue("priority");
-      } else {
-        errors.add(new FieldError("priority", "0~10000 정수여야 해요."));
-      }
-    }
-    Map<String, Object> options = s.options();
-    if (body.has("options")) {
-      if (body.isNull("options")) {
-        options = Map.of();
-      } else if (!body.isObject("options")) {
-        errors.add(new FieldError("options", "JSON 객체여야 해요."));
-      } else {
-        options = body.object("options");
-      }
-    }
+    Map<String, Object> options = patch.options().apply("options", s.options(), errors);
     if (type != null) {
       errors.addAll(type.validate(options, aiSettings.allowBaseUrl()));
     }
@@ -271,6 +250,10 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
     }
     keys.invalidate(providerId);
     return Optional.of(new KeyChange(before, info(s)));
+  }
+
+  private static boolean validPriority(int priority) {
+    return priority >= 0 && priority <= 10000;
   }
 
   private AiProviderDto info(AiProviderSetting s) {

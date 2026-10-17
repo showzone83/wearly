@@ -7,8 +7,9 @@ import app.wearly.admin.adapter.in.web.response.PageResponse;
 import app.wearly.admin.application.port.in.AdminDashboardUseCase;
 import app.wearly.admin.application.port.in.AdminUserUseCase;
 import app.wearly.admin.application.port.in.dto.PagingDto;
+import app.wearly.admin.application.port.in.dto.PatchUserDto;
 import app.wearly.common.web.CurrentUser;
-import app.wearly.common.web.JsonPatchBody;
+import app.wearly.common.web.JsonPatches;
 import app.wearly.common.web.PathIds;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -18,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 /** 관리자 대시보드·회원·변경 이력 API (07 문서 4장). ADMIN 전용 */
 @RestController
@@ -27,13 +27,10 @@ public class AdminController {
 
   private final AdminDashboardUseCase logs;
   private final AdminUserUseCase users;
-  private final JsonMapper jsonMapper;
 
-  public AdminController(
-      AdminDashboardUseCase logs, AdminUserUseCase users, JsonMapper jsonMapper) {
+  public AdminController(AdminDashboardUseCase logs, AdminUserUseCase users) {
     this.logs = logs;
     this.users = users;
-    this.jsonMapper = jsonMapper;
   }
 
   @GetMapping("/dashboard")
@@ -57,8 +54,11 @@ public class AdminController {
       @CurrentUser long adminId,
       @PathVariable String id,
       @RequestBody(required = false) JsonNode body) {
-    return AdminUserResponse.from(
-        users.patch(adminId, PathIds.parse(id), new JsonPatchBody(body, jsonMapper)));
+    PatchUserDto patch =
+        JsonPatches.isObject(body)
+            ? new PatchUserDto(JsonPatches.string(body, "status"), JsonPatches.string(body, "role"))
+            : null;
+    return AdminUserResponse.from(users.patch(adminId, PathIds.parse(id), patch));
   }
 
   @GetMapping("/audit-logs")

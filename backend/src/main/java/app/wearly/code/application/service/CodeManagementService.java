@@ -6,13 +6,13 @@ import app.wearly.code.application.port.in.dto.CodeChangeDto;
 import app.wearly.code.application.port.in.dto.CodeDto;
 import app.wearly.code.application.port.in.dto.CodeUsageCountDto;
 import app.wearly.code.application.port.in.dto.CreateCodeDto;
+import app.wearly.code.application.port.in.dto.PatchCodeDto;
 import app.wearly.code.application.port.out.CodePort;
 import app.wearly.code.application.port.out.CodeSnapshotPort;
 import app.wearly.code.domain.Code;
 import app.wearly.code.domain.CodeAttrs;
 import app.wearly.code.domain.CodeRules;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.PatchBody;
 import app.wearly.common.domain.code.CodeGroups;
 import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
@@ -95,50 +95,30 @@ public class CodeManagementService implements CodeManagementUseCase {
 
   @Override
   @Transactional
-  public CodeChangeDto patch(String group, String code, PatchBody body) {
+  public CodeChangeDto patch(String group, String code, PatchCodeDto patch) {
     final CodeSnapshot snapshot = requireGroup(group);
     Code entity = codes.find(group, code).orElseThrow(ApiException::notFound);
-    if (body == null || !body.isObject()) {
+    if (patch == null) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
     final CodeDto before = info(entity);
     List<FieldError> errors = new ArrayList<>();
-    if (body.has("code") && !code.equals(body.string("code"))) {
+    if (patch.code().present() && !code.equals(patch.code().value())) {
       errors.add(new FieldError("code", "코드는 바꿀 수 없어요."));
     }
-    String label = entity.label();
-    if (body.has("label")) {
-      label = CodeRules.label(body.isString("label") ? body.string("label") : null, errors);
-    }
-    String parent = entity.parentCode();
-    if (body.has("parent")) {
-      String raw =
-          body.isNull("parent") ? null : body.isString("parent") ? body.string("parent") : "";
-      parent = CodeRules.parent(group, raw, snapshot, errors);
-    }
-    int sortOrder = entity.sortOrder();
-    if (body.has("sortOrder")) {
-      if (body.isInt("sortOrder")) {
-        sortOrder = body.intValue("sortOrder");
-      } else {
-        errors.add(new FieldError("sortOrder", "정수여야 해요."));
-      }
-    }
-    boolean active = entity.active();
-    if (body.has("active")) {
-      if (body.isBoolean("active")) {
-        active = body.bool("active");
-      } else {
-        errors.add(new FieldError("active", "true 또는 false여야 해요."));
-      }
-    }
+    String label =
+        patch.label().present() ? CodeRules.label(patch.label().value(), errors) : entity.label();
+    String parent =
+        patch.parent().present()
+            ? CodeRules.parent(group, patch.parent().value(), snapshot, errors)
+            : entity.parentCode();
+    int sortOrder = patch.sortOrder().apply("sortOrder", entity.sortOrder(), errors);
+    boolean active = patch.active().apply("active", entity.active(), errors);
     Map<String, Object> attrs = entity.attrs();
-    if (body.has("attrs")) {
-      if (!body.isObject("attrs")) {
-        errors.add(new FieldError("attrs", "JSON 객체여야 해요."));
-      } else {
-        attrs = CodeAttrs.validate(group, body.object("attrs"), code, snapshot, errors);
-      }
+    if (patch.attrs().invalid()) {
+      errors.add(new FieldError("attrs", patch.attrs().error()));
+    } else if (patch.attrs().present()) {
+      attrs = CodeAttrs.validate(group, patch.attrs().value(), code, snapshot, errors);
     }
     ApiException.throwIfAny(errors);
     List<String> oldPairs = CodeAttrs.pairsOf(entity.attrs());

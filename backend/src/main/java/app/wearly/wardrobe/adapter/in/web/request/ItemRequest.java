@@ -1,7 +1,6 @@
 package app.wearly.wardrobe.adapter.in.web.request;
 
 import app.wearly.wardrobe.application.port.in.dto.CreateItemDto;
-import app.wearly.wardrobe.domain.ItemInput;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -45,27 +44,5 @@ public record ItemRequest(
         brand,
         wornCount,
         lastWornAt);
-  }
-
-  /** PATCH 병합 결과 → 유스케이스 입력 값 */
-  public ItemInput toInput() {
-    return toDto().toInput();
-  }
-
-  /** PATCH 병합의 출발점: 저장된 값 */
-  public static ItemRequest of(ItemInput in) {
-    return new ItemRequest(
-        in.name(),
-        in.category(),
-        in.subType(),
-        in.color(),
-        in.pattern(),
-        in.seasons(),
-        in.styles(),
-        in.formality(),
-        in.status(),
-        in.brand(),
-        in.wornCount(),
-        in.lastWornAt());
   }
 }

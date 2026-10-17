@@ -11,7 +11,7 @@ import app.wearly.code.application.port.in.CodeManagementUseCase;
 import app.wearly.code.application.port.in.dto.CodeChangeDto;
 import app.wearly.code.application.port.in.dto.CodeDto;
 import app.wearly.code.application.port.in.dto.CreateCodeDto;
-import app.wearly.common.domain.PatchBody;
+import app.wearly.code.application.port.in.dto.PatchCodeDto;
 import app.wearly.common.domain.code.CodeSnapshot;
 import java.util.List;
 import java.util.Map;
@@ -93,8 +93,8 @@ public class AdminCodeService implements AdminCodeUseCase {
 
   @Override
   @Transactional
-  public AdminCodeDto patch(long adminId, String group, String code, PatchBody body) {
-    CodeChangeDto change = codes.patch(group, code, body);
+  public AdminCodeDto patch(long adminId, String group, String code, PatchCodeDto patch) {
+    CodeChangeDto change = codes.patch(group, code, patch);
     AdminCodeDto after = view(change.after());
     audit.record(
         adminId,

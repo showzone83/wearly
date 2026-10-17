@@ -12,10 +12,10 @@ import app.wearly.ai.application.port.in.AiProviderAdminUseCase;
 import app.wearly.ai.application.port.in.ProviderTestUseCase;
 import app.wearly.ai.application.port.in.dto.AiProviderDto;
 import app.wearly.ai.application.port.in.dto.CreateProviderDto;
+import app.wearly.ai.application.port.in.dto.PatchProviderDto;
 import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
 import app.wearly.auth.application.port.in.AccountUseCase;
 import app.wearly.common.application.ImageUpload;
-import app.wearly.common.domain.PatchBody;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
@@ -88,12 +88,12 @@ public class AdminAiService implements AdminAiProviderUseCase {
 
   @Override
   @Transactional
-  public AdminProviderDto patch(long adminId, String providerId, PatchBody body) {
+  public AdminProviderDto patch(long adminId, String providerId, PatchProviderDto patch) {
     AiProviderDto current = providers.get(providerId);
     Map<String, TodayDto> today = today();
     TodayDto t = today.getOrDefault(providerId, TodayDto.NONE);
     AdminProviderDto before = view(current, t);
-    AdminProviderDto after = view(providers.patch(providerId, body), t);
+    AdminProviderDto after = view(providers.patch(providerId, patch), t);
     audit.record(
         adminId,
         "AI_PROVIDER_UPDATE",

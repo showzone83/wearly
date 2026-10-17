@@ -4,6 +4,7 @@ import app.wearly.admin.application.port.in.AdminUserUseCase;
 import app.wearly.admin.application.port.in.dto.AdminUserDto;
 import app.wearly.admin.application.port.in.dto.PageDto;
 import app.wearly.admin.application.port.in.dto.PagingDto;
+import app.wearly.admin.application.port.in.dto.PatchUserDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.AdminQueryPort.UserFilter;
 import app.wearly.admin.application.port.out.RecordAuditPort;
@@ -12,7 +13,6 @@ import app.wearly.admin.domain.AuditTargets;
 import app.wearly.admin.domain.SearchText;
 import app.wearly.auth.application.port.in.AccountUseCase;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.domain.PatchBody;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.ApiException;
 import app.wearly.user.application.port.in.UserUseCase;
@@ -88,15 +88,15 @@ public class AdminUserService implements AdminUserUseCase {
 
   @Override
   @Transactional
-  public AdminUserDto patch(long adminId, long userId, PatchBody body) {
+  public AdminUserDto patch(long adminId, long userId, PatchUserDto patch) {
     UserAccountDto user = users.get(userId);
-    if (body == null || !body.isObject()) {
+    if (patch == null) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
     List<FieldError> errors = new ArrayList<>();
     String status = user.status();
-    if (body.has("status")) {
-      String v = body.isString("status") ? body.string("status") : null;
+    if (patch.status().present()) {
+      String v = patch.status().value();
       if (v == null || !STATUSES.contains(v)) {
         errors.add(new FieldError("status", "ACTIVE 또는 SUSPENDED여야 해요."));
       } else if (userId == adminId && UserAccountDto.SUSPENDED.equals(v)) {
@@ -106,8 +106,8 @@ public class AdminUserService implements AdminUserUseCase {
       }
     }
     String role = user.role();
-    if (body.has("role")) {
-      String v = body.isString("role") ? body.string("role") : null;
+    if (patch.role().present()) {
+      String v = patch.role().value();
       if (v == null || !ROLES.contains(v)) {
         errors.add(new FieldError("role", "USER 또는 ADMIN이어야 해요."));
       } else if (userId == adminId && !UserAccountDto.ROLE_ADMIN.equals(v)) {
