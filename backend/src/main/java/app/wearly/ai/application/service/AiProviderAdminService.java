@@ -1,10 +1,14 @@
 package app.wearly.ai.application.service;
 
 import app.wearly.ai.application.port.in.AiProviderAdminUseCase;
+import app.wearly.ai.application.port.in.AiProviderKeyUseCase;
 import app.wearly.ai.application.port.in.dto.AiProviderDto;
 import app.wearly.ai.application.port.in.dto.CreateProviderDto;
+import app.wearly.ai.application.port.in.dto.KeyChangeDto;
 import app.wearly.ai.application.port.in.dto.PatchProviderDto;
+import app.wearly.ai.application.port.in.dto.ProviderCatalogDto;
 import app.wearly.ai.application.port.in.dto.ProviderTypeDto;
+import app.wearly.ai.application.port.in.dto.VerifiedKeyDto;
 import app.wearly.ai.application.port.out.AiProviderPort;
 import app.wearly.ai.application.port.out.ApiKeyVerifierPort;
 import app.wearly.ai.application.port.out.ProviderSecretPort;
@@ -32,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** 관리자 AI 공급자 관리 (07 문서 3·4장)와 웹 입력 키 (6장). 쓰기는 JPA, 키는 AES-GCM으로 암호화해 저장한다 */
 @Service
-public class AiProviderAdminService implements AiProviderAdminUseCase {
+public class AiProviderAdminService implements AiProviderAdminUseCase, AiProviderKeyUseCase {
 
   private final AiProviderPort settings;
   private final AiProviderRegistry registry;
@@ -75,7 +79,11 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
   }
 
   @Override
-  public List<ProviderTypeDto> types() {
+  public ProviderCatalogDto catalog() {
+    return new ProviderCatalogDto(types(), aiSettings.allowBaseUrl(), registry.isMockMode());
+  }
+
+  private static List<ProviderTypeDto> types() {
     return Arrays.stream(AiProviderType.values())
         .map(
             t ->
@@ -95,16 +103,6 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
                                     o.values()))
                         .toList()))
         .toList();
-  }
-
-  @Override
-  public boolean baseUrlAllowed() {
-    return aiSettings.allowBaseUrl();
-  }
-
-  @Override
-  public boolean mockMode() {
-    return registry.isMockMode();
   }
 
   @Override
@@ -208,16 +206,16 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
     return before;
   }
 
-  @Override
-  public void requireSecretStore() {
+  /** 마스터 키(WEARLY_SECRET_KEY)가 없으면 409 SECRET_KEY_MISSING */
+  private void requireSecretStore() {
     if (!keys.storeEnabled()) {
       throw new ApiException(ErrorCode.SECRET_KEY_MISSING);
     }
   }
 
+  /** 트랜잭션 없이: 공급자 HTTP 호출 동안 DB 연결을 잡지 않는다 (M6) */
   @Override
-  @Transactional
-  public KeyChange setKey(String providerId, String apiKey, boolean verify, long adminUserId) {
+  public VerifiedKeyDto checkKey(String providerId, String apiKey, boolean verify) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
     requireSecretStore();
     List<FieldError> errors = new ArrayList<>();
@@ -232,24 +230,37 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
         throw new ApiException(ErrorCode.API_KEY_INVALID, "API 키를 확인하지 못했어요: " + reason);
       }
     }
-    AiProviderDto before = info(s);
-    secrets.save(
-        new ProviderSecret(
-            providerId, cipher.seal(key, providerId), ApiKeyRules.last4(key), adminUserId, null));
-    keys.invalidate(providerId);
-    return new KeyChange(before, info(s));
+    return new VerifiedKeyDto(providerId, key);
   }
 
   @Override
   @Transactional
-  public Optional<KeyChange> deleteKey(String providerId) {
+  public KeyChangeDto saveKey(VerifiedKeyDto verified, long adminUserId) {
+    String providerId = verified.providerId();
+    AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
+    requireSecretStore();
+    AiProviderDto before = info(s);
+    secrets.save(
+        new ProviderSecret(
+            providerId,
+            cipher.seal(verified.key(), providerId),
+            ApiKeyRules.last4(verified.key()),
+            adminUserId,
+            null));
+    keys.invalidate(providerId);
+    return new KeyChangeDto(before, info(s));
+  }
+
+  @Override
+  @Transactional
+  public Optional<KeyChangeDto> deleteKey(String providerId) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
     AiProviderDto before = info(s);
     if (!secrets.delete(providerId)) {
       return Optional.empty();
     }
     keys.invalidate(providerId);
-    return Optional.of(new KeyChange(before, info(s)));
+    return Optional.of(new KeyChangeDto(before, info(s)));
   }
 
   private static boolean validPriority(int priority) {

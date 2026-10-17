@@ -1,9 +1,9 @@
 package app.wearly.admin.application.port.in;
 
 import app.wearly.admin.application.port.in.dto.AdminProviderDto;
-import app.wearly.admin.application.port.in.dto.ProviderTypesDto;
 import app.wearly.ai.application.port.in.dto.CreateProviderDto;
 import app.wearly.ai.application.port.in.dto.PatchProviderDto;
+import app.wearly.ai.application.port.in.dto.ProviderCatalogDto;
 import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
 import app.wearly.common.application.ImageUpload;
 import java.util.List;
@@ -21,12 +21,12 @@ public interface AdminAiProviderUseCase {
 
   ProviderTestResultDto test(long adminId, String providerId, ImageUpload image);
 
-  ProviderTypesDto types();
+  ProviderCatalogDto types();
 
   /**
    * 웹 키 넣기·바꾸기 (07 문서 6장). 404 → 409 SECRET_KEY_MISSING → 403 REAUTH_FAILED(currentPassword) → 400
    * VALIDATION_FAILED(apiKey) → 400 API_KEY_INVALID(verify, 기본 true) 순서로 확인한다. 변경 이력
-   * AI_PROVIDER_KEY_SET (before·after에 keySource·keyLast4만)
+   * AI_PROVIDER_KEY_SET (before·after에 keySource·keyLast4만). 키 확인(외부 HTTP)은 DB 트랜잭션 밖에서 한다
    */
   AdminProviderDto setKey(
       long adminId, String providerId, String apiKey, String currentPassword, Boolean verify);

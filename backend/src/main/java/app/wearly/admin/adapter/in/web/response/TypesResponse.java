@@ -1,6 +1,6 @@
 package app.wearly.admin.adapter.in.web.response;
 
-import app.wearly.admin.application.port.in.dto.ProviderTypesDto;
+import app.wearly.ai.application.port.in.dto.ProviderCatalogDto;
 import app.wearly.ai.application.port.in.dto.ProviderTypeDto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
@@ -21,7 +21,7 @@ public record TypesResponse(List<Type> types, boolean baseUrlAllowed, boolean mo
       Number max,
       List<String> values) {}
 
-  public static TypesResponse from(ProviderTypesDto t) {
+  public static TypesResponse from(ProviderCatalogDto t) {
     return new TypesResponse(
         t.types().stream().map(TypesResponse::type).toList(), t.baseUrlAllowed(), t.mockMode());
   }

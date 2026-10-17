@@ -3,17 +3,20 @@ package app.wearly.admin.application.service;
 import app.wearly.admin.application.port.in.AdminAiProviderUseCase;
 import app.wearly.admin.application.port.in.dto.AdminProviderDto;
 import app.wearly.admin.application.port.in.dto.AdminProviderDto.TodayDto;
-import app.wearly.admin.application.port.in.dto.ProviderTypesDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.application.port.out.dto.ProviderStatDto;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.ai.application.port.in.AiProviderAdminUseCase;
+import app.wearly.ai.application.port.in.AiProviderKeyUseCase;
 import app.wearly.ai.application.port.in.ProviderTestUseCase;
 import app.wearly.ai.application.port.in.dto.AiProviderDto;
 import app.wearly.ai.application.port.in.dto.CreateProviderDto;
+import app.wearly.ai.application.port.in.dto.KeyChangeDto;
 import app.wearly.ai.application.port.in.dto.PatchProviderDto;
+import app.wearly.ai.application.port.in.dto.ProviderCatalogDto;
 import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
+import app.wearly.ai.application.port.in.dto.VerifiedKeyDto;
 import app.wearly.auth.application.port.in.AccountUseCase;
 import app.wearly.common.application.ImageUpload;
 import app.wearly.common.domain.Zones;
@@ -36,6 +39,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminAiService implements AdminAiProviderUseCase {
 
   private final AiProviderAdminUseCase providers;
+  private final AiProviderKeyUseCase keys;
+  private final AdminAiKeyWriter keyWriter;
   private final ProviderTestUseCase tester;
   private final AccountUseCase accounts;
   private final AdminQueryPort queries;
@@ -44,12 +49,16 @@ public class AdminAiService implements AdminAiProviderUseCase {
 
   public AdminAiService(
       AiProviderAdminUseCase providers,
+      AiProviderKeyUseCase keys,
+      AdminAiKeyWriter keyWriter,
       ProviderTestUseCase tester,
       AccountUseCase accounts,
       AdminQueryPort queries,
       RecordAuditPort audit,
       Clock clock) {
     this.providers = providers;
+    this.keys = keys;
+    this.keyWriter = keyWriter;
     this.tester = tester;
     this.accounts = accounts;
     this.queries = queries;
@@ -67,9 +76,8 @@ public class AdminAiService implements AdminAiProviderUseCase {
   }
 
   @Override
-  public ProviderTypesDto types() {
-    return new ProviderTypesDto(
-        providers.types(), providers.baseUrlAllowed(), providers.mockMode());
+  public ProviderCatalogDto types() {
+    return providers.catalog();
   }
 
   @Override
@@ -117,23 +125,20 @@ public class AdminAiService implements AdminAiProviderUseCase {
         null);
   }
 
-  /** 키 확인(verify)은 외부 호출이라 트랜잭션 안에서 몇 초 걸릴 수 있다 (관리자만, 드묾) */
+  /**
+   * 트랜잭션 없이 404 → 409 → 403 → 키 확인(400, 외부 HTTP)까지 하고, 저장과 변경 이력만 트랜잭션으로 묶는다 (M6). 외부 API가 느려도 그동안
+   * DB 연결을 잡지 않는다.
+   */
   @Override
-  @Transactional
   public AdminProviderDto setKey(
       long adminId, String providerId, String apiKey, String currentPassword, Boolean verify) {
-    providers.get(providerId);
-    providers.requireSecretStore();
+    AiProviderDto current = providers.get(providerId);
+    if (!current.secretStoreEnabled()) {
+      throw new ApiException(ErrorCode.SECRET_KEY_MISSING);
+    }
     reauthenticate(adminId, currentPassword);
-    AiProviderAdminUseCase.KeyChange change =
-        providers.setKey(providerId, apiKey, verify == null || verify, adminId);
-    audit.record(
-        adminId,
-        "AI_PROVIDER_KEY_SET",
-        AuditTargets.AI_PROVIDER,
-        providerId,
-        keyState(change.before()),
-        keyState(change.after()));
+    VerifiedKeyDto key = keys.checkKey(providerId, apiKey, verify == null || verify);
+    KeyChangeDto change = keyWriter.save(adminId, key);
     return view(change.after(), today().getOrDefault(providerId, TodayDto.NONE));
   }
 
@@ -142,7 +147,7 @@ public class AdminAiService implements AdminAiProviderUseCase {
   public AdminProviderDto deleteKey(long adminId, String providerId, String currentPassword) {
     providers.get(providerId);
     reauthenticate(adminId, currentPassword);
-    Optional<AiProviderAdminUseCase.KeyChange> change = providers.deleteKey(providerId);
+    Optional<KeyChangeDto> change = keys.deleteKey(providerId);
     change.ifPresent(
         c ->
             audit.record(
@@ -153,9 +158,7 @@ public class AdminAiService implements AdminAiProviderUseCase {
                 keyState(c.before()),
                 keyState(c.after())));
     AiProviderDto after =
-        change
-            .map(AiProviderAdminUseCase.KeyChange::after)
-            .orElseGet(() -> providers.get(providerId));
+        change.map(KeyChangeDto::after).orElseGet(() -> providers.get(providerId));
     return view(after, today().getOrDefault(providerId, TodayDto.NONE));
   }
 
