@@ -1,0 +1,42 @@
+import type { ReactNode } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
+
+import { useAuth } from '@/auth/AuthContext';
+import { Layout } from '@/components/Layout';
+import { AiLogsPage } from '@/pages/AiLogsPage';
+import { AuditLogsPage } from '@/pages/AuditLogsPage';
+import { CodesPage } from '@/pages/codes/CodesPage';
+import { DashboardPage } from '@/pages/DashboardPage';
+import { LoginPage } from '@/pages/LoginPage';
+import { ProvidersPage } from '@/pages/providers/ProvidersPage';
+import { UsersPage } from '@/pages/UsersPage';
+
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const location = useLocation();
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  return <>{children}</>;
+}
+
+export function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        element={
+          <RequireAdmin>
+            <Layout />
+          </RequireAdmin>
+        }
+      >
+        <Route index element={<DashboardPage />} />
+        <Route path="codes" element={<CodesPage />} />
+        <Route path="ai/providers" element={<ProvidersPage />} />
+        <Route path="ai/logs" element={<AiLogsPage />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="audit" element={<AuditLogsPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  );
+}
