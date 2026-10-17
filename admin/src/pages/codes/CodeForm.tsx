@@ -40,7 +40,7 @@ const WARMTH = [
 ];
 
 /** 속성 폼이 있는 그룹. 나머지는 attrs 없음 (06 3장) */
-const ATTR_GROUPS = new Set(['CATEGORY', 'SUB_TYPE', 'COLOR', 'ITEM_STATUS']);
+const ATTR_GROUPS = new Set(['CATEGORY', 'SUB_TYPE', 'COLOR', 'ITEM_STATUS', 'REGION']);
 const NO_ATTR_GROUPS = new Set(['PATTERN', 'SEASON', 'STYLE']);
 
 const CUSTOM_SHAPE = '__custom__';
@@ -71,6 +71,8 @@ const initialAttrs = (group: string): ICodeAttrs => {
       return { hex: '#888888', neutral: false, light: 0.5, pairs: [] };
     case 'ITEM_STATUS':
       return { recommendable: true };
+    case 'REGION':
+      return { lat: '', lon: '' };
     default:
       return {};
   }
@@ -99,6 +101,8 @@ const KNOWN_FIELDS = [
   'attrs.light',
   'attrs.pairs',
   'attrs.recommendable',
+  'attrs.lat',
+  'attrs.lon',
 ];
 
 const baseField = (field: string): string => {
@@ -238,6 +242,12 @@ export const CodeForm = ({
       const light = Number(form.attrs.light);
       if (!(light >= 0 && light <= 1)) e.set('attrs.light', '0~1 사이 값이어야 합니다.');
     }
+    if (g === 'REGION') {
+      const lat = String(form.attrs.lat ?? '').trim();
+      const lon = String(form.attrs.lon ?? '').trim();
+      if (!lat || !(Number(lat) >= -90 && Number(lat) <= 90)) e.set('attrs.lat', '위도는 -90~90 숫자입니다.');
+      if (!lon || !(Number(lon) >= -180 && Number(lon) <= 180)) e.set('attrs.lon', '경도는 -180~180 숫자입니다.');
+    }
     if (!ATTR_GROUPS.has(g) && !NO_ATTR_GROUPS.has(g)) {
       try {
         const parsed: unknown = JSON.parse(form.attrsJson || '{}');
@@ -265,6 +275,10 @@ export const CodeForm = ({
       a.pairs = (a.pairs ?? []).filter((p) => p !== (original?.code ?? form.code));
     }
     if (g === 'CATEGORY') a.slot = a.slot || null;
+    if (g === 'REGION') {
+      a.lat = Number(a.lat);
+      a.lon = Number(a.lon);
+    }
     return a;
   };
 
@@ -423,6 +437,32 @@ export const CodeForm = ({
               label={form.attrs.recommendable ? '추천에 넣음' : '추천에서 뺌'}
             />
           </Field>
+        ) : null}
+        {g === 'REGION' ? (
+          <>
+            <div className="grid-2">
+              <Field label="위도 (lat)" required error={err('attrs.lat')} hint="-90~90. 예: 서울 37.5665">
+                <input
+                  className="mono"
+                  inputMode="decimal"
+                  value={String(form.attrs.lat ?? '')}
+                  onChange={(e) => setAttr('lat', e.target.value)}
+                />
+              </Field>
+              <Field label="경도 (lon)" required error={err('attrs.lon')} hint="-180~180. 예: 서울 126.978">
+                <input
+                  className="mono"
+                  inputMode="decimal"
+                  value={String(form.attrs.lon ?? '')}
+                  onChange={(e) => setAttr('lon', e.target.value)}
+                />
+              </Field>
+            </div>
+            <p className="muted small">
+              날씨는 이 좌표로 받습니다. 활성 지역만 주기적으로 받고, 지역을 늘리면 공급자 호출 수도 늘어납니다 (날씨 &gt;
+              스케줄의 예상 월 호출 수).
+            </p>
+          </>
         ) : null}
         {NO_ATTR_GROUPS.has(g) ? <p className="muted">이 그룹은 속성이 없습니다.</p> : null}
         {!ATTR_GROUPS.has(g) && !NO_ATTR_GROUPS.has(g) ? (

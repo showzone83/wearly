@@ -2,7 +2,7 @@
 import { useMemo } from 'react';
 
 import { api, isApiError } from '@/api';
-import type { IAdminCode, IAdminCodeGroup } from '@/api';
+import type { IAdminCode, IAdminCodeGroup, IWeatherProviderPatch, IWeatherRun, TWeatherSettingUpdate } from '@/api';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -22,6 +22,105 @@ export const qk = {
   /** 'sessions'로 시작하는 키를 무효화하면 목록과 회원별 세션이 함께 다시 읽힌다 */
   sessions: (q: object) => ['sessions', 'list', q] as const,
   userSessions: (userId: string) => ['sessions', 'user', userId] as const,
+  /** 'weather'로 시작하는 키를 무효화하면 날씨 화면 전체가 다시 읽힌다 */
+  weatherSchedule: ['weather', 'schedule'] as const,
+  weatherProviders: ['weather', 'providers'] as const,
+  weatherRuns: (q: object) => ['weather', 'runs', q] as const,
+  weatherRun: (runId: string) => ['weather', 'run', runId] as const,
+  weatherCalls: (q: object) => ['weather', 'calls', q] as const,
+  weatherSummary: ['weather', 'summary'] as const,
+  weatherSnapshots: ['weather', 'snapshots'] as const,
+  weatherSnapshot: (region: string) => ['weather', 'snapshot', region] as const,
+};
+
+/** 날씨 실행이 도는 동안 상태를 다시 묻는 간격 */
+const WEATHER_RUN_POLL_MS = 1_000;
+
+/** 스케줄 설정 + 다음 실행 + 마지막 실행 (doc/17 6장). 실행 중이면 2초마다 다시 읽는다 */
+export const useWeatherSchedule = () => {
+  return useQuery({
+    queryKey: qk.weatherSchedule,
+    queryFn: () => api.weather.schedule(),
+    refetchInterval: (q) => (q.state.data?.running ? 2_000 : 30_000),
+  });
+};
+
+export const useWeatherProviders = () => {
+  return useQuery({ queryKey: qk.weatherProviders, queryFn: () => api.weather.providers() });
+};
+
+/** 실행 하나 (호출 목록 포함). 끝날 때까지 1초마다 다시 읽는다 */
+export const useWeatherRun = (runId: string | null) => {
+  return useQuery({
+    queryKey: qk.weatherRun(runId ?? ''),
+    queryFn: () => api.weather.run(runId!),
+    enabled: !!runId,
+    refetchInterval: (q) => (q.state.data?.run.status === 'RUNNING' ? WEATHER_RUN_POLL_MS : false),
+  });
+};
+
+export const useUpdateWeatherSetting = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: TWeatherSettingUpdate) => api.weather.updateSetting(body),
+    onSuccess: (data) => {
+      queryClient.setQueryData(qk.weatherSchedule, data);
+      void queryClient.invalidateQueries({ queryKey: ['audit'] });
+    },
+  });
+};
+
+export const useUpdateWeatherProvider = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ code, patch }: { code: string; patch: IWeatherProviderPatch }) =>
+      api.weather.updateProvider(code, patch),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['weather'] });
+      void queryClient.invalidateQueries({ queryKey: ['audit'] });
+    },
+  });
+};
+
+export const useResetWeatherProvider = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) => api.weather.resetProvider(code),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['weather'] });
+      void queryClient.invalidateQueries({ queryKey: ['audit'] });
+    },
+  });
+};
+
+/** 지금 실행이 이보다 오래 걸리면 기다리기를 그만둔다 (서버 실행은 계속된다) */
+const WEATHER_RUN_WAIT_MS = 120_000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * 지금 실행하고 끝날 때까지 기다린다. 끝난 실행(IWeatherRun)을 돌려주고, 너무 오래 걸리면 마지막으로 본 실행(RUNNING)을 돌려준다.
+ * 끝나면 날씨 화면 전체와 변경 이력을 다시 읽게 한다.
+ */
+export const useWeatherRefresh = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (regionCode?: string): Promise<IWeatherRun> => {
+      const { runId } = await api.weather.refresh(regionCode);
+      void queryClient.invalidateQueries({ queryKey: qk.weatherSchedule });
+      const deadline = Date.now() + WEATHER_RUN_WAIT_MS;
+      let run = (await api.weather.run(runId)).run;
+      while (run.status === 'RUNNING' && Date.now() < deadline) {
+        await sleep(WEATHER_RUN_POLL_MS);
+        run = (await api.weather.run(runId)).run;
+      }
+      return run;
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['weather'] });
+      void queryClient.invalidateQueries({ queryKey: ['audit'] });
+    },
+  });
 };
 
 /** 로그인 사용자 화면·회원 세션 패널의 자동 새로 고침 간격 (doc/16 5장) */

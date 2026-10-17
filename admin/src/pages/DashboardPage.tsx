@@ -5,8 +5,61 @@ import { Badge, Card, Empty, ErrorBox, Loading, PageHeader, Stat } from '@/compo
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 
-import { fmtMs, fmtNum, fmtPercent } from '@/lib/format';
-import { qk, useProviders } from '@/lib/queries';
+import { fmtDateTime, fmtMs, fmtNum, fmtPercent } from '@/lib/format';
+import { qk, useProviders, useWeatherProviders, useWeatherSchedule } from '@/lib/queries';
+import { RUN_STATUS_TEXT, RUN_STATUS_TONE, STATUS_TEXT, STATUS_TONE } from '@/lib/weather';
+
+/** 날씨 요약 (doc/17 6장): 마지막 실행, 실패 지역 수, 쓰는 공급자·차단 여부, 이번 달 사용량 */
+const WeatherCard = () => {
+  const schedule = useWeatherSchedule();
+  const providers = useWeatherProviders();
+
+  const last = schedule.data?.lastRun ?? null;
+
+  return (
+    <Card
+      title="날씨"
+      actions={
+        <Link to="/weather" className="link">
+          날씨 관리
+        </Link>
+      }
+    >
+      <ErrorBox error={schedule.error ?? providers.error} />
+      {schedule.isLoading || providers.isLoading ? <Loading /> : null}
+      {schedule.data ? (
+        <div className="row gap-sm wrap">
+          <Badge tone={schedule.data.setting.enabled ? 'green' : 'gray'}>
+            스케줄 {schedule.data.setting.enabled ? `${schedule.data.setting.intervalMinutes}분마다` : '꺼짐'}
+          </Badge>
+          {last ? (
+            <>
+              <Badge tone={RUN_STATUS_TONE[last.status] ?? 'gray'}>
+                마지막 실행 {RUN_STATUS_TEXT[last.status] ?? last.status}
+              </Badge>
+              <span className="small">
+                {fmtDateTime(last.finishedAt)} · 실패 지역 {last.failCount}곳
+              </span>
+            </>
+          ) : (
+            <span className="muted small">아직 실행한 적이 없습니다.</span>
+          )}
+        </div>
+      ) : null}
+      {providers.data?.map((p) => (
+        <div key={p.code} className="row gap-sm wrap mt-sm">
+          <Badge tone={STATUS_TONE[p.status]}>
+            {p.displayName} · {STATUS_TEXT[p.status] ?? p.status}
+          </Badge>
+          {p.enabled ? null : <Badge tone="gray">꺼짐</Badge>}
+          <span className="small">
+            이번 달 {fmtNum(p.monthUsage)}회{p.monthlyQuota !== null ? ` / ${fmtNum(p.monthlyQuota)}회` : ''}
+          </span>
+        </div>
+      ))}
+    </Card>
+  );
+};
 
 export const DashboardPage = () => {
   const { data, error, isLoading, refetch, isFetching } = useQuery({
@@ -147,6 +200,7 @@ export const DashboardPage = () => {
           </div>
         )}
       </Card>
+      <WeatherCard />
     </>
   );
 };

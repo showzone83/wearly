@@ -10,6 +10,10 @@ import { LoginPage } from '@/pages/LoginPage';
 import { ProvidersPage } from '@/pages/providers/ProvidersPage';
 import { SessionsPage } from '@/pages/SessionsPage';
 import { UsersPage } from '@/pages/UsersPage';
+import { WeatherCallsPage } from '@/pages/weather/WeatherCallsPage';
+import { WeatherProvidersPage } from '@/pages/weather/WeatherProvidersPage';
+import { WeatherSchedulePage } from '@/pages/weather/WeatherSchedulePage';
+import { WeatherSnapshotsPage } from '@/pages/weather/WeatherSnapshotsPage';
 
 import { useAuthStore } from '@/stores/useAuthStore';
 
@@ -39,6 +43,11 @@ export const App = () => {
         <Route path="ai/logs" element={<AiLogsPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="sessions" element={<SessionsPage />} />
+        <Route path="weather" element={<Navigate to="/weather/schedule" replace />} />
+        <Route path="weather/schedule" element={<WeatherSchedulePage />} />
+        <Route path="weather/providers" element={<WeatherProvidersPage />} />
+        <Route path="weather/calls" element={<WeatherCallsPage />} />
+        <Route path="weather/snapshots" element={<WeatherSnapshotsPage />} />
         <Route path="app" element={<Navigate to="/app/theme" replace />} />
         <Route path="app/theme" element={<AppThemePage />} />
         <Route path="audit" element={<AuditLogsPage />} />

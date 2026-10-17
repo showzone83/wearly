@@ -415,3 +415,179 @@ export interface IAppTheme {
 export interface IAppThemeUpdate {
   themeId: string;
 }
+
+// ───────── 날씨 (doc/17 6장) ─────────
+
+export type TWeatherCond = 'SUNNY' | 'CLOUDY' | 'RAIN';
+/** 키 상태. 키 값은 어떤 응답에도 없다 */
+export type TWeatherKeyState = 'CONFIGURED' | 'MISSING' | 'MOCK' | 'UNSUPPORTED';
+/** OK 정상 · OPEN 차단 중 · HALF_OPEN 다음 실행에서 시험 · KEY_INVALID 키 확인 필요 */
+export type TWeatherProviderStatus = 'OK' | 'OPEN' | 'HALF_OPEN' | 'KEY_INVALID';
+export type TWeatherTrigger = 'SCHEDULE' | 'MANUAL' | 'STARTUP' | 'TEST';
+export type TWeatherRunStatus = 'RUNNING' | 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'SKIPPED';
+
+export interface IWeatherCurrent {
+  temp: number;
+  feelsLike: number | null;
+  cond: TWeatherCond;
+  condText: string | null;
+  observedAt: string | null;
+}
+
+export interface IWeatherDay {
+  /** YYYY-MM-DD (그 지역 날짜) */
+  date: string;
+  temp: number;
+  min: number;
+  max: number;
+  rainProb: number;
+  cond: TWeatherCond;
+  condText: string | null;
+}
+
+export interface IWeatherSetting {
+  enabled: boolean;
+  intervalMinutes: number;
+  forecastDays: number;
+  failureThreshold: number;
+  cooldownMinutes: number;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export type TWeatherSettingUpdate = Omit<IWeatherSetting, 'updatedBy' | 'updatedAt'>;
+
+export interface IWeatherRun {
+  runId: string;
+  trigger: TWeatherTrigger;
+  requestedBy: string | null;
+  requestedByEmail: string | null;
+  /** 한 지역만 실행했으면 그 지역 */
+  regionCode: string | null;
+  status: TWeatherRunStatus;
+  skipReason: 'DISABLED' | 'NO_PROVIDER' | 'LOCKED' | null;
+  successCount: number;
+  failCount: number;
+  /** 1순위가 아닌 공급자로 받은 지역 수 (예비 공급자를 붙이면 쓴다) */
+  fallbackCount: number;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+/** `GET·PUT /admin/weather/settings` */
+export interface IWeatherSchedule {
+  setting: IWeatherSetting;
+  /** 꺼져 있거나 서버 주기 실행이 꺼져 있거나 아직 실행한 적이 없으면 null */
+  nextRunAt: string | null;
+  running: boolean;
+  lastRun: IWeatherRun | null;
+  activeRegions: number;
+  /** 서버 설정 wearly.weather.scheduler-enabled */
+  schedulerEnabled: boolean;
+}
+
+export interface IWeatherProvider {
+  code: string;
+  displayName: string;
+  enabled: boolean;
+  priority: number;
+  /** 서버 설정의 키 이름 (wearly.weather.keys.<keyName>) */
+  keyName: string;
+  keyState: TWeatherKeyState;
+  status: TWeatherProviderStatus;
+  consecutiveFailures: number;
+  circuitOpenUntil: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastError: string | null;
+  monthUsage: number;
+  /** null이면 한도 없음 */
+  monthlyQuota: number | null;
+  maxForecastDays: number;
+  callsPerFetch: number;
+  usable: boolean;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export interface IWeatherProviderPatch {
+  enabled?: boolean;
+  priority?: number;
+  monthlyQuota?: number | null;
+  maxForecastDays?: number;
+}
+
+export interface IWeatherTestResult {
+  runId: string;
+  providerCode: string;
+  regionCode: string;
+  success: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+  httpStatus: number | null;
+  durationMs: number;
+  locationName: string | null;
+  current: IWeatherCurrent | null;
+  days: IWeatherDay[];
+  raw: Record<string, unknown>;
+}
+
+export interface IWeatherCall {
+  id: string;
+  runId: string;
+  trigger: TWeatherTrigger;
+  regionCode: string;
+  providerCode: string;
+  callKind: string;
+  fallback: boolean;
+  httpStatus: number | null;
+  success: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+  durationMs: number;
+  responseBytes: number | null;
+  calledAt: string;
+}
+
+export interface IWeatherRunDetail {
+  run: IWeatherRun;
+  calls: IWeatherCall[];
+}
+
+export interface IWeatherRunQuery extends IPageQuery {
+  trigger?: string;
+  status?: string;
+}
+
+export interface IWeatherCallQuery extends IPageQuery {
+  providerCode?: string;
+  regionCode?: string;
+  /** 'true' | 'false' */
+  success?: string;
+  fallback?: string;
+  errorCode?: string;
+  /** YYYY-MM-DD (한국 날짜) */
+  from?: string;
+  to?: string;
+}
+
+export interface IWeatherCallSummary {
+  today: { calls: number; failures: number; fallbacks: number; avgDurationMs: number | null };
+  months: { providerCode: string; displayName: string; used: number; quota: number | null }[];
+}
+
+export interface IWeatherSnapshot {
+  regionCode: string;
+  regionLabel: string;
+  regionActive: boolean;
+  providerCode: string | null;
+  current: IWeatherCurrent | null;
+  days: IWeatherDay[];
+  locationName: string | null;
+  fetchedAt: string | null;
+  stale: boolean;
+  lastError: string | null;
+  lastErrorAt: string | null;
+  /** 상세에서만 */
+  raw: Record<string, unknown> | null;
+}

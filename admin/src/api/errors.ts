@@ -22,6 +22,10 @@ export type TApiErrorCode =
   | 'API_KEY_INVALID'
   /** 07 6장: 서버에 WEARLY_SECRET_KEY가 없어 웹 키를 저장할 수 없음 (409) */
   | 'SECRET_KEY_MISSING'
+  /** doc/17 6장: 날씨를 이미 받는 중 (409) */
+  | 'WEATHER_REFRESH_RUNNING'
+  /** doc/17 6장: 쓸 수 있는 날씨 공급자가 없음 — 꺼짐·키 없음·차단·월 한도 (409) */
+  | 'WEATHER_NO_PROVIDER'
   /** 서버에 닿지 못함 (연결 실패·시간 초과) */
   | 'NETWORK'
   /** 응답이 계약 형식이 아님 */
