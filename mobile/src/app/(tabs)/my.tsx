@@ -13,8 +13,10 @@ import { styleLabel } from '@/lib/codes';
 import { diffDays, todayKey } from '@/lib/date';
 import { MOCK_MODE } from '@/lib/mode';
 import { activeItems } from '@/lib/retire';
+import { regionLabel } from '@/lib/weatherSync';
 import { useStore } from '@/store/useStore';
 import { useThemeStore } from '@/store/useThemeStore';
+import { useWeatherStore } from '@/store/useWeatherStore';
 import { cardBase, makeStyles, useColors } from '@/theme';
 
 // 목업 ⑦ 마이 · 개인 설정 (p.45). 탭 이름은 보드처럼 "더보기"
@@ -28,6 +30,7 @@ export default function My() {
   const isAccount = useStore((s) => s.authMode === 'account');
   const user = useStore((s) => s.user);
   const themeId = useThemeStore((s) => s.themeId);
+  const regionCode = useWeatherStore((s) => s.regionCode);
   const [busy, setBusy] = useState(false);
   const s = useStyles();
 
@@ -120,6 +123,22 @@ export default function My() {
           }
         />
       </MenuCard>
+
+      {/* 날씨 지역 (doc/17 5장). 목업 실행은 서버 날씨를 쓰지 않으므로 숨긴다 */}
+      {!MOCK_MODE && (
+        <>
+          <Text style={s.section}>날씨</Text>
+          <MenuCard>
+            <MenuRow
+              icon="pin"
+              label="날씨 지역"
+              value={regionLabel(regionCode)}
+              last
+              onPress={() => router.push('/region')}
+            />
+          </MenuCard>
+        </>
+      )}
 
       <Text style={s.section}>알림 설정</Text>
       <MenuCard>

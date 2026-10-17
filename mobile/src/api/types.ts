@@ -270,7 +270,9 @@ export type CodeGroupKey =
   | 'STYLE'
   | 'ITEM_STATUS'
   /** 사용하지 않는 옷 이유 (doc/13 2장). 예전 서버에는 없다 */
-  | 'RETIRE_REASON';
+  | 'RETIRE_REASON'
+  /** 날씨 지역 (doc/17 2장). attrs.lat·lon. 예전 서버에는 없다 */
+  | 'REGION';
 
 export interface CodeDto {
   code: string;
@@ -313,6 +315,41 @@ export interface AppConfigDto {
 }
 
 /** GET /app/config 결과. If-None-Match가 맞아 304가 오면 changed: false */
+/** 날씨 상태 (앱 Weather.cond와 같다) */
+export type WeatherCondDto = 'SUNNY' | 'CLOUDY' | 'RAIN';
+
+/** GET /weather (doc/17 5장). 서버에 저장된 값만 준다. 기온은 섭씨 */
+export interface WeatherDto {
+  region: { code: string; label: string };
+  current: {
+    temp: number;
+    feelsLike: number | null;
+    cond: WeatherCondDto;
+    condText: string | null;
+    /** 공급자가 관측·갱신한 시각 (ISO) */
+    observedAt: string | null;
+  };
+  /** 그 지역의 오늘부터. 받은 일수만큼만 실제 예보다 */
+  days: {
+    /** YYYY-MM-DD */
+    date: string;
+    temp: number;
+    min: number;
+    max: number;
+    rainProb: number;
+    cond: WeatherCondDto;
+    condText: string | null;
+  }[];
+  /** 서버가 받은 시각 (ISO) */
+  fetchedAt: string;
+  /** 서버가 한동안 받지 못해 오래된 값 ("업데이트 지연") */
+  stale: boolean;
+}
+
+export type WeatherResult =
+  | { changed: true; weather: WeatherDto; /** 다음 요청의 If-None-Match */ etag: string | null }
+  | { changed: false };
+
 export type AppConfigResult =
   | { changed: true; config: AppConfigDto; /** 다음 요청의 If-None-Match에 그대로 넣을 값 */ etag: string }
   | { changed: false };

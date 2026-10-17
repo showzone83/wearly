@@ -9,9 +9,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { bootstrapSession } from '@/lib/account';
 import { API_BASE_URL } from '@/lib/api';
 import { syncAppConfig } from '@/lib/appConfig';
+import { syncWeather } from '@/lib/weatherSync';
 import { bootstrapCodes, useCodes } from '@/store/useCodes';
 import { useStore } from '@/store/useStore';
 import { useThemeStore } from '@/store/useThemeStore';
+import { useWeatherStore } from '@/store/useWeatherStore';
 import { makeStyles, useColors } from '@/theme';
 
 type PersistApi = { hasHydrated: () => boolean; onFinishHydration: (fn: () => void) => () => void };
@@ -90,6 +92,21 @@ const useAppConfigSync = (themeHydrated: boolean) => {
   }, [themeHydrated]);
 };
 
+/**
+ * 서버 날씨 동기화 (doc/17 5장): 저장한 지역·날씨를 복원한 뒤 한 번, 앱이 다시 활성이 될 때마다 한 번.
+ * 서버는 저장된 값만 주므로 자주 불러도 공급자 호출은 늘지 않는다. 실패하면 저장값·목업 날씨로 계속한다.
+ */
+const useWeatherSync = (weatherHydrated: boolean) => {
+  useEffect(() => {
+    if (!weatherHydrated) return;
+    void syncWeather();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void syncWeather();
+    });
+    return () => sub.remove();
+  }, [weatherHydrated]);
+};
+
 /** 계정 모드에서 로그인이 풀리면(Refresh 실패) 로그인 화면으로 보낸다 */
 function AuthWatcher() {
   const lost = useStore((s) => s.authMode === 'account' && s.authLost);
@@ -107,9 +124,11 @@ export default function RootLayout() {
   const hydrated = useHydrated(useStore.persist);
   const codesHydrated = useHydrated(useCodes.persist);
   const themeHydrated = useHydrated(useThemeStore.persist);
+  const weatherHydrated = useHydrated(useWeatherStore.persist);
   const sessionChecked = useSession(hydrated);
   const codes = useCodesReady(codesHydrated);
   useAppConfigSync(themeHydrated);
+  useWeatherSync(weatherHydrated);
   // 저장된 테마로 첫 화면을 그리도록 테마 복원을 기다린다 (제목은 시스템 산세리프라 글꼴 로딩은 없다)
   const ready = themeHydrated && hydrated && sessionChecked && codes.phase === 'ready';
   const codesFailed = codes.phase === 'failed';
