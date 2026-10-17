@@ -16,6 +16,12 @@ export type ApiErrorCode =
   | 'CODE_IN_USE'
   | 'IMAGE_TOO_LARGE'
   | 'AI_UNAVAILABLE'
+  /** 07 6장: 비밀번호 재확인 실패 (403, 로그인 상태는 그대로) */
+  | 'REAUTH_FAILED'
+  /** 07 6장: 저장 전 유효성 확인에서 키가 거절됨 (400) */
+  | 'API_KEY_INVALID'
+  /** 07 6장: 서버에 WEARLY_SECRET_KEY가 없어 웹 키를 저장할 수 없음 (409) */
+  | 'SECRET_KEY_MISSING'
   /** 서버에 닿지 못함 (연결 실패·시간 초과) */
   | 'NETWORK'
   /** 응답이 계약 형식이 아님 */

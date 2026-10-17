@@ -137,14 +137,27 @@ export interface CodePatch {
 
 export type ProviderType = 'CLAUDE' | 'OPENAI' | 'GEMINI' | 'MOCK';
 
+/** 지금 실제로 쓰는 키의 출처 (07 6장). DB = 웹에서 넣은 키, ENV = `apiKeyEnv` 환경변수 */
+export type KeySource = 'DB' | 'ENV' | 'NONE';
+
 export interface AiProvider {
   providerId: string;
   type: ProviderType | (string & {});
   displayName: string;
   model: string | null;
   apiKeyEnv: string;
-  /** 키 환경변수에 값이 있는지. 키 값 자체는 내려오지 않는다 */
+  /** 쓸 수 있는 키가 있는지 (= keySource !== 'NONE'). 키 값 자체는 내려오지 않는다 */
   keyConfigured: boolean;
+  /** 예전 서버처럼 내려오지 않으면 keyConfigured로 추정한다 ('ENV' / 'NONE') */
+  keySource: KeySource;
+  /** DB 키일 때만. 키의 마지막 4자 */
+  keyLast4: string | null;
+  /** DB 키일 때만 */
+  keyUpdatedAt: string | null;
+  /** DB 키를 넣은 관리자 이메일 */
+  keyUpdatedBy: string | null;
+  /** 서버에 WEARLY_SECRET_KEY가 있어 웹 키를 쓸 수 있는지. 예전 서버라 모르면 null */
+  secretStoreEnabled: boolean | null;
   enabled: boolean;
   priority: number;
   options: Record<string, unknown> | null;
@@ -165,6 +178,23 @@ export interface ProviderCreate {
 }
 
 export type ProviderPatch = Partial<Omit<ProviderCreate, 'providerId'>>;
+
+/**
+ * `PUT /admin/ai/providers/{id}/api-key` 본문 (07 6장). 쓰기 전용 — 이 값은 mutation 변수로만 지나가고
+ * URL·쿼리 문자열·브라우저 저장소·쿼리 캐시 키·로그에 남기지 않는다.
+ */
+export interface ApiKeySetRequest {
+  apiKey: string;
+  /** 요청한 관리자의 비밀번호 (재확인) */
+  currentPassword: string;
+  /** 저장 전에 그 키로 모델 목록을 한 번 조회해 유효한지 본다. 서버 기본 true */
+  verify?: boolean;
+}
+
+/** `DELETE /admin/ai/providers/{id}/api-key` 본문 */
+export interface ApiKeyDeleteRequest {
+  currentPassword: string;
+}
 
 /** `/admin/ai/types`의 옵션 설명 하나 (화면 폼용). 서버 형식이 정해지지 않아 느슨하게 받는다 */
 export interface ProviderOptionSpec {

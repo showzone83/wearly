@@ -1,4 +1,5 @@
-// AI 공급자 추가·수정 패널. API 키 값은 여기서 다루지 않는다 (서버 환경변수 이름만).
+// AI 공급자 추가·수정 패널. 수정일 때는 위에 "API 키" 영역(웹 입력, ApiKeySection)을 함께 보여 준다.
+// 아래 폼은 키 값이 아니라 키 환경변수 '이름'만 다룬다.
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 
@@ -7,6 +8,8 @@ import { useToast } from '@/components/toast';
 import { Badge, Button, Drawer, Field, Notice, Switch } from '@/components/ui';
 import { DEFAULT_KEY_ENV, FALLBACK_TYPES } from '@/lib/providerTypes';
 import { qk } from '@/lib/queries';
+
+import { ApiKeySection } from './ApiKeySection';
 
 interface FormState {
   providerId: string;
@@ -189,6 +192,7 @@ export function ProviderForm({
         </>
       }
     >
+      {isEdit ? <ApiKeySection providerId={original!.providerId} fallback={original!} /> : null}
       <form id="provider-form" className="form" onSubmit={submit} noValidate>
         {formError ? <Notice tone="error">{formError}</Notice> : null}
         <div className="grid-2">
@@ -216,17 +220,23 @@ export function ProviderForm({
           label="키 환경변수 이름"
           required
           error={err('apiKeyEnv')}
-          hint="키 값이 아니라, 서버에서 키가 들어 있는 환경변수의 이름입니다. 키 값은 화면·DB에 저장하지 않습니다."
+          hint={
+            isEdit
+              ? "키 값이 아니라 서버 환경변수의 '이름'입니다. 웹에서 넣은 키가 없을 때 이 환경변수의 키를 씁니다. 키 값은 위 'API 키'에서 넣으세요."
+              : "키 값이 아니라 서버 환경변수의 '이름'입니다. 키 값은 공급자를 추가한 뒤 수정 화면의 'API 키'에서 넣을 수 있어요."
+          }
         >
           <div className="row gap-sm">
             <input className="mono grow" value={form.apiKeyEnv} maxLength={100} onChange={(e) => set('apiKeyEnv', e.target.value)} />
             {isEdit ? (
-              original!.keyConfigured && original!.apiKeyEnv === form.apiKeyEnv ? (
-                <Badge tone="green">키 설정됨</Badge>
-              ) : original!.apiKeyEnv === form.apiKeyEnv ? (
-                <Badge tone="red">키 없음</Badge>
-              ) : (
+              original!.apiKeyEnv !== form.apiKeyEnv ? (
                 <Badge tone="gray">저장 후 확인</Badge>
+              ) : original!.keySource === 'ENV' ? (
+                <Badge tone="green">이 변수 사용 중</Badge>
+              ) : original!.keySource === 'DB' ? (
+                <Badge tone="gray" title="웹에서 넣은 키를 먼저 씁니다">웹 키 사용 중</Badge>
+              ) : (
+                <Badge tone="red">값 없음</Badge>
               )
             ) : null}
           </div>

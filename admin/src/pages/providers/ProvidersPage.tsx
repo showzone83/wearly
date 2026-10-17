@@ -1,4 +1,4 @@
-// AI 공급자: 목록(키 설정·사용 가능·오늘 호출), 추가·수정, 사용 켜기/끄기, 우선순위, 시험 분석
+// AI 공급자: 목록(키 출처·사용 가능·오늘 호출), 추가·수정(+ API 키 웹 입력), 사용 켜기/끄기, 우선순위, 시험 분석
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -8,6 +8,7 @@ import { Badge, Button, Card, Empty, ErrorBox, Loading, PageHeader, Switch } fro
 import { FALLBACK_TYPES } from '@/lib/providerTypes';
 import { qk, useProviders } from '@/lib/queries';
 
+import { KeySourceBadge } from './ApiKeySection';
 import { ProviderForm } from './ProviderForm';
 import { TestPanel } from './TestPanel';
 
@@ -15,7 +16,7 @@ function usableReason(p: AiProvider): string {
   const missing: string[] = [];
   if (!p.enabled) missing.push('사용 꺼짐');
   if (!p.model) missing.push('모델 없음');
-  if (!p.keyConfigured) missing.push(`${p.apiKeyEnv} 값 없음`);
+  if (!p.keyConfigured) missing.push('키 없음');
   return missing.join(' · ');
 }
 
@@ -24,10 +25,13 @@ export function ProvidersPage() {
   const typesQuery = useQuery({ queryKey: qk.providerTypes, queryFn: () => api.providers.types(), staleTime: 5 * 60_000 });
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [editing, setEditing] = useState<AiProvider | 'new' | null>(null);
+  // 행 객체가 아니라 ID를 들고 있다가 최신 목록에서 찾는다 (키 저장 뒤 패널이 옛 값을 보지 않게)
+  const [editingId, setEditingId] = useState<string | 'new' | null>(null);
 
   const providers = (data ?? []).slice().sort((a, b) => a.priority - b.priority || a.providerId.localeCompare(b.providerId));
   const nextPriority = providers.length ? Math.max(...providers.map((p) => p.priority)) + 1 : 1;
+  const editing = editingId === 'new' ? 'new' : (providers.find((p) => p.providerId === editingId) ?? null);
+  const setEditing = (p: AiProvider | 'new' | null) => setEditingId(p === 'new' || p === null ? p : p.providerId);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: qk.providers });
@@ -105,7 +109,7 @@ export function ProvidersPage() {
                     <th>공급자</th>
                     <th>종류</th>
                     <th>모델</th>
-                    <th>키 환경변수</th>
+                    <th>API 키</th>
                     <th>사용</th>
                     <th>사용 가능</th>
                     <th className="num">오늘 성공 / 실패</th>
@@ -143,8 +147,10 @@ export function ProvidersPage() {
                       </td>
                       <td className="mono small">{p.model || <span className="muted">—</span>}</td>
                       <td>
-                        <span className="mono small">{p.apiKeyEnv}</span>{' '}
-                        {p.keyConfigured ? <Badge tone="green">설정됨</Badge> : <Badge tone="red">없음</Badge>}
+                        <KeySourceBadge provider={p} />
+                        <button type="button" className="link-btn small" onClick={() => setEditing(p)}>
+                          키 관리
+                        </button>
                       </td>
                       <td>
                         <Switch
@@ -172,7 +178,10 @@ export function ProvidersPage() {
               </table>
             </div>
           )}
-          <p className="muted small mt-sm">API 키 값은 서버 환경변수(backend/.env)에만 둡니다. 키를 바꾼 뒤에는 서버를 다시 시작해야 '설정됨'으로 바뀝니다.</p>
+          <p className="muted small mt-sm">
+            API 키는 공급자 수정 패널의 'API 키'에서 웹으로 넣을 수 있습니다(서버에 암호화 저장, 다시 볼 수 없음). 웹 키가 있으면 환경변수보다 먼저 쓰고, 지우면
+            환경변수 키로 돌아갑니다. 환경변수 키를 바꾼 뒤에는 서버를 다시 시작해야 반영됩니다.
+          </p>
         </Card>
       ) : null}
 

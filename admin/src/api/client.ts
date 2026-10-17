@@ -11,12 +11,15 @@ import type {
   AiLogQuery,
   AiLogRow,
   AiProvider,
+  ApiKeyDeleteRequest,
+  ApiKeySetRequest,
   AuditLog,
   AuditQuery,
   AuthResponse,
   CodeCreate,
   CodePatch,
   Dashboard,
+  KeySource,
   LoginRequest,
   Page,
   PageQuery,
@@ -47,6 +50,8 @@ const API_PREFIX = '/api/v1';
 const DEFAULT_TIMEOUT = 15_000;
 /** 시험 분석은 실제 AI를 부르므로 넉넉히 */
 const TEST_TIMEOUT = 120_000;
+/** 키 저장은 서버가 각 사 모델 목록 조회로 유효성을 확인할 수 있어 조금 넉넉히 */
+const API_KEY_TIMEOUT = 30_000;
 
 export const API_URL: string = (import.meta.env.VITE_API_URL as string | undefined)?.trim() || 'http://localhost:8080';
 
@@ -104,6 +109,34 @@ function toLogRow(r: Record<string, unknown>): AiLogRow {
     summary: str(r.summary ?? r.resultSummary),
     errorCode: str(r.errorCode),
   };
+}
+
+const KEY_SOURCES: readonly KeySource[] = ['DB', 'ENV', 'NONE'];
+
+/**
+ * 공급자 행. 07 6장의 키 필드(keySource 등)가 없는 예전 서버면 keyConfigured로 출처를 추정한다
+ * (웹 키 기능 전에는 환경변수 키뿐이었으므로 있으면 'ENV', 없으면 'NONE').
+ */
+function toProvider(r: Record<string, unknown>): AiProvider {
+  const source = KEY_SOURCES.includes(r.keySource as KeySource) ? (r.keySource as KeySource) : null;
+  const keyConfigured = typeof r.keyConfigured === 'boolean' ? r.keyConfigured : source ? source !== 'NONE' : false;
+  const keySource: KeySource = source ?? (keyConfigured ? 'ENV' : 'NONE');
+  const isDb = keySource === 'DB';
+  return {
+    ...(r as unknown as AiProvider),
+    keyConfigured,
+    keySource,
+    // 마지막 4자만 보여 준다. 혹시 더 긴 값이 와도 4자로 자른다
+    keyLast4: isDb ? (str(r.keyLast4)?.slice(-4) ?? null) : null,
+    keyUpdatedAt: isDb ? str(r.keyUpdatedAt) : null,
+    keyUpdatedBy: isDb ? str(r.keyUpdatedBy) : null,
+    secretStoreEnabled: typeof r.secretStoreEnabled === 'boolean' ? r.secretStoreEnabled : null,
+  };
+}
+
+/** 키 저장·삭제 응답(공급자 행). 본문이 비어 있으면 null — 화면은 목록을 다시 읽는다 */
+function toProviderOrNull(raw: unknown): AiProvider | null {
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? toProvider(raw as Record<string, unknown>) : null;
 }
 
 function toAudit(r: Record<string, unknown>): AuditLog {
@@ -349,7 +382,7 @@ export function createAdminApi(options: AdminApiOptions) {
 
     providers: {
       async list(): Promise<AiProvider[]> {
-        return toArray<AiProvider>(await get<unknown>('/admin/ai/providers'));
+        return toArray<Record<string, unknown>>(await get<unknown>('/admin/ai/providers')).map(toProvider);
       },
       async types(): Promise<ProviderTypeSpec[]> {
         return toTypeSpecs(await get<unknown>('/admin/ai/types'));
@@ -362,6 +395,26 @@ export function createAdminApi(options: AdminApiOptions) {
       },
       remove(providerId: string) {
         return request<void>('DELETE', `/admin/ai/providers/${enc(providerId)}`, { auth: true });
+      },
+      /**
+       * API 키를 넣거나 바꾼다 (07 6장, 쓰기 전용). 키는 JSON 본문으로만 보낸다 — 경로·쿼리에 넣지 않는다.
+       * 오류: 403 REAUTH_FAILED · 400 API_KEY_INVALID · 409 SECRET_KEY_MISSING · 400 VALIDATION_FAILED(apiKey)
+       */
+      async setApiKey(providerId: string, body: ApiKeySetRequest): Promise<AiProvider | null> {
+        const raw = await request<unknown>('PUT', `/admin/ai/providers/${enc(providerId)}/api-key`, {
+          auth: true,
+          json: { apiKey: body.apiKey, currentPassword: body.currentPassword, verify: body.verify ?? true },
+          timeoutMs: API_KEY_TIMEOUT,
+        });
+        return toProviderOrNull(raw);
+      },
+      /** 웹에서 넣은 키를 지운다 → 환경변수 키로 되돌아감. DELETE지만 JSON 본문(currentPassword)을 보낸다 */
+      async deleteApiKey(providerId: string, body: ApiKeyDeleteRequest): Promise<AiProvider | null> {
+        const raw = await request<unknown>('DELETE', `/admin/ai/providers/${enc(providerId)}/api-key`, {
+          auth: true,
+          json: { currentPassword: body.currentPassword },
+        });
+        return toProviderOrNull(raw);
       },
       /** 사진 한 장으로 그 공급자를 한 번 호출 (사용 여부와 관계없이) */
       test(providerId: string, image: File): Promise<ProviderTestResult> {
