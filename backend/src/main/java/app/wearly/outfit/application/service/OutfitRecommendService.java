@@ -1,18 +1,18 @@
 package app.wearly.outfit.application.service;
 
 import app.wearly.ai.application.port.in.AiFeatures;
-import app.wearly.ai.application.port.in.GeneratedJson;
-import app.wearly.ai.application.port.in.JsonGenerationCommand;
 import app.wearly.ai.application.port.in.JsonGenerationUseCase;
 import app.wearly.ai.application.port.in.JsonOutputHandler;
 import app.wearly.ai.application.port.in.RejectedOutputException;
+import app.wearly.ai.application.port.in.dto.GenerateJsonDto;
+import app.wearly.ai.application.port.in.dto.GeneratedJsonDto;
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
-import app.wearly.outfit.application.port.in.OutfitRecommendation;
-import app.wearly.outfit.application.port.in.RecommendOutfitCommand;
 import app.wearly.outfit.application.port.in.RecommendOutfitUseCase;
+import app.wearly.outfit.application.port.in.dto.OutfitRecommendationDto;
+import app.wearly.outfit.application.port.in.dto.RecommendOutfitDto;
 import app.wearly.outfit.domain.CandidateValidator;
 import app.wearly.outfit.domain.MockOutfitPlanner;
 import app.wearly.outfit.domain.OutfitCandidate;
@@ -22,10 +22,10 @@ import app.wearly.outfit.domain.OutfitPrompt;
 import app.wearly.outfit.domain.OutfitRequest;
 import app.wearly.outfit.domain.OutfitSettings;
 import app.wearly.outfit.domain.OutfitTaste;
-import app.wearly.user.application.port.in.ProfileTaste;
 import app.wearly.user.application.port.in.ProfileUseCase;
-import app.wearly.wardrobe.application.port.in.ListItemsQuery;
+import app.wearly.user.application.port.in.dto.ProfileTasteDto;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
+import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,11 +61,11 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
   }
 
   @Override
-  public OutfitRecommendation recommend(long userId, RecommendOutfitCommand command) {
+  public OutfitRecommendationDto recommend(long userId, RecommendOutfitDto command) {
     CodeSnapshot codes = catalog.current();
     OutfitRequest request = OutfitRequestValidator.validate(command, codes);
     List<OutfitItem> items =
-        wardrobe.list(new ListItemsQuery(userId, null, null, null, null, null)).stream()
+        wardrobe.list(new ItemSearchDto(userId, null, null, null, null, null)).stream()
             .map(
                 v ->
                     OutfitItem.of(
@@ -97,9 +97,9 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
       throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED, "오늘 AI 코디 추천 횟수를 모두 썼어요.");
     }
 
-    ProfileTaste taste = profiles.taste(userId);
-    JsonGenerationCommand generate =
-        new JsonGenerationCommand(
+    ProfileTasteDto taste = profiles.taste(userId);
+    GenerateJsonDto generate =
+        new GenerateJsonDto(
             userId,
             AiFeatures.OUTFIT_RECOMMEND,
             OutfitPrompt.SCHEMA_NAME,
@@ -108,7 +108,7 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
                 pool, new OutfitTaste(taste.dressCodes(), taste.moods(), taste.colors()), codes),
             OutfitPrompt.schema(pool),
             MockOutfitPlanner.plan(pool));
-    GeneratedJson<List<OutfitCandidate>> result;
+    GeneratedJsonDto<List<OutfitCandidate>> result;
     try {
       result = generation.generate(generate, json -> accept(json, pool));
     } catch (ApiException e) {
@@ -118,7 +118,8 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
       throw e;
     }
     int remaining = (int) Math.max(0, limit - (used + 1));
-    return new OutfitRecommendation(result.value(), result.provider(), result.model(), remaining);
+    return new OutfitRecommendationDto(
+        result.value(), result.provider(), result.model(), remaining);
   }
 
   /** 후보 검증. 남은 후보가 0개면 거부해 다음 공급자로 넘어간다 */

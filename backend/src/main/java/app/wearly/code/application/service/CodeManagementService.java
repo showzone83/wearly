@@ -1,8 +1,8 @@
 package app.wearly.code.application.service;
 
-import app.wearly.code.application.port.in.CodeInfo;
 import app.wearly.code.application.port.in.CodeManagementUseCase;
-import app.wearly.code.application.port.in.CreateCodeCommand;
+import app.wearly.code.application.port.in.dto.CodeDto;
+import app.wearly.code.application.port.in.dto.CreateCodeDto;
 import app.wearly.code.application.port.out.CodePort;
 import app.wearly.code.application.port.out.CodeSnapshotPort;
 import app.wearly.code.application.port.out.CodeUsagePort;
@@ -50,7 +50,7 @@ public class CodeManagementService implements CodeManagementUseCase {
 
   @Override
   @Transactional
-  public CodeInfo create(String group, CreateCodeCommand req) {
+  public CodeDto create(String group, CreateCodeDto req) {
     CodeSnapshot snapshot = requireGroup(group);
     if (req == null) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
@@ -91,7 +91,7 @@ public class CodeManagementService implements CodeManagementUseCase {
     if (body == null || !body.isObject()) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
-    final CodeInfo before = info(entity);
+    final CodeDto before = info(entity);
     List<FieldError> errors = new ArrayList<>();
     if (body.has("code") && !code.equals(body.string("code"))) {
       errors.add(new FieldError("code", "코드는 바꿀 수 없어요."));
@@ -163,7 +163,7 @@ public class CodeManagementService implements CodeManagementUseCase {
 
   @Override
   @Transactional
-  public CodeInfo delete(String group, String code) {
+  public CodeDto delete(String group, String code) {
     requireGroup(group);
     Code entity = codes.find(group, code).orElseThrow(ApiException::notFound);
     long items = usage.countItemsUsing(group, code);
@@ -184,7 +184,7 @@ public class CodeManagementService implements CodeManagementUseCase {
       throw new ApiException(
           ErrorCode.CODE_IN_USE, String.join(", ", reasons) + "에서 쓰고 있어 삭제할 수 없어요. 대신 비활성화해 주세요.");
     }
-    final CodeInfo before = info(entity);
+    final CodeDto before = info(entity);
     if (CodeGroups.COLOR.equals(group)) {
       syncPairs(code, CodeAttrs.pairsOf(entity.attrs()), List.of());
     }
@@ -226,8 +226,8 @@ public class CodeManagementService implements CodeManagementUseCase {
     return s;
   }
 
-  private CodeInfo info(Code c) {
-    return new CodeInfo(
+  private CodeDto info(Code c) {
+    return new CodeDto(
         c.groupCode(),
         c.code(),
         c.label(),

@@ -1,7 +1,7 @@
 package app.wearly.admin.adapter.in.web;
 
 import app.wearly.admin.application.port.in.AdminAiProviderUseCase;
-import app.wearly.ai.application.port.in.ProviderTypeInfo;
+import app.wearly.ai.application.port.in.dto.ProviderTypeDto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
@@ -30,7 +30,7 @@ public final class AdminDtos {
           t.types().stream().map(TypesResponse::type).toList(), t.baseUrlAllowed(), t.mockMode());
     }
 
-    private static TypeDto type(ProviderTypeInfo t) {
+    private static TypeDto type(ProviderTypeDto t) {
       return new TypeDto(
           t.type(),
           t.description(),

@@ -5,11 +5,11 @@ import app.wearly.common.web.PathIds;
 import app.wearly.wardrobe.adapter.in.web.WardrobeDtos.BulkRequest;
 import app.wearly.wardrobe.adapter.in.web.WardrobeDtos.ItemList;
 import app.wearly.wardrobe.adapter.in.web.WardrobeDtos.ItemRequest;
-import app.wearly.wardrobe.application.port.in.ItemView;
-import app.wearly.wardrobe.application.port.in.ListItemsQuery;
-import app.wearly.wardrobe.application.port.in.WardrobeStats;
 import app.wearly.wardrobe.application.port.in.WardrobeStatsUseCase;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
+import app.wearly.wardrobe.application.port.in.dto.ItemDto;
+import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
+import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto;
 import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import org.springframework.http.HttpStatus;
@@ -55,18 +55,17 @@ public class WardrobeController {
       @RequestParam(required = false) String color,
       @RequestParam(required = false) String q,
       @RequestParam(required = false) String sort) {
-    return new ItemList(
-        wardrobe.list(new ListItemsQuery(userId, category, status, color, q, sort)));
+    return new ItemList(wardrobe.list(new ItemSearchDto(userId, category, status, color, q, sort)));
   }
 
   @GetMapping("/items/{id}")
-  public ItemView get(@CurrentUser long userId, @PathVariable String id) {
+  public ItemDto get(@CurrentUser long userId, @PathVariable String id) {
     return wardrobe.get(userId, PathIds.parse(id));
   }
 
   @PostMapping("/items")
   @ResponseStatus(HttpStatus.CREATED)
-  public ItemView create(@CurrentUser long userId, @Valid @RequestBody ItemRequest input) {
+  public ItemDto create(@CurrentUser long userId, @Valid @RequestBody ItemRequest input) {
     return wardrobe.create(userId, input.toInput());
   }
 
@@ -78,7 +77,7 @@ public class WardrobeController {
   }
 
   @PatchMapping("/items/{id}")
-  public ItemView patch(
+  public ItemDto patch(
       @CurrentUser long userId, @PathVariable String id, @RequestBody JsonNode patch) {
     return wardrobe.patch(
         userId, PathIds.parse(id), new JsonItemPatch(patch, jsonMapper, validator));
@@ -91,7 +90,7 @@ public class WardrobeController {
   }
 
   @GetMapping("/stats")
-  public WardrobeStats stats(@CurrentUser long userId) {
+  public WardrobeStatsDto stats(@CurrentUser long userId) {
     return stats.stats(userId);
   }
 }

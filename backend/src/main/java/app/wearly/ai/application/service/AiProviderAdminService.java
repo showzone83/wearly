@@ -1,9 +1,9 @@
 package app.wearly.ai.application.service;
 
 import app.wearly.ai.application.port.in.AiProviderAdminUseCase;
-import app.wearly.ai.application.port.in.AiProviderInfo;
-import app.wearly.ai.application.port.in.CreateProviderCommand;
-import app.wearly.ai.application.port.in.ProviderTypeInfo;
+import app.wearly.ai.application.port.in.dto.AiProviderDto;
+import app.wearly.ai.application.port.in.dto.CreateProviderDto;
+import app.wearly.ai.application.port.in.dto.ProviderTypeDto;
 import app.wearly.ai.application.port.out.AiProviderPort;
 import app.wearly.ai.application.port.out.ApiKeyVerifierPort;
 import app.wearly.ai.application.port.out.ProviderSecretPort;
@@ -20,8 +20,8 @@ import app.wearly.common.domain.FieldError;
 import app.wearly.common.domain.PatchBody;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
-import app.wearly.user.application.port.in.UserAccount;
 import app.wearly.user.application.port.in.UserUseCase;
+import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -64,28 +64,28 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public List<AiProviderInfo> list() {
+  public List<AiProviderDto> list() {
     return settings.findAllOrdered().stream().map(this::info).toList();
   }
 
   @Override
   @Transactional(readOnly = true)
-  public AiProviderInfo get(String providerId) {
+  public AiProviderDto get(String providerId) {
     return info(settings.findById(providerId).orElseThrow(ApiException::notFound));
   }
 
   @Override
-  public List<ProviderTypeInfo> types() {
+  public List<ProviderTypeDto> types() {
     return Arrays.stream(AiProviderType.values())
         .map(
             t ->
-                new ProviderTypeInfo(
+                new ProviderTypeDto(
                     t.name(),
                     t.description(),
                     t.options().stream()
                         .map(
                             o ->
-                                new ProviderTypeInfo.Option(
+                                new ProviderTypeDto.Option(
                                     o.name(),
                                     o.kind(),
                                     o.description(),
@@ -109,7 +109,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
 
   @Override
   @Transactional
-  public AiProviderInfo create(CreateProviderCommand req) {
+  public AiProviderDto create(CreateProviderDto req) {
     if (req == null) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
@@ -151,7 +151,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
 
   @Override
   @Transactional
-  public AiProviderInfo patch(String providerId, PatchBody body) {
+  public AiProviderDto patch(String providerId, PatchBody body) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
     if (body == null || !body.isObject()) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
@@ -220,9 +220,9 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
 
   @Override
   @Transactional
-  public AiProviderInfo delete(String providerId) {
+  public AiProviderDto delete(String providerId) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
-    AiProviderInfo before = info(s);
+    AiProviderDto before = info(s);
     settings.delete(providerId);
     // 웹 키 행은 FK ON DELETE CASCADE로 함께 지워진다
     keys.invalidate(providerId);
@@ -253,7 +253,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
         throw new ApiException(ErrorCode.API_KEY_INVALID, "API 키를 확인하지 못했어요: " + reason);
       }
     }
-    AiProviderInfo before = info(s);
+    AiProviderDto before = info(s);
     secrets.save(
         new ProviderSecret(
             providerId, cipher.seal(key, providerId), ApiKeyRules.last4(key), adminUserId, null));
@@ -265,7 +265,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
   @Transactional
   public Optional<KeyChange> deleteKey(String providerId) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
-    AiProviderInfo before = info(s);
+    AiProviderDto before = info(s);
     if (!secrets.delete(providerId)) {
       return Optional.empty();
     }
@@ -273,14 +273,14 @@ public class AiProviderAdminService implements AiProviderAdminUseCase {
     return Optional.of(new KeyChange(before, info(s)));
   }
 
-  private AiProviderInfo info(AiProviderSetting s) {
+  private AiProviderDto info(AiProviderSetting s) {
     ApiKeyService.KeyState key = keys.state(s);
     boolean configured = key.choice().present();
     String updatedBy =
         key.updatedBy() == null
             ? null
-            : users.find(key.updatedBy()).map(UserAccount::email).orElse(null);
-    return new AiProviderInfo(
+            : users.find(key.updatedBy()).map(UserAccountDto::email).orElse(null);
+    return new AiProviderDto(
         s.providerId(),
         s.type().name(),
         s.displayName(),

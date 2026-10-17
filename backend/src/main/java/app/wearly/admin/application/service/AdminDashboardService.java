@@ -1,14 +1,14 @@
 package app.wearly.admin.application.service;
 
 import app.wearly.admin.application.port.in.AdminDashboardUseCase;
-import app.wearly.admin.application.port.in.AdminViews.AiLogDetailView;
-import app.wearly.admin.application.port.in.AdminViews.AiLogSearch;
-import app.wearly.admin.application.port.in.AdminViews.AiLogView;
-import app.wearly.admin.application.port.in.AdminViews.AiToday;
-import app.wearly.admin.application.port.in.AdminViews.AuditView;
-import app.wearly.admin.application.port.in.AdminViews.DashboardView;
-import app.wearly.admin.application.port.in.AdminViews.ProviderStatView;
-import app.wearly.admin.application.port.in.Page;
+import app.wearly.admin.application.port.in.dto.AdminViews.AiLogDetailView;
+import app.wearly.admin.application.port.in.dto.AdminViews.AiLogSearch;
+import app.wearly.admin.application.port.in.dto.AdminViews.AiLogView;
+import app.wearly.admin.application.port.in.dto.AdminViews.AiToday;
+import app.wearly.admin.application.port.in.dto.AdminViews.AuditView;
+import app.wearly.admin.application.port.in.dto.AdminViews.DashboardView;
+import app.wearly.admin.application.port.in.dto.AdminViews.ProviderStatView;
+import app.wearly.admin.application.port.in.dto.PageDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.AdminQueryPort.AiLogFilter;
 import app.wearly.admin.application.port.out.AdminRows.AiCounts;
@@ -75,7 +75,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public Page<AiLogView> aiLogs(AiLogSearch search, Page.Paging paging) {
+  public PageDto<AiLogView> aiLogs(AiLogSearch search, PageDto.Paging paging) {
     String st = SearchText.blankToNull(search.status());
     if (st != null && !STATUSES.contains(st)) {
       throw ApiException.validation("status", "SUCCESS 또는 FAILED여야 해요.");
@@ -97,7 +97,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
         queries.findAiLogs(filter, paging.size(), paging.offset()).stream()
             .map(AdminDashboardService::toView)
             .toList();
-    return new Page<>(items, paging.page(), paging.size(), queries.countAiLogs(filter));
+    return new PageDto<>(items, paging.page(), paging.size(), queries.countAiLogs(filter));
   }
 
   @Override
@@ -127,7 +127,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public Page<AuditView> auditLogs(String targetType, Page.Paging paging) {
+  public PageDto<AuditView> auditLogs(String targetType, PageDto.Paging paging) {
     String tt = SearchText.blankToNull(targetType);
     if (tt != null && !AuditTargets.ALL.contains(tt)) {
       throw ApiException.validation("targetType", "CODE, AI_PROVIDER, USER 중 하나여야 해요.");
@@ -136,7 +136,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
         queries.findAuditLogs(tt, paging.size(), paging.offset()).stream()
             .map(AdminDashboardService::toView)
             .toList();
-    return new Page<>(items, paging.page(), paging.size(), queries.countAuditLogs(tt));
+    return new PageDto<>(items, paging.page(), paging.size(), queries.countAuditLogs(tt));
   }
 
   private static AiLogView toView(AiLogRow r) {

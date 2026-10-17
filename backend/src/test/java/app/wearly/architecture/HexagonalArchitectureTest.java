@@ -128,12 +128,12 @@ class HexagonalArchitectureTest {
           .resideInAPackage("app.wearly.*.adapter.out.persistence..");
 
   @ArchTest
-  static final ArchRule MyBatis_매퍼는_조회_어댑터에만 =
+  static final ArchRule MyBatis_매퍼는_MyBatis_어댑터의_mapper에만 =
       classes()
           .that()
           .areAnnotatedWith("org.apache.ibatis.annotations.Mapper")
           .should()
-          .resideInAPackage("app.wearly.*.adapter.out.query..");
+          .resideInAPackage("app.wearly.*.adapter.out.persistence.mybatis.mapper..");
 
   @ArchTest
   static final ArchRule 컨트롤러는_웹_어댑터에만 =

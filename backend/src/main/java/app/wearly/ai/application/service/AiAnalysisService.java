@@ -1,9 +1,9 @@
 package app.wearly.ai.application.service;
 
 import app.wearly.ai.application.port.in.AnalyzeImageUseCase;
-import app.wearly.ai.application.port.in.AnalyzeResult;
-import app.wearly.ai.application.port.in.ProviderTestResult;
 import app.wearly.ai.application.port.in.ProviderTestUseCase;
+import app.wearly.ai.application.port.in.dto.AnalyzeResultDto;
+import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
 import app.wearly.ai.application.port.out.AiCallLogPort;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.application.port.out.AiProviderPort;
@@ -66,7 +66,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   }
 
   @Override
-  public AnalyzeResult analyze(long userId, ImageUpload upload) {
+  public AnalyzeResultDto analyze(long userId, ImageUpload upload) {
     AiImage image = readImage(upload);
 
     int limit = settings.dailyLimit();
@@ -93,7 +93,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
                 attempt.latencyMs(),
                 image));
         int remaining = (int) Math.max(0, limit - (used + 1));
-        return new AnalyzeResult(
+        return new AnalyzeResultDto(
             attempt.result().suggestion(), provider.name(), attempt.result().model(), remaining);
       }
       logs.save(
@@ -110,7 +110,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   }
 
   @Override
-  public ProviderTestResult test(long adminUserId, String providerId, ImageUpload upload) {
+  public ProviderTestResultDto test(long adminUserId, String providerId, ImageUpload upload) {
     AiProviderSetting setting = providers.findById(providerId).orElseThrow(ApiException::notFound);
     AiImage image = readImage(upload);
     AiModelPort provider;
@@ -118,7 +118,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
       provider = registry.forTest(setting);
     } catch (AiProviderException e) {
       // 모델·키가 없으면 호출하지 않는다 (기록도 남기지 않음)
-      return new ProviderTestResult(
+      return new ProviderTestResultDto(
           false, null, e.reason(), e.getMessage(), 0, null, null, setting.model());
     }
     Attempt attempt = call(provider, image, catalog.current());
@@ -132,7 +132,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
               r,
               attempt.latencyMs(),
               image));
-      return new ProviderTestResult(
+      return new ProviderTestResultDto(
           true,
           r.suggestion(),
           null,
@@ -151,7 +151,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
             attempt.errorCode(),
             attempt.latencyMs(),
             image));
-    return new ProviderTestResult(
+    return new ProviderTestResultDto(
         false,
         null,
         attempt.errorCode(),

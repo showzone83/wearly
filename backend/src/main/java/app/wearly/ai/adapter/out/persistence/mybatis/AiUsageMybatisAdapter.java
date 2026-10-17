@@ -1,0 +1,22 @@
+package app.wearly.ai.adapter.out.persistence.mybatis;
+
+import app.wearly.ai.adapter.out.persistence.mybatis.mapper.AiUsageMapper;
+import app.wearly.ai.application.port.out.AiUsagePort;
+import java.time.Instant;
+import org.springframework.stereotype.Component;
+
+/** AiUsagePort 구현 (MyBatis) */
+@Component
+class AiUsageMybatisAdapter implements AiUsagePort {
+
+  private final AiUsageMapper mapper;
+
+  AiUsageMybatisAdapter(AiUsageMapper mapper) {
+    this.mapper = mapper;
+  }
+
+  @Override
+  public long countSuccess(long userId, String feature, Instant from, Instant to) {
+    return mapper.countSuccess(userId, feature, from, to);
+  }
+}

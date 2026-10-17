@@ -2,8 +2,8 @@ package app.wearly.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.wearly.ai.adapter.out.query.AiLogRow;
-import app.wearly.ai.adapter.out.query.AiUsageMapper;
+import app.wearly.ai.adapter.out.persistence.mybatis.dto.AiLogRowDto;
+import app.wearly.ai.adapter.out.persistence.mybatis.mapper.AiUsageMapper;
 import app.wearly.ai.application.service.AiAnalysisService;
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.support.IntegrationTestBase;
@@ -49,7 +49,7 @@ class AiAnalyzeIntegrationTest extends IntegrationTestBase {
     assertThat(sug.get("styles").size()).isPositive();
 
     // 기록: MyBatis로 JSONB 결과를 Map으로 읽는다
-    List<AiLogRow> logs = usageMapper.findRecent(Long.parseLong(s.userId()), 10);
+    List<AiLogRowDto> logs = usageMapper.findRecent(Long.parseLong(s.userId()), 10);
     assertThat(logs)
         .hasSize(2)
         .allSatisfy(

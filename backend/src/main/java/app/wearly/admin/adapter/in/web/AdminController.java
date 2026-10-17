@@ -2,10 +2,10 @@ package app.wearly.admin.adapter.in.web;
 
 import app.wearly.admin.application.port.in.AdminDashboardUseCase;
 import app.wearly.admin.application.port.in.AdminUserUseCase;
-import app.wearly.admin.application.port.in.AdminViews.AdminUserView;
-import app.wearly.admin.application.port.in.AdminViews.AuditView;
-import app.wearly.admin.application.port.in.AdminViews.DashboardView;
-import app.wearly.admin.application.port.in.Page;
+import app.wearly.admin.application.port.in.dto.AdminViews.AdminUserView;
+import app.wearly.admin.application.port.in.dto.AdminViews.AuditView;
+import app.wearly.admin.application.port.in.dto.AdminViews.DashboardView;
+import app.wearly.admin.application.port.in.dto.PageDto;
 import app.wearly.common.web.CurrentUser;
 import app.wearly.common.web.JsonPatchBody;
 import app.wearly.common.web.PathIds;
@@ -41,13 +41,13 @@ public class AdminController {
   }
 
   @GetMapping("/users")
-  public Page<AdminUserView> users(
+  public PageDto<AdminUserView> users(
       @RequestParam(required = false) String q,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String role,
       @RequestParam(required = false) Integer page,
       @RequestParam(required = false) Integer size) {
-    return users.list(q, status, role, Page.paging(page, size));
+    return users.list(q, status, role, PageDto.paging(page, size));
   }
 
   @PatchMapping("/users/{id}")
@@ -59,10 +59,10 @@ public class AdminController {
   }
 
   @GetMapping("/audit-logs")
-  public Page<AuditView> auditLogs(
+  public PageDto<AuditView> auditLogs(
       @RequestParam(required = false) String targetType,
       @RequestParam(required = false) Integer page,
       @RequestParam(required = false) Integer size) {
-    return logs.auditLogs(targetType, Page.paging(page, size));
+    return logs.auditLogs(targetType, PageDto.paging(page, size));
   }
 }

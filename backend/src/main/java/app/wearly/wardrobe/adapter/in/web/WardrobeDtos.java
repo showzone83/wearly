@@ -1,6 +1,6 @@
 package app.wearly.wardrobe.adapter.in.web;
 
-import app.wearly.wardrobe.application.port.in.ItemView;
+import app.wearly.wardrobe.application.port.in.dto.ItemDto;
 import app.wearly.wardrobe.domain.ItemInput;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -71,7 +71,7 @@ public final class WardrobeDtos {
     }
   }
 
-  public record ItemList(List<ItemView> items) {}
+  public record ItemList(List<ItemDto> items) {}
 
   public record BulkRequest(
       @NotNull(message = "필수 값이에요.") @Size(max = 100, message = "한 번에 100개까지 등록할 수 있어요.")

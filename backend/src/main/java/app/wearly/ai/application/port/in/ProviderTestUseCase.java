@@ -1,5 +1,6 @@
 package app.wearly.ai.application.port.in;
 
+import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
 import app.wearly.common.domain.ImageUpload;
 
 /**
@@ -8,5 +9,5 @@ import app.wearly.common.domain.ImageUpload;
  */
 public interface ProviderTestUseCase {
 
-  ProviderTestResult test(long adminUserId, String providerId, ImageUpload image);
+  ProviderTestResultDto test(long adminUserId, String providerId, ImageUpload image);
 }

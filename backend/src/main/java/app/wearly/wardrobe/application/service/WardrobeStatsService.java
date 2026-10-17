@@ -5,10 +5,10 @@ import app.wearly.common.domain.Ids;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.domain.code.CodeGroups;
 import app.wearly.common.domain.code.CodeSnapshot;
-import app.wearly.wardrobe.application.port.in.WardrobeStats;
-import app.wearly.wardrobe.application.port.in.WardrobeStats.CountByColor;
-import app.wearly.wardrobe.application.port.in.WardrobeStats.CountByStyle;
 import app.wearly.wardrobe.application.port.in.WardrobeStatsUseCase;
+import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto;
+import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.CountByColor;
+import app.wearly.wardrobe.application.port.in.dto.WardrobeStatsDto.CountByStyle;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
 import app.wearly.wardrobe.domain.WardrobeStatsRules;
 import java.time.Clock;
@@ -34,7 +34,7 @@ public class WardrobeStatsService implements WardrobeStatsUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public WardrobeStats stats(long userId) {
+  public WardrobeStatsDto stats(long userId) {
     LocalDate today = Zones.today(clock);
     long total = queries.countAll(userId);
 
@@ -68,7 +68,7 @@ public class WardrobeStatsService implements WardrobeStatsUseCase {
             .map(Ids::format)
             .toList();
 
-    return new WardrobeStats(
+    return new WardrobeStatsDto(
         total, byCategory, byColor, byStyle, byStatus, worn, utilization, sleeping);
   }
 }

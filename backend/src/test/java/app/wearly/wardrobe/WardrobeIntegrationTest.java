@@ -6,8 +6,8 @@ import app.wearly.common.config.ClockConfig;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
-import app.wearly.wardrobe.adapter.out.query.ItemRow;
-import app.wearly.wardrobe.adapter.out.query.WardrobeQueryMapper;
+import app.wearly.wardrobe.adapter.out.persistence.mybatis.dto.ItemRowDto;
+import app.wearly.wardrobe.adapter.out.persistence.mybatis.mapper.WardrobeItemMapper;
 import app.wearly.wardrobe.application.port.out.ItemFilter;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -25,7 +25,7 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
 
   @Autowired JdbcTemplate jdbc;
 
-  @Autowired WardrobeQueryMapper mapper;
+  @Autowired WardrobeItemMapper mapper;
 
   @Test
   void 아이템_등록_조회_수정_삭제() {
@@ -214,11 +214,11 @@ class WardrobeIntegrationTest extends IntegrationTestBase {
         .containsExactlyInAnyOrder("category", "sort", "color", "status");
 
     // MyBatis 매퍼가 TEXT[]를 List로 읽는다
-    List<ItemRow> rows =
+    List<ItemRowDto> rows =
         mapper.findItems(
             new ItemFilter(Long.parseLong(s.userId()), "TOP", null, null, null, "name"));
-    assertThat(rows).extracting(ItemRow::getStyles).containsOnly(List.of("NEAT"));
-    assertThat(rows).extracting(ItemRow::getSeasons).containsOnly(List.of("SPRING", "FALL"));
+    assertThat(rows).extracting(ItemRowDto::getStyles).containsOnly(List.of("NEAT"));
+    assertThat(rows).extracting(ItemRowDto::getSeasons).containsOnly(List.of("SPRING", "FALL"));
   }
 
   @Test

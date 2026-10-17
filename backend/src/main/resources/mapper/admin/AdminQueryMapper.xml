@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!-- 관리자 화면 조회: 대시보드 집계, 회원·AI 기록·변경 이력 목록. 날짜 경계는 서비스에서 계산해 넘긴다 -->
-<mapper namespace="app.wearly.admin.adapter.out.query.AdminQueryMapper">
+<mapper namespace="app.wearly.admin.adapter.out.persistence.mybatis.mapper.AdminQueryMapper">
 
     <resultMap id="aiLogRow" type="app.wearly.admin.application.port.out.AdminRows$AiLogRow">
         <id property="id" column="ai_analysis_log_id"/>

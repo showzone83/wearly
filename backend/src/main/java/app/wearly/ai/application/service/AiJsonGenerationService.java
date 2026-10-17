@@ -1,10 +1,10 @@
 package app.wearly.ai.application.service;
 
-import app.wearly.ai.application.port.in.GeneratedJson;
-import app.wearly.ai.application.port.in.JsonGenerationCommand;
 import app.wearly.ai.application.port.in.JsonGenerationUseCase;
 import app.wearly.ai.application.port.in.JsonOutputHandler;
 import app.wearly.ai.application.port.in.RejectedOutputException;
+import app.wearly.ai.application.port.in.dto.GenerateJsonDto;
+import app.wearly.ai.application.port.in.dto.GeneratedJsonDto;
 import app.wearly.ai.application.port.out.AiCallLogPort;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.application.port.out.AiUsagePort;
@@ -45,8 +45,7 @@ public class AiJsonGenerationService implements JsonGenerationUseCase {
   }
 
   @Override
-  public <T> GeneratedJson<T> generate(
-      JsonGenerationCommand command, JsonOutputHandler<T> handler) {
+  public <T> GeneratedJsonDto<T> generate(GenerateJsonDto command, JsonOutputHandler<T> handler) {
     List<AiModelPort> candidates = registry.candidates();
     if (candidates.isEmpty()) {
       log.warn("AI {} 불가: 쓸 수 있는 AI 공급자가 없음 (관리자 화면에서 공급자·모델·키를 확인)", command.feature());
@@ -74,7 +73,7 @@ public class AiJsonGenerationService implements JsonGenerationUseCase {
                 received,
                 elapsedMs(started),
                 accepted.logResult()));
-        return new GeneratedJson<>(accepted.value(), provider.name(), received.model());
+        return new GeneratedJsonDto<>(accepted.value(), provider.name(), received.model());
       } catch (AiProviderException e) {
         log.warn(
             "AI {} 실패 provider={} reason={} message={}",

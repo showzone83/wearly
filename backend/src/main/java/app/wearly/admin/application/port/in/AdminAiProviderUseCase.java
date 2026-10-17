@@ -1,9 +1,9 @@
 package app.wearly.admin.application.port.in;
 
-import app.wearly.admin.application.port.in.AdminViews.ProviderView;
-import app.wearly.ai.application.port.in.CreateProviderCommand;
-import app.wearly.ai.application.port.in.ProviderTestResult;
-import app.wearly.ai.application.port.in.ProviderTypeInfo;
+import app.wearly.admin.application.port.in.dto.AdminViews.ProviderView;
+import app.wearly.ai.application.port.in.dto.CreateProviderDto;
+import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
+import app.wearly.ai.application.port.in.dto.ProviderTypeDto;
 import app.wearly.common.domain.ImageUpload;
 import app.wearly.common.domain.PatchBody;
 import java.util.List;
@@ -13,13 +13,13 @@ public interface AdminAiProviderUseCase {
 
   List<ProviderView> list();
 
-  ProviderView create(long adminId, CreateProviderCommand command);
+  ProviderView create(long adminId, CreateProviderDto command);
 
   ProviderView patch(long adminId, String providerId, PatchBody body);
 
   void delete(long adminId, String providerId);
 
-  ProviderTestResult test(long adminId, String providerId, ImageUpload image);
+  ProviderTestResultDto test(long adminId, String providerId, ImageUpload image);
 
   Types types();
 
@@ -34,5 +34,5 @@ public interface AdminAiProviderUseCase {
   /** 웹 키 지우기 (환경변수 키로 되돌아감). 404 → 403 REAUTH_FAILED. 지운 키가 있을 때만 AI_PROVIDER_KEY_DELETE */
   ProviderView deleteKey(long adminId, String providerId, String currentPassword);
 
-  record Types(List<ProviderTypeInfo> types, boolean baseUrlAllowed, boolean mockMode) {}
+  record Types(List<ProviderTypeDto> types, boolean baseUrlAllowed, boolean mockMode) {}
 }

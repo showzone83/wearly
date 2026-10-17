@@ -1,8 +1,8 @@
 package app.wearly.admin.application.service;
 
 import app.wearly.admin.application.port.in.AdminUserUseCase;
-import app.wearly.admin.application.port.in.AdminViews.AdminUserView;
-import app.wearly.admin.application.port.in.Page;
+import app.wearly.admin.application.port.in.dto.AdminViews.AdminUserView;
+import app.wearly.admin.application.port.in.dto.PageDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.AdminQueryPort.UserFilter;
 import app.wearly.admin.application.port.out.AdminRows.UserRow;
@@ -16,8 +16,8 @@ import app.wearly.common.domain.PatchBody;
 import app.wearly.common.domain.Times;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.ApiException;
-import app.wearly.user.application.port.in.UserAccount;
 import app.wearly.user.application.port.in.UserUseCase;
+import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -32,8 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AdminUserService implements AdminUserUseCase {
 
-  static final Set<String> STATUSES = Set.of(UserAccount.ACTIVE, UserAccount.SUSPENDED);
-  static final Set<String> ROLES = Set.of(UserAccount.ROLE_USER, UserAccount.ROLE_ADMIN);
+  static final Set<String> STATUSES = Set.of(UserAccountDto.ACTIVE, UserAccountDto.SUSPENDED);
+  static final Set<String> ROLES = Set.of(UserAccountDto.ROLE_USER, UserAccountDto.ROLE_ADMIN);
 
   private final AdminQueryPort queries;
   private final UserUseCase users;
@@ -56,7 +56,7 @@ public class AdminUserService implements AdminUserUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public Page<AdminUserView> list(String q, String status, String role, Page.Paging paging) {
+  public PageDto<AdminUserView> list(String q, String status, String role, PageDto.Paging paging) {
     String st = SearchText.blankToNull(status);
     if (st != null && !STATUSES.contains(st)) {
       throw ApiException.validation("status", "ACTIVE 또는 SUSPENDED여야 해요.");
@@ -71,7 +71,7 @@ public class AdminUserService implements AdminUserUseCase {
     return page(filter, paging);
   }
 
-  private Page<AdminUserView> page(UserFilter filter, Page.Paging paging) {
+  private PageDto<AdminUserView> page(UserFilter filter, PageDto.Paging paging) {
     LocalDate today = Zones.today(clock);
     List<AdminUserView> items =
         queries
@@ -84,13 +84,13 @@ public class AdminUserService implements AdminUserUseCase {
             .stream()
             .map(AdminUserService::toView)
             .toList();
-    return new Page<>(items, paging.page(), paging.size(), queries.countUsers(filter));
+    return new PageDto<>(items, paging.page(), paging.size(), queries.countUsers(filter));
   }
 
   @Override
   @Transactional
   public AdminUserView patch(long adminId, long userId, PatchBody body) {
-    UserAccount user = users.get(userId);
+    UserAccountDto user = users.get(userId);
     if (body == null || !body.isObject()) {
       throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
     }
@@ -100,7 +100,7 @@ public class AdminUserService implements AdminUserUseCase {
       String v = body.isString("status") ? body.string("status") : null;
       if (v == null || !STATUSES.contains(v)) {
         errors.add(new FieldError("status", "ACTIVE 또는 SUSPENDED여야 해요."));
-      } else if (userId == adminId && UserAccount.SUSPENDED.equals(v)) {
+      } else if (userId == adminId && UserAccountDto.SUSPENDED.equals(v)) {
         errors.add(new FieldError("status", "자기 자신은 정지할 수 없어요."));
       } else {
         status = v;
@@ -111,7 +111,7 @@ public class AdminUserService implements AdminUserUseCase {
       String v = body.isString("role") ? body.string("role") : null;
       if (v == null || !ROLES.contains(v)) {
         errors.add(new FieldError("role", "USER 또는 ADMIN이어야 해요."));
-      } else if (userId == adminId && !UserAccount.ROLE_ADMIN.equals(v)) {
+      } else if (userId == adminId && !UserAccountDto.ROLE_ADMIN.equals(v)) {
         errors.add(new FieldError("role", "자기 자신의 관리자 역할은 내릴 수 없어요."));
       } else {
         role = v;
@@ -120,17 +120,19 @@ public class AdminUserService implements AdminUserUseCase {
     ApiException.throwIfAny(errors);
     Map<String, Object> before = state(user);
     boolean suspending =
-        !UserAccount.SUSPENDED.equals(user.status()) && UserAccount.SUSPENDED.equals(status);
-    UserAccount after = users.changeAccess(userId, status, role);
+        !UserAccountDto.SUSPENDED.equals(user.status()) && UserAccountDto.SUSPENDED.equals(status);
+    UserAccountDto after = users.changeAccess(userId, status, role);
     if (suspending) {
       accounts.revokeAllRefreshTokens(userId);
     }
     audit.record(
         adminId, "USER_UPDATE", AuditTargets.USER, Long.toString(userId), before, state(after));
-    return page(new UserFilter(userId, null, null, null), new Page.Paging(0, 1)).items().getFirst();
+    return page(new UserFilter(userId, null, null, null), new PageDto.Paging(0, 1))
+        .items()
+        .getFirst();
   }
 
-  private static Map<String, Object> state(UserAccount u) {
+  private static Map<String, Object> state(UserAccountDto u) {
     Map<String, Object> m = new LinkedHashMap<>();
     m.put("email", u.email());
     m.put("status", u.status());

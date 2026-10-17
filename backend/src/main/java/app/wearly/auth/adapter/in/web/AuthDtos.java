@@ -1,11 +1,11 @@
 package app.wearly.auth.adapter.in.web;
 
-import app.wearly.auth.application.port.in.AuthResult;
-import app.wearly.auth.application.port.in.LoginCommand;
-import app.wearly.auth.application.port.in.SignupCommand;
+import app.wearly.auth.application.port.in.dto.AuthResultDto;
+import app.wearly.auth.application.port.in.dto.LoginDto;
+import app.wearly.auth.application.port.in.dto.SignupDto;
 import app.wearly.common.domain.Ids;
 import app.wearly.common.domain.Times;
-import app.wearly.user.application.port.in.UserAccount;
+import app.wearly.user.application.port.in.dto.UserAccountDto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -29,8 +29,8 @@ public final class AuthDtos {
       @NotBlank(message = "이름을 입력해 주세요.") @Size(max = 20, message = "이름은 20자까지 쓸 수 있어요.")
           String name) {
 
-    SignupCommand toCommand() {
-      return new SignupCommand(email, password, name);
+    SignupDto toCommand() {
+      return new SignupDto(email, password, name);
     }
   }
 
@@ -38,8 +38,8 @@ public final class AuthDtos {
       @NotBlank(message = "이메일을 입력해 주세요.") String email,
       @NotBlank(message = "비밀번호를 입력해 주세요.") String password) {
 
-    LoginCommand toCommand() {
-      return new LoginCommand(email, password);
+    LoginDto toCommand() {
+      return new LoginDto(email, password);
     }
   }
 
@@ -56,7 +56,7 @@ public final class AuthDtos {
       long refreshTokenExpiresIn,
       UserDto user) {
 
-    static AuthResponse from(AuthResult r) {
+    static AuthResponse from(AuthResultDto r) {
       return new AuthResponse(
           r.accessToken(),
           r.accessTokenExpiresIn(),
@@ -69,7 +69,7 @@ public final class AuthDtos {
   /** 응답의 user (user 컨텍스트의 /users/me 응답과 같은 모양). role은 USER | ADMIN */
   public record UserDto(String id, String email, String name, String role, String createdAt) {
 
-    static UserDto from(UserAccount u) {
+    static UserDto from(UserAccountDto u) {
       return new UserDto(
           Ids.format(u.id()), u.email(), u.name(), u.role(), Times.iso(u.createdAt()));
     }

@@ -6,9 +6,9 @@ import app.wearly.common.domain.code.CodeGroups;
 import app.wearly.common.domain.code.CodeSnapshot;
 import app.wearly.common.error.ApiException;
 import app.wearly.wardrobe.application.port.in.ItemPatch;
-import app.wearly.wardrobe.application.port.in.ItemView;
-import app.wearly.wardrobe.application.port.in.ListItemsQuery;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
+import app.wearly.wardrobe.application.port.in.dto.ItemDto;
+import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
 import app.wearly.wardrobe.application.port.out.ItemFilter;
 import app.wearly.wardrobe.application.port.out.ItemPort;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
@@ -39,7 +39,7 @@ public class WardrobeService implements WardrobeUseCase {
 
   @Override
   @Transactional(readOnly = true)
-  public List<ItemView> list(ListItemsQuery q) {
+  public List<ItemDto> list(ItemSearchDto q) {
     List<FieldError> errors = new ArrayList<>();
     CodeSnapshot codes = catalog.current();
     // 필터는 저장된 값을 찾는 것이라 비활성 코드도 허용한다. 모르는 값만 400
@@ -57,44 +57,44 @@ public class WardrobeService implements WardrobeUseCase {
         .findItems(
             new ItemFilter(q.userId(), categoryCode, statusCode, colorCode, pattern, sortKey))
         .stream()
-        .map(ItemView::of)
+        .map(ItemDto::of)
         .toList();
   }
 
   @Override
   @Transactional(readOnly = true)
-  public ItemView get(long userId, long itemId) {
-    return ItemView.of(find(userId, itemId));
+  public ItemDto get(long userId, long itemId) {
+    return ItemDto.of(find(userId, itemId));
   }
 
   @Override
   @Transactional
-  public ItemView create(long userId, ItemInput input) {
+  public ItemDto create(long userId, ItemInput input) {
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, null, "", errors);
     ApiException.throwIfAny(errors);
-    return ItemView.of(items.save(WardrobeItem.create(userId, input)));
+    return ItemDto.of(items.save(WardrobeItem.create(userId, input)));
   }
 
   @Override
   @Transactional
-  public List<ItemView> bulkCreate(long userId, List<ItemInput> inputs) {
+  public List<ItemDto> bulkCreate(long userId, List<ItemInput> inputs) {
     CodeSnapshot codes = catalog.current();
     List<FieldError> errors = new ArrayList<>();
     for (int i = 0; i < inputs.size(); i++) {
       ItemCodeValidator.validate(codes, inputs.get(i), null, "items[" + i + "].", errors);
     }
     ApiException.throwIfAny(errors);
-    List<ItemView> created = new ArrayList<>(inputs.size());
+    List<ItemDto> created = new ArrayList<>(inputs.size());
     for (ItemInput input : inputs) {
-      created.add(ItemView.of(items.save(WardrobeItem.create(userId, input))));
+      created.add(ItemDto.of(items.save(WardrobeItem.create(userId, input))));
     }
     return created;
   }
 
   @Override
   @Transactional
-  public ItemView patch(long userId, long itemId, ItemPatch patch) {
+  public ItemDto patch(long userId, long itemId, ItemPatch patch) {
     WardrobeItem item = find(userId, itemId);
     ItemInput previous = item.toInput();
     ItemInput input = patch.applyTo(previous);
@@ -102,7 +102,7 @@ public class WardrobeService implements WardrobeUseCase {
     ItemCodeValidator.validate(catalog.current(), input, previous, "", errors);
     ApiException.throwIfAny(errors);
     item.apply(input);
-    return ItemView.of(items.save(item));
+    return ItemDto.of(items.save(item));
   }
 
   @Override

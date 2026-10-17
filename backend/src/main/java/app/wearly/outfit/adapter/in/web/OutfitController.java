@@ -1,9 +1,9 @@
 package app.wearly.outfit.adapter.in.web;
 
 import app.wearly.common.web.CurrentUser;
-import app.wearly.outfit.application.port.in.OutfitRecommendation;
-import app.wearly.outfit.application.port.in.RecommendOutfitCommand;
 import app.wearly.outfit.application.port.in.RecommendOutfitUseCase;
+import app.wearly.outfit.application.port.in.dto.OutfitRecommendationDto;
+import app.wearly.outfit.application.port.in.dto.RecommendOutfitDto;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,8 +21,8 @@ public class OutfitController {
   }
 
   @PostMapping("/recommendations")
-  public OutfitRecommendation recommend(
-      @CurrentUser long userId, @RequestBody RecommendOutfitCommand body) {
+  public OutfitRecommendationDto recommend(
+      @CurrentUser long userId, @RequestBody RecommendOutfitDto body) {
     return recommend.recommend(userId, body);
   }
 }

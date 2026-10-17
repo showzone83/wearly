@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!-- AI 일일 사용량 집계 (기능별 성공만: 사진 분석 ITEM_ANALYZE · 코디 추천 OUTFIT_RECOMMEND, 관리자 시험 분석 제외). 날짜 경계(Asia/Seoul 자정)는 서비스에서 계산해 넘긴다 -->
-<mapper namespace="app.wearly.ai.adapter.out.query.AiUsageMapper">
+<mapper namespace="app.wearly.ai.adapter.out.persistence.mybatis.mapper.AiUsageMapper">
 
-    <resultMap id="aiLogRow" type="app.wearly.ai.adapter.out.query.AiLogRow">
+    <resultMap id="aiLogRow" type="app.wearly.ai.adapter.out.persistence.mybatis.dto.AiLogRowDto">
         <id property="id" column="ai_analysis_log_id"/>
         <result property="feature" column="feature"/>
         <result property="provider" column="provider"/>

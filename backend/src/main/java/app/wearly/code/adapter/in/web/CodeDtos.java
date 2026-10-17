@@ -1,5 +1,6 @@
 package app.wearly.code.adapter.in.web;
 
+import app.wearly.code.application.port.in.dto.CodeDto;
 import app.wearly.common.domain.code.CodeEntry;
 import app.wearly.common.domain.code.CodeSnapshot;
 import java.util.List;

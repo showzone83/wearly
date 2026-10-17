@@ -1,15 +1,15 @@
 package app.wearly.admin.application.service;
 
 import app.wearly.admin.application.port.in.AdminCodeUseCase;
-import app.wearly.admin.application.port.in.AdminViews.AdminCodeView;
-import app.wearly.admin.application.port.in.AdminViews.AdminCodesView;
-import app.wearly.admin.application.port.in.AdminViews.AdminGroupView;
+import app.wearly.admin.application.port.in.dto.AdminViews.AdminCodeView;
+import app.wearly.admin.application.port.in.dto.AdminViews.AdminCodesView;
+import app.wearly.admin.application.port.in.dto.AdminViews.AdminGroupView;
 import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.code.application.port.in.CodeCatalog;
-import app.wearly.code.application.port.in.CodeInfo;
 import app.wearly.code.application.port.in.CodeManagementUseCase;
-import app.wearly.code.application.port.in.CreateCodeCommand;
+import app.wearly.code.application.port.in.dto.CodeDto;
+import app.wearly.code.application.port.in.dto.CreateCodeDto;
 import app.wearly.common.domain.PatchBody;
 import app.wearly.common.domain.code.CodeSnapshot;
 import java.util.List;
@@ -65,7 +65,7 @@ public class AdminCodeService implements AdminCodeUseCase {
 
   @Override
   @Transactional
-  public AdminCodeView create(long adminId, String group, CreateCodeCommand command) {
+  public AdminCodeView create(long adminId, String group, CreateCodeDto command) {
     AdminCodeView after = view(codes.create(group, command));
     audit.record(
         adminId, "CODE_CREATE", AuditTargets.CODE, target(group, after.code()), null, after);
@@ -103,12 +103,12 @@ public class AdminCodeService implements AdminCodeUseCase {
   @Override
   @Transactional
   public void delete(long adminId, String group, String code) {
-    CodeInfo before = codes.delete(group, code);
+    CodeDto before = codes.delete(group, code);
     audit.record(
         adminId, "CODE_DELETE", AuditTargets.CODE, target(group, code), view(before), null);
   }
 
-  private static AdminCodeView view(CodeInfo c) {
+  private static AdminCodeView view(CodeDto c) {
     return new AdminCodeView(
         c.code(), c.label(), c.parent(), c.sortOrder(), c.active(), c.attrs(), c.usageCount());
   }

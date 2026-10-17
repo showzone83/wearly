@@ -2,9 +2,9 @@ package app.wearly.admin.adapter.in.web;
 
 import app.wearly.admin.adapter.in.web.AdminDtos.OrderRequest;
 import app.wearly.admin.application.port.in.AdminCodeUseCase;
-import app.wearly.admin.application.port.in.AdminViews.AdminCodeView;
-import app.wearly.admin.application.port.in.AdminViews.AdminCodesView;
-import app.wearly.code.application.port.in.CreateCodeCommand;
+import app.wearly.admin.application.port.in.dto.AdminViews.AdminCodeView;
+import app.wearly.admin.application.port.in.dto.AdminViews.AdminCodesView;
+import app.wearly.code.application.port.in.dto.CreateCodeDto;
 import app.wearly.common.web.CurrentUser;
 import app.wearly.common.web.JsonPatchBody;
 import org.springframework.http.HttpStatus;
@@ -44,7 +44,7 @@ public class AdminCodeController {
   public AdminCodeView create(
       @CurrentUser long adminId,
       @PathVariable String group,
-      @RequestBody(required = false) CreateCodeCommand request) {
+      @RequestBody(required = false) CreateCodeDto request) {
     return service.create(adminId, group, request);
   }
 

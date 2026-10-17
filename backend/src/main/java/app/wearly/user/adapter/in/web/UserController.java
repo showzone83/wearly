@@ -37,12 +37,13 @@ public class UserController {
   }
 
   @GetMapping("/profile")
-  public ProfileDto profile(@CurrentUser long userId) {
-    return ProfileDto.from(profiles.get(userId));
+  public ProfileRequest profile(@CurrentUser long userId) {
+    return ProfileRequest.from(profiles.get(userId));
   }
 
   @PutMapping("/profile")
-  public ProfileDto putProfile(@CurrentUser long userId, @Valid @RequestBody ProfileDto profile) {
-    return ProfileDto.from(profiles.put(userId, profile.toData()));
+  public ProfileRequest putProfile(
+      @CurrentUser long userId, @Valid @RequestBody ProfileRequest profile) {
+    return ProfileRequest.from(profiles.put(userId, profile.toData()));
   }
 }

@@ -5,13 +5,13 @@ import app.wearly.admin.adapter.in.web.AdminDtos.ReauthRequest;
 import app.wearly.admin.adapter.in.web.AdminDtos.TypesResponse;
 import app.wearly.admin.application.port.in.AdminAiProviderUseCase;
 import app.wearly.admin.application.port.in.AdminDashboardUseCase;
-import app.wearly.admin.application.port.in.AdminViews.AiLogDetailView;
-import app.wearly.admin.application.port.in.AdminViews.AiLogSearch;
-import app.wearly.admin.application.port.in.AdminViews.AiLogView;
-import app.wearly.admin.application.port.in.AdminViews.ProviderView;
-import app.wearly.admin.application.port.in.Page;
-import app.wearly.ai.application.port.in.CreateProviderCommand;
-import app.wearly.ai.application.port.in.ProviderTestResult;
+import app.wearly.admin.application.port.in.dto.AdminViews.AiLogDetailView;
+import app.wearly.admin.application.port.in.dto.AdminViews.AiLogSearch;
+import app.wearly.admin.application.port.in.dto.AdminViews.AiLogView;
+import app.wearly.admin.application.port.in.dto.AdminViews.ProviderView;
+import app.wearly.admin.application.port.in.dto.PageDto;
+import app.wearly.ai.application.port.in.dto.CreateProviderDto;
+import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
 import app.wearly.common.web.CurrentUser;
 import app.wearly.common.web.JsonPatchBody;
 import app.wearly.common.web.PathIds;
@@ -59,7 +59,7 @@ public class AdminAiController {
   @PostMapping("/providers")
   @ResponseStatus(HttpStatus.CREATED)
   public ProviderView create(
-      @CurrentUser long adminId, @RequestBody(required = false) CreateProviderCommand request) {
+      @CurrentUser long adminId, @RequestBody(required = false) CreateProviderDto request) {
     return providers.create(adminId, request);
   }
 
@@ -100,7 +100,7 @@ public class AdminAiController {
   @PostMapping(
       path = "/providers/{providerId}/test",
       consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ProviderTestResult test(
+  public ProviderTestResultDto test(
       @CurrentUser long adminId,
       @PathVariable String providerId,
       @RequestPart(name = "image", required = false) MultipartFile image) {
@@ -113,7 +113,7 @@ public class AdminAiController {
   }
 
   @GetMapping("/logs")
-  public Page<AiLogView> logs(
+  public PageDto<AiLogView> logs(
       @RequestParam(required = false) String providerId,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String userEmail,
@@ -123,7 +123,8 @@ public class AdminAiController {
       @RequestParam(required = false) Integer page,
       @RequestParam(required = false) Integer size) {
     return logs.aiLogs(
-        new AiLogSearch(providerId, status, userEmail, feature, from, to), Page.paging(page, size));
+        new AiLogSearch(providerId, status, userEmail, feature, from, to),
+        PageDto.paging(page, size));
   }
 
   @GetMapping("/logs/{id}")
