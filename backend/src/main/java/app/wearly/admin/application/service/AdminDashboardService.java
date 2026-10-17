@@ -12,10 +12,10 @@ import app.wearly.admin.application.port.in.dto.PageDto;
 import app.wearly.admin.application.port.in.dto.PagingDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.AdminQueryPort.AiLogFilter;
-import app.wearly.admin.application.port.out.AdminRows.AiCounts;
-import app.wearly.admin.application.port.out.AdminRows.AiLogRow;
-import app.wearly.admin.application.port.out.AdminRows.AuditRow;
-import app.wearly.admin.application.port.out.AdminRows.Counts;
+import app.wearly.admin.application.port.out.dto.AiCountsDto;
+import app.wearly.admin.application.port.out.dto.AiLogRowDto;
+import app.wearly.admin.application.port.out.dto.AuditLogRowDto;
+import app.wearly.admin.application.port.out.dto.DashboardCountsDto;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.admin.domain.SearchText;
 import app.wearly.ai.application.port.in.AiFeatures;
@@ -54,25 +54,25 @@ public class AdminDashboardService implements AdminDashboardUseCase {
     Instant now = clock.instant();
     Instant weekAgo = now.minus(Duration.ofDays(7));
     LocalDate today = Zones.today(clock);
-    Counts c = queries.counts(weekAgo);
-    AiCounts ai = queries.aiCounts(Zones.startOf(today), Zones.startOf(today.plusDays(1)));
+    DashboardCountsDto c = queries.counts(weekAgo);
+    AiCountsDto ai = queries.aiCounts(Zones.startOf(today), Zones.startOf(today.plusDays(1)));
     List<ProviderUsageDto> byProvider =
         queries.providerStats(weekAgo, now.plusSeconds(1)).stream()
             .map(
                 r ->
                     new ProviderUsageDto(
-                        r.providerId,
-                        r.success,
-                        r.failed,
-                        r.avgLatencyMs,
-                        r.inputTokens == null ? 0 : r.inputTokens,
-                        r.outputTokens == null ? 0 : r.outputTokens))
+                        r.providerId(),
+                        r.success(),
+                        r.failed(),
+                        r.avgLatencyMs(),
+                        r.inputTokens(),
+                        r.outputTokens()))
             .toList();
     return new DashboardDto(
-        c.users,
-        c.newUsers7d,
-        c.items,
-        new AiTodayDto(ai.total, ai.success, ai.failed),
+        c.users(),
+        c.newUsers7d(),
+        c.items(),
+        new AiTodayDto(ai.total(), ai.success(), ai.failed()),
         byProvider);
   }
 
@@ -106,26 +106,26 @@ public class AdminDashboardService implements AdminDashboardUseCase {
   @Override
   @Transactional(readOnly = true)
   public AiLogDetailDto aiLog(long id) {
-    AiLogRow r = queries.findAiLog(id);
+    AiLogRowDto r = queries.findAiLog(id);
     if (r == null) {
       throw ApiException.notFound();
     }
     return new AiLogDetailDto(
-        r.id,
-        r.createdAt,
-        r.userId,
-        r.userEmail,
-        r.feature,
-        r.providerId,
-        r.model,
-        r.status,
-        r.latencyMs,
-        r.inputTokens,
-        r.outputTokens,
-        r.imageBytes,
-        r.imageSha256,
-        r.errorCode,
-        r.result);
+        r.id(),
+        r.createdAt(),
+        r.userId(),
+        r.userEmail(),
+        r.feature(),
+        r.providerId(),
+        r.model(),
+        r.status(),
+        r.latencyMs(),
+        r.inputTokens(),
+        r.outputTokens(),
+        r.imageBytes(),
+        r.imageSha256(),
+        r.errorCode(),
+        r.result());
   }
 
   @Override
@@ -142,35 +142,35 @@ public class AdminDashboardService implements AdminDashboardUseCase {
     return new PageDto<>(items, paging.page(), paging.size(), queries.countAuditLogs(tt));
   }
 
-  private static AiLogDto toView(AiLogRow r) {
+  private static AiLogDto toView(AiLogRowDto r) {
     return new AiLogDto(
-        r.id,
-        r.createdAt,
-        r.userId,
-        r.userEmail,
-        r.feature,
-        r.providerId,
-        r.model,
-        r.status,
-        r.latencyMs,
-        r.inputTokens,
-        r.outputTokens,
-        r.imageBytes,
-        summary(r.result),
-        r.errorCode);
+        r.id(),
+        r.createdAt(),
+        r.userId(),
+        r.userEmail(),
+        r.feature(),
+        r.providerId(),
+        r.model(),
+        r.status(),
+        r.latencyMs(),
+        r.inputTokens(),
+        r.outputTokens(),
+        r.imageBytes(),
+        summary(r.result()),
+        r.errorCode());
   }
 
-  private static AuditLogDto toView(AuditRow r) {
+  private static AuditLogDto toView(AuditLogRowDto r) {
     return new AuditLogDto(
-        r.id,
-        r.adminUserId,
-        r.adminEmail,
-        r.action,
-        r.targetType,
-        r.targetId,
-        r.before,
-        r.after,
-        r.createdAt);
+        r.id(),
+        r.adminUserId(),
+        r.adminEmail(),
+        r.action(),
+        r.targetType(),
+        r.targetId(),
+        r.before(),
+        r.after(),
+        r.createdAt());
   }
 
   /** 결과 요약: 사진 분석 "네이비 울 니트 · TOP/KNIT · navy", 코디 추천 "코디 후보 3개" */

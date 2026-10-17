@@ -5,8 +5,8 @@ import app.wearly.admin.application.port.in.dto.AdminProviderDto;
 import app.wearly.admin.application.port.in.dto.AdminProviderDto.TodayDto;
 import app.wearly.admin.application.port.in.dto.ProviderTypesDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
-import app.wearly.admin.application.port.out.AdminRows.ProviderStat;
 import app.wearly.admin.application.port.out.RecordAuditPort;
+import app.wearly.admin.application.port.out.dto.ProviderStatDto;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.ai.application.port.in.AiProviderAdminUseCase;
 import app.wearly.ai.application.port.in.ProviderTestUseCase;
@@ -199,9 +199,9 @@ public class AdminAiService implements AdminAiProviderUseCase {
   private Map<String, TodayDto> today() {
     LocalDate day = Zones.today(clock);
     Map<String, TodayDto> out = new HashMap<>();
-    for (ProviderStat r :
+    for (ProviderStatDto r :
         queries.providerStats(Zones.startOf(day), Zones.startOf(day.plusDays(1)))) {
-      out.put(r.providerId, new TodayDto(r.success, r.failed));
+      out.put(r.providerId(), new TodayDto(r.success(), r.failed()));
     }
     return out;
   }

@@ -2,12 +2,12 @@ package app.wearly.admin.adapter.out.persistence.mybatis.mapper;
 
 import app.wearly.admin.application.port.out.AdminQueryPort.AiLogFilter;
 import app.wearly.admin.application.port.out.AdminQueryPort.UserFilter;
-import app.wearly.admin.application.port.out.AdminRows.AiCounts;
-import app.wearly.admin.application.port.out.AdminRows.AiLogRow;
-import app.wearly.admin.application.port.out.AdminRows.AuditRow;
-import app.wearly.admin.application.port.out.AdminRows.Counts;
-import app.wearly.admin.application.port.out.AdminRows.ProviderStat;
-import app.wearly.admin.application.port.out.AdminRows.UserRow;
+import app.wearly.admin.application.port.out.dto.AiCountsDto;
+import app.wearly.admin.application.port.out.dto.AiLogRowDto;
+import app.wearly.admin.application.port.out.dto.AuditLogRowDto;
+import app.wearly.admin.application.port.out.dto.DashboardCountsDto;
+import app.wearly.admin.application.port.out.dto.ProviderStatDto;
+import app.wearly.admin.application.port.out.dto.UserListRowDto;
 import java.time.Instant;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
@@ -17,14 +17,14 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface AdminQueryMapper {
 
-  Counts counts(@Param("since") Instant since);
+  DashboardCountsDto counts(@Param("since") Instant since);
 
-  AiCounts aiCounts(@Param("from") Instant from, @Param("to") Instant to);
+  AiCountsDto aiCounts(@Param("from") Instant from, @Param("to") Instant to);
 
   /** [from, to) 공급자별 호출 집계 (모든 기능) */
-  List<ProviderStat> providerStats(@Param("from") Instant from, @Param("to") Instant to);
+  List<ProviderStatDto> providerStats(@Param("from") Instant from, @Param("to") Instant to);
 
-  List<UserRow> findUsers(
+  List<UserListRowDto> findUsers(
       @Param("f") UserFilter filter,
       @Param("todayFrom") Instant todayFrom,
       @Param("todayTo") Instant todayTo,
@@ -33,14 +33,14 @@ public interface AdminQueryMapper {
 
   long countUsers(@Param("f") UserFilter filter);
 
-  List<AiLogRow> findAiLogs(
+  List<AiLogRowDto> findAiLogs(
       @Param("f") AiLogFilter filter, @Param("limit") int limit, @Param("offset") long offset);
 
   long countAiLogs(@Param("f") AiLogFilter filter);
 
-  AiLogRow findAiLog(@Param("id") long id);
+  AiLogRowDto findAiLog(@Param("id") long id);
 
-  List<AuditRow> findAuditLogs(
+  List<AuditLogRowDto> findAuditLogs(
       @Param("targetType") String targetType,
       @Param("limit") int limit,
       @Param("offset") long offset);

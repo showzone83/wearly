@@ -6,8 +6,8 @@ import app.wearly.admin.application.port.in.dto.PageDto;
 import app.wearly.admin.application.port.in.dto.PagingDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.AdminQueryPort.UserFilter;
-import app.wearly.admin.application.port.out.AdminRows.UserRow;
 import app.wearly.admin.application.port.out.RecordAuditPort;
+import app.wearly.admin.application.port.out.dto.UserListRowDto;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.admin.domain.SearchText;
 import app.wearly.auth.application.port.in.AccountUseCase;
@@ -137,8 +137,15 @@ public class AdminUserService implements AdminUserUseCase {
     return m;
   }
 
-  private static AdminUserDto toView(UserRow r) {
+  private static AdminUserDto toView(UserListRowDto r) {
     return new AdminUserDto(
-        r.id, r.email, r.name, r.role, r.status, r.createdAt, r.itemCount, r.aiToday);
+        r.id(),
+        r.email(),
+        r.name(),
+        r.role(),
+        r.status(),
+        r.createdAt(),
+        r.itemCount(),
+        r.aiToday());
   }
 }

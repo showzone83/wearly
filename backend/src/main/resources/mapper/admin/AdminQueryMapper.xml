@@ -3,43 +3,48 @@
 <!-- 관리자 화면 조회: 대시보드 집계, 회원·AI 기록·변경 이력 목록. 날짜 경계는 서비스에서 계산해 넘긴다 -->
 <mapper namespace="app.wearly.admin.adapter.out.persistence.mybatis.mapper.AdminQueryMapper">
 
-    <resultMap id="aiLogRow" type="app.wearly.admin.application.port.out.AdminRows$AiLogRow">
-        <id property="id" column="ai_analysis_log_id"/>
-        <result property="createdAt" column="created_at"/>
-        <result property="userId" column="user_id"/>
-        <result property="userEmail" column="user_email"/>
-        <result property="feature" column="feature"/>
-        <result property="providerId" column="provider"/>
-        <result property="model" column="model"/>
-        <result property="status" column="status"/>
-        <result property="latencyMs" column="latency_ms"/>
-        <result property="inputTokens" column="input_tokens"/>
-        <result property="outputTokens" column="output_tokens"/>
-        <result property="imageBytes" column="image_bytes"/>
-        <result property="imageSha256" column="image_sha256"/>
-        <result property="errorCode" column="error_code"/>
-        <result property="result" column="result" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+    <!-- record 생성자로 받는다 (port.out.dto). result는 JSONB → Map -->
+    <resultMap id="aiLogRow" type="app.wearly.admin.application.port.out.dto.AiLogRowDto">
+        <constructor>
+            <arg column="ai_analysis_log_id" name="id" javaType="java.lang.Long"/>
+            <arg column="created_at" name="createdAt" javaType="java.time.Instant"/>
+            <arg column="user_id" name="userId" javaType="java.lang.Long"/>
+            <arg column="user_email" name="userEmail" javaType="java.lang.String"/>
+            <arg column="feature" name="feature" javaType="java.lang.String"/>
+            <arg column="provider" name="providerId" javaType="java.lang.String"/>
+            <arg column="model" name="model" javaType="java.lang.String"/>
+            <arg column="status" name="status" javaType="java.lang.String"/>
+            <arg column="latency_ms" name="latencyMs" javaType="_int"/>
+            <arg column="input_tokens" name="inputTokens" javaType="java.lang.Integer"/>
+            <arg column="output_tokens" name="outputTokens" javaType="java.lang.Integer"/>
+            <arg column="image_bytes" name="imageBytes" javaType="java.lang.Integer"/>
+            <arg column="image_sha256" name="imageSha256" javaType="java.lang.String"/>
+            <arg column="error_code" name="errorCode" javaType="java.lang.String"/>
+            <arg column="result" name="result" javaType="java.util.Map" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+        </constructor>
     </resultMap>
 
-    <resultMap id="auditRow" type="app.wearly.admin.application.port.out.AdminRows$AuditRow">
-        <id property="id" column="audit_id"/>
-        <result property="adminUserId" column="admin_user_id"/>
-        <result property="adminEmail" column="admin_email"/>
-        <result property="action" column="action"/>
-        <result property="targetType" column="target_type"/>
-        <result property="targetId" column="target_id"/>
-        <result property="before" column="before" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
-        <result property="after" column="after" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
-        <result property="createdAt" column="created_at"/>
+    <resultMap id="auditRow" type="app.wearly.admin.application.port.out.dto.AuditLogRowDto">
+        <constructor>
+            <arg column="audit_id" name="id" javaType="java.lang.Long"/>
+            <arg column="admin_user_id" name="adminUserId" javaType="java.lang.Long"/>
+            <arg column="admin_email" name="adminEmail" javaType="java.lang.String"/>
+            <arg column="action" name="action" javaType="java.lang.String"/>
+            <arg column="target_type" name="targetType" javaType="java.lang.String"/>
+            <arg column="target_id" name="targetId" javaType="java.lang.String"/>
+            <arg column="before" name="before" javaType="java.util.Map" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+            <arg column="after" name="after" javaType="java.util.Map" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+            <arg column="created_at" name="createdAt" javaType="java.time.Instant"/>
+        </constructor>
     </resultMap>
 
-    <select id="counts" resultType="app.wearly.admin.application.port.out.AdminRows$Counts">
+    <select id="counts" resultType="app.wearly.admin.application.port.out.dto.DashboardCountsDto">
         SELECT (SELECT count(*) FROM tb_user) AS users,
                (SELECT count(*) FROM tb_user WHERE created_at &gt;= #{since}) AS new_users7d,
                (SELECT count(*) FROM tb_wardrobe_item) AS items
     </select>
 
-    <select id="aiCounts" resultType="app.wearly.admin.application.port.out.AdminRows$AiCounts">
+    <select id="aiCounts" resultType="app.wearly.admin.application.port.out.dto.AiCountsDto">
         SELECT count(*) AS total,
                count(*) FILTER (WHERE status = 'SUCCESS') AS success,
                count(*) FILTER (WHERE status = 'FAILED') AS failed
@@ -47,7 +52,7 @@
          WHERE created_at &gt;= #{from} AND created_at &lt; #{to}
     </select>
 
-    <select id="providerStats" resultType="app.wearly.admin.application.port.out.AdminRows$ProviderStat">
+    <select id="providerStats" resultType="app.wearly.admin.application.port.out.dto.ProviderStatDto">
         SELECT provider AS provider_id,
                count(*) FILTER (WHERE status = 'SUCCESS') AS success,
                count(*) FILTER (WHERE status = 'FAILED') AS failed,
@@ -71,7 +76,7 @@
         </where>
     </sql>
 
-    <select id="findUsers" resultType="app.wearly.admin.application.port.out.AdminRows$UserRow">
+    <select id="findUsers" resultType="app.wearly.admin.application.port.out.dto.UserListRowDto">
         SELECT u.user_id AS id, u.email, u.name, u.role, u.status, u.created_at,
                (SELECT count(*) FROM tb_wardrobe_item i WHERE i.user_id = u.user_id) AS item_count,
                (SELECT count(*) FROM tb_ai_analysis_log l
