@@ -6,6 +6,7 @@ import app.wearly.admin.adapter.in.web.request.ReauthRequest;
 import app.wearly.admin.adapter.in.web.response.AiLogDetailResponse;
 import app.wearly.admin.adapter.in.web.response.AiLogResponse;
 import app.wearly.admin.adapter.in.web.response.PageResponse;
+import app.wearly.admin.adapter.in.web.response.ProviderModelsResponse;
 import app.wearly.admin.adapter.in.web.response.ProviderResponse;
 import app.wearly.admin.adapter.in.web.response.ProviderTestResultResponse;
 import app.wearly.admin.adapter.in.web.response.TypesResponse;
@@ -102,6 +103,16 @@ public class AdminAiController {
     return ProviderResponse.from(
         providers.deleteKey(
             adminId, providerId, request == null ? null : request.currentPassword()));
+  }
+
+  /**
+   * 모델 드롭다운 목록. 키가 있으면 제공사 목록(LIVE, 10분 캐시, refresh=true면 다시 받기), 없거나 실패하면 내장 목록(CATALOG + error)
+   */
+  @GetMapping("/providers/{providerId}/models")
+  public ProviderModelsResponse models(
+      @PathVariable String providerId,
+      @RequestParam(required = false, defaultValue = "false") boolean refresh) {
+    return ProviderModelsResponse.from(providers.models(providerId, refresh));
   }
 
   @PostMapping(

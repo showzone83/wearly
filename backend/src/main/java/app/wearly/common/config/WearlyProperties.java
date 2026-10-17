@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -47,7 +48,19 @@ public record WearlyProperties(
       /* 공급자 호출 제한 시간 기본값 (공급자 options.timeoutSeconds가 있으면 그 값) */
       @NotNull Duration timeout,
       /* true일 때만 공급자 options.baseUrl을 쓴다 (테스트·프록시용). 기본 false: 키를 다른 주소로 보내지 않게 */
-      boolean allowBaseUrl) {}
+      boolean allowBaseUrl,
+      // 공급자 종류(CLAUDE·OPENAI·GEMINI)별 내장 모델 목록. 키가 없거나 제공사 목록을 받지 못했을 때
+      // 관리자 화면 모델 드롭다운에 보여 주고, 제공사 목록에서도 같은 ID에 추천 표시를 붙인다 (ai.config.AiConfig)
+      Map<String, List<CatalogModel>> modelCatalog) {
+
+    @Override
+    public Map<String, List<CatalogModel>> modelCatalog() {
+      return modelCatalog == null ? Map.of() : modelCatalog;
+    }
+  }
+
+  /* 내장 모델 한 줄. displayName이 없으면 id를 쓴다 */
+  public record CatalogModel(String id, String displayName, boolean recommended) {}
 
   /* 시작 시 만들거나 ADMIN으로 올릴 관리자 계정 (07 문서 2장). email·password가 둘 다 있을 때만 */
   public record Admin(String email, String password, String name) {

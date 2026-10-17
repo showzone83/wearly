@@ -11,6 +11,9 @@ export const qk = {
   codes: ['codes'] as const,
   providers: ['ai', 'providers'] as const,
   providerTypes: ['ai', 'types'] as const,
+  /** 공급자 모델 목록. 키를 저장·삭제하면 allProviderModels로 무효화한다 */
+  providerModels: (providerId: string) => ['ai', 'models', providerId] as const,
+  allProviderModels: ['ai', 'models'] as const,
   aiLogs: (q: object) => ['ai', 'logs', q] as const,
   aiLog: (id: string) => ['ai', 'log', id] as const,
   users: (q: object) => ['users', q] as const,
@@ -60,6 +63,20 @@ export const useCodeBook = (): ICodeBook => {
       label: (group: string, code: string | null | undefined) => (code ? (find(group, code)?.label ?? code) : '—'),
     };
   }, [data]);
+};
+
+/**
+ * 저장한 공급자의 모델 드롭다운 목록 (doc/07 4장). 서버가 10분 캐시하므로 화면은 1분 동안 다시 묻지 않는다.
+ * 서버가 이 API를 모르면(404) 다시 시도하지 않는다 → 화면은 직접 입력만.
+ */
+export const useProviderModels = (providerId: string | null) => {
+  return useQuery({
+    queryKey: qk.providerModels(providerId ?? ''),
+    queryFn: () => api.providers.models(providerId!),
+    enabled: !!providerId,
+    staleTime: 60_000,
+    retry: (count, e) => !isUnsupportedApi(e) && count < 1,
+  });
 };
 
 /** 지금 전체 사용자에게 적용 중인 앱 테마 (doc/12 3장). 백엔드가 아직 지원하지 않으면 404 */

@@ -144,6 +144,7 @@ class AdminAiServiceTest {
           keys,
           new AdminAiKeyWriter(keys, audit),
           null,
+          null,
           accounts,
           queries,
           audit,

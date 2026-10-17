@@ -75,10 +75,24 @@ public final class HttpCall {
   /** GET (모델 목록 조회 등). 오류 처리는 postJson과 같다 */
   public static Result get(
       RestClient client, String path, Map<String, String> headers, String label, String apiKey) {
+    return get(client, path, Map.of(), headers, label, apiKey);
+  }
+
+  /**
+   * GET. path는 URI 템플릿이고 {이름} 자리에 uriVariables 값을 인코딩해 넣는다 (페이지 토큰처럼 =·+·/가 섞일 수 있는 값). 오류 처리는
+   * postJson과 같다
+   */
+  public static Result get(
+      RestClient client,
+      String path,
+      Map<String, ?> uriVariables,
+      Map<String, String> headers,
+      String label,
+      String apiKey) {
     try {
       return client
           .get()
-          .uri(path)
+          .uri(path, uriVariables)
           .headers(h -> headers.forEach(h::set))
           .accept(MediaType.APPLICATION_JSON)
           .exchange(

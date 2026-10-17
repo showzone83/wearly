@@ -316,6 +316,52 @@ class ProviderApiKeyIntegrationTest extends IntegrationTestBase {
   }
 
   @Test
+  void 모델_목록_캐시는_웹_키를_넣거나_지우면_비우고_새_키로_다시_받는다(CapturedOutput output) {
+    String id = provider("OPENAI", "TEST_CRUD_API_KEY");
+    String models = "/api/v1/admin/ai/providers/" + id + "/models";
+    SERVER.respond(200, "{\"object\":\"list\",\"data\":[{\"id\":\"gpt-5.1\",\"created\":1}]}");
+
+    assertThat(api().get(models, admin).expect(200).body().get("source").asString())
+        .isEqualTo("LIVE");
+    api().get(models, admin).expect(200);
+    assertThat(SERVER.requests()).hasSize(1); // 캐시
+    assertThat(SERVER.last().header("Authorization")).isEqualTo("Bearer test-crud-key-value");
+
+    // 웹 키를 넣으면 캐시를 비우고 새 키로 다시 받는다
+    String web = newKey("sk-models-");
+    put(id, keyBody(web, ADMIN_PASSWORD, false)).expect(200);
+    api().get(models, admin).expect(200);
+    assertThat(SERVER.requests()).hasSize(2);
+    assertThat(SERVER.last().header("Authorization")).isEqualTo("Bearer " + web);
+    api().get(models, admin).expect(200);
+    assertThat(SERVER.requests()).hasSize(2);
+
+    // 웹 키를 지우면 서버 설정 키로 다시 받는다
+    delete(id, Map.of("currentPassword", ADMIN_PASSWORD)).expect(200);
+    api().get(models, admin).expect(200);
+    assertThat(SERVER.requests()).hasSize(3);
+    assertThat(SERVER.last().header("Authorization")).isEqualTo("Bearer test-crud-key-value");
+
+    // 모델 목록 조회는 변경 이력을 남기지 않는다 (키 넣기·지우기만)
+    List<String> actions = new ArrayList<>();
+    api()
+        .get("/api/v1/admin/audit-logs?targetType=AI_PROVIDER&size=100", admin)
+        .body()
+        .get("items")
+        .forEach(
+            a -> {
+              if (a.get("targetId").asString().equals(id)) {
+                actions.add(a.get("action").asString());
+              }
+            });
+    assertThat(actions)
+        .containsExactly("AI_PROVIDER_KEY_DELETE", "AI_PROVIDER_KEY_SET", "AI_PROVIDER_CREATE");
+    String body = api().get(models, admin).body().toString();
+    assertThat(body).doesNotContain(web).doesNotContain("test-crud-key-value");
+    assertThat(output.getAll()).doesNotContain(web);
+  }
+
+  @Test
   void 공급자를_지우면_웹_키_행도_지워진다() {
     String id = provider("OPENAI", "MISSING_TEST_API_KEY");
     put(id, keyBody(newKey("sk-cascade-"), ADMIN_PASSWORD, false)).expect(200);

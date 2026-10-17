@@ -39,6 +39,8 @@ const applyRow = (queryClient: QueryClient, row: IAiProvider | null) => {
   }
   void queryClient.invalidateQueries({ queryKey: qk.providers });
   void queryClient.invalidateQueries({ queryKey: ['audit'] });
+  // 키가 바뀌면 서버가 모델 목록 캐시를 비우므로 화면도 다시 받는다 (응답 본문이 비어도 되게 공급자 전체)
+  void queryClient.invalidateQueries({ queryKey: qk.allProviderModels });
 };
 
 interface IKeyFormErrors {

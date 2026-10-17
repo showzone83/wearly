@@ -8,6 +8,7 @@ import type { IAiProvider, IProviderOptionSpec, IProviderTypeSpec } from '@/api'
 
 import { Badge, Button, Drawer, Field, Notice, Switch } from '@/components/ui';
 import { ApiKeySection } from '@/pages/providers/ApiKeySection';
+import { ModelPicker } from '@/pages/providers/ModelPicker';
 
 import { useToastStore } from '@/stores/useToastStore';
 
@@ -104,6 +105,8 @@ export const ProviderForm = ({
       if (r !== 'unchanged') {
         await queryClient.invalidateQueries({ queryKey: qk.providers });
         void queryClient.invalidateQueries({ queryKey: ['audit'] });
+        // 서버는 공급자를 수정하면 모델 목록 캐시를 비운다 (종류·키 이름·API 주소가 바뀌었을 수 있다)
+        void queryClient.invalidateQueries({ queryKey: qk.allProviderModels });
         toast(isEdit ? `${form.displayName} 공급자를 저장했습니다.` : `${form.providerId} 공급자를 추가했습니다.`);
       }
       onClose();
@@ -244,13 +247,19 @@ export const ProviderForm = ({
             placeholder="예: OpenAI GPT"
           />
         </Field>
-        <Field label="모델 ID" error={err('model')} hint="각 사 문서의 모델 ID를 그대로 입력합니다. 사용하려면 필수.">
-          <input
-            className="mono"
+        <Field
+          label="모델"
+          error={err('model')}
+          hint="목록에서 고르거나 '직접 입력…'으로 각 사 문서의 모델 ID를 넣습니다. 사용하려면 필수."
+        >
+          <ModelPicker
             value={form.model}
-            maxLength={100}
-            onChange={(e) => set('model', e.target.value)}
-            placeholder={form.type === 'CLAUDE' ? 'claude-opus-5-5' : ''}
+            onChange={(v) => set('model', v)}
+            providerId={original?.providerId ?? null}
+            savedType={original?.type ?? null}
+            type={form.type}
+            catalog={spec?.models}
+            placeholder={form.type === 'CLAUDE' ? 'claude-sonnet-5-5' : ''}
           />
         </Field>
         <Field

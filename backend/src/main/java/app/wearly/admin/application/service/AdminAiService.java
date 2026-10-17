@@ -7,9 +7,11 @@ import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.application.port.out.dto.ProviderStatDto;
 import app.wearly.admin.domain.AuditTargets;
+import app.wearly.ai.application.port.in.AiModelListUseCase;
 import app.wearly.ai.application.port.in.AiProviderAdminUseCase;
 import app.wearly.ai.application.port.in.AiProviderKeyUseCase;
 import app.wearly.ai.application.port.in.ProviderTestUseCase;
+import app.wearly.ai.application.port.in.dto.AiModelListDto;
 import app.wearly.ai.application.port.in.dto.AiProviderDto;
 import app.wearly.ai.application.port.in.dto.CreateProviderDto;
 import app.wearly.ai.application.port.in.dto.KeyChangeDto;
@@ -42,6 +44,7 @@ public class AdminAiService implements AdminAiProviderUseCase {
   private final AiProviderKeyUseCase keys;
   private final AdminAiKeyWriter keyWriter;
   private final ProviderTestUseCase tester;
+  private final AiModelListUseCase modelLists;
   private final AccountUseCase accounts;
   private final AdminQueryPort queries;
   private final RecordAuditPort audit;
@@ -52,6 +55,7 @@ public class AdminAiService implements AdminAiProviderUseCase {
       AiProviderKeyUseCase keys,
       AdminAiKeyWriter keyWriter,
       ProviderTestUseCase tester,
+      AiModelListUseCase modelLists,
       AccountUseCase accounts,
       AdminQueryPort queries,
       RecordAuditPort audit,
@@ -60,6 +64,7 @@ public class AdminAiService implements AdminAiProviderUseCase {
     this.keys = keys;
     this.keyWriter = keyWriter;
     this.tester = tester;
+    this.modelLists = modelLists;
     this.accounts = accounts;
     this.queries = queries;
     this.audit = audit;
@@ -78,6 +83,12 @@ public class AdminAiService implements AdminAiProviderUseCase {
   @Override
   public ProviderCatalogDto types() {
     return providers.catalog();
+  }
+
+  /** 트랜잭션 없이: 제공사 HTTP 호출 동안 DB 연결을 잡지 않는다. 읽기라 변경 이력은 없다 */
+  @Override
+  public AiModelListDto models(String providerId, boolean refresh) {
+    return modelLists.models(providerId, refresh);
   }
 
   @Override

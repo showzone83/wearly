@@ -113,6 +113,44 @@ const providers: Scenario = {
   },
 };
 
+const providerModels: Scenario = {
+  group: '관리자',
+  name: 'AI 공급자 모델 목록: 키 없는 공급자는 내장 목록(CATALOG + NO_API_KEY), 권한 403·없는 공급자 404',
+  needs: ['admin'],
+  async run(ctx) {
+    const token = await adminToken();
+    // 하네스는 실제 키를 쓰지 않는다: 값이 없는 키 이름으로 공급자를 만든다 (제공사를 부르지 않는다)
+    const id = `h-models-${Date.now().toString(36)}`;
+    const body = { providerId: id, type: 'CLAUDE', displayName: '하네스 모델 목록', apiKeyEnv: 'HARNESS_MISSING_API_KEY', enabled: false, priority: 60 };
+    eq((await raw('POST', '/admin/ai/providers', { token, body })).status, 201, '공급자 추가 201');
+    try {
+      for (const query of ['', '?refresh=true']) {
+        const res = await raw('GET', `/admin/ai/providers/${id}/models${query}`, { token });
+        eq(res.status, 200, `모델 목록 200${query}`);
+        eq(res.json.source, 'CATALOG', `키가 없으면 내장 목록${query}`);
+        eq(res.json.error?.code, 'NO_API_KEY', `이유 NO_API_KEY${query}`);
+        ok(typeof res.json.error?.message === 'string' && res.json.error.message.length > 0, '이유 문구', res.json.error);
+        ok(typeof res.json.fetchedAt === 'string' && res.json.fetchedAt.endsWith('Z'), 'fetchedAt ISO 시각', res.json.fetchedAt);
+        const models = res.json.models as { id: string; displayName: string; createdAt: string | null; recommended: boolean }[];
+        ok(Array.isArray(models) && models.length > 0, '내장 목록이 비어 있지 않음', models);
+        eq(models[0].recommended, true, '추천 모델이 맨 앞');
+        ok(models.every((m) => typeof m.id === 'string' && typeof m.displayName === 'string' && m.createdAt === null), '항목 형식(내장 목록은 createdAt null)', models);
+        ok(models.some((m) => m.id === 'claude-sonnet-5-5' && m.recommended), 'claude-sonnet-5-5 추천', models);
+      }
+      const types = await raw('GET', '/admin/ai/types', { token });
+      const claudeType = (types.json.types as { type: string; models?: { id: string }[] }[]).find((t) => t.type === 'CLAUDE');
+      ok(Array.isArray(claudeType?.models) && claudeType!.models!.some((m) => m.id === 'claude-sonnet-5-5'), '종류 목록에도 내장 모델', claudeType);
+
+      const u = await signedUp('adm-models');
+      checkErrorBody(await raw('GET', `/admin/ai/providers/${id}/models`, { token: await userToken(u) }), 403, 'FORBIDDEN', '일반 회원의 모델 목록');
+      checkErrorBody(await raw('GET', '/admin/ai/providers/h-nope-models/models', { token }), 404, 'NOT_FOUND', '없는 공급자 모델 목록');
+      ctx.note('내장 목록만 확인 (실제 제공사 호출 없음)');
+    } finally {
+      eq((await raw('DELETE', `/admin/ai/providers/${id}`, { token })).status, 204, '공급자 삭제 204');
+    }
+  },
+};
+
 const suspend: Scenario = {
   group: '관리자',
   name: '회원 정지: 로그인 403 ACCOUNT_SUSPENDED, 기존 토큰 401 → 해제 후 로그인',
@@ -134,4 +172,4 @@ const suspend: Scenario = {
   },
 };
 
-export const adminScenarios: Scenario[] = [access, codeAdmin, providers, suspend];
+export const adminScenarios: Scenario[] = [access, codeAdmin, providers, providerModels, suspend];

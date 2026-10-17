@@ -645,6 +645,17 @@ class ApiResponseSnapshotTest {
         "admin.ai.providers.patch.notFound", api.patch(base + "/nope", t, Map.of("enabled", true)));
     record("admin.ai.providers.patch.notObject", api.patch(base + "/fake-openai", t, "1"));
 
+    // 모델 목록 (07 문서 4장): 키가 있으면 제공사 목록(가짜 서버), 없으면 내장 목록
+    FAKE.respond(
+        200,
+        "{\"object\":\"list\",\"data\":["
+            + "{\"id\":\"gpt-test-vision\",\"object\":\"model\",\"created\":1760000000},"
+            + "{\"id\":\"text-embedding-3-small\",\"object\":\"model\",\"created\":1705948997}]}");
+    record("admin.ai.models.live", api.get(base + "/fake-openai/models", t));
+    record("admin.ai.models.noKey", api.get(base + "/claude/models", t));
+    record("admin.ai.models.emptyCatalog", api.get(base + "/openai/models?refresh=true", t));
+    record("admin.ai.models.notFound", api.get(base + "/nope/models", t));
+
     FAKE.respond(200, openAiResponse());
     byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 7, 7, 7};
     record(

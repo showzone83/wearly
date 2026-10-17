@@ -1,6 +1,7 @@
 package app.wearly.admin.application.port.in;
 
 import app.wearly.admin.application.port.in.dto.AdminProviderDto;
+import app.wearly.ai.application.port.in.dto.AiModelListDto;
 import app.wearly.ai.application.port.in.dto.CreateProviderDto;
 import app.wearly.ai.application.port.in.dto.PatchProviderDto;
 import app.wearly.ai.application.port.in.dto.ProviderCatalogDto;
@@ -22,6 +23,14 @@ public interface AdminAiProviderUseCase {
   ProviderTestResultDto test(long adminId, String providerId, ImageUpload image);
 
   ProviderCatalogDto types();
+
+  /**
+   * 공급자 모델 목록 (모델 드롭다운). 없는 공급자 404. 키가 있으면 제공사 목록(LIVE, 10분 캐시), 없거나 실패하면 내장 목록(CATALOG + error).
+   * 읽기라 변경 이력을 남기지 않는다.
+   *
+   * @param refresh true면 캐시를 무시하고 제공사에서 다시 받는다
+   */
+  AiModelListDto models(String providerId, boolean refresh);
 
   /**
    * 웹 키 넣기·바꾸기 (07 문서 6장). 404 → 409 SECRET_KEY_MISSING → 403 REAUTH_FAILED(currentPassword) → 400

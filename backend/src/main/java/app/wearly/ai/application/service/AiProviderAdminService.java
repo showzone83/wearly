@@ -20,6 +20,8 @@ import app.wearly.ai.domain.AiProviderSetting;
 import app.wearly.ai.domain.AiProviderType;
 import app.wearly.ai.domain.AiSettings;
 import app.wearly.ai.domain.ApiKeyRules;
+import app.wearly.ai.domain.BuiltInModels;
+import app.wearly.ai.domain.ModelListRules;
 import app.wearly.ai.domain.ProviderSecret;
 import app.wearly.common.domain.FieldError;
 import app.wearly.common.error.ApiException;
@@ -46,6 +48,8 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
   private final ApiKeyVerifierPort verifier;
   private final UserUseCase users;
   private final AiSettings aiSettings;
+  private final AiModelListService modelLists;
+  private final BuiltInModels builtInModels;
 
   public AiProviderAdminService(
       AiProviderPort settings,
@@ -55,7 +59,9 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
       SecretCipherPort cipher,
       ApiKeyVerifierPort verifier,
       UserUseCase users,
-      AiSettings aiSettings) {
+      AiSettings aiSettings,
+      AiModelListService modelLists,
+      BuiltInModels builtInModels) {
     this.settings = settings;
     this.registry = registry;
     this.keys = keys;
@@ -64,6 +70,8 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
     this.verifier = verifier;
     this.users = users;
     this.aiSettings = aiSettings;
+    this.modelLists = modelLists;
+    this.builtInModels = builtInModels;
   }
 
   @Override
@@ -83,7 +91,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
     return new ProviderCatalogDto(types(), aiSettings.allowBaseUrl(), registry.isMockMode());
   }
 
-  private static List<ProviderTypeDto> types() {
+  private List<ProviderTypeDto> types() {
     return Arrays.stream(AiProviderType.values())
         .map(
             t ->
@@ -101,6 +109,11 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
                                     o.min(),
                                     o.max(),
                                     o.values()))
+                        .toList(),
+                    ModelListRules.sorted(builtInModels.of(t)).stream()
+                        .map(
+                            m ->
+                                new ProviderTypeDto.Model(m.id(), m.displayName(), m.recommended()))
                         .toList()))
         .toList();
   }
@@ -192,6 +205,8 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
         enabled,
         priority,
         AiProviderRules.withoutNulls(options));
+    // 종류·키 이름·API 주소가 바뀌었을 수 있다 (캐시 범위에도 들어 있지만 한 번 더)
+    modelLists.invalidate(providerId);
     return info(settings.update(s));
   }
 
@@ -199,10 +214,11 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
   @Transactional
   public AiProviderDto delete(String providerId) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
-    AiProviderDto before = info(s);
+    final AiProviderDto before = info(s);
     settings.delete(providerId);
     // 웹 키 행은 FK ON DELETE CASCADE로 함께 지워진다
     keys.invalidate(providerId);
+    modelLists.invalidate(providerId);
     return before;
   }
 
@@ -239,7 +255,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
     String providerId = verified.providerId();
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
     requireSecretStore();
-    AiProviderDto before = info(s);
+    final AiProviderDto before = info(s);
     secrets.save(
         new ProviderSecret(
             providerId,
@@ -248,6 +264,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
             adminUserId,
             null));
     keys.invalidate(providerId);
+    modelLists.invalidate(providerId);
     return new KeyChangeDto(before, info(s));
   }
 
@@ -255,11 +272,12 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
   @Transactional
   public Optional<KeyChangeDto> deleteKey(String providerId) {
     AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
-    AiProviderDto before = info(s);
+    final AiProviderDto before = info(s);
     if (!secrets.delete(providerId)) {
       return Optional.empty();
     }
     keys.invalidate(providerId);
+    modelLists.invalidate(providerId);
     return Optional.of(new KeyChangeDto(before, info(s)));
   }
 

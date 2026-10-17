@@ -8,7 +8,10 @@ import java.util.List;
 /** GET /admin/ai/types (07 문서 4장): 지원 공급자 종류와 options 설명, 서버 설정 */
 public record TypesResponse(List<Type> types, boolean baseUrlAllowed, boolean mockMode) {
 
-  public record Type(String type, String description, List<Option> options) {}
+  /** models: 내장 모델 목록 (wearly.ai.model-catalog, 추천 먼저). 아직 저장하지 않은 공급자의 모델 드롭다운용 */
+  public record Type(String type, String description, List<Option> options, List<Model> models) {}
+
+  public record Model(String id, String displayName, boolean recommended) {}
 
   /** options 한 칸. 빈 칸(min·max·values·defaultValue)은 응답에서 뺀다 */
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -41,6 +44,7 @@ public record TypesResponse(List<Type> types, boolean baseUrlAllowed, boolean mo
                         o.min(),
                         o.max(),
                         o.values()))
-            .toList());
+            .toList(),
+        t.models().stream().map(m -> new Model(m.id(), m.displayName(), m.recommended())).toList());
   }
 }

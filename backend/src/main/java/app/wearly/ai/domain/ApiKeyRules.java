@@ -1,6 +1,10 @@
 package app.wearly.ai.domain;
 
 import app.wearly.common.domain.FieldError;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,6 +33,20 @@ public final class ApiKeyRules {
   /** 화면 표시용 끝 4자 (••••abcd) */
   public static String last4(String key) {
     return key.substring(key.length() - 4);
+  }
+
+  /**
+   * 키 지문: SHA-256의 앞 16자(16진수). 캐시 키처럼 "같은 키인지"만 알면 되는 곳에 키 값 대신 쓴다. 메모리 안에서만 쓰고 응답·로그에는 내보내지 않는다.
+   */
+  public static String fingerprint(String key) {
+    try {
+      byte[] hash =
+          MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(hash, 0, 8);
+    } catch (NoSuchAlgorithmException e) {
+      // SHA-256은 모든 JDK에 있다
+      throw new IllegalStateException(e);
+    }
   }
 
   /** 고른 키: 값과 출처. 값은 메모리 안에서만 쓴다 */

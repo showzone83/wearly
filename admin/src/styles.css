@@ -1789,3 +1789,131 @@ details summary {
   cursor: not-allowed;
   text-decoration: none;
 }
+
+/* ───────── 모델 드롭다운 (공급자 편집, pages/providers/ModelPicker.tsx) ───────── */
+
+.model-picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 12px;
+  color: var(--sub);
+}
+
+.model-source .link-btn {
+  font-size: 12px;
+}
+
+.model-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+
+.model-trigger:focus-visible {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+
+.field-invalid .model-trigger {
+  border-color: var(--danger);
+}
+
+.model-placeholder {
+  color: var(--faint);
+}
+
+.model-chev {
+  margin-left: auto;
+  color: var(--sub);
+  font-size: 12px;
+}
+
+.model-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--sub);
+  white-space: nowrap;
+}
+
+.model-panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.model-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.model-option.active {
+  background: var(--bg);
+}
+
+.model-option.selected .model-name {
+  font-weight: 600;
+}
+
+.model-option-manual {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 6px 6px;
+  color: var(--green);
+}
+
+.model-empty {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--sub);
+}
+
+.model-manual-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}

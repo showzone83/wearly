@@ -218,6 +218,32 @@ export interface IProviderTypeSpec {
   description?: string;
   defaultApiKeyEnv?: string;
   options: IProviderOptionSpec[];
+  /** 내장 모델 목록 (서버 설정 wearly.ai.model-catalog, 추천 먼저). 예전 서버면 없다 */
+  models?: IProviderModel[];
+}
+
+/** 모델 목록 출처: LIVE = 제공사에서 받은 목록, CATALOG = 서버 내장 목록 */
+export type TModelSource = 'LIVE' | 'CATALOG';
+
+/** 모델 드롭다운 한 줄 */
+export interface IProviderModel {
+  id: string;
+  displayName: string;
+  /** 제공사가 알려 준 출시 시각. 모르면 null (Gemini, 내장 목록) */
+  createdAt: string | null;
+  /** 내장 목록에서 추천으로 표시한 모델 */
+  recommended: boolean;
+}
+
+/** `GET /admin/ai/providers/{providerId}/models` (07 4장) */
+export interface IProviderModelList {
+  source: TModelSource;
+  /** LIVE면 제공사에서 받은 시각(캐시면 처음 받은 시각), CATALOG면 응답 시각 */
+  fetchedAt: string | null;
+  /** 추천 먼저, 최신순, ID 순 */
+  models: IProviderModel[];
+  /** CATALOG일 때 이유. code: NO_API_KEY(키 없음) · MODEL_LIST_FAILED(조회 실패) */
+  error: { code: string; message: string } | null;
 }
 
 export interface IAiSuggestion {

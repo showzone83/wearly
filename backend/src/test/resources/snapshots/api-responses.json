@@ -6903,6 +6903,19 @@
           "kind" : "url",
           "description" : "API 주소 (테스트·프록시용, WEARLY_AI_ALLOW_BASE_URL=true일 때만)",
           "defaultValue" : "https://api.anthropic.com"
+        } ],
+        "models" : [ {
+          "id" : "claude-sonnet-5-5",
+          "displayName" : "Claude Sonnet 5.5",
+          "recommended" : true
+        }, {
+          "id" : "claude-haiku-5-5",
+          "displayName" : "Claude Haiku 5.5",
+          "recommended" : false
+        }, {
+          "id" : "claude-opus-5-5",
+          "displayName" : "Claude Opus 5.5",
+          "recommended" : false
         } ]
       }, {
         "type" : "OPENAI",
@@ -6937,7 +6950,8 @@
           "kind" : "url",
           "description" : "API 주소 (테스트·프록시용, WEARLY_AI_ALLOW_BASE_URL=true일 때만)",
           "defaultValue" : "https://api.openai.com/v1"
-        } ]
+        } ],
+        "models" : [ ]
       }, {
         "type" : "GEMINI",
         "description" : "Google Gemini (generateContent, REST)",
@@ -6971,7 +6985,8 @@
           "kind" : "url",
           "description" : "API 주소 (테스트·프록시용, WEARLY_AI_ALLOW_BASE_URL=true일 때만)",
           "defaultValue" : "https://generativelanguage.googleapis.com"
-        } ]
+        } ],
+        "models" : [ ]
       } ],
       "baseUrlAllowed" : true,
       "mockMode" : true
@@ -7143,6 +7158,68 @@
         "field" : "body",
         "message" : "JSON 객체를 보내 주세요."
       } ]
+    }
+  },
+  "admin.ai.models.live" : {
+    "status" : 200,
+    "body" : {
+      "source" : "LIVE",
+      "fetchedAt" : "<instant>",
+      "models" : [ {
+        "id" : "gpt-test-vision",
+        "displayName" : "gpt-test-vision",
+        "createdAt" : "<instant>",
+        "recommended" : false
+      } ],
+      "error" : null
+    }
+  },
+  "admin.ai.models.noKey" : {
+    "status" : 200,
+    "body" : {
+      "source" : "CATALOG",
+      "fetchedAt" : "<instant>",
+      "models" : [ {
+        "id" : "claude-sonnet-5-5",
+        "displayName" : "Claude Sonnet 5.5",
+        "createdAt" : null,
+        "recommended" : true
+      }, {
+        "id" : "claude-haiku-5-5",
+        "displayName" : "Claude Haiku 5.5",
+        "createdAt" : null,
+        "recommended" : false
+      }, {
+        "id" : "claude-opus-5-5",
+        "displayName" : "Claude Opus 5.5",
+        "createdAt" : null,
+        "recommended" : false
+      } ],
+      "error" : {
+        "code" : "NO_API_KEY",
+        "message" : "이 공급자에 API 키가 없어 제공사 목록을 받지 않았어요."
+      }
+    }
+  },
+  "admin.ai.models.emptyCatalog" : {
+    "status" : 200,
+    "body" : {
+      "source" : "CATALOG",
+      "fetchedAt" : "<instant>",
+      "models" : [ ],
+      "error" : {
+        "code" : "NO_API_KEY",
+        "message" : "이 공급자에 API 키가 없어 제공사 목록을 받지 않았어요."
+      }
+    }
+  },
+  "admin.ai.models.notFound" : {
+    "status" : 404,
+    "body" : {
+      "status" : 404,
+      "code" : "NOT_FOUND",
+      "message" : "찾을 수 없어요.",
+      "fieldErrors" : [ ]
     }
   },
   "admin.ai.test" : {

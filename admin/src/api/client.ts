@@ -27,6 +27,8 @@ import type {
   IPage,
   IPageQuery,
   IProviderCreate,
+  IProviderModel,
+  IProviderModelList,
   IProviderOptionSpec,
   IProviderTestResult,
   IProviderTypeSpec,
@@ -211,6 +213,35 @@ const toAppTheme = (raw: unknown): IAppTheme => {
   };
 };
 
+/** 모델 한 줄. 화면 이름이 없으면 ID */
+const toModel = (r: Record<string, unknown>): IProviderModel => {
+  const id = String(r.id ?? '');
+  return {
+    id,
+    displayName: str(r.displayName)?.trim() || id,
+    createdAt: str(r.createdAt),
+    recommended: r.recommended === true,
+  };
+};
+
+const toModels = (raw: unknown): IProviderModel[] => {
+  return toArray<Record<string, unknown>>(raw)
+    .map(toModel)
+    .filter((m) => m.id);
+};
+
+/** 모델 목록 응답. 모르는 source는 내장 목록(CATALOG)으로 본다 */
+const toModelList = (raw: unknown): IProviderModelList => {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const err = r.error && typeof r.error === 'object' ? (r.error as Record<string, unknown>) : null;
+  return {
+    source: r.source === 'LIVE' ? 'LIVE' : 'CATALOG',
+    fetchedAt: str(r.fetchedAt),
+    models: toModels(r.models),
+    error: err ? { code: String(err.code ?? ''), message: String(err.message ?? '') } : null,
+  };
+};
+
 /** `/admin/ai/types`: 배열 또는 `{ CLAUDE: {...} }` 객체, options는 배열 또는 `{ key: 설명 }` 객체 모두 받는다 */
 const toTypeSpecs = (raw: unknown): IProviderTypeSpec[] => {
   // 백엔드 실제 형식: { types: [{ type, description, options: [{ name, kind, description, defaultValue, min, max, values }] }],
@@ -251,6 +282,8 @@ const toTypeSpecs = (raw: unknown): IProviderTypeSpec[] => {
       description: str(t.description) ?? undefined,
       defaultApiKeyEnv: str(t.defaultApiKeyEnv ?? t.apiKeyEnv) ?? undefined,
       options: options.filter((o) => o.key),
+      // 예전 서버면 models가 없다 → 모델 칸은 직접 입력만
+      models: Array.isArray(t.models) ? toModels(t.models) : undefined,
     };
   });
 };
@@ -489,6 +522,17 @@ export const createAdminApi = (options: IAdminApiOptions) => {
           json: { currentPassword: body.currentPassword },
         });
         return toProviderOrNull(raw);
+      },
+      /**
+       * 모델 드롭다운 목록 (07 4장). 키가 있으면 제공사 목록(LIVE, 서버 10분 캐시), 없거나 실패하면 내장 목록(CATALOG + error).
+       * refresh면 서버 캐시를 무시하고 제공사에서 다시 받는다. 서버가 이 API를 모르면 404
+       */
+      models: async (providerId: string, refresh = false): Promise<IProviderModelList> => {
+        const raw = await get<unknown>(
+          `/admin/ai/providers/${enc(providerId)}/models`,
+          refresh ? { refresh: 'true' } : undefined,
+        );
+        return toModelList(raw);
       },
       /** 사진 한 장으로 그 공급자를 한 번 호출 (사용 여부와 관계없이) */
       test: (providerId: string, image: File): Promise<IProviderTestResult> => {

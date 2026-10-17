@@ -1,8 +1,10 @@
 package app.wearly.ai.adapter.out.ai;
 
 import app.wearly.ai.application.port.out.AiModelPort;
+import app.wearly.ai.domain.AiModelEntry;
 import app.wearly.ai.domain.AiProviderSetting;
 import app.wearly.ai.domain.AiProviderType;
+import java.util.List;
 
 /**
  * 공급자 종류 하나의 어댑터 묶음 (M2): 클라이언트 만들기와 키 확인. 새 공급자를 더하려면 도메인 AiProviderType에 상수(설명·options)를, 여기에 모듈
@@ -24,4 +26,12 @@ public interface AiProviderModule {
    * @throws app.wearly.ai.domain.AiProviderException 거부·오류·시간 초과. 메시지에는 키 조각을 남기지 않는다
    */
   void verify(String key, ProviderOptions options);
+
+  /**
+   * 각 사의 모델 목록에서 사진 분석에 쓸 수 있는 모델만 (관리자 화면 모델 드롭다운, ModelListRules로 거른다).
+   *
+   * @throws app.wearly.ai.domain.AiProviderException 거부·오류·시간 초과·응답 형식 오류(BAD_RESPONSE). 메시지에는 키
+   *     조각을 남기지 않는다
+   */
+  List<AiModelEntry> listModels(String key, ProviderOptions options);
 }

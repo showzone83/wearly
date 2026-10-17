@@ -83,6 +83,20 @@ wearly:
     outfit-daily-limit: ${WEARLY_AI_OUTFIT_DAILY_LIMIT:20}
     timeout: ${WEARLY_AI_TIMEOUT:PT60S}
     allow-base-url: ${WEARLY_AI_ALLOW_BASE_URL:false}
+    # 공급자 종류별 내장 모델 목록 (관리자 화면 모델 드롭다운, doc/07 4장).
+    # 키가 없거나 제공사 모델 목록을 받지 못했을 때 이 목록을 보여 주고(source: CATALOG),
+    # 제공사 목록(source: LIVE)에서도 여기 있는 ID에는 recommended를 그대로 붙인다.
+    # 종류 이름은 tb_ai_provider.type(CLAUDE·OPENAI·GEMINI). 없는 종류는 빈 목록이라 화면에서 직접 입력한다.
+    # OPENAI·GEMINI는 확실한 최신 ID를 정하지 않아 비워 둔다 (키를 넣으면 제공사 목록이 나온다)
+    model-catalog:
+      CLAUDE:
+        - id: claude-opus-5-5
+          display-name: Claude Opus 5.5
+        - id: claude-sonnet-5-5
+          display-name: Claude Sonnet 5.5
+          recommended: true
+        - id: claude-haiku-5-5
+          display-name: Claude Haiku 5.5
   # 웹에서 넣은 AI 키를 암호화하는 마스터 키 (base64 32바이트, openssl rand -base64 32). 없으면 웹 키 입력이 꺼진다
   secret-key: ${WEARLY_SECRET_KEY:}
   admin:
