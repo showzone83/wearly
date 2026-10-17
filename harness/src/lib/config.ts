@@ -23,3 +23,7 @@ export const HARNESS_AI_DAILY_LIMIT = 3;
 
 /** Access 토큰이 확실히 만료될 때까지 기다리는 시간 (TTL 3초 + 여유) */
 export const WAIT_FOR_EXPIRY_MS = 4_500;
+
+/** run.sh가 백엔드를 띄울 때 만드는 관리자 계정 (07 문서 2장). --external이면 쓸 수 없다. */
+export const HARNESS_ADMIN_EMAIL = 'admin@harness.wearly.test';
+export const HARNESS_ADMIN_PASSWORD = 'HarnessAdmin1234';

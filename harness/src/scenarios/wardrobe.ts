@@ -4,6 +4,7 @@ import { addDays, comparable, item, todaySeoul } from '../lib/fixtures';
 import { checkErrorBody, raw } from '../lib/http';
 import { signedUp, tokensOf } from '../lib/session';
 import type { ItemDto, ItemInput } from '../../../mobile/src/api/types';
+import { loadCodes } from '../lib/serverCodes';
 import type { Scenario } from '../scenario';
 
 const ids = (xs: ItemDto[]) => xs.map((x) => x.id);
@@ -209,7 +210,10 @@ const stats: Scenario = {
 
     const st = await u.api.wardrobe.stats();
     eq(st.total, 5, 'total');
-    eq(st.byCategory, { TOP: 2, BOTTOM: 1, OUTER: 0, SHOES: 1, BAG: 1, ACC: 0 }, 'byCategory (0도 포함)');
+    // 활성 CATEGORY 코드 전부가 키로 들어간다 (0 포함, 06 문서 4장)
+    const byCat: Record<string, number> = Object.fromEntries((await loadCodes()).active('CATEGORY').map((c) => [c.code, 0]));
+    Object.assign(byCat, { TOP: 2, BOTTOM: 1, SHOES: 1, BAG: 1 });
+    eq(st.byCategory, byCat, 'byCategory (활성 종류 전부, 0도 포함)');
     eq(st.byStatus, { OWNED: 3, LAUNDRY: 1, REPAIR: 1 }, 'byStatus');
     eq(st.byColor[0], { color: 'navy', count: 3 }, 'byColor 첫째 = 가장 많은 색');
     sameSet(st.byColor.map((x) => `${x.color}:${x.count}`), ['navy:3', 'white:1', 'black:1'], 'byColor 전체');

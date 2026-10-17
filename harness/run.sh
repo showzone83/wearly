@@ -210,6 +210,9 @@ start_backend() {
       WEARLY_ACCESS_TTL=PT3S \
       WEARLY_AI_DAILY_LIMIT=3 \
       WEARLY_AI_PROVIDER=mock \
+      WEARLY_ADMIN_EMAIL=admin@harness.wearly.test \
+      WEARLY_ADMIN_PASSWORD=HarnessAdmin1234 \
+      WEARLY_ADMIN_NAME=하네스관리자 \
       WEARLY_JWT_SECRET="${WEARLY_JWT_SECRET:-harness-only-jwt-secret-0123456789-abcdefghijklmnop}" \
       ./gradlew bootRun --console=plain --no-daemon
   ) >"$LOG_FILE" 2>&1 &

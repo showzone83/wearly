@@ -1,30 +1,26 @@
 // AI 사진 분석 (목업 공급자)
-import { COLOR, SUBTYPE } from '../lib/appCodes';
 import { eq, expectApiError, isNonEmptyString, ok } from '../lib/assert';
 import { HARNESS_AI_DAILY_LIMIT } from '../lib/config';
 import { checkErrorBody, raw } from '../lib/http';
 import { oversizedPngBlob, pngBlob, solidPng } from '../lib/png';
+import { loadCodes, type ServerCodes } from '../lib/serverCodes';
 import { signedUp, tokensOf } from '../lib/session';
-import type { AnalyzeResponse, Category, Pattern, Season, StyleTag } from '../../../mobile/src/api/types';
+import type { AnalyzeResponse } from '../../../mobile/src/api/types';
 import type { Scenario } from '../scenario';
 
-const CATEGORIES: Category[] = ['TOP', 'BOTTOM', 'OUTER', 'SHOES', 'BAG', 'ACC'];
-const PATTERNS: Pattern[] = ['SOLID', 'STRIPE', 'CHECK', 'ETC'];
-const SEASONS: Season[] = ['SPRING', 'SUMMER', 'FALL', 'WINTER'];
-const STYLES: StyleTag[] = ['NEAT', 'MINIMAL', 'CASUAL', 'CLASSIC', 'STREET'];
-
-/** 제안값이 앱의 허용 값 안에 있는지 */
-function checkSuggestion(r: AnalyzeResponse, label: string): void {
+/** 제안값이 서버 코드(GET /codes)의 활성 값 안에 있는지 */
+function checkSuggestion(r: AnalyzeResponse, label: string, codes: ServerCodes): void {
   const s = r.suggestion;
+  const has = (group: string, v: string) => codes.activeSet(group).has(v);
   ok(isNonEmptyString(s.name), `${label}: name`, s.name);
-  ok(CATEGORIES.includes(s.category), `${label}: category 허용 값`, s.category);
-  ok(s.subType in SUBTYPE, `${label}: subType 허용 값`, s.subType);
-  eq(SUBTYPE[s.subType].category, s.category, `${label}: category·subType 짝 (앱 SUBTYPE 표)`);
-  ok(s.color in COLOR, `${label}: color 허용 값`, s.color);
-  ok(PATTERNS.includes(s.pattern), `${label}: pattern 허용 값`, s.pattern);
-  ok(Array.isArray(s.seasons) && s.seasons.every((x) => SEASONS.includes(x)), `${label}: seasons 허용 값`, s.seasons);
+  ok(has('CATEGORY', s.category), `${label}: category 허용 값`, s.category);
+  ok(has('SUB_TYPE', s.subType), `${label}: subType 허용 값`, s.subType);
+  eq(codes.parentOf(s.subType), s.category, `${label}: category·subType 짝 (코드 parent)`);
+  ok(has('COLOR', s.color), `${label}: color 허용 값`, s.color);
+  ok(has('PATTERN', s.pattern), `${label}: pattern 허용 값`, s.pattern);
+  ok(Array.isArray(s.seasons) && s.seasons.every((x) => has('SEASON', x)), `${label}: seasons 허용 값`, s.seasons);
   ok(new Set(s.seasons).size === s.seasons.length, `${label}: seasons 중복 없음`, s.seasons);
-  ok(Array.isArray(s.styles) && s.styles.every((x) => STYLES.includes(x)), `${label}: styles 허용 값`, s.styles);
+  ok(Array.isArray(s.styles) && s.styles.every((x) => has('STYLE', x)), `${label}: styles 허용 값`, s.styles);
   ok([1, 2, 3].includes(s.formality), `${label}: formality 1~3`, s.formality);
   ok(typeof s.confidence === 'number' && s.confidence >= 0 && s.confidence <= 1, `${label}: confidence 0~1`, s.confidence);
   eq(r.provider, 'mock', `${label}: provider`);
@@ -38,11 +34,12 @@ const analyze: Scenario = {
   async run(ctx) {
     const u = await signedUp('ai');
     const r1 = await u.api.wardrobe.analyze(pngBlob([30, 40, 90]));
-    checkSuggestion(r1, '첫 분석');
+    const codes = await loadCodes();
+    checkSuggestion(r1, '첫 분석', codes);
     if (!ctx.external) eq(r1.remainingToday, HARNESS_AI_DAILY_LIMIT - 1, '첫 분석 뒤 remainingToday (한도 3)');
 
     const r2 = await u.api.wardrobe.analyze(pngBlob([30, 40, 90]));
-    checkSuggestion(r2, '같은 이미지');
+    checkSuggestion(r2, '같은 이미지', codes);
     eq(r2.suggestion, r1.suggestion, '같은 이미지 → 같은 제안 (SHA-256 기반)');
     eq(r2.remainingToday, r1.remainingToday - 1, '두 번째 뒤 remainingToday 1 감소');
 

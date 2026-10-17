@@ -7,7 +7,9 @@ import { raw } from './lib/http';
 import type { Ctx, Scenario } from './scenario';
 import { accountScenarios } from './scenarios/account';
 import { aiScenarios } from './scenarios/ai';
+import { adminScenarios } from './scenarios/admin';
 import { authScenarios } from './scenarios/auth';
+import { codeScenarios } from './scenarios/codes';
 import { profileScenarios } from './scenarios/profile';
 import { tokenScenarios } from './scenarios/tokens';
 import { wardrobeScenarios } from './scenarios/wardrobe';
@@ -16,9 +18,11 @@ const ALL: Scenario[] = [
   ...authScenarios,
   ...profileScenarios,
   ...wardrobeScenarios,
+  ...codeScenarios,
   ...aiScenarios,
   ...tokenScenarios,
   ...accountScenarios,
+  ...adminScenarios,
 ];
 
 type Status = 'PASS' | 'FAIL' | 'SKIP';
@@ -182,6 +186,9 @@ async function main(): Promise<void> {
     let skip: string | undefined = unreachable;
     if (!skip && config.external && s.needs?.includes('shortTtl')) {
       skip = '--external: Access TTL이 3초라는 보장이 없어 건너뜀';
+    }
+    if (!skip && config.external && s.needs?.includes('admin')) {
+      skip = '--external: 하네스 관리자 계정이 없어 건너뜀';
     }
     const r = await runOne(no, s, skip);
     results.push(r);
