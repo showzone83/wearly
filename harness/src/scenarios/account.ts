@@ -50,6 +50,11 @@ const deleteMe: Scenario = {
       workRule: true,
       offRule: true,
       notify: { morning: true, evening: true, dMinus1: true },
+      // 나의 정보도 탈퇴하면 프로필과 함께 지워진다
+      ageRange: 'AGE_40',
+      bodyType: 'UNKNOWN',
+      heightCm: 180,
+      fitPreference: 'SLIM',
       onboarded: true,
     });
     // 같은 계정으로 로그인해 둔 다른 기기
@@ -84,7 +89,13 @@ const deleteMe: Scenario = {
     const fresh = newSession();
     await fresh.api.auth.signup({ email: u.email, password: TEST_PASSWORD, name: '새사람' });
     eq((await fresh.api.wardrobe.stats()).total, 0, '재가입 계정의 옷장은 비어 있음');
-    eq((await fresh.api.profile.get()).onboarded, false, '재가입 계정의 프로필은 기본값');
+    const freshProfile = await fresh.api.profile.get();
+    eq(freshProfile.onboarded, false, '재가입 계정의 프로필은 기본값');
+    eq(
+      [freshProfile.ageRange, freshProfile.bodyType, freshProfile.heightCm, freshProfile.fitPreference],
+      [null, null, null, null],
+      '재가입 계정의 나의 정보는 비어 있음 (탈퇴 때 지워짐)',
+    );
   },
 };
 

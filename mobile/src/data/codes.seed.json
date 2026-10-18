@@ -1281,6 +1281,130 @@
           "sortOrder": 50
         }
       ]
+    },
+    {
+      "group": "AGE_RANGE",
+      "name": "연령대",
+      "description": "프로필 나의 정보의 연령대(ageRange). attrs 없음",
+      "codes": [
+        {
+          "code": "AGE_20_EARLY",
+          "label": "20대 초반",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 10
+        },
+        {
+          "code": "AGE_20_LATE",
+          "label": "20대 후반",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 20
+        },
+        {
+          "code": "AGE_30_EARLY",
+          "label": "30대 초반",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 30
+        },
+        {
+          "code": "AGE_30_LATE",
+          "label": "30대 후반",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 40
+        },
+        {
+          "code": "AGE_40",
+          "label": "40대",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 50
+        },
+        {
+          "code": "AGE_50_PLUS",
+          "label": "50대 이상",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 60
+        }
+      ]
+    },
+    {
+      "group": "BODY_TYPE",
+      "name": "체형",
+      "description": "프로필 나의 정보의 체형(bodyType, 골격 유형). attrs.description(짧은 설명), hint(고르기를 돕는 한 줄 특징)",
+      "codes": [
+        {
+          "code": "STRAIGHT",
+          "label": "스트레이트",
+          "parent": null,
+          "attrs": {
+            "description": "탄탄하고 입체적인 몸. 심플한 정핏이 잘 어울려요",
+            "hint": "상체에 볼륨이 있고 허리 위치가 높은 편이에요"
+          },
+          "sortOrder": 10
+        },
+        {
+          "code": "WAVE",
+          "label": "웨이브",
+          "parent": null,
+          "attrs": {
+            "description": "부드럽고 가녀린 몸. 허리를 살린 가벼운 옷이 잘 어울려요",
+            "hint": "하체에 볼륨이 있고 어깨·윗몸이 얇은 편이에요"
+          },
+          "sortOrder": 20
+        },
+        {
+          "code": "NATURAL",
+          "label": "내추럴",
+          "parent": null,
+          "attrs": {
+            "description": "뼈대가 또렷한 몸. 여유 있는 핏과 자연스러운 소재가 잘 어울려요",
+            "hint": "어깨가 넓고 쇄골·손목 같은 관절이 도드라진 편이에요"
+          },
+          "sortOrder": 30
+        },
+        {
+          "code": "UNKNOWN",
+          "label": "잘 모르겠어요",
+          "parent": null,
+          "attrs": {
+            "description": "체형은 빼고 추천해요",
+            "hint": "나중에 언제든 고를 수 있어요"
+          },
+          "sortOrder": 40
+        }
+      ]
+    },
+    {
+      "group": "FIT",
+      "name": "핏 선호",
+      "description": "프로필 나의 정보의 핏 선호(fitPreference). attrs 없음",
+      "codes": [
+        {
+          "code": "SLIM",
+          "label": "슬림핏",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 10
+        },
+        {
+          "code": "REGULAR",
+          "label": "레귤러핏",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 20
+        },
+        {
+          "code": "OVERSIZED",
+          "label": "오버핏",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 30
+        }
+      ]
     }
   ]
 }

@@ -92,7 +92,18 @@ export interface IDashboard {
 
 // ───────── 코드 (06 문서) ─────────
 
-export type TGroupCode = 'CATEGORY' | 'SUB_TYPE' | 'COLOR' | 'PATTERN' | 'SEASON' | 'STYLE' | 'ITEM_STATUS';
+export type TGroupCode =
+  | 'CATEGORY'
+  | 'SUB_TYPE'
+  | 'COLOR'
+  | 'PATTERN'
+  | 'SEASON'
+  | 'STYLE'
+  | 'ITEM_STATUS'
+  // 나의 정보 (프로필): 연령대·체형·핏 선호
+  | 'AGE_RANGE'
+  | 'BODY_TYPE'
+  | 'FIT';
 export type TSlot = 'TOP' | 'BOTTOM' | 'DRESS' | 'OUTER' | 'SHOES' | 'BAG';
 
 /** 그룹마다 쓰는 키가 다르다 (06 3장). 모르는 키도 그대로 보존한다 */
@@ -106,6 +117,10 @@ export interface ICodeAttrs {
   light?: number;
   pairs?: string[];
   recommendable?: boolean;
+  /** BODY_TYPE: 짧은 설명 */
+  description?: string;
+  /** BODY_TYPE: 고르기를 돕는 한 줄 특징 */
+  hint?: string;
   [key: string]: unknown;
 }
 
@@ -327,6 +342,14 @@ export interface IAdminUser {
   createdAt: string;
   itemCount: number;
   aiToday: number;
+  /** 나의 정보 (조회만, 없으면 null. 예전 서버는 필드 없음): 연령대 AGE_RANGE 코드 */
+  ageRange?: string | null;
+  /** 체형 BODY_TYPE 코드 */
+  bodyType?: string | null;
+  /** 키 (cm) */
+  heightCm?: number | null;
+  /** 핏 선호 FIT 코드 */
+  fitPreference?: string | null;
 }
 
 export interface IUserQuery extends IPageQuery {

@@ -93,6 +93,10 @@ export function profileFromDto(dto: Api.ProfileDto): App.Profile {
     workRule: dto.workRule,
     offRule: dto.offRule,
     notify: { morning: !!dto.notify?.morning, evening: !!dto.notify?.evening, dMinus1: !!dto.notify?.dMinus1 },
+    ageRange: dto.ageRange ?? null,
+    bodyType: dto.bodyType ?? null,
+    heightCm: dto.heightCm ?? null,
+    fitPreference: dto.fitPreference ?? null,
   };
 }
 
@@ -107,6 +111,10 @@ export function profileToDto(p: App.Profile, onboarded: boolean): Api.ProfileDto
     workRule: p.workRule,
     offRule: p.offRule,
     notify: { ...p.notify },
+    ageRange: p.ageRange ?? null,
+    bodyType: p.bodyType ?? null,
+    heightCm: p.heightCm ?? null,
+    fitPreference: p.fitPreference ?? null,
     onboarded,
   };
 }

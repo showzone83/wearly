@@ -12,6 +12,7 @@ import { API_BASE_URL, errorAlertMessage } from '@/lib/api';
 import { styleLabel } from '@/lib/codes';
 import { diffDays, todayKey } from '@/lib/date';
 import { MOCK_MODE } from '@/lib/mode';
+import { personalOf, personalSummary } from '@/lib/personalInfo';
 import { activeItems } from '@/lib/retire';
 import { regionLabel } from '@/lib/weatherSync';
 import { useStore } from '@/store/useStore';
@@ -102,6 +103,12 @@ export default function My() {
           label="스타일 추천 설정"
           value={profile.moods.map(styleLabel).join(' · ') || '미설정'}
           onPress={() => router.push('/settings')}
+        />
+        <MenuRow
+          icon="user"
+          label="나의 정보"
+          value={personalSummary(personalOf(profile)) ?? '미입력'}
+          onPress={() => router.push('/personal')}
         />
         <MenuRow icon="chart" label="옷장 스타일 분석" onPress={() => router.push('/analysis')} />
         <MenuRow

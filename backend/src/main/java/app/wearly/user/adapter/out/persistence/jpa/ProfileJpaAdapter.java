@@ -37,7 +37,11 @@ class ProfileJpaAdapter implements ProfilePort {
         p.workRule(),
         p.offRule(),
         p.notifications().toMap(),
-        p.onboarded());
+        p.onboarded(),
+        p.personal().ageRange(),
+        p.personal().bodyType(),
+        p.personal().heightCm() == null ? null : p.personal().heightCm().shortValue(),
+        p.personal().fitPreference());
     profiles.saveAndFlush(entity);
   }
 
@@ -51,6 +55,11 @@ class ProfileJpaAdapter implements ProfilePort {
         e.isWorkRule(),
         e.isOffRule(),
         UserProfile.Notify.fromMap(e.getNotify()),
-        e.isOnboarded());
+        e.isOnboarded(),
+        new UserProfile.PersonalInfo(
+            e.getAgeRange(),
+            e.getBodyType(),
+            e.getHeightCm() == null ? null : e.getHeightCm().intValue(),
+            e.getFitPreference()));
   }
 }

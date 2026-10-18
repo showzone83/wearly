@@ -338,6 +338,12 @@ const AttrSummary = ({ group, code, label }: { group: string; code: IAdminCode; 
       );
     case 'ITEM_STATUS':
       return a.recommendable ? <Badge tone="green">추천 후보</Badge> : <Badge tone="gray">추천 제외</Badge>;
+    case 'BODY_TYPE':
+      return (
+        <span className="small" title={typeof a.hint === 'string' ? a.hint : undefined}>
+          {typeof a.description === 'string' && a.description ? a.description : '—'}
+        </span>
+      );
     default:
       return Object.keys(a).length ? (
         <span className="mono small">{JSON.stringify(a)}</span>

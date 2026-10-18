@@ -41,8 +41,11 @@ const WARMTH = [
 ];
 
 /** 속성 폼이 있는 그룹. 나머지는 attrs 없음 (06 3장) */
-const ATTR_GROUPS = new Set(['CATEGORY', 'SUB_TYPE', 'COLOR', 'ITEM_STATUS', 'REGION']);
-const NO_ATTR_GROUPS = new Set(['PATTERN', 'SEASON', 'STYLE']);
+const ATTR_GROUPS = new Set(['CATEGORY', 'SUB_TYPE', 'COLOR', 'ITEM_STATUS', 'REGION', 'BODY_TYPE']);
+const NO_ATTR_GROUPS = new Set(['PATTERN', 'SEASON', 'STYLE', 'AGE_RANGE', 'FIT']);
+
+/** BODY_TYPE attrs.description·hint 최대 길이 (서버 CodeAttrs.TEXT_MAX) */
+const BODY_TEXT_MAX = 80;
 
 const CUSTOM_SHAPE = '__custom__';
 
@@ -74,6 +77,8 @@ const initialAttrs = (group: string): ICodeAttrs => {
       return { recommendable: true };
     case 'REGION':
       return { lat: '', lon: '' };
+    case 'BODY_TYPE':
+      return { description: '', hint: '' };
     default:
       return {};
   }
@@ -97,6 +102,8 @@ const KNOWN_FIELDS = [
   'attrs.recommendable',
   'attrs.lat',
   'attrs.lon',
+  'attrs.description',
+  'attrs.hint',
 ];
 
 const baseField = (field: string): string => {
@@ -243,6 +250,13 @@ export const CodeForm = ({
       if (!lat || !(Number(lat) >= -90 && Number(lat) <= 90)) e.set('attrs.lat', '위도는 -90~90 숫자입니다.');
       if (!lon || !(Number(lon) >= -180 && Number(lon) <= 180)) e.set('attrs.lon', '경도는 -180~180 숫자입니다.');
     }
+    if (g === 'BODY_TYPE') {
+      for (const key of ['description', 'hint'] as const) {
+        const v = String(form.attrs[key] ?? '').trim();
+        if (!v) e.set(`attrs.${key}`, key === 'description' ? '설명을 입력하세요.' : '한 줄 특징을 입력하세요.');
+        else if (v.length > BODY_TEXT_MAX) e.set(`attrs.${key}`, `${BODY_TEXT_MAX}자 이하로 입력하세요.`);
+      }
+    }
     if (!ATTR_GROUPS.has(g) && !NO_ATTR_GROUPS.has(g)) {
       try {
         const parsed: unknown = JSON.parse(form.attrsJson || '{}');
@@ -273,6 +287,10 @@ export const CodeForm = ({
     if (g === 'REGION') {
       a.lat = Number(a.lat);
       a.lon = Number(a.lon);
+    }
+    if (g === 'BODY_TYPE') {
+      a.description = String(a.description ?? '').trim();
+      a.hint = String(a.hint ?? '').trim();
     }
     return a;
   };
@@ -457,6 +475,36 @@ export const CodeForm = ({
               날씨는 이 좌표로 받습니다. 활성 지역만 주기적으로 받고, 지역을 늘리면 공급자 호출 수도 늘어납니다 (날씨 &gt;
               스케줄의 예상 월 호출 수).
             </p>
+          </>
+        ) : null}
+        {g === 'BODY_TYPE' ? (
+          <>
+            <Field
+              label="설명 (description)"
+              required
+              error={err('attrs.description')}
+              hint={`앱 체형 고르기 카드의 설명입니다. ${BODY_TEXT_MAX}자 이하.`}
+            >
+              <input
+                value={String(form.attrs.description ?? '')}
+                maxLength={BODY_TEXT_MAX}
+                onChange={(e) => setAttr('description', e.target.value)}
+                placeholder="예: 탄탄하고 입체적인 몸. 심플한 정핏이 잘 어울려요"
+              />
+            </Field>
+            <Field
+              label="한 줄 특징 (hint)"
+              required
+              error={err('attrs.hint')}
+              hint={`회원이 자기 체형을 알아보도록 돕는 특징입니다. ${BODY_TEXT_MAX}자 이하.`}
+            >
+              <input
+                value={String(form.attrs.hint ?? '')}
+                maxLength={BODY_TEXT_MAX}
+                onChange={(e) => setAttr('hint', e.target.value)}
+                placeholder="예: 상체에 볼륨이 있고 허리 위치가 높은 편이에요"
+              />
+            </Field>
           </>
         ) : null}
         {NO_ATTR_GROUPS.has(g) ? <p className="muted">이 그룹은 속성이 없습니다.</p> : null}

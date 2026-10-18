@@ -66,6 +66,16 @@ export interface ProfileDto {
   workRule: boolean;
   offRule: boolean;
   notify: { morning: boolean; evening: boolean; dMinus1: boolean };
+  // 나의 정보 (모두 선택, 비어 있으면 null). PUT은 전체 교체라 빠지거나 null이면 서버에서 비운다.
+  // 예전 서버는 이 필드를 내려주지 않는다(undefined).
+  /** 연령대 (AGE_RANGE 코드) */
+  ageRange: string | null;
+  /** 체형 (BODY_TYPE 코드) */
+  bodyType: string | null;
+  /** 키 (cm, 130~210) */
+  heightCm: number | null;
+  /** 핏 선호 (FIT 코드) */
+  fitPreference: string | null;
   onboarded: boolean;
 }
 
@@ -330,7 +340,11 @@ export type CodeGroupKey =
   /** 사용하지 않는 옷 이유 (doc/13 2장). 예전 서버에는 없다 */
   | 'RETIRE_REASON'
   /** 날씨 지역 (doc/17 2장). attrs.lat·lon. 예전 서버에는 없다 */
-  | 'REGION';
+  | 'REGION'
+  /** 나의 정보: 연령대·체형(attrs.description·hint)·핏 선호. 예전 서버에는 없다 */
+  | 'AGE_RANGE'
+  | 'BODY_TYPE'
+  | 'FIT';
 
 export interface CodeDto {
   code: string;

@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * H1: code 컨텍스트는 옷장·프로필 테이블을 읽지 않고 CodeUsageSource(각 컨텍스트의 입력 어댑터)로 사용 수를 묻는다. 옷장 아이템의 코드 컬럼 7개와
- * 프로필의 코드 칸 2개가 모두 사용 수에 잡히는지 확인한다 (컬럼을 늘리고 쿼리를 빠뜨리면 여기서 실패한다).
+ * 프로필의 코드 칸 5개(색·취향·연령대·체형·핏 선호)가 모두 사용 수에 잡히는지 확인한다 (컬럼을 늘리고 쿼리를 빠뜨리면 여기서 실패한다).
  */
 class CodeUsageSourceIntegrationTest extends IntegrationTestBase {
 
@@ -65,10 +65,13 @@ class CodeUsageSourceIntegrationTest extends IntegrationTestBase {
   }
 
   @Test
-  void 프로필의_색과_취향이_사용_수에_잡힌다() {
+  void 프로필의_색_취향_나의_정보가_사용_수에_잡힌다() {
     CodeUsageSource profiles = source(CodeUsageSource.Kind.PROFILE);
     final long colors = profiles.countUsing("COLOR", "mint");
     final long moods = profiles.countUsing("STYLE", "SPORTY");
+    final long ages = profiles.countUsing("AGE_RANGE", "AGE_50_PLUS");
+    final long bodies = profiles.countUsing("BODY_TYPE", "NATURAL");
+    final long fits = profiles.countUsing("FIT", "OVERSIZED");
     final Session s = signup();
     Map<String, Object> profile = new HashMap<>();
     profile.put("name", "프로필");
@@ -80,6 +83,10 @@ class CodeUsageSourceIntegrationTest extends IntegrationTestBase {
     profile.put("workRule", true);
     profile.put("offRule", true);
     profile.put("notify", Map.of("morning", true, "evening", true, "dMinus1", true));
+    profile.put("ageRange", "AGE_50_PLUS");
+    profile.put("bodyType", "NATURAL");
+    profile.put("heightCm", 170);
+    profile.put("fitPreference", "OVERSIZED");
     api().put("/api/v1/users/me/profile", s.accessToken(), profile).expect(200);
 
     assertThat(profiles.countUsing("COLOR", "mint")).isEqualTo(colors + 1);
@@ -88,6 +95,12 @@ class CodeUsageSourceIntegrationTest extends IntegrationTestBase {
     Map<String, Long> byCode = byCode(profiles);
     assertThat(byCode.get("COLOR:mint")).isEqualTo(colors + 1);
     assertThat(byCode.get("STYLE:SPORTY")).isEqualTo(moods + 1);
+    assertThat(profiles.countUsing("AGE_RANGE", "AGE_50_PLUS")).isEqualTo(ages + 1);
+    assertThat(profiles.countUsing("BODY_TYPE", "NATURAL")).isEqualTo(bodies + 1);
+    assertThat(profiles.countUsing("FIT", "OVERSIZED")).isEqualTo(fits + 1);
+    assertThat(byCode.get("AGE_RANGE:AGE_50_PLUS")).isEqualTo(ages + 1);
+    assertThat(byCode.get("BODY_TYPE:NATURAL")).isEqualTo(bodies + 1);
+    assertThat(byCode.get("FIT:OVERSIZED")).isEqualTo(fits + 1);
   }
 
   private CodeUsageSource source(CodeUsageSource.Kind kind) {

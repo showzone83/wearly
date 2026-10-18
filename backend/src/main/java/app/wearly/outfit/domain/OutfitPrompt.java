@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
  *
  * <ul>
  *   <li>시스템 지시: 역할, 코디 규칙, 2장 점수 기준, 출력 형식
- *   <li>사용자 메시지: 조건(상황·날씨·고정 등), 취향, 최근 코디, 색 짝(내 옷에 있는 색만), 칸별 옷 목록
+ *   <li>사용자 메시지: 조건(상황·날씨·고정 등), 취향(나의 정보가 있으면 연령대·체형·키·핏 선호 한 줄), 최근 코디, 색 짝(내 옷에 있는 색만), 칸별 옷 목록
  *   <li>스키마: 칸별 값은 그 칸에 쓸 수 있는 내 옷 id의 enum (못 쓰는 칸은 null만)
  * </ul>
  *
@@ -39,6 +39,12 @@ public final class OutfitPrompt {
   static final int NAME_MAX = 40;
 
   private static final Map<String, Object> NULL_ONLY = Map.of("type", "null");
+
+  /** 체형 "잘 모르겠어요": 프롬프트에 넣지 않는다 */
+  static final String BODY_TYPE_UNKNOWN = "UNKNOWN";
+
+  static final int HEIGHT_MIN = 130;
+  static final int HEIGHT_MAX = 210;
 
   private static final String INSTRUCTIONS =
       """
@@ -141,6 +147,10 @@ public final class OutfitPrompt {
                             : c)
                 .collect(Collectors.joining(", ")))
         .append('\n');
+    String me = personal(taste, codes);
+    if (me != null) {
+      out.append("- 회원 정보: ").append(me).append(" (옷의 볼륨·실루엣을 고를 때 참고)\n");
+    }
     out.append("- 좋아한 아이템: ").append(ownedIds(pool, r.likedItemIds())).append('\n');
     out.append("- 덜 좋아한 아이템: ").append(ownedIds(pool, r.dislikedItemIds())).append("\n\n");
 
@@ -341,6 +351,32 @@ public final class OutfitPrompt {
       }
     }
     return lines.isEmpty() ? "- 없음" : String.join("\n", lines);
+  }
+
+  /**
+   * 나의 정보 한 줄 (연령대·체형·키·핏 선호 중 있는 것만). 하나도 없으면 null. 체형 "잘 모르겠어요"(UNKNOWN)는 정보가 없는 것과 같아 빼고, 키는
+   * 범위(130~210) 밖이면 뺀다. 시스템 지시(캐시 고정 부분)에는 넣지 않는다.
+   */
+  static String personal(OutfitTaste taste, CodeSnapshot codes) {
+    List<String> parts = new ArrayList<>();
+    if (taste.ageRange() != null) {
+      parts.add("연령대 " + codeText(codes, CodeGroups.AGE_RANGE, taste.ageRange()));
+    }
+    if (taste.bodyType() != null && !BODY_TYPE_UNKNOWN.equals(taste.bodyType())) {
+      parts.add("체형 " + codeText(codes, CodeGroups.BODY_TYPE, taste.bodyType()));
+    }
+    Integer height = taste.heightCm();
+    if (height != null && height >= HEIGHT_MIN && height <= HEIGHT_MAX) {
+      parts.add("키 " + height + "cm");
+    }
+    if (taste.fitPreference() != null) {
+      parts.add("핏 선호 " + codeText(codes, CodeGroups.FIT, taste.fitPreference()));
+    }
+    return parts.isEmpty() ? null : String.join(", ", parts);
+  }
+
+  private static String codeText(CodeSnapshot codes, String group, String code) {
+    return quote(cut(codes.label(group, code), NAME_MAX)) + "(" + code + ")";
   }
 
   private static String ownedIds(OutfitPool pool, Set<String> ids) {

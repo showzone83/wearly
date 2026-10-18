@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, Text, useWindowDimensions, View } from 'r
 
 import { Icon } from '@/components/Icon';
 import { Mascot, useMascotIsScene } from '@/components/Mascot';
+import { PersonalForm } from '@/components/PersonalForm';
 import { StylePrefs, WorkPattern } from '@/components/StyleForm';
 import { Button, Header, Kicker, notify, Screen, StepDots, Title } from '@/components/ui';
 import { router } from 'expo-router';
@@ -13,23 +14,31 @@ import type { Profile } from '@/data/types';
 import { finishAccountOnboarding } from '@/lib/account';
 import { errorAlertMessage } from '@/lib/api';
 import { MOCK_MODE } from '@/lib/mode';
+import { EMPTY_PERSONAL, withPersonal } from '@/lib/personalInfo';
 import { useStore } from '@/store/useStore';
 import { makeStyles, useColors } from '@/theme';
 
-/** 0 = 스플래시, 1 = 옷장 시작 방법, 2 = 취향, 3 = 근무 패턴 */
-type Step = 0 | 1 | 2 | 3;
+/** 0 = 스플래시, 1 = 옷장 시작 방법, 2 = 취향, 3 = 근무 패턴, 4 = 나의 정보 (선택) */
+type Step = 0 | 1 | 2 | 3 | 4;
 
-const STEP_TEXT: Record<1 | 2 | 3, { title: string; desc: string }> = {
+const LAST_STEP = 4;
+
+const STEP_TEXT: Record<1 | 2 | 3 | 4, { title: string; desc: string }> = {
   1: {
     title: '잊고 있던 옷이\n새로운 스타일로!',
     desc: `지금, 장롱 속 옷을 꺼내 AI가 추천하는 코디를 만나보세요. 샘플 옷장(옷 ${SAMPLE_ITEM_COUNT}벌 · 지난 기록 2건 · 예정 2건)으로 먼저 둘러봐도 괜찮아요.`,
   },
   2: { title: '어떤 스타일을\n좋아하세요?', desc: '취향을 반영할수록 더 나에게 딱 맞는 코디를 추천해드려요. 나중에 더보기 > 스타일 설정에서 바꿀 수 있어요.' },
   3: { title: '언제\n출근하세요?', desc: '근무 요일을 알려주시면 근무일엔 출근 코디, 쉬는 날엔 편한 코디를 추천해요.' },
+  4: {
+    title: '나에게 맞는\n핏을 찾아볼까요?',
+    desc: '연령대·체형·키·핏 선호를 알려주시면 실루엣까지 생각해서 추천해요. 모두 선택이라 건너뛰어도 돼요. 나중에 더보기 > 나의 정보에서 바꿀 수 있어요.',
+  },
 };
 
 // 목업 ① 첫 실행·온보딩 (p.39). 이메일 계정(임시) 또는 로그인 없이 체험. 소셜 로그인은 API 키 발급 후 연동 예정.
 // 모양은 디자인 보드(doc/12 5장): 스플래시 → 옷장 시작(STEP 1) → 취향(STEP 2) → 근무 패턴(STEP 3)
+// → 나의 정보(STEP 4, 선택. GitHub 이슈 #5)
 export default function Onboarding() {
   const completeOnboarding = useStore((s) => s.completeOnboarding);
   const isAccount = useStore((s) => s.authMode === 'account');
@@ -39,6 +48,7 @@ export default function Onboarding() {
   const [withSample, setWithSample] = useState(true);
   const [profile, setProfile] = useState<Profile>(isAccount ? initialProfile : DEFAULT_PROFILE);
   const [busy, setBusy] = useState(false);
+  const [personalValid, setPersonalValid] = useState(true);
   const s = useStyles();
   const c = useColors();
   const insets = useSafeAreaInsets();
@@ -53,15 +63,15 @@ export default function Onboarding() {
     setStep((s) => (s === 0 ? 1 : s));
   }, [isAccount]);
 
-  const finish = async () => {
+  const finish = async (final: Profile = profile) => {
     if (!isAccount) {
-      completeOnboarding(profile, withSample);
+      completeOnboarding(final, withSample);
       router.replace('/home');
       return;
     }
     setBusy(true);
     try {
-      await finishAccountOnboarding(profile, withSample);
+      await finishAccountOnboarding(final, withSample);
       router.replace('/home');
     } catch (e) {
       notify('설정을 저장하지 못했어요', errorAlertMessage(e));
@@ -110,17 +120,19 @@ export default function Onboarding() {
   }
 
   const text = STEP_TEXT[step];
-  const next = () => (step === 3 ? finish() : setStep((step + 1) as Step));
+  const next = () => (step === LAST_STEP ? finish() : setStep((step + 1) as Step));
+  // 나의 정보 단계의 건너뛰기는 그 단계에서 고른 값을 저장하지 않는다
+  const skip = () => (step === LAST_STEP ? finish(withPersonal(profile, EMPTY_PERSONAL)) : finish());
   const canBack = step > 1 || !isAccount;
   const back = () => setStep((step - 1) as Step);
   const header = (
     <Header
       hideBack={!canBack}
       onBack={back}
-      center={<StepDots total={3} current={step} />}
+      center={<StepDots total={LAST_STEP} current={step} />}
       right={
         step === 1 && !isAccount ? null : (
-          <Pressable onPress={() => void finish()} disabled={busy} hitSlop={8} accessibilityRole="button">
+          <Pressable onPress={() => void skip()} disabled={busy} hitSlop={8} accessibilityRole="button">
             <Text style={s.skip}>건너뛰기</Text>
           </Pressable>
         )
@@ -147,7 +159,7 @@ export default function Onboarding() {
         <View style={closetIsScene ? s.heroScene : s.hero}>
           <Mascot pose="closet" size={Math.min(width, 480) * 0.62} sceneWidth={Math.min(width, 480) - 40} />
         </View>
-        <Kicker>STEP 1 / 3</Kicker>
+        <Kicker>STEP 1 / {LAST_STEP}</Kicker>
         <Title style={s.title}>{text.title}</Title>
         <Text style={s.desc}>{text.desc}</Text>
         {isAccount && <Text style={s.hint}>샘플 옷도 계정 옷장에 저장돼요. 나중에 하나씩 지울 수 있어요.</Text>}
@@ -160,24 +172,27 @@ export default function Onboarding() {
       header={header}
       footer={
         <Button
-          title={busy ? '' : step === 3 ? '완료하기' : '다음'}
+          title={busy ? '' : step === LAST_STEP ? '완료하기' : '다음'}
           icon={busy ? <ActivityIndicator color={c.onPrimary} /> : undefined}
           onPress={next}
-          disabled={busy}
+          disabled={busy || (step === LAST_STEP && !personalValid)}
         />
       }
     >
       <View style={s.stepHead}>
         <View style={{ flex: 1 }}>
-          <Kicker>STEP {step} / 3</Kicker>
+          <Kicker>
+            STEP {step} / {LAST_STEP}
+          </Kicker>
           <Title style={s.title}>{text.title}</Title>
         </View>
-        <Mascot pose={step === 2 ? 'style' : 'cheer'} size={112} />
+        <Mascot pose={step === 2 || step === 4 ? 'style' : 'cheer'} size={112} />
       </View>
       <Text style={s.desc}>{text.desc}</Text>
       <View style={{ marginTop: 28 }}>
         {step === 2 && <StylePrefs value={profile} onChange={setProfile} />}
         {step === 3 && <WorkPattern value={profile} onChange={setProfile} />}
+        {step === 4 && <PersonalForm value={profile} onChange={setProfile} onValidChange={setPersonalValid} />}
       </View>
     </Screen>
   );

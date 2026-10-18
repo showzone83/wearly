@@ -16,6 +16,8 @@ class UserProfileTest {
     assertThat(d.workDays()).containsExactly(1, 2, 3, 4, 5);
     assertThat(d.onboarded()).isFalse();
     assertThat(d.notifications().toMap()).containsOnlyKeys("morning", "evening", "dMinus1");
+    // 나의 정보는 모두 비어 있다 (선택 입력)
+    assertThat(d.personal().isEmpty()).isTrue();
   }
 
   @Test
@@ -30,12 +32,34 @@ class UserProfileTest {
                 true,
                 false,
                 new UserProfile.Notify(true, false, true),
-                true)
+                true,
+                new UserProfile.PersonalInfo("AGE_30_EARLY", "WAVE", 162, "SLIM"))
             .normalized();
     assertThat(p.dressCodes()).containsExactly(DressCode.FORMAL);
     assertThat(p.colors()).containsExactly("navy", "white");
     assertThat(p.workDays()).containsExactly(1, 5);
+    // 나의 정보는 그대로 둔다
+    assertThat(p.personal())
+        .isEqualTo(new UserProfile.PersonalInfo("AGE_30_EARLY", "WAVE", 162, "SLIM"));
     assertThat(UserProfile.Notify.fromMap(null))
         .isEqualTo(new UserProfile.Notify(false, false, false));
+  }
+
+  @Test
+  void 나의_정보가_null이면_빈_값으로_둔다() {
+    UserProfile p =
+        new UserProfile(
+            List.of(DressCode.CASUAL),
+            List.of(),
+            List.of(),
+            WorkType.WEEKDAY,
+            List.of(1),
+            true,
+            true,
+            new UserProfile.Notify(true, true, true),
+            true,
+            null);
+    assertThat(p.personal()).isSameAs(UserProfile.PersonalInfo.EMPTY);
+    assertThat(new UserProfile.PersonalInfo(null, null, 170, null).isEmpty()).isFalse();
   }
 }
