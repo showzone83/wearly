@@ -16,7 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 옷 사진 분석 (05 문서 6장). 경로는 옷장 아래지만 AI 컨텍스트의 유스케이스다. 사진은 multipart 파트 image로 바로 보내거나, 서버에 저장한 사진을
- * JSON { imageId }로 가리킨다 (17 문서)
+ * JSON { imageId }로 가리킨다 (18 문서)
  */
 @RestController
 @RequestMapping("/api/v1/wardrobe")

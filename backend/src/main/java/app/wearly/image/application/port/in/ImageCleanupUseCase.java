@@ -2,7 +2,7 @@ package app.wearly.image.application.port.in;
 
 import app.wearly.image.application.port.in.dto.CleanupResultDto;
 
-/** 사진 정리 (17 문서 3장) */
+/** 사진 정리 (18 문서 3장) */
 public interface ImageCleanupUseCase {
 
   /**

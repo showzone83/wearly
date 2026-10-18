@@ -117,7 +117,7 @@ wearly:
     email: ${WEARLY_ADMIN_EMAIL:}
     password: ${WEARLY_ADMIN_PASSWORD:}
     name: ${WEARLY_ADMIN_NAME:관리자}
-  # 옷 사진 저장소 (S3 호환, 17 문서). 로컬 기본은 compose의 MinIO(wearly-minio, 호스트 9000).
+  # 옷 사진 저장소 (S3 호환, 18 문서). 로컬 기본은 compose의 MinIO(wearly-minio, 호스트 9000).
   # 계정 wearly / wearly-minio-local은 로컬 전용 값이다 (DB 비밀번호와 같은 취급). 운영 예시: backend/config/application-cloud.example.yml
   storage:
     endpoint: ${WEARLY_STORAGE_ENDPOINT:http://localhost:9000}

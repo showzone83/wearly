@@ -11,6 +11,8 @@
 >
 > **7차 변경(2026-10-17)**: Refresh 토큰·로그인 세션을 DB에서 Valkey로 옮겼다(`tb_refresh_token` 삭제, `tb_auth_event` 추가, `V10__auth_session_valkey.sql`). Access 토큰에 `sid`(세션 ID)가 들어가고 매 요청 세션이 살아 있는지 확인한다. 관리자 로그인 사용자 보기·강제 로그아웃 → [16_세션_Valkey.md](16_세션_Valkey.md).
 >
+> **사진 저장(2026-10-18)**: 옷 사진을 S3 호환 오브젝트 스토리지(로컬 MinIO)에 서버가 저장한다(`V12__item_image_storage.sql`). 이미지 API(`/images/upload-url`·`/images/{id}/complete`), 아이템 `image`·`imageId`, analyze `{imageId}` → [18_사진_저장.md](18_사진_저장.md). 이 문서의 "이미지 업로드·저장 제외"·"사진은 앱 기기에만" 문구는 계정 모드에서 18 문서가 우선이다.
+>
 > **4차 변경**: AI 코디 추천 `POST /api/v1/outfits/recommendations`(`V5__outfit_recommend.sql`) → [09_AI_코디_추천.md](09_AI_코디_추천.md). 백엔드 코드 스타일(Google Java Style) → 08 문서 5장.
 
 ## 1. 범위
@@ -18,7 +20,7 @@
 | 포함 | 제외 (다음 단계) |
 |---|---|
 | 이메일·비밀번호 가입과 로그인, JWT Access 토큰, Refresh 토큰 회전 | 소셜 로그인 (카카오·애플·구글) |
-| 내 정보 조회, 회원 탈퇴 | 이미지 업로드·저장 (사진은 앱 기기에만 둔다) |
+| 내 정보 조회, 회원 탈퇴 | ~~이미지 업로드·저장~~ → 사진 저장에서 포함 (18 문서). 게스트 사진은 기기에만 |
 | 취향·근무 패턴 프로필 조회·저장 | 코디 저장·피드백·예정일·착용 기록 API (테이블만 만든다) |
 | 옷장 아이템 CRUD, 일괄 등록, 필터 목록, 통계 | 추천·진단의 서버 이전 (앱의 규칙 엔진 유지) |
 | AI 사진 분석 (기본 Claude, 목업은 명시할 때만) | 소셜 토큰 검증, App Check, Redis 요청 제한 |
@@ -32,10 +34,10 @@
 | Spring Boot | 4.1.x (MyBatis 스타터가 호환되지 않으면 4.0.x) |
 | Java | 21 (Gradle toolchain) |
 | 빌드 | Gradle Kotlin DSL, wrapper 포함 |
-| DB | `docker compose up -d db` → `wearly-postgres`, `localhost:5433`, DB·계정·비밀번호 모두 `wearly` (로컬 전용). `docker compose up -d --build`는 백엔드(8080)·관리자 사이트(5173)까지 띄운다 |
+| DB | `docker compose up -d db` → `wearly-postgres`, `localhost:5433`, DB·계정·비밀번호 모두 `wearly` (로컬 전용). `docker compose up -d --build`는 Valkey·MinIO(옷 사진, 9000·9001)·백엔드(8080)·관리자 사이트(5173)까지 띄운다 |
 | 스키마 | Flyway가 만든다. JPA는 `ddl-auto: validate` |
 | 서버 포트 | 8080 |
-| 비밀 값 | `backend/config/application-local.yml` (git·docker 이미지 제외, 견본 `application-local.example.yml`, `.env` 쓰지 않음 — 08 문서 6장). `wearly.ai.keys.ANTHROPIC_API_KEY`·`OPENAI_API_KEY`·`GEMINI_API_KEY`(공급자 행의 `api_key_env` = 서버 설정 키 이름), `wearly.jwt.secret`, `wearly.admin.email`·`wearly.admin.password`(·`wearly.admin.name`), 3차 `wearly.secret-key`(웹 입력 AI 키의 마스터 키, base64 32바이트). 같은 값을 OS 환경변수(`ANTHROPIC_API_KEY`, `WEARLY_JWT_SECRET`, `WEARLY_ADMIN_EMAIL` …, `WEARLY_SECRET_KEY`)로도 줄 수 있다 |
+| 비밀 값 | `backend/config/application-local.yml` (git·docker 이미지 제외, 견본 `application-local.example.yml`, `.env` 쓰지 않음 — 08 문서 6장). `wearly.ai.keys.ANTHROPIC_API_KEY`·`OPENAI_API_KEY`·`GEMINI_API_KEY`(공급자 행의 `api_key_env` = 서버 설정 키 이름), `wearly.jwt.secret`, `wearly.storage.*`(옷 사진 저장소, 로컬 MinIO 값이 기본이라 로컬에서는 적지 않는다, 18 문서 3장), `wearly.admin.email`·`wearly.admin.password`(·`wearly.admin.name`), 3차 `wearly.secret-key`(웹 입력 AI 키의 마스터 키, base64 32바이트). 같은 값을 OS 환경변수(`ANTHROPIC_API_KEY`, `WEARLY_JWT_SECRET`, `WEARLY_ADMIN_EMAIL` …, `WEARLY_SECRET_KEY`)로도 줄 수 있다 |
 
 ### 데이터 접근 분담
 
@@ -48,6 +50,7 @@
 2차에서 더한 테이블: `tb_code_group`·`tb_code`(06 문서 2장), `tb_ai_provider`·`tb_admin_audit_log`, `tb_user.role`(07 문서 2·3장).
 3차에서 더한 테이블: `tb_ai_provider_secret`(웹 입력 AI 키의 AES-256-GCM 암호문, 07 문서 6장).
 4차: `tb_ai_analysis_log.feature` CHECK에 `OUTFIT_RECOMMEND`(AI 코디 추천, 이미지 칸은 NULL)를 더하고, 한도 집계 인덱스를 `(user_id, feature, created_at) WHERE status = 'SUCCESS'`로 바꿨다 (09 문서).
+사진 저장(2026-10-18): `V12__item_image_storage.sql` — V1의 빈 `tb_item_image`를 지우고 다시 만든다(`purpose`·`status`·`declared_size`·`upload_key`·`deleted_at` 등, 아이템당 사진 하나의 부분 유니크 인덱스, 18 문서 4장). V11은 날씨(17 문서).
 7차(2026-10-17): `V10__auth_session_valkey.sql` — `tb_refresh_token` 삭제(토큰·세션은 Valkey), `tb_auth_event`(로그인 이력: LOGIN·LOGOUT·REFRESH_REUSED·FORCED_LOGOUT, 16 문서 3장) 추가.
 6차(2026-10-17): `V8__app_setting.sql` — `tb_app_setting`(앱 전체 설정, 초기값 `theme` = `{"themeId":"nyang"}`, 12 문서 3장). `V9__wardrobe_item_retire.sql` — `tb_wardrobe_item`에 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스 `ix_wardrobe_item_in_use (user_id) WHERE retired_at IS NULL`, CHECK `ck_wardrobe_item_retired`(사용 중지면 시각·이유가 함께 있다), 코드 그룹 `RETIRE_REASON` 5개(13 문서 2장).
 
@@ -63,7 +66,7 @@
 | `tb_user_profile` | 앱 `Profile` + `onboarded`. 배열은 `TEXT[]`/`SMALLINT[]`, 알림은 `JSONB` | O |
 | `tb_user_style` | 취향 학습 점수 (`style_code`, `preference_score`) | 테이블만 |
 | `tb_wardrobe_item` | 옷장 아이템. `seasons`·`styles`는 `TEXT[]`, `ai_suggestion JSONB`. 사용 중지는 `retired_at`(NULL이면 사용 중)·`retire_reason`·`retire_memo` | O |
-| `tb_item_image` | 아이템 이미지 URL | 테이블만 |
+| `tb_item_image` | 옷 사진 메타데이터(V12에서 다시 만듦). `image_id` UUID, `item_id`(아이템당 하나), `status`(PENDING·READY·DELETED), 크기·가로·세로, 오브젝트 키. 파일은 오브젝트 스토리지(18 문서 4장) | O (18 문서) |
 | `tb_outfit` / `tb_outfit_item` | 코디 헤더(점수·`breakdown JSONB`·`context JSONB`) / 구성(`item_role` = 슬롯) | 테이블만 |
 | `tb_outfit_feedback` | LIKE·DISLIKE, `reasons JSONB` | 테이블만 |
 | `tb_planned_outfit` | 예정일 코디 | 테이블만 |
@@ -107,7 +110,11 @@
 | 409 | `SECRET_KEY_MISSING` | 서버에 마스터 키(`wearly.secret-key` / 환경변수 `WEARLY_SECRET_KEY`)가 없어 AI 키를 웹에서 넣을 수 없음 (07 문서 6장) |
 | 400 | `API_KEY_INVALID` | 저장 전 키 확인(각 사 모델 목록 조회) 실패 (07 문서 6장) |
 | 400 | `WARDROBE_INSUFFICIENT` | AI 코디 추천에 쓸 옷이 모자람. `message`에 모자란 칸 코드 (예: `BOTTOM 또는 DRESS, SHOES`) (09 문서) |
-| 413 | `IMAGE_TOO_LARGE` | 분석 이미지 10MB 초과 |
+| 400 | `IMAGE_INVALID` | 사진 처리 실패(complete): 10MB 초과·JPEG/PNG 아님·디코딩 실패. 그 `imageId`는 버려진다 (18 문서 6장) |
+| 400 | `IMAGE_NOT_UPLOADED` | complete인데 올린 파일이 없음, 또는 올리기가 끝나지 않은(PENDING) 이미지를 아이템에 붙이거나 analyze함 (18 문서) |
+| 409 | `IMAGE_IN_USE` | 다른 아이템에 붙은 이미지를 붙이려 함 (18 문서) |
+| 429 | `IMAGE_UPLOAD_LIMIT` | 하루 사진 업로드 URL 발급 한도(기본 200) 초과 (18 문서) |
+| 413 | `IMAGE_TOO_LARGE` | 분석 이미지 10MB 초과 (multipart analyze) |
 | 429 | `AI_LIMIT_EXCEEDED` | AI 사진 분석·AI 코디 추천 일일 한도 초과 (기능별로 따로 센다) |
 | 502 | `AI_UNAVAILABLE` | AI 공급자 오류 |
 
@@ -188,14 +195,37 @@ interface ProfileDto {
 | POST | `/wardrobe/items/{id}/retire` | `{ reason, memo? }` | `ItemDto`. 이미 사용 중지면 이유·메모만 바꾸고 시각은 그대로 | JPA |
 | POST | `/wardrobe/items/{id}/restore` | — | `ItemDto`. 사용 중이면 그대로 200 | JPA |
 | GET | `/wardrobe/stats` | — | `WardrobeStats` | MyBatis 집계 |
-| POST | `/wardrobe/items/analyze` | multipart, 파트 이름 `image` (jpeg·png·webp·heic, 10MB) | `AnalyzeResponse` | AI 공급자 |
+| POST | `/wardrobe/items/analyze` | multipart, 파트 이름 `image` (jpeg·png·webp·heic, 10MB). 또는 JSON `{ imageId }`(내 READY 이미지, 18 문서) | `AnalyzeResponse` | AI 공급자 |
+
+**옷 사진** (2026-10-18, 계약 18 문서): 등록·수정(bulk 항목 포함) 요청에 `imageId?: string | null`을 더했다. PATCH에서 `null`이면 사진 빼기, 필드를 빼면 그대로다. 내 READY 이미지만 붙일 수 있고, PENDING은 400 `IMAGE_NOT_UPLOADED`, 다른 아이템에 붙은 것은 409 `IMAGE_IN_USE`, 없는·남의 것은 404. 사진을 바꾸면 예전 사진은 버려진다. 아이템 응답(목록·상세·등록·수정·retire·restore)에는 `image`가 있다.
+
+### 옷 사진 (18 문서)
+
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| POST | `/images/upload-url` | `{ purpose: 'ITEM', contentType: 'image/jpeg' \| 'image/png', size }` | 200 `UploadUrlResponse` (입력 오류 400 `VALIDATION_FAILED`, 한도 429 `IMAGE_UPLOAD_LIMIT`) |
+| POST | `/images/{imageId}/complete` | — | 200 `ImageCompleteResponse` (400 `IMAGE_INVALID`·`IMAGE_NOT_UPLOADED`, 남의·없는 이미지 404). 이미 READY면 같은 모양으로 새 서명 URL |
+
+```ts
+interface UploadUrlResponse {
+  imageId: string;            // UUID
+  uploadUrl: string;          // 저장소에 바로 PUT하는 서명 URL (기본 10분)
+  method: 'PUT';
+  headers: Record<string, string>;  // { 'Content-Type': ... } 그대로 붙여 보낸다
+  expiresAt: string;
+}
+interface ImageRef { imageId: string; url: string; thumbUrl: string; expiresAt: string }  // url·thumbUrl = GET 서명 URL (기본 1시간)
+interface ImageCompleteResponse extends ImageRef { width: number; height: number }       // 저장한 original의 크기
+```
+
+앱은 서명 URL로 저장소에 직접 올리므로 `put`에는 토큰을 붙이지 않는다. 서명 URL은 받을 때마다 달라지니 `imageId`로 캐시한다. 처리 규칙(EXIF 제거·축소)과 오류 코드는 18 문서 6~7장.
 
 **사용하지 않는 옷** (6차, 계약 13 문서): `retire`의 `reason`은 활성 `RETIRE_REASON` 코드, `memo`는 앞뒤 공백을 지운 뒤 200자 이하(빈 메모는 `null`로 저장). 틀리면 400 `VALIDATION_FAILED`(`reason`·`memo`), 남의 옷·없는 옷은 입력보다 먼저 404. 사용 중지는 보유 상태(`status`)와 별개이고, 사용 중지한 옷도 단건 조회·PATCH·완전 삭제가 된다. 통계는 사용 중인 옷만 세고 `retired`·`retiredByReason`을 따로 준다. AI 코디 추천 후보에서 빠지며, 고정(`context.fixed`)·중심(`context.anchorItemId`)으로 주면 400 `VALIDATION_FAILED`("사용하지 않는 옷이에요."). 코드 삭제 가드(`CODE_IN_USE`)는 사용 중지한 옷도 센다.
 
 2차부터 `Category`·`SubType`·`ColorKey`·`Pattern`·`Season`·`StyleTag`·보유 상태는 **코드 문자열**이다. 허용 값·검증 규칙(새 값은 활성 코드만, PATCH에서 안 바꾼 비활성 값은 통과, subType의 parent = category)은 06 문서 4장을 따른다. `WardrobeStats.byCategory`·`byStatus`의 키는 활성 코드 전부 + 아이템이 있는 비활성 코드다.
 
 ```ts
-// 앱 WardrobeItem에서 imageUri를 뺀 모양. 사진은 앱이 아이템 id별로 기기에 따로 보관한다.
+// 앱 WardrobeItem에서 imageUri를 뺀 모양. 서버에 올린 사진은 image (18 문서). 서버가 없는 게스트 사진은 앱이 기기에 둔다.
 interface ItemDto {
   id: string;
   name: string;
@@ -214,8 +244,9 @@ interface ItemDto {
   retiredAt: string | null;     // 6차: 사용 중지 시각 (ISO). null이면 사용 중
   retireReason: string | null;  // RETIRE_REASON 코드
   retireMemo: string | null;
+  image: ImageRef | null;       // 사진 저장: 서버에 저장한 대표 사진, 없으면 null
 }
-type ItemInput = Omit<ItemDto, 'id' | 'createdAt' | 'retiredAt' | 'retireReason' | 'retireMemo'> & { wornCount?: number; lastWornAt?: string | null };
+type ItemInput = Omit<ItemDto, 'id' | 'createdAt' | 'retiredAt' | 'retireReason' | 'retireMemo' | 'image'> & { wornCount?: number; lastWornAt?: string | null; imageId?: string | null };
 
 // retired·retiredByReason 말고는 사용 중인 옷만 센다 (6차)
 interface WardrobeStats {
@@ -279,7 +310,7 @@ interface AnalyzeResponse {
 - 세 공급자 모두 이미지와 함께 **활성 코드**로 만든 허용 값 목록(코드+한국어 라벨, 세부 종류는 종류별)과 JSON 스키마를 주고 구조화 출력으로 받는다. 허용 목록 밖 값·짝 불일치는 서버가 거부하고 다음 공급자로 넘어간다 (06 문서 4장).
 - 목업은 이미지 바이트의 SHA-256으로 활성 코드 중에서 값을 정한다 (같은 사진 + 같은 코드 = 같은 결과).
 - 일일 한도 `WEARLY_AI_DAILY_LIMIT` (기본 10). 성공한 사진 분석(`feature='ITEM_ANALYZE'`)만 센다. 4차 AI 코디 추천은 `WEARLY_AI_OUTFIT_DAILY_LIMIT`(기본 20)로 따로 센다(`feature='OUTFIT_RECOMMEND'`, 09 문서). 관리자 시험 분석(`ADMIN_TEST`)은 세지 않는다. 집계는 `tb_ai_analysis_log`를 MyBatis로 센다 (Asia/Seoul 날짜 기준).
-- 이미지는 저장하지 않는다. 로그에는 결과 JSON과 메타만 남긴다. 키 값은 어떤 응답·로그·변경 이력에도 내보내지 않는다 (3차: 관리자 응답의 `keyLast4`(웹 입력 키의 끝 4자)만 예외, 07 문서 6장).
+- multipart로 보낸 이미지는 저장하지 않는다. `{ imageId }`로 분석할 때는 서버에 저장한 original을 읽어 같은 흐름에 넣는다(18 문서 7.4). 로그에는 결과 JSON과 메타만 남긴다. 키 값은 어떤 응답·로그·변경 이력에도 내보내지 않는다 (3차: 관리자 응답의 `keyLast4`(웹 입력 키의 끝 4자)만 예외, 07 문서 6장).
 
 ## 8. 앱 API 모듈 계약 (`mobile/src/api/`)
 
@@ -291,7 +322,7 @@ interface AnalyzeResponse {
 | 파일 | 내용 |
 |---|---|
 | `types.ts` | 위 DTO 타입 전부, `ApiErrorBody` |
-| `errors.ts` | `class ApiError extends Error { status; code; fieldErrors }`, 네트워크 실패는 `code: 'NETWORK'` |
+| `errors.ts` | `class ApiError extends Error { status; code; fieldErrors }`, 네트워크 실패는 `code: 'NETWORK'`, 서명 URL로 올리기(PUT) 실패는 앱이 만드는 `code: 'UPLOAD_FAILED'`(저장소 응답은 서버 오류 형식이 아니다) |
 | `tokenStore.ts` | `interface TokenStore { get(): Promise<Tokens \| null>; set(t: Tokens): Promise<void>; clear(): Promise<void> }`, `Tokens = { accessToken, refreshToken }`, `createMemoryTokenStore()` |
 | `client.ts` | `createApiClient({ baseUrl, tokenStore, onAuthLost? })` |
 
@@ -305,6 +336,8 @@ api.profile.get() / api.profile.put(dto)
 api.wardrobe.list(filter?) / get(id) / create(input) / bulkCreate(inputs)
 api.wardrobe.update(id, patch) / remove(id) / stats()
 api.wardrobe.analyze(file)                   // file: Blob | { uri, name, type } (RN)
+api.wardrobe.analyzeImage({ imageId })       // 서버에 올린 사진으로 분석 (18 문서)
+api.images.uploadUrl(req) / put(target, body) / complete(imageId)   // 사진 올리기 3단계 (put은 서명 URL로 직접, 토큰 없음)
 ```
 
 - `TOKEN_EXPIRED`를 받으면 Refresh로 한 번 갱신하고 원래 요청을 한 번 다시 보낸다. 동시에 여러 요청이 만료돼도 갱신 요청은 **하나만** 보낸다 (single-flight).
@@ -316,4 +349,5 @@ api.wardrobe.analyze(file)                   // file: Blob | { uri, name, type }
 - 짧은 Access 수명(`WEARLY_ACCESS_TTL=PT3S`)과 낮은 AI 한도(`WEARLY_AI_DAILY_LIMIT=3`), `WEARLY_AI_PROVIDER=mock`으로 띄워 만료·갱신·한도를 실제로 확인한다.
 - 개발용 `backend/config/application-local.yml`(실제 AI 키·관리자 계정·마스터 키)은 읽지 않는다 (`WEARLY_LOCAL_CONFIG`를 없는 경로로 준다). DB는 compose의 `db`(`wearly-postgres`)를 쓴다.
 - 시나리오는 `mobile/src/api/client.ts`를 그대로 import해 앱과 같은 코드로 서버를 부른다.
+- 사진 저장 시나리오(43~46)는 앱 모듈을 거치지 않고 원시 HTTP로 서명 URL까지 실제로 PUT·GET한다. 하네스 전용 버킷 `wearly-images-harness`(compose의 MinIO)를 쓴다 (18 문서 2장, `harness/README.md`).
 - 6차의 앱 설정·옷 사용 중지 시나리오(30~37)는 앱 모듈을 거치지 않고 원시 HTTP로만 서버 계약을 확인한다 (`harness/README.md`).

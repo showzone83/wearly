@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 옷 사진 한 장 (tb_item_image, 17 문서 2장). PENDING(업로드 URL 발급) → READY(complete: 검증·다시 인코딩) → 아이템에 붙음 →
+ * 옷 사진 한 장 (tb_item_image, 18 문서 2장). PENDING(업로드 URL 발급) → READY(complete: 검증·다시 인코딩) → 아이템에 붙음 →
  * DELETED(교체·아이템 삭제·처리 실패). 한 아이템에 READY 사진 하나.
  */
 public class ItemImage {

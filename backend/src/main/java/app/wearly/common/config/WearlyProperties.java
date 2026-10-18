@@ -117,7 +117,7 @@ public record WearlyProperties(
   public record Cors(List<String> allowedOrigins) {}
 
   /**
-   * 옷 사진 저장소 (S3 호환 오브젝트 스토리지, 17 문서). 로컬은 compose의 MinIO, 운영은 AWS S3·Cloudflare R2·NCP Object
+   * 옷 사진 저장소 (S3 호환 오브젝트 스토리지, 18 문서). 로컬은 compose의 MinIO, 운영은 AWS S3·Cloudflare R2·NCP Object
    * Storage를 같은 어댑터로 쓴다 (설정만 바꾼다).
    */
   public record Storage(

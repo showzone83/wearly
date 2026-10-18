@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!-- 옷 사진 (17 문서): 하루 업로드 한도 집계와 정리 작업 대상. 날짜 경계(Asia/Seoul 자정)는 서비스에서 계산해 넘긴다 -->
+<!-- 옷 사진 (18 문서): 하루 업로드 한도 집계와 정리 작업 대상. 날짜 경계(Asia/Seoul 자정)는 서비스에서 계산해 넘긴다 -->
 <mapper namespace="app.wearly.image.adapter.out.persistence.mybatis.mapper.ItemImageMapper">
 
     <!-- 같은 회원의 업로드 URL 발급을 한 줄로 세워 한도를 넘지 않게 한다. 트랜잭션이 끝나면 풀린다 -->

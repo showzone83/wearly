@@ -7,7 +7,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * 통합 테스트용 사진 저장소 (S3 호환 MinIO, 17 문서). docker-compose.yml의 minio 서비스와 같은 이미지 컨테이너를 한 번 띄워 모든 테스트가
+ * 통합 테스트용 사진 저장소 (S3 호환 MinIO, 18 문서). docker-compose.yml의 minio 서비스와 같은 이미지 컨테이너를 한 번 띄워 모든 테스트가
  * 함께 쓴다. 버킷은 서버가 시작할 때 만든다(auto-create-bucket). 서명 URL은 요청 Host(localhost) + 매핑된 포트로 만들어지므로 테스트가 실제
  * HTTP로 PUT·GET할 수 있다.
  */

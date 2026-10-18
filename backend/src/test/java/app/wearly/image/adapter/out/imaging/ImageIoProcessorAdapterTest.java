@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
-/** 사진 검증·다시 인코딩 (17 문서 3장): 형식 판별, EXIF 제거, 방향 적용, 축소, 픽셀 수 상한 */
+/** 사진 검증·다시 인코딩 (18 문서 3장): 형식 판별, EXIF 제거, 방향 적용, 축소, 픽셀 수 상한 */
 class ImageIoProcessorAdapterTest {
 
   final ImageIoProcessorAdapter processor = new ImageIoProcessorAdapter(40_000_000L, 2);

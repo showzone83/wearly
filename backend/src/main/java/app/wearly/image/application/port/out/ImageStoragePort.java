@@ -6,7 +6,7 @@ import java.util.Collection;
 import java.util.Optional;
 
 /**
- * 사진 파일 저장소 (S3 호환 오브젝트 스토리지, 17 문서 1장). 서비스는 S3를 모른다. 실패(네트워크·권한)는 런타임 예외로 던진다. 서명 URL의 호스트는 어댑터가
+ * 사진 파일 저장소 (S3 호환 오브젝트 스토리지, 18 문서 1장). 서비스는 S3를 모른다. 실패(네트워크·권한)는 런타임 예외로 던진다. 서명 URL의 호스트는 어댑터가
  * 정한다 (설정 public-endpoint, 없으면 지금 요청의 Host 이름 + 저장소 포트).
  */
 public interface ImageStoragePort {

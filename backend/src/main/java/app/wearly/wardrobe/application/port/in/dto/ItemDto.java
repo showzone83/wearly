@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * 옷장 아이템 한 벌 (유스케이스 출력). 속성 값은 코드 문자열 (06 문서), ID·시각은 자바 타입 그대로. 사용 중이면 retiredAt·retireReason·
- * retireMemo가 null (13 문서). image는 대표 사진(서명 URL), 없으면 null (17 문서)
+ * retireMemo가 null (13 문서). image는 대표 사진(서명 URL), 없으면 null (18 문서)
  */
 public record ItemDto(
     Long id,

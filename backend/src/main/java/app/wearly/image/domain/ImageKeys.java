@@ -3,7 +3,7 @@ package app.wearly.image.domain;
 import java.util.UUID;
 
 /**
- * 오브젝트 키 규칙 (17 문서 1장). 업로드 원본은 uploads/{userId}/{imageId}(처리 후 지운다), 저장본은
+ * 오브젝트 키 규칙 (18 문서 1장). 업로드 원본은 uploads/{userId}/{imageId}(처리 후 지운다), 저장본은
  * users/{userId}/items/{imageId}/original.jpg·thumb.jpg. 회원 탈퇴는 두 접두사를 통째로 지운다.
  */
 public final class ImageKeys {

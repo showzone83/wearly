@@ -22,7 +22,7 @@ DB_NAME=wearly_harness
 VALKEY_CONTAINER=wearly-valkey
 VALKEY_PORT=6380
 VALKEY_DB=1
-# 옷 사진 저장소 (doc/17). compose의 wearly-minio(호스트 9000)를 같이 쓰되, 개발 서버의 wearly-images와 섞이지 않게
+# 옷 사진 저장소 (doc/18). compose의 wearly-minio(호스트 9000)를 같이 쓰되, 개발 서버의 wearly-images와 섞이지 않게
 # 하네스 전용 버킷을 쓰고 시작 때 비운다. 계정은 compose의 로컬 전용 값
 MINIO_CONTAINER=wearly-minio
 MINIO_ENDPOINT=http://localhost:9000

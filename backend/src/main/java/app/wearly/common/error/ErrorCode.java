@@ -1,7 +1,7 @@
 package app.wearly.common.error;
 
 /**
- * 05 문서 4장 + 07 문서 + 17 문서(사진 저장)의 오류 코드. HTTP 상태 번호와 기본 메시지를 함께 둔다 (유스케이스가 쓰므로 Spring Web 타입은 쓰지
+ * 05 문서 4장 + 07 문서 + 18 문서(사진 저장)의 오류 코드. HTTP 상태 번호와 기본 메시지를 함께 둔다 (유스케이스가 쓰므로 Spring Web 타입은 쓰지
  * 않는다).
  */
 public enum ErrorCode {

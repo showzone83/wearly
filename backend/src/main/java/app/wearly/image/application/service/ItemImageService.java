@@ -22,7 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 아이템 대표 사진 붙이기·빼기·조회 (17 문서 3장). wardrobe 유스케이스의 트랜잭션에 함께 들어가고, 버린 사진의 객체는 커밋된 뒤에 지운다 (롤백되면 그대로
+ * 아이템 대표 사진 붙이기·빼기·조회 (18 문서 3장). wardrobe 유스케이스의 트랜잭션에 함께 들어가고, 버린 사진의 객체는 커밋된 뒤에 지운다 (롤백되면 그대로
  * 둔다). 객체 삭제가 실패해도 행이 DELETED로 남아 정리 작업이 다시 지운다.
  */
 @Service

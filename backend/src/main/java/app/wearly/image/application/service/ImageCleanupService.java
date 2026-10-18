@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * 사진 정리 (17 문서 3장). 오래된 PENDING(올리다 만 것), 아이템에 안 붙은 READY(올리고 등록하지 않은 것), DELETED(교체·삭제로 버린 것)를
+ * 사진 정리 (18 문서 3장). 오래된 PENDING(올리다 만 것), 아이템에 안 붙은 READY(올리고 등록하지 않은 것), DELETED(교체·삭제로 버린 것)를
  * 지운다. 먼저 행을 DELETED로 바꿔(그사이 아이템에 붙은 것은 빠진다) 붙이기와 겹치지 않게 하고, 객체를 지운 뒤 성공한 것만 행을 지운다 (실패하면 DELETED
  * 행이 남아 다음 번에 다시). 저장소 호출이 길어서 트랜잭션은 행을 바꾸고 지울 때만 쓴다.
  */

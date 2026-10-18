@@ -22,6 +22,6 @@ public record PatchItemDto(
     Patch<String> brand,
     Patch<Integer> wornCount,
     Patch<LocalDate> lastWornAt,
-    // 17 문서: 사진 바꾸기(새 imageId)·빼기(null)
+    // 18 문서: 사진 바꾸기(새 imageId)·빼기(null)
     Patch<String> imageId,
     List<FieldError> inputErrors) {}

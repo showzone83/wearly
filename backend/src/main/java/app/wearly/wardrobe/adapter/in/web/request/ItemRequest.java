@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 05 문서 6장 ItemInput (ItemDto에서 id·createdAt을 뺀 등록 입력). wornCount·lastWornAt·imageId(17 문서)는 선택. 속성
+ * 05 문서 6장 ItemInput (ItemDto에서 id·createdAt을 뺀 등록 입력). wornCount·lastWornAt·imageId(18 문서)는 선택. 속성
  * 값은 코드 문자열 (06 문서)이고 코드 테이블 검증은 유스케이스가 한다. Bean Validation은 빠른 실패용이다.
  */
 public record ItemRequest(
@@ -30,7 +30,7 @@ public record ItemRequest(
     @Size(max = 40, message = "브랜드는 40자까지 쓸 수 있어요.") String brand,
     @Min(value = 0, message = "0 이상이어야 해요.") Integer wornCount,
     LocalDate lastWornAt,
-    // 17 문서: 붙일 사진 (POST /images/{imageId}/complete를 마친 내 이미지). PATCH에서 null이면 사진 빼기
+    // 18 문서: 붙일 사진 (POST /images/{imageId}/complete를 마친 내 이미지). PATCH에서 null이면 사진 빼기
     @Pattern(regexp = UUID_PATTERN, message = "허용되지 않는 값이에요.") String imageId) {
 
   static final String UUID_PATTERN =

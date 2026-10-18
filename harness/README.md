@@ -21,9 +21,11 @@ cd harness && npm install     # 처음 한 번
 1. DB 컨테이너(`wearly-postgres`)가 꺼져 있으면 `docker compose up -d`로 켜고 healthy가 될 때까지 기다린다.
 2. 하네스 전용 DB `wearly_harness`를 지우고 새로 만든다. 개발용 `wearly` DB는 건드리지 않는다.
    - 로그인 세션 저장소 Valkey(`wearly-valkey`, 호스트 6380, doc/16)가 꺼져 있으면 `docker compose up -d valkey`로 켜고, 하네스용 **DB 1만** `FLUSHDB`로 비운다. 개발 서버가 쓰는 DB 0은 건드리지 않는다.
+   - 옷 사진 저장소 MinIO(`wearly-minio`, 호스트 9000, doc/18)가 꺼져 있으면 `docker compose up -d minio minio-init`으로 켜고, **하네스 전용 버킷 `wearly-images-harness`**를 지우고 비공개로 다시 만든다(`docker exec wearly-minio`의 `mc`). 개발 서버가 쓰는 `wearly-images`는 건드리지 않는다.
 3. `../backend`를 `./gradlew bootRun`으로 포트 **18080**에 띄운다. 로그는 `harness/.logs/backend.log`.
    - `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wearly_harness`, `SERVER_PORT=18080`
    - `SPRING_DATA_REDIS_HOST=localhost`, `SPRING_DATA_REDIS_PORT=6380`, `SPRING_DATA_REDIS_DATABASE=1`
+   - `WEARLY_STORAGE_ENDPOINT=http://localhost:9000`, `WEARLY_STORAGE_BUCKET=wearly-images-harness`, 계정은 compose의 로컬 전용 값, `WEARLY_STORAGE_PUBLIC_ENDPOINT=`(비움: 서명 URL이 요청 Host 이름 + 9000), `WEARLY_STORAGE_AUTO_CREATE_BUCKET=true`, `WEARLY_STORAGE_CLEANUP_ENABLED=false`(정리 작업 끔)
    - `WEARLY_ACCESS_TTL=PT3S`, `WEARLY_AI_DAILY_LIMIT=3`, `WEARLY_AI_PROVIDER=mock`
    - `JAVA_HOME`은 JDK 21. `WEARLY_JWT_SECRET`이 없으면 하네스용 값을 넣고, `ANTHROPIC_API_KEY`는 비운다.
 4. `/actuator/health`가 UP이 될 때까지 최대 180초 기다린다. 그 안에 뜨지 않거나 프로세스가 죽으면 로그 끝부분을 보여 주고 실패로 끝난다.
@@ -40,7 +42,7 @@ cd harness && npm install     # 처음 한 번
 | `--external <url>` | DB 리셋·백엔드 기동 없이 이미 떠 있는 서버로 시나리오만 돌린다. Access 수명 3초에 기대는 시나리오 3개는 건너뛴다(SKIP). AI 한도 시나리오는 응답의 `remainingToday`를 따라가므로 그대로 돈다. |
 | `--only <키워드,...>` | 분류나 이름에 키워드가 들어간 시나리오만 실행한다. 예: `--only 토큰,AI` |
 | `--list` | 시나리오 목록만 출력한다. |
-| `--db-only` | `wearly_harness` DB를 새로 만들고 Valkey DB 1을 비우고 끝낸다. |
+| `--db-only` | `wearly_harness` DB를 새로 만들고 Valkey DB 1과 하네스 사진 버킷을 비우고 끝낸다. |
 
 | 환경변수 | 기본값 |
 |---|---|
@@ -125,6 +127,17 @@ Refresh 토큰·세션이 Valkey로 옮겨 가면서 Access 토큰에 `sid`가 �
 
 refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 요청을 기록해 센다. `tokenStore`도 감싸서 `set`·`clear` 횟수를 센다.
 
+### 옷 사진 저장 (doc/18, 원시 HTTP)
+
+계약 18 문서. 앱 API 모듈을 거치지 않고 `raw()`와 `src/lib/rawUser.ts`로 확인하고, 서명 URL로 저장소(MinIO)에 **실제로 PUT·GET**한다. 하네스 백엔드는 버킷 `wearly-images-harness`를 쓴다. 번호는 `--list` 기준(코드: `src/scenarios/images.ts`).
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 43 | 사진 저장 | upload-url 응답 키 5개·UUID `imageId`·`method` PUT·`headers` = `Content-Type`·서명 URL 호스트가 요청 Host 이름 → 올리기 전 complete는 400 `IMAGE_NOT_UPLOADED` → 서명 URL로 PUT 200 → complete(키 6개, 가로·세로) → `url`은 JPEG로 다시 인코딩·`thumbUrl` GET 200·서명 없는 URL 403 → `imageId`로 아이템 등록 201(`image` 키 4개)·목록에도 `image`·사진 없는 아이템 `image: null` → PATCH `imageId: null`로 빼면 `image: null`이고 예전 객체는 404 |
+| 44 | 사진 저장 | 글자 파일·가짜 JPEG는 PUT은 되지만 complete에서 400 `IMAGE_INVALID`(실패한 이미지를 다시 complete하면 404), GIF·10MB 초과 upload-url은 400 `VALIDATION_FAILED`(`contentType`·`size`) |
+| 45 | 사진 저장 | 남의 이미지는 complete·아이템 등록·AI 분석 모두 404, 내 `imageId`로 AI 분석 200(`provider` mock), PENDING 이미지로 등록하면 400 `IMAGE_NOT_UPLOADED` |
+| 46 | 사진 저장 | 다른 아이템에 붙은 이미지로 등록하면 409 `IMAGE_IN_USE`, PATCH로 사진을 바꾸면 새 사진이 붙고 예전 사진 객체는 404 |
+
 ### 계약에 정해지지 않아 하네스가 고른 기대값
 
 계약 문서에 명시되지 않은 부분은 다음처럼 기대한다. 백엔드와 다르면 둘 중 하나를 고치고 계약 문서에도 적는다.
@@ -164,9 +177,9 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 
 | 파일 | 내용 |
 |---|---|
-| `run.sh` | DB·Valkey 준비 → 백엔드 기동·종료 → 러너 실행 |
+| `run.sh` | DB·Valkey·MinIO(하네스 버킷) 준비 → 백엔드 기동·종료 → 러너 실행 |
 | `src/main.ts` | 러너. 인자 해석, 시나리오 실행, 결과 표 |
-| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`) |
+| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`·`images`) |
 | `src/lib/session.ts` | 앱 모듈로 클라이언트 만들기, 요청·토큰 저장·`onAuthLost` 기록 |
 | `src/lib/http.ts` | 원시 요청과 오류 본문 형식 검사 |
 | `src/lib/rawUser.ts` | 앱 모듈 없이 가입·관리자 로그인한 세션 (`TOKEN_EXPIRED`면 다시 로그인) |

@@ -34,7 +34,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 
 /**
  * ImageStoragePort 구현: S3 호환 오브젝트 스토리지 하나의 어댑터(AWS SDK v2 S3Client + S3Presigner)로 로컬 MinIO와 AWS
- * S3·Cloudflare R2·NCP Object Storage를 모두 쓴다 (wearly.storage.* 설정만 바꾼다, 17 문서 1장).
+ * S3·Cloudflare R2·NCP Object Storage를 모두 쓴다 (wearly.storage.* 설정만 바꾼다, 18 문서 1장).
  *
  * <p>버킷은 비공개다. 앱은 서명 URL로만 올리고 받는다. 서명 URL의 호스트는 {@link StoragePresigners}가 정한다.
  */

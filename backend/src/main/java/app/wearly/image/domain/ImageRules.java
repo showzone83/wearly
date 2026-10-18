@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-/** 업로드 URL 요청 규칙 (17 문서 3장): purpose는 ITEM, contentType은 image/jpeg·image/png, size는 1~최대 바이트 */
+/** 업로드 URL 요청 규칙 (18 문서 3장): purpose는 ITEM, contentType은 image/jpeg·image/png, size는 1~최대 바이트 */
 public final class ImageRules {
 
   public static final String PURPOSE_ITEM = "ITEM";

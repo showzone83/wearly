@@ -4,7 +4,7 @@ import app.wearly.image.application.port.in.dto.CreateUploadUrlDto;
 import app.wearly.image.application.port.in.dto.ImageDto;
 import app.wearly.image.application.port.in.dto.UploadUrlDto;
 
-/** 옷 사진 올리기 (17 문서 3장): 업로드 URL 발급 → 앱이 저장소에 바로 PUT → complete(검증·다시 인코딩) */
+/** 옷 사진 올리기 (18 문서 3장): 업로드 URL 발급 → 앱이 저장소에 바로 PUT → complete(검증·다시 인코딩) */
 public interface ImageUploadUseCase {
 
   /**

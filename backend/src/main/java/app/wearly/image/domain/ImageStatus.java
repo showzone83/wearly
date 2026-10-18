@@ -1,6 +1,6 @@
 package app.wearly.image.domain;
 
-/** 이미지 상태 (17 문서 2장) */
+/** 이미지 상태 (18 문서 2장) */
 public enum ImageStatus {
   /** 업로드 URL을 받았고 아직 complete 전 */
   PENDING,

@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 옷 사진 올리기 (17 문서 3장). 모두 로그인 필요, 남의 이미지는 404 */
+/** 옷 사진 올리기 (18 문서 3장). 모두 로그인 필요, 남의 이미지는 404 */
 @RestController
 @RequestMapping("/api/v1/images")
 public class ImageController {

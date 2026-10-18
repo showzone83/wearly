@@ -1,4 +1,4 @@
-// 옷 사진 서버 저장 (doc/17): 업로드 URL → 서명 URL로 바로 PUT → complete → 아이템에 붙이기 → 서명 URL로 받기,
+// 옷 사진 서버 저장 (doc/18): 업로드 URL → 서명 URL로 바로 PUT → complete → 아이템에 붙이기 → 서명 URL로 받기,
 // 잘못된 파일, 남의 이미지, 다른 아이템에 붙은 이미지. 앱 API 모듈을 거치지 않고 원시 HTTP(raw)로만 확인한다.
 import { eq, isIsoDateTime, isNonEmptyString, ok } from '../lib/assert';
 import { config } from '../lib/config';

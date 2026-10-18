@@ -30,7 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * 자바 ImageIO로 사진을 검증하고 다시 인코딩한다 (17 문서 3장).
+ * 자바 ImageIO로 사진을 검증하고 다시 인코딩한다 (18 문서 3장).
  *
  * <ol>
  *   <li>실제 바이트로 형식 판별 (JPEG·PNG만)

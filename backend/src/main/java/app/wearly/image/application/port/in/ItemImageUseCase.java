@@ -5,7 +5,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
-/** 아이템 대표 사진 (wardrobe 컨텍스트가 부른다, 17 문서 3장). 아이템 쪽 트랜잭션 안에서 부르고, 버린 사진의 객체는 커밋 뒤에 지운다. */
+/** 아이템 대표 사진 (wardrobe 컨텍스트가 부른다, 18 문서 3장). 아이템 쪽 트랜잭션 안에서 부르고, 버린 사진의 객체는 커밋 뒤에 지운다. */
 public interface ItemImageUseCase {
 
   /**

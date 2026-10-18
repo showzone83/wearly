@@ -1,4 +1,4 @@
--- 옷 사진 서버 저장 (계약: doc/17, 기획서 p.28 TB_ITEM_IMAGE · p.30 · p.31)
+-- 옷 사진 서버 저장 (계약: doc/18, 기획서 p.28 TB_ITEM_IMAGE · p.30 · p.31)
 -- 사진 파일은 S3 호환 오브젝트 스토리지(로컬 MinIO 버킷 wearly-images, 비공개)에 두고 DB에는 메타데이터만 둔다.
 -- V1의 tb_item_image(이미지 URL, 테이블만 있고 쓰지 않음)를 지우고 이 용도에 맞게 다시 만든다.
 DROP TABLE IF EXISTS tb_item_image;

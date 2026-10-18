@@ -30,7 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 사진 올리기 (17 문서 3장). 업로드 URL 발급은 한 트랜잭션(한도 잠금 → 집계 → PENDING 행). complete는 저장소 읽기·쓰기가 길어서 트랜잭션 없이
+ * 사진 올리기 (18 문서 3장). 업로드 URL 발급은 한 트랜잭션(한도 잠금 → 집계 → PENDING 행). complete는 저장소 읽기·쓰기가 길어서 트랜잭션 없이
  * 하고 행 저장만 짧게 한다.
  */
 @Service

@@ -35,7 +35,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import tools.jackson.databind.JsonNode;
 
 /**
- * 옷 사진 서버 저장 (17 문서): 업로드 URL → 서명 URL로 실제 PUT → complete → 아이템에 붙이기 → 서명 URL로 GET, 남의 이미지, 잘못된 파일,
+ * 옷 사진 서버 저장 (18 문서): 업로드 URL → 서명 URL로 실제 PUT → complete → 아이템에 붙이기 → 서명 URL로 GET, 남의 이미지, 잘못된 파일,
  * 사용 중, 교체·완전 삭제·탈퇴 시 객체 삭제, 하루 한도, 정리 작업, imageId로 AI 분석. 저장소는 Testcontainers MinIO(TestMinio).
  */
 class ItemImageIntegrationTest extends IntegrationTestBase {

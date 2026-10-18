@@ -9,7 +9,7 @@ public interface AnalyzeImageUseCase {
   AnalyzeResultDto analyze(long userId, ImageUpload image);
 
   /**
-   * 서버에 저장한 내 사진(17 문서, READY)의 original로 분석한다. 없거나 남의 것은 404, PENDING이면 400 IMAGE_NOT_UPLOADED.
+   * 서버에 저장한 내 사진(18 문서, READY)의 original로 분석한다. 없거나 남의 것은 404, PENDING이면 400 IMAGE_NOT_UPLOADED.
    * 그다음은 analyze와 같다
    */
   AnalyzeResultDto analyzeStored(long userId, String imageId);
