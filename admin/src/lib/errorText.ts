@@ -277,6 +277,19 @@ export const SERVER_ERROR_TEXT: Record<string, TText | null> = {
   MFA_SETUP_REQUIRED: '2단계 인증 등록을 먼저 시작해 주세요.',
   MFA_ALREADY_ENROLLED: '이미 2단계 인증을 등록했어요.',
   MFA_NOT_ENROLLED: '2단계 인증을 등록하지 않았어요.',
+  // 회사 계정 로그인 (SSO, doc/22 4.2). 콜백 실패는 /sso/callback?error=…로 온다
+  SSO_NOT_ADMIN:
+    '관리자 그룹에 속한 회사 계정이 아니에요. 회사 계정 관리자에게 관리자 그룹(예: wearly-admins)을 요청해 주세요.',
+  SSO_EMAIL_UNVERIFIED:
+    '회사 계정의 이메일을 확인할 수 없어 관리자 계정과 연결하지 못했어요. 회사 계정에 확인된 이메일이 있는지 확인해 주세요.',
+  SSO_STATE_INVALID: '로그인 시간이 지났거나 다른 창에서 시작한 로그인이에요. 다시 시도해 주세요.',
+  SSO_TOKEN_INVALID: '회사 계정 로그인 결과를 확인하지 못했어요. 다시 시도해 주세요.',
+  SSO_IDP_ERROR: (p) =>
+    str(p.reason) === 'access_denied'
+      ? '회사 계정 로그인을 취소했어요.'
+      : `회사 계정 로그인이 실패했어요.${str(p.reason) ? ` (${str(p.reason)})` : ''}`,
+  SSO_PROVIDER_UNAVAILABLE: '회사 계정 로그인 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
+  SSO_EXCHANGE_INVALID: '로그인 시간이 지났어요. 다시 로그인해 주세요.',
   WEATHER_NO_PROVIDER: (p) => {
     const reason = str(p.reason);
     if (reason === 'KEY_MISSING') {

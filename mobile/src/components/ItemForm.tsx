@@ -62,7 +62,7 @@ export const draftOf = (i: ItemDraft | WardrobeItem): ItemDraft => ({
 });
 
 const FORMALITY_OPTIONS = ['1', '2', '3'] as const;
-const FORMALITY_TEXT: Record<(typeof FORMALITY_OPTIONS)[number], string> = { '1': '편한 데일리', '2': '비즈니스 캐주얼', '3': '포멀' };
+export const FORMALITY_TEXT: Record<(typeof FORMALITY_OPTIONS)[number], string> = { '1': '편한 데일리', '2': '비즈니스 캐주얼', '3': '포멀' };
 
 export function defaultName(d: Pick<ItemDraft, 'color' | 'subType'>): string {
   return `${colorLabel(d.color)} ${subTypeLabel(d.subType)}`;

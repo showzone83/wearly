@@ -1,9 +1,10 @@
 // 로그인: 이메일·비밀번호 → (2단계 인증이 필요한 관리자면) TOTP 등록 또는 코드 입력 → (처음 등록이면) 복구 코드 확인 (doc/22)
+// 회사 계정(SSO, doc/22 4.2)이 켜져 있으면 위에 공급자 버튼을 보인다. 이메일·비밀번호는 비상 관리자 계정용으로 남는다.
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { api, API_URL, errorMessage, isApiError } from '@/api';
-import type { IMfaSetupResponse } from '@/api';
+import type { IMfaSetupResponse, ISsoProvider } from '@/api';
 
 import { MfaSetupView, RecoveryCodesView, TotpInput } from '@/components/Mfa';
 import { Button, Notice } from '@/components/ui';
@@ -46,6 +47,53 @@ const Brand = ({ sub }: { sub: string }) => {
   );
 };
 
+/** 회사 계정 버튼 (GET /auth/sso/providers). 꺼져 있거나 서버에 닿지 못하면 아무것도 보이지 않는다 */
+const SsoButtons = () => {
+  const [providers, setProviders] = useState<ISsoProvider[]>([]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const startSso = useAuthStore((s) => s.startSso);
+
+  useEffect(() => {
+    let alive = true;
+    api.auth
+      .ssoProviders()
+      .then((list) => {
+        if (alive) setProviders(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const handleStart = (id: string) => {
+    setBusyId(id);
+    startSso(id);
+  };
+
+  if (!providers.length) return null;
+  return (
+    <div className="sso-block">
+      {providers.map((p) => (
+        <Button
+          key={p.id}
+          variant="primary"
+          className="btn-block"
+          busy={busyId === p.id}
+          disabled={busyId !== null}
+          onClick={() => handleStart(p.id)}
+        >
+          {p.displayName} 로그인
+        </Button>
+      ))}
+      <div className="login-divider">
+        <span>또는 비상 관리자 계정</span>
+      </div>
+    </div>
+  );
+};
+
 /** 1단계: 이메일·비밀번호 */
 const CredentialsStep = () => {
   const [email, setEmail] = useState('');
@@ -77,6 +125,7 @@ const CredentialsStep = () => {
       <Brand sub="관리자 계정으로 로그인하세요." />
       {lostReason && !error ? <Notice tone="warn">{lostReason}</Notice> : null}
       {error ? <Notice tone="error">{error}</Notice> : null}
+      <SsoButtons />
       <label className="field">
         <span className="field-label">이메일</span>
         <input

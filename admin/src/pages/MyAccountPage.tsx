@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { api, isApiError } from '@/api';
+import { api, isApiError, tokenStore } from '@/api';
 import type { IMfaSetupResponse } from '@/api';
 
 import { MfaSetupView, RecoveryCodesView, TotpInput } from '@/components/Mfa';
@@ -338,6 +338,8 @@ export const MyAccountPage = () => {
 
   const unsupported = isUnsupportedApi(error);
   const low = data?.enrolled ? lowRecoveryCodesText(data.recoveryCodesLeft) : null;
+  /** 회사 계정(SSO)으로 들어온 세션이면 그 공급자 ID (doc/22 4.2) */
+  const ssoProvider = tokenStore.getSsoProvider();
 
   return (
     <>
@@ -351,7 +353,15 @@ export const MyAccountPage = () => {
           <dd>{user?.email ?? '—'}</dd>
           <dt>회원 ID</dt>
           <dd className="mono">{user?.id ?? '—'}</dd>
+          <dt>로그인 방식</dt>
+          <dd>{ssoProvider ? `회사 계정 (${ssoProvider})` : '이메일·비밀번호'}</dd>
         </dl>
+        {ssoProvider ? (
+          <Notice tone="info">
+            회사 계정으로 들어왔어요. 회사 계정 비밀번호와 2단계 인증은 회사 계정 관리(IdP)에서 바꿉니다. 회사 계정으로
+            처음 만든 관리자는 이 사이트의 비밀번호가 없어 아래 비밀번호 변경·2단계 인증은 쓸 수 없어요.
+          </Notice>
+        ) : null}
       </Card>
 
       <PasswordCard />

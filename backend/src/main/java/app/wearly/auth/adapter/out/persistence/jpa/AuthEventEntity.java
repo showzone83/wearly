@@ -39,6 +39,14 @@ public class AuthEventEntity {
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
+  /** SSO 로그인·거부의 공급자 ID (V22) */
+  @Column(name = "sso_provider", length = 50)
+  private String ssoProvider;
+
+  /** SSO 로그인 때 IdP의 amr (V22) */
+  @Column(name = "sso_amr", length = 100)
+  private String ssoAmr;
+
   protected AuthEventEntity() {}
 
   public Long getId() {
@@ -59,5 +67,13 @@ public class AuthEventEntity {
 
   public Instant getCreatedAt() {
     return createdAt;
+  }
+
+  public String getSsoProvider() {
+    return ssoProvider;
+  }
+
+  public String getSsoAmr() {
+    return ssoAmr;
   }
 }

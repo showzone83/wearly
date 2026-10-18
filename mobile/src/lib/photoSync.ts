@@ -96,6 +96,23 @@ const cleanupPhotoDir = (): void => {
 
 let migrating = false;
 
+/** 옷 상세에서 사진을 바꾸거나 빼는 중인 아이템. 옮기기가 건너뛴다 (예전 사진을 새 사진 위에 붙이지 않게) */
+const held = new Set<string>();
+/** 지금 옮기는 중인 아이템과 그 작업 (끝나면 비운다) */
+let inFlight: { id: string; done: Promise<void> } | null = null;
+
+/**
+ * 사진 바꾸기·빼기 동안 그 아이템의 옮기기를 막는다. 이미 그 아이템을 옮기는 중이면 끝날 때까지 기다린다.
+ * @returns 막기를 푸는 함수 (꼭 부른다)
+ */
+export const holdPhotoMigration = async (id: string): Promise<() => void> => {
+  held.add(id);
+  if (inFlight?.id === id) await inFlight.done.catch(() => undefined);
+  return () => {
+    held.delete(id);
+  };
+};
+
 /**
  * 계정 모드: 서버 사진이 없고 기기 사진 파일이 남은 아이템을 한 번에 몇 장씩 서버로 올리고 PATCH imageId.
  * - 파일이 사라졌으면 건너뛰고 기록(gone)한다. 샘플(wearly-sample://)·웹 주소는 대상이 아니다.
@@ -112,45 +129,59 @@ export const migratePhotos = async (): Promise<void> => {
     const candidates = migrationCandidates(s0.items, s0.photos, s0.photoSync, Date.now());
     for (const { id, uri } of candidates) {
       if (!isAccountMode()) break;
-      if (!localPhotoExists(uri)) {
-        useStore.getState().setPhotoSync(id, { fails: 0, lastAt: Date.now(), gone: true });
-        useStore.getState().setPhoto(id, undefined);
-        useStore.getState().updateItem(id, { imageUri: undefined });
-        console.warn('[photo] 기기 사진 파일이 없어 옮기지 않아요', id, uri);
-        continue;
-      }
-
-      let uploaded;
+      if (held.has(id)) continue;
+      let finish = () => {};
+      inFlight = { id, done: new Promise<void>((r) => (finish = r)) };
       try {
-        uploaded = await uploadPhoto(uri);
-      } catch (e) {
-        if (handleFailure(id, e, 'upload') === 'stop') break;
-        continue;
-      }
-
-      let dto;
-      try {
-        dto = await api.wardrobe.update(id, { imageId: uploaded.image.imageId });
-      } catch (e) {
-        if (handleFailure(id, e, 'attach') === 'stop') break;
-        continue;
-      }
-
-      const st = useStore.getState();
-      if (st.photos[id] !== uri) continue; // 그사이 사진이 바뀌었거나 아이템이 지워졌다
-      const image = imageFromDto(dto.image) ?? uploaded.image;
-      st.setPhotoSync(id, undefined);
-      // 화면 캐시를 채웠으면 기기 사진을 지운다. 못 채웠으면 서버 사진이 안 뜰 때를 위해 남겨 둔다
-      if (await uploaded.seeded) {
-        useStore.getState().setPhoto(id, undefined);
-        useStore.getState().updateItem(id, { image, imageUri: undefined });
-      } else {
-        useStore.getState().updateItem(id, { image });
+        if ((await migrateOne(id, uri)) === 'stop') break;
+      } finally {
+        inFlight = null;
+        finish();
       }
     }
   } finally {
     migrating = false;
   }
+};
+
+/** 기기 사진 한 장을 서버로 옮긴다. 'stop'이면 이번 묶음을 멈춘다 */
+const migrateOne = async (id: string, uri: string): Promise<'stop' | 'next'> => {
+  if (!localPhotoExists(uri)) {
+    useStore.getState().setPhotoSync(id, { fails: 0, lastAt: Date.now(), gone: true });
+    useStore.getState().setPhoto(id, undefined);
+    useStore.getState().updateItem(id, { imageUri: undefined });
+    console.warn('[photo] 기기 사진 파일이 없어 옮기지 않아요', id, uri);
+    return 'next';
+  }
+
+  let uploaded;
+  try {
+    uploaded = await uploadPhoto(uri);
+  } catch (e) {
+    return handleFailure(id, e, 'upload');
+  }
+
+  // 올리는 동안 옷 상세에서 사진을 바꾸거나 뺐으면 예전 사진을 붙이지 않는다 (올린 것은 서버 정리 작업이 지운다)
+  if (held.has(id) || useStore.getState().photos[id] !== uri) return 'next';
+  let dto;
+  try {
+    dto = await api.wardrobe.update(id, { imageId: uploaded.image.imageId });
+  } catch (e) {
+    return handleFailure(id, e, 'attach');
+  }
+
+  const st = useStore.getState();
+  if (st.photos[id] !== uri) return 'next'; // 그사이 사진이 바뀌었거나 아이템이 지워졌다
+  const image = imageFromDto(dto.image) ?? uploaded.image;
+  st.setPhotoSync(id, undefined);
+  // 화면 캐시를 채웠으면 기기 사진을 지운다. 못 채웠으면 서버 사진이 안 뜰 때를 위해 남겨 둔다
+  if (await uploaded.seeded) {
+    useStore.getState().setPhoto(id, undefined);
+    useStore.getState().updateItem(id, { image, imageUri: undefined });
+  } else {
+    useStore.getState().updateItem(id, { image });
+  }
+  return 'next';
 };
 
 const handleFailure = (id: string, e: unknown, stage: 'upload' | 'attach'): 'stop' | 'next' => {

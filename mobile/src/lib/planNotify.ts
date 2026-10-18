@@ -11,7 +11,7 @@ import { isApiError } from '@/api/errors';
 import type { PlannedEvent } from '@/data/types';
 import { isRunningInExpoGo } from 'expo';
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
+import type * as NotificationsModule from 'expo-notifications';
 import { router } from 'expo-router';
 
 import { useNotifyStore, type IFreshEntry } from '@/store/useNotifyStore';
@@ -42,8 +42,39 @@ const log = (...args: unknown[]) => {
   if (__DEV__) console.log('[plan-notify]', ...args);
 };
 
-/** 이 실행에서 로컬 알림을 쓸 수 있는지 (웹 미리보기는 안 된다) */
-export const notificationsSupported = (): boolean => Platform.OS !== 'web';
+// expo-notifications는 정적으로 불러오지 않는다: 일부 Expo Go(특히 Android)에는 이 패키지가 쓰는 네이티브 모듈
+// (ExpoTopicSubscriptionModule 등)이 없어, 불러오는 순간 오류가 나고 이 파일을 쓰는 _layout까지 통째로 실패한다.
+// 처음 필요할 때 한 번만 불러오고, 실패하면 알림 기능만 끄고 앱은 계속 쓴다.
+let Notifications: typeof NotificationsModule;
+let notificationsLoad: 'unknown' | 'ok' | 'missing' = 'unknown';
+
+const loadNotifications = (): boolean => {
+  if (notificationsLoad !== 'unknown') return notificationsLoad === 'ok';
+  // Android Expo Go에는 이 패키지가 쓰는 네이티브 모듈이 없다. 불러오려고만 해도 개발 모드에서 빨간 오류가 뜨므로 아예 시도하지 않는다
+  if (Platform.OS === 'android' && isRunningInExpoGo()) {
+    notificationsLoad = 'missing';
+    console.warn('[plan-notify] Android Expo Go에서는 알림 모듈이 없어 D-1 알림을 꺼요 (개발용 빌드에서는 동작)');
+    return false;
+  }
+  try {
+    const mod = require('expo-notifications') as typeof NotificationsModule | undefined;
+    // 개발 모드에서는 모듈 초기화가 실패해도 throw 대신 오류만 띄우고 undefined를 돌려줄 수 있다 → 실제로 쓸 수 있는지 확인한다
+    if (mod && typeof mod.setNotificationHandler === 'function' && typeof mod.scheduleNotificationAsync === 'function') {
+      Notifications = mod;
+      notificationsLoad = 'ok';
+    } else {
+      notificationsLoad = 'missing';
+      console.warn('[plan-notify] 알림 모듈을 쓸 수 없어 D-1 알림을 꺼요');
+    }
+  } catch (e) {
+    notificationsLoad = 'missing';
+    console.warn('[plan-notify] 이 실행에서는 알림을 쓸 수 없어 D-1 알림을 꺼요', (e as Error)?.message);
+  }
+  return notificationsLoad === 'ok';
+};
+
+/** 이 실행에서 로컬 알림을 쓸 수 있는지 (웹 미리보기, 알림 네이티브 모듈이 없는 Expo Go는 안 된다) */
+export const notificationsSupported = (): boolean => Platform.OS !== 'web' && loadNotifications();
 
 /** 원격 푸시 토큰을 받을 수 있는 실행인지: 서버 실행 + 개발용·정식 빌드 (Expo Go는 SDK 53부터 원격 푸시가 없다) */
 const remotePushPossible = (): boolean => notificationsSupported() && !MOCK_MODE && !isRunningInExpoGo();
@@ -323,7 +354,7 @@ export const unregisterPushToken = async (server = true): Promise<void> => {
 // ── 시작 · 알림 누르기 ──
 
 /** 알림을 누르면 그 예정의 PLAN 모드를 연다 (로컬 알림·서버 푸시 같은 data) */
-const openFromResponse = (response: Notifications.NotificationResponse | null | undefined): boolean => {
+const openFromResponse = (response: NotificationsModule.NotificationResponse | null | undefined): boolean => {
   if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return false;
   const data = response.notification.request.content.data as Record<string, unknown> | null;
   if (data?.type !== NOTIFY_TYPE) return false;

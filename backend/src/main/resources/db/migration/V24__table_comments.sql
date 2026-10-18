@@ -1,7 +1,7 @@
--- V1~V21에서 만든 테이블·컬럼에 DB 코멘트(COMMENT ON)를 단다 (doc/08_백엔드_구조.md 8장).
+-- V1~V22에서 만든 테이블·컬럼에 DB 코멘트(COMMENT ON)를 단다 (doc/08_백엔드_구조.md 8장).
 -- 지금까지 설명은 마이그레이션 파일의 -- 주석에만 있어 DB 도구(psql \d+, DBeaver 등)에서 보이지 않았다.
 -- 적용된 마이그레이션은 체크섬 때문에 고치지 않고 여기에 모은다. 내용은 각 파일의 주석과 계약 문서를 옮겼다.
--- 이후 새 테이블·컬럼은 만드는 마이그레이션에서 바로 COMMENT ON을 쓴다 (V22 날씨 이력부터).
+-- 이후 새 테이블·컬럼은 만드는 마이그레이션에서 바로 COMMENT ON을 쓴다 (V23 날씨 이력부터).
 
 -- ---------------------------------------------------------------------------
 -- 회원 (V1·V3·V10)
@@ -58,14 +58,16 @@ COMMENT ON COLUMN tb_user_style.style_code IS '스타일 (STYLE 코드)';
 COMMENT ON COLUMN tb_user_style.preference_score IS '선호 점수';
 COMMENT ON COLUMN tb_user_style.updated_at IS '마지막 수정 시각';
 
-COMMENT ON TABLE tb_auth_event IS '회원별 로그인 이력 (로그인·로그아웃·재사용 감지·강제 로그아웃·비밀번호 실패·2단계 인증). 관리자 로그인 기록 화면도 이걸 본다. 누가 끊었는지는 tb_admin_audit_log에 따로 남는다 (doc/16·doc/22)';
+COMMENT ON TABLE tb_auth_event IS '회원별 로그인 이력 (로그인·로그아웃·재사용 감지·강제 로그아웃·비밀번호 실패·2단계 인증·SSO). 관리자 로그인 기록 화면도 이걸 본다. 누가 끊었는지는 tb_admin_audit_log에 따로 남는다 (doc/16·doc/22)';
 COMMENT ON COLUMN tb_auth_event.auth_event_id IS '이력 ID';
 COMMENT ON COLUMN tb_auth_event.user_id IS '회원 (tb_user)';
-COMMENT ON COLUMN tb_auth_event.type IS '종류: LOGIN · LOGOUT · REFRESH_REUSED · FORCED_LOGOUT · LOGIN_FAILED(가입한 이메일로 비밀번호 틀림) · MFA_SUCCESS · MFA_FAILED · MFA_LOCKED(5번 틀려 15분 잠김)';
+COMMENT ON COLUMN tb_auth_event.type IS '종류: LOGIN · LOGOUT · REFRESH_REUSED · FORCED_LOGOUT · LOGIN_FAILED(가입한 이메일로 비밀번호 틀림) · MFA_SUCCESS · MFA_FAILED · MFA_LOCKED(5번 틀려 15분 잠김) · SSO_LOGIN(회사 계정 로그인) · SSO_DENIED(IdP 인증은 됐지만 관리자 그룹이 아니라 거부)';
 COMMENT ON COLUMN tb_auth_event.session_id IS '로그인 세션 ID (UUID 문자열, 세션은 Valkey에 있다)';
 COMMENT ON COLUMN tb_auth_event.client IS '클라이언트: APP · ADMIN · WEB';
 COMMENT ON COLUMN tb_auth_event.ip IS '요청 IP (IPv6까지 45자)';
 COMMENT ON COLUMN tb_auth_event.user_agent IS 'User-Agent (300자까지)';
+COMMENT ON COLUMN tb_auth_event.sso_provider IS 'SSO 공급자 ID (wearly.sso.providers.<id>). SSO가 아니면 NULL';
+COMMENT ON COLUMN tb_auth_event.sso_amr IS 'IdP가 알려 준 인증 방법 amr (예: pwd,otp). 없으면 NULL';
 COMMENT ON COLUMN tb_auth_event.created_at IS '일어난 시각';
 
 -- ---------------------------------------------------------------------------
@@ -424,3 +426,16 @@ COMMENT ON COLUMN tb_push_send_log.notify_kind IS '알림 종류: DAY_BEFORE';
 COMMENT ON COLUMN tb_push_send_log.planned_date IS '예정 날짜';
 COMMENT ON COLUMN tb_push_send_log.send_date IS '보낸 날짜 (한국 날짜, 하루 한 번 기준)';
 COMMENT ON COLUMN tb_push_send_log.created_at IS '보낸 시각';
+
+-- ---------------------------------------------------------------------------
+-- 관리자 SSO (V22, doc/22 4.2)
+-- ---------------------------------------------------------------------------
+COMMENT ON TABLE tb_user_sso IS '관리자 사이트 SSO(범용 OIDC) 계정 연결. IdP 계정은 발급자(iss) + subject(sub)로 정한다. 고객 소셜 로그인(tb_user_social)과 섞지 않는다 (doc/22)';
+COMMENT ON COLUMN tb_user_sso.user_sso_id IS 'SSO 연결 ID';
+COMMENT ON COLUMN tb_user_sso.user_id IS '회원 (tb_user)';
+COMMENT ON COLUMN tb_user_sso.provider IS '연결할 때의 설정 공급자 ID (wearly.sso.providers.<id>). 표시·기록용';
+COMMENT ON COLUMN tb_user_sso.issuer IS 'ID 토큰 iss (설정의 issuer-uri와 같은 값)';
+COMMENT ON COLUMN tb_user_sso.subject IS 'ID 토큰 sub (그 발급자 안에서 바뀌지 않는 계정 ID, issuer와 함께 중복 불가)';
+COMMENT ON COLUMN tb_user_sso.email IS '마지막 로그인 때의 이메일 (참고용, 소문자)';
+COMMENT ON COLUMN tb_user_sso.connected_at IS '연결한 시각';
+COMMENT ON COLUMN tb_user_sso.last_login_at IS '마지막 SSO 로그인 시각';

@@ -61,6 +61,7 @@
 3차에서 더한 테이블: `tb_ai_provider_secret`(웹 입력 AI 키의 AES-256-GCM 암호문, 07 문서 6장).
 4차: `tb_ai_analysis_log.feature` CHECK에 `OUTFIT_RECOMMEND`(AI 코디 추천, 이미지 칸은 NULL)를 더하고, 한도 집계 인덱스를 `(user_id, feature, created_at) WHERE status = 'SUCCESS'`로 바꿨다 (09 문서).
 관리자 계정 보완(2026-10-18, 22 문서 4.1): `V15__admin_mfa.sql` — `tb_user_mfa`(TOTP 비밀 암호문·nonce·`last_used_step`)·`tb_user_mfa_recovery_code`(복구 코드 SHA-256), `V16__auth_event_mfa.sql` — `tb_auth_event.type`에 `LOGIN_FAILED`·`MFA_SUCCESS`·`MFA_FAILED`·`MFA_LOCKED`를 더하고 최신순 인덱스.
+관리자 회사 계정 로그인(2026-10-18, 22 문서 4.2): `V22__admin_sso.sql` — `tb_user_sso`(IdP 계정 = 발급자 `issuer` + `subject`, `UNIQUE(issuer, subject)`)를 더하고, `tb_auth_event`에 `sso_provider`·`sso_amr` 열과 `SSO_LOGIN`·`SSO_DENIED` 종류를 더한다.
 D-1 알림(2026-10-18, 이 문서 6장 "푸시 토큰", [23](23_D-1_알림.md)): `V17__push_token.sql` — `tb_push_token`(Expo 푸시 토큰, 회원·기기당 하나)·`tb_push_send_log`(D-1 발송 기록, 같은 예정은 하루 한 번).
 이슈 #4(2026-10-18): `V20__item_colors_purchase.sql` — `tb_wardrobe_item`에 `sub_colors TEXT[]`(보조 색 0~2개)·`purchased_at DATE NOT NULL`·`purchased_at_estimated`, 기존 행은 구입일 = 등록일(서울)·추정 표시, 코드 SEASON에 `EARLY_SPRING`·`EARLY_SUMMER`·`EARLY_FALL` 3개 (06 문서).
 이슈 #5(2026-10-18): `V21__user_personal_info.sql` — `tb_user_profile`에 `age_range`·`body_type`·`height_cm`(130~210)·`fit_preference`(모두 NULL 허용), 코드 그룹 `AGE_RANGE`·`BODY_TYPE`·`FIT` (06 문서).
@@ -79,8 +80,9 @@ Flyway 번호는 V1~V17, V20, V21이다. AI 호출 기록(`tb_ai_analysis_log`)�
 | `tb_user_local_credential` | 이메일·비밀번호 (임시). `email` 소문자 UNIQUE, `password_hash` | O |
 | `tb_user_social` | 소셜 계정 (D5 설계 그대로, `UNIQUE(provider, provider_user_id)`) | 테이블만 |
 | ~~`tb_refresh_token`~~ | 7차에 삭제. Refresh 토큰·세션은 Valkey `wearly:rt:*`·`wearly:session:*` (16 문서 3장) | — |
-| `tb_auth_event` | 7차. 로그인 이력: `type`(LOGIN·LOGOUT·REFRESH_REUSED·FORCED_LOGOUT, V16에서 LOGIN_FAILED·MFA_SUCCESS·MFA_FAILED·MFA_LOCKED 추가), `session_id`, `client`, `ip`, `user_agent` | O (16 문서, 22 문서) |
+| `tb_auth_event` | 7차. 로그인 이력: `type`(LOGIN·LOGOUT·REFRESH_REUSED·FORCED_LOGOUT, V16에서 LOGIN_FAILED·MFA_SUCCESS·MFA_FAILED·MFA_LOCKED, V22에서 SSO_LOGIN·SSO_DENIED와 `sso_provider`·`sso_amr` 추가), `session_id`, `client`, `ip`, `user_agent` | O (16 문서, 22 문서) |
 | `tb_user_mfa` / `tb_user_mfa_recovery_code` | V15. 관리자 TOTP 비밀(AES-256-GCM 암호문, AAD `mfa:{user_id}`)·마지막 사용 단계 / 복구 코드 해시 10개(`used_at`) | O (22 문서 4.1.4) |
+| `tb_user_sso` | V22. 관리자 회사 계정(IdP) 연결: `user_id`, `provider`(설정 공급자 ID), `issuer`+`subject`(UNIQUE), `email`, `connected_at`, `last_login_at`. 고객 소셜 로그인(`tb_user_social`)과 섞지 않는다 | O (22 문서 4.2.3) |
 | `tb_push_token` / `tb_push_send_log` | V17. 앱이 등록한 Expo 푸시 토큰(회원·기기당 하나, 같은 토큰은 한 행) / D-1 알림 발송 기록(`UNIQUE(예정, 종류, 발송일)`, 30일 보관) | O ([23](23_D-1_알림.md)) |
 | `tb_user_profile` | 앱 `Profile` + `onboarded`. 배열은 `TEXT[]`/`SMALLINT[]`, 알림은 `JSONB`. 나의 정보 `age_range`·`body_type`·`height_cm`·`fit_preference`(V21) | O |
 | `tb_user_style` | 취향 학습 점수 (`style_code`, `preference_score`) | 테이블만 |
@@ -126,13 +128,14 @@ interface ErrorBody {
 - `message` 필드는 없다. 앱·관리자는 `code`·`params`로 화면 문구를 정한다 (앱 `mobile/src/lib/errorText.ts`, 관리자 `admin/src/lib/errorText.ts`).
 - 서버 내부 정보(예외 메시지·SQL·클래스 이름·스택·공급자 응답 원문)는 응답에 나가지 않는다.
 - 시스템 오류(500 `INTERNAL_ERROR`, 503 `SERVICE_UNAVAILABLE`)는 화면에 "오류 번호 + traceId 앞 8자"를 보인다.
-- **오류 코드 표(코드·HTTP 상태·params·권장 문구)는 [`backend/src/main/resources/error-codes.json`](../backend/src/main/resources/error-codes.json)** 이 기준이다 (20 문서 5장, 자주 쓰는 params는 2장) (오류 코드 44개, 필드 오류 코드 21개). 이 문서에서는 코드별 상황을 각 엔드포인트 설명에 적는다.
+- **오류 코드 표(코드·HTTP 상태·params·권장 문구)는 [`backend/src/main/resources/error-codes.json`](../backend/src/main/resources/error-codes.json)** 이 기준이다 (20 문서 5장, 자주 쓰는 params는 2장) (오류 코드 51개, 필드 오류 코드 21개). 이 문서에서는 코드별 상황을 각 엔드포인트 설명에 적는다.
 
 코드별 상황은 해당 기능 문서에 있다.
 
 | 코드 묶음 | 문서 |
 |---|---|
 | 인증·토큰: `UNAUTHORIZED`, `TOKEN_EXPIRED`, `TOKEN_INVALID`, `INVALID_CREDENTIALS`, `REFRESH_INVALID`, `REFRESH_REUSED`, `ACCOUNT_SUSPENDED`, `EMAIL_TAKEN` | 이 문서 5장, [16](16_세션_Valkey.md) |
+| 관리자 회사 계정 로그인(SSO): `SSO_NOT_ADMIN`, `SSO_EMAIL_UNVERIFIED`, `SSO_STATE_INVALID`, `SSO_TOKEN_INVALID`, `SSO_IDP_ERROR`(`params.reason`), `SSO_PROVIDER_UNAVAILABLE`, `SSO_EXCHANGE_INVALID` | [22](22_관리자_계정_관리.md) 4.2.8 |
 | 권한: `FORBIDDEN`, `REAUTH_FAILED` | [07](07_관리자_사이트.md) |
 | 관리자 계정·2단계 인증: `LAST_ADMIN`, `MFA_REQUIRED`, `MFA_TOKEN_INVALID`, `MFA_CODE_INVALID`(`params.remainingAttempts`), `MFA_LOCKED`(`params.retryAfterSeconds`), `MFA_SETUP_REQUIRED`, `MFA_ALREADY_ENROLLED`, `MFA_NOT_ENROLLED` | [22](22_관리자_계정_관리.md) 4.1.8 |
 | 관리자 코드·공급자: `CODE_EXISTS`, `CODE_IN_USE`, `PROVIDER_EXISTS`, `SECRET_KEY_MISSING`, `API_KEY_INVALID` | [06](06_코드_관리.md), [07](07_관리자_사이트.md) 4·6장 |
@@ -167,6 +170,11 @@ interface ErrorBody {
 | POST | `/auth/logout` | `{ refreshToken }` | 204 (없는 토큰이어도 204) |
 | POST | `/auth/mfa/setup` | `{ mfaToken }` | 200 `{ secret, otpauthUrl }`. 관리자 2단계 인증을 아직 등록하지 않았을 때 (22 문서) |
 | POST | `/auth/mfa/verify` | `{ mfaToken, code }` 또는 `{ mfaToken, recoveryCode }` | 200 `AuthResponse` + `recoveryCodes?`(처음 등록할 때만 10개)·`recoveryCodesLeft` |
+| GET | `/auth/sso/providers` | — | 200 `{ enabled, providers: [{ id, displayName }] }`. SSO가 꺼져 있으면 `{ enabled: false, providers: [] }`. 관리자 로그인 화면의 회사 계정 버튼 (22 문서 4.2) |
+| GET | `/auth/sso/{provider}/start?redirect=` | — | 302 IdP 로그인. `redirect`는 관리자 사이트 주소(공급자 `redirect-allowlist`에 있어야 함, 아니면 400). state 쿠키 `wearly_sso_state`를 심는다 |
+| GET | `/auth/sso/{provider}/callback` | IdP가 붙이는 `code`·`state`·`error`·`iss` | 302 관리자 사이트 `…?code=<교환 코드>` 또는 `…?error=<오류 코드>&status=…&traceId=…` |
+| POST | `/auth/sso/exchange` | `{ code }` | 200 `AuthResponse` 또는 `MfaChallenge`(`/auth/login`과 같은 모양). 교환 코드는 1분·1회, 아니면 401 `SSO_EXCHANGE_INVALID`, 관리자 그룹이 아니게 됐으면 403 `SSO_NOT_ADMIN` |
+| GET | `/auth/sso/{provider}/logout?redirect=` | — | 302 IdP 로그아웃(없는 IdP면 `redirect`로 바로) |
 
 ```ts
 interface AuthResponse {
@@ -187,6 +195,8 @@ interface MfaChallenge {
   mfaTokenExpiresIn: number;                    // 300
 }
 ```
+
+SSO API 5개(`/auth/sso/**`)는 로그인 없이 부르는 공개 경로다. SSO가 꺼져 있으면(기본) `providers`만 200 빈 목록이고 나머지는 404 `NOT_FOUND`. 흐름·콜백 확인·계정 연결·설정은 [22](22_관리자_계정_관리.md) 4.2. 토큰은 URL에 싣지 않고 교환 코드만 싣는다.
 
 `name`은 1~20자. `email`은 소문자로 바꿔 저장한다. 대기 토큰이 없거나 만료되면 401 `MFA_TOKEN_INVALID`, 코드가 틀리면 400 `MFA_CODE_INVALID`, 5번 틀리면 429 `MFA_LOCKED`. 일반 회원과 `X-Wearly-Client`가 `admin`이 아닌 로그인은 늘 `AuthResponse`다.
 
@@ -450,9 +460,10 @@ api.push.register({ token, platform, deviceId }) / remove(deviceId)   // 푸시 
 - 짧은 Access 수명(`WEARLY_ACCESS_TTL=PT3S`)과 낮은 AI 한도(`WEARLY_AI_DAILY_LIMIT=3`), `WEARLY_AI_PROVIDER=mock`으로 띄워 만료·갱신·한도를 실제로 확인한다.
 - 개발용 `backend/config/application-local.yml`(실제 AI 키·관리자 계정·마스터 키)은 읽지 않는다 (`WEARLY_LOCAL_CONFIG`를 없는 경로로 준다). DB는 compose의 `db`(`wearly-postgres`)를 쓴다.
 - 시나리오는 `mobile/src/api/client.ts`를 그대로 import해 앱과 같은 코드로 서버를 부른다.
-- 사진 저장 시나리오(46~49)는 앱 모듈을 거치지 않고 원시 HTTP로 서명 URL까지 실제로 PUT·GET한다. 하네스 전용 버킷 `wearly-images-harness`(compose의 MinIO)를 쓴다 (18 문서 2장, `harness/README.md`).
-- 장소별 날씨 시나리오(50~52)는 앱 모듈을 거치지 않고 원시 HTTP로 `GET /weather/day`·`/weather/places`를 확인한다. 하네스 백엔드는 목업 날씨·목업 평년값으로 돈다 (19 문서, `harness/README.md`).
-- 시나리오 53(관리자 날씨 호출 이력 `callKind` 필터)은 원시 HTTP로, 예정 코디 시나리오(54~56)도 원시 HTTP로 `/plans`를 확인한다 (21 문서, `harness/README.md`). 오류 본문 형식 검사(`checkErrorBody`)는 `message`가 없고 `traceId`가 `X-Request-Id` 헤더와 같은지 본다 (20 문서).
+- 사진 저장 시나리오(47~50)는 앱 모듈을 거치지 않고 원시 HTTP로 서명 URL까지 실제로 PUT·GET한다. 하네스 전용 버킷 `wearly-images-harness`(compose의 MinIO)를 쓴다 (18 문서 2장, `harness/README.md`).
+- 장소별 날씨 시나리오(51~53)는 앱 모듈을 거치지 않고 원시 HTTP로 `GET /weather/day`·`/weather/places`를 확인한다. 하네스 백엔드는 목업 날씨·목업 평년값으로 돈다 (19 문서, `harness/README.md`).
+- 시나리오 54(관리자 날씨 호출 이력 `callKind` 필터)는 원시 HTTP로, 예정 코디 시나리오(55~57)도 원시 HTTP로 `/plans`를 확인한다 (21 문서, `harness/README.md`). 오류 본문 형식 검사(`checkErrorBody`)는 `message`가 없고 `traceId`가 `X-Request-Id` 헤더와 같은지 본다 (20 문서).
 - 6차의 앱 설정·옷 사용 중지 시나리오(32~40)는 앱 모듈을 거치지 않고 원시 HTTP로만 서버 계약을 확인한다 (`harness/README.md`). 계절 모드(이슈 #6)는 시나리오 34.
 - 관리자 2단계 인증 시나리오(45)는 지정한 관리자가 TOTP를 등록하고 대기 토큰으로 로그인하는 과정을 확인한다. `harness/run.sh`는 `WEARLY_ADMIN_MFA_REQUIRED=false`와 고정 마스터 키로 백엔드를 띄워, 시나리오가 따로 등록한 관리자 말고는 비밀번호만으로 들어온다 (22 문서).
-- 나의 정보 시나리오(9), 푸시 토큰 시나리오(57)도 있다. 번호는 `./run.sh --list` 기준(지금 57개).
+- 관리자 SSO 시나리오(46)는 SSO가 꺼진 기본 동작만 본다: 공급자 목록은 `{ enabled: false, providers: [] }`, 시작·콜백·교환·로그아웃은 404 `NOT_FOUND`. `harness/run.sh`는 `WEARLY_SSO_ENABLED=false`로 띄운다. 켠 흐름은 백엔드 `SsoIntegrationTest`(가짜 IdP)와 로컬 Keycloak(22 문서 4.2.5)으로 확인한다.
+- 나의 정보 시나리오(9), 푸시 토큰 시나리오(58)도 있다. 번호는 `./run.sh --list` 기준(지금 58개).

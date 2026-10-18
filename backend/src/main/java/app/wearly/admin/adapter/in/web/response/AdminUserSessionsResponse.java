@@ -9,13 +9,30 @@ import java.util.List;
 public record AdminUserSessionsResponse(
     List<AdminSessionResponse> sessions, List<LoginEvent> events) {
 
-  /** type은 LOGIN | LOGOUT | REFRESH_REUSED | FORCED_LOGOUT. client·ip·userAgent는 없을 수 있다 */
+  /**
+   * type은 LOGIN | LOGOUT | REFRESH_REUSED | FORCED_LOGOUT | LOGIN_FAILED | MFA_* | SSO_LOGIN |
+   * SSO_DENIED. client·ip·userAgent는 없을 수 있다. ssoProvider·ssoAmr은 SSO 로그인·거부에만
+   */
   public record LoginEvent(
-      String type, String sessionId, String client, String ip, String userAgent, String createdAt) {
+      String type,
+      String sessionId,
+      String client,
+      String ip,
+      String userAgent,
+      String createdAt,
+      String ssoProvider,
+      String ssoAmr) {
 
     static LoginEvent from(LoginEventDto e) {
       return new LoginEvent(
-          e.type(), e.sessionId(), e.client(), e.ip(), e.userAgent(), Times.iso(e.createdAt()));
+          e.type(),
+          e.sessionId(),
+          e.client(),
+          e.ip(),
+          e.userAgent(),
+          Times.iso(e.createdAt()),
+          e.ssoProvider(),
+          e.ssoAmr());
     }
   }
 

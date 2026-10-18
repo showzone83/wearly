@@ -10,4 +10,6 @@ public record AuthEventRowDto(
     String client,
     String ip,
     String userAgent,
-    Instant createdAt) {}
+    Instant createdAt,
+    String ssoProvider,
+    String ssoAmr) {}

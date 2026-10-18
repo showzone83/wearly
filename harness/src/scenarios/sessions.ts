@@ -77,7 +77,13 @@ const listed: Scenario = {
     eq(detail.status, 200, '회원 세션 200');
     eq(detail.json.sessions.length, 2, '회원 세션 2개');
     eq(detail.json.events.map((e: { type: string }) => e.type), ['LOGIN', 'LOGIN'], '최근 로그인 이력 (최신순)');
-    eq(Object.keys(detail.json.events[0]).sort(), ['client', 'createdAt', 'ip', 'sessionId', 'type', 'userAgent'], '이력 항목 키');
+    // ssoProvider·ssoAmr은 회사 계정(SSO) 로그인·거부에만 값이 있다 (doc/22 4.2, 비밀번호 로그인은 null)
+    eq(
+      Object.keys(detail.json.events[0]).sort(),
+      ['client', 'createdAt', 'ip', 'sessionId', 'ssoAmr', 'ssoProvider', 'type', 'userAgent'],
+      '이력 항목 키',
+    );
+    eq([detail.json.events[0].ssoProvider, detail.json.events[0].ssoAmr], [null, null], '비밀번호 로그인은 SSO 값 없음');
 
     const dash = await admin.call('GET', '/admin/dashboard');
     ok(Number.isInteger(dash.json.activeSessions) && dash.json.activeSessions >= 3, '대시보드 activeSessions', dash.json.activeSessions);

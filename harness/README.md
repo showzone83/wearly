@@ -28,7 +28,7 @@ cd harness && npm install     # 처음 한 번
    - `WEARLY_STORAGE_ENDPOINT=http://localhost:9000`, `WEARLY_STORAGE_BUCKET=wearly-images-harness`, 계정은 compose의 로컬 전용 값, `WEARLY_STORAGE_PUBLIC_ENDPOINT=`(비움: 서명 URL이 요청 Host 이름 + 9000), `WEARLY_STORAGE_AUTO_CREATE_BUCKET=true`, `WEARLY_STORAGE_CLEANUP_ENABLED=false`(정리 작업 끔)
    - `WEARLY_ACCESS_TTL=PT3S`, `WEARLY_AI_DAILY_LIMIT=3`, `WEARLY_AI_PROVIDER=mock`
    - `WEARLY_WEATHER_PROVIDER=mock`(날씨·평년값·장소 검색을 키 없이 목업으로)
-   - 하네스 관리자(`WEARLY_ADMIN_EMAIL`·`WEARLY_ADMIN_PASSWORD`·`WEARLY_ADMIN_NAME`)와 `WEARLY_ADMIN_MFA_REQUIRED=false`(관리자 2단계 인증 필수를 끈다: 하네스 관리자는 비밀번호만으로 로그인하고, 시나리오 45만 스스로 등록한 관리자로 TOTP 흐름을 확인한다, doc/22), 고정 마스터 키 `WEARLY_SECRET_KEY`(TOTP 비밀 암호화에 필요, 환경변수로 덮을 수 있다)
+   - 하네스 관리자(`WEARLY_ADMIN_EMAIL`·`WEARLY_ADMIN_PASSWORD`·`WEARLY_ADMIN_NAME`)와 `WEARLY_ADMIN_MFA_REQUIRED=false`(관리자 2단계 인증 필수를 끈다: 하네스 관리자는 비밀번호만으로 로그인하고, 시나리오 45만 스스로 등록한 관리자로 TOTP 흐름을 확인한다, doc/22), 고정 마스터 키 `WEARLY_SECRET_KEY`(TOTP 비밀 암호화에 필요, 환경변수로 덮을 수 있다), `WEARLY_SSO_ENABLED=false`(관리자 SSO 끔: 시나리오 46은 꺼진 기본 동작만 본다, doc/22 4.2)
    - `JAVA_HOME`은 JDK 21. `WEARLY_JWT_SECRET`이 없으면 하네스용 값을 넣고, `ANTHROPIC_API_KEY`는 비운다.
 4. `/actuator/health`가 UP이 될 때까지 최대 180초 기다린다. 그 안에 뜨지 않거나 프로세스가 죽으면 로그 끝부분을 보여 주고 실패로 끝난다.
 5. 시나리오를 실행하고 결과 표를 출력한다.
@@ -145,16 +145,24 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 |---|---|---|
 | 45 | 관리자 | (관리자) 하네스 관리자가 새 회원을 관리자로 지정 → 서버 필수가 꺼져 있고 등록 전이라 관리자 사이트 로그인이 바로 토큰 → `GET /admin/me/mfa`(`enrolled` false·`required` false) → setup(`secret`·`otpauthUrl`) → 코드 형식 오류 400 `VALIDATION_FAILED` → enable로 등록(복구 코드 10개) → 다시 setup은 409 `MFA_ALREADY_ENROLLED` → 관리자 사이트 로그인이 대기 토큰(`mfa.required`·`enrolled` true, `mfaTokenExpiresIn` 300), 대기 토큰으로 관리자 API는 401 `TOKEN_INVALID` → 같은 코드 재사용 400 `MFA_CODE_INVALID`(`remainingAttempts` 4) → 복구 코드로 확인 200(`recoveryCodes` null·`recoveryCodesLeft` 9) → 확인한 세션은 관리자 API 200 → **앱 로그인 세션**은 응답 모양 그대로지만 관리자 API는 403 `MFA_REQUIRED`(앱 API는 200) → `GET /admin/auth-events`와 모르는 `type` 400 → 하네스 관리자의 `DELETE /admin/users/{id}/mfa` 204로 초기화 → 역할 해제로 정리 |
 
+### 관리자 SSO (doc/22 4.2, 원시 HTTP)
+
+계약 22 문서 4.2. 하네스 백엔드는 `WEARLY_SSO_ENABLED=false`(기본값과 같다)로 띄우므로 SSO가 **꺼진 기본 동작**만 확인한다. 켠 흐름은 백엔드 `SsoIntegrationTest`(가짜 IdP)와 로컬 Keycloak(`docker compose --profile sso up -d keycloak`, doc/22 4.2.5)으로 확인한다.
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 46 | 관리자 | SSO 꺼짐(기본): `GET /auth/sso/providers`는 로그인 없이 200 `{ enabled: false, providers: [] }`, `start`·`callback`·`logout`(GET)과 `exchange`(POST)는 404 `NOT_FOUND`. 외부 서버(`--external`)가 SSO를 켜 둔 경우 목록 모양만 보고 건너뜀 |
+
 ### 옷 사진 저장 (doc/18, 원시 HTTP)
 
 계약 18 문서. 앱 API 모듈을 거치지 않고 `raw()`와 `src/lib/rawUser.ts`로 확인하고, 서명 URL로 저장소(MinIO)에 **실제로 PUT·GET**한다. 하네스 백엔드는 버킷 `wearly-images-harness`를 쓴다. 번호는 `--list` 기준(코드: `src/scenarios/images.ts`).
 
 | # | 분류 | 확인하는 것 |
 |---|---|---|
-| 46 | 사진 저장 | upload-url 응답 키 5개·UUID `imageId`·`method` PUT·`headers` = `Content-Type`·서명 URL 호스트가 요청 Host 이름 → 올리기 전 complete는 400 `IMAGE_NOT_UPLOADED` → 서명 URL로 PUT 200 → complete(키 6개, 가로·세로) → `url`은 JPEG로 다시 인코딩·`thumbUrl` GET 200·서명 없는 URL 403 → `imageId`로 아이템 등록 201(`image` 키 4개)·목록에도 `image`·사진 없는 아이템 `image: null` → PATCH `imageId: null`로 빼면 `image: null`이고 예전 객체는 404 |
-| 47 | 사진 저장 | 글자 파일·가짜 JPEG는 PUT은 되지만 complete에서 400 `IMAGE_INVALID`(`params.reason` 글자 파일 `FORMAT`·가짜 JPEG `DECODE`, 실패한 이미지를 다시 complete하면 404), GIF·10MB 초과 upload-url은 400 `VALIDATION_FAILED`(`contentType` `NOT_ALLOWED{allowed}`·`size` `OUT_OF_RANGE{min, max}`) |
-| 48 | 사진 저장 | 남의 이미지는 complete·아이템 등록·AI 분석 모두 404, 내 `imageId`로 AI 분석 200(`provider` mock), PENDING 이미지로 등록하면 400 `IMAGE_NOT_UPLOADED` |
-| 49 | 사진 저장 | 다른 아이템에 붙은 이미지로 등록하면 409 `IMAGE_IN_USE`, PATCH로 사진을 바꾸면 새 사진이 붙고 예전 사진 객체는 404 |
+| 47 | 사진 저장 | upload-url 응답 키 5개·UUID `imageId`·`method` PUT·`headers` = `Content-Type`·서명 URL 호스트가 요청 Host 이름 → 올리기 전 complete는 400 `IMAGE_NOT_UPLOADED` → 서명 URL로 PUT 200 → complete(키 6개, 가로·세로) → `url`은 JPEG로 다시 인코딩·`thumbUrl` GET 200·서명 없는 URL 403 → `imageId`로 아이템 등록 201(`image` 키 4개)·목록에도 `image`·사진 없는 아이템 `image: null` → PATCH `imageId: null`로 빼면 `image: null`이고 예전 객체는 404 |
+| 48 | 사진 저장 | 글자 파일·가짜 JPEG는 PUT은 되지만 complete에서 400 `IMAGE_INVALID`(`params.reason` 글자 파일 `FORMAT`·가짜 JPEG `DECODE`, 실패한 이미지를 다시 complete하면 404), GIF·10MB 초과 upload-url은 400 `VALIDATION_FAILED`(`contentType` `NOT_ALLOWED{allowed}`·`size` `OUT_OF_RANGE{min, max}`) |
+| 49 | 사진 저장 | 남의 이미지는 complete·아이템 등록·AI 분석 모두 404, 내 `imageId`로 AI 분석 200(`provider` mock), PENDING 이미지로 등록하면 400 `IMAGE_NOT_UPLOADED` |
+| 50 | 사진 저장 | 다른 아이템에 붙은 이미지로 등록하면 409 `IMAGE_IN_USE`, PATCH로 사진을 바꾸면 새 사진이 붙고 예전 사진 객체는 404 |
 
 ### 장소별 날씨 (doc/19, 원시 HTTP)
 
@@ -162,10 +170,10 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 
 | # | 분류 | 확인하는 것 |
 |---|---|---|
-| 50 | 장소 날씨 | (관리자) `GET /weather/day` region 방식: 서울을 지금 실행으로 받은 뒤 토큰 없이 200, 응답 키 7개, 오늘은 `FORECAST`(`place`·`day` 키·`cond`·`forecastUntil`·`fetchedAt` ISO·`climate` null), 40일 뒤는 `CLIMATE`(`cond`·`condText` null, 최저 < 최고, `climate.years`, `rainProb` = `rainDayRatio` × 100), `forecastUntil` 같음, 틀린 토큰도 200 |
-| 51 | 장소 날씨 | 좌표 방식은 토큰 없이 401 `UNAUTHORIZED`(좌표가 틀려도 로그인이 먼저), `/weather/places`도 401. 로그인하면 격자 좌표(소수 첫째 자리)로 오늘 `FORECAST`·60일 뒤 `CLIMATE`(`place.regionCode` null), 검색 응답 키(`items`, 항목 키 7개 — `parentRegionCode` 포함), 목업 검색 도쿄는 `regionCode` null·부산은 `BUSAN`, 해운대·중구는 시·군·구 결과(`regionCode` null, 상위 시·도 `parentRegionCode`), 빈 검색어 400(`q`). `--external`이면 401만 확인 |
-| 52 | 장소 날씨 | 날짜 검증: 없음(`REQUIRED`)·없는 달·형식(`INVALID_FORMAT`)·어제·1년 넘음(`OUT_OF_RANGE`) 모두 400 `VALIDATION_FAILED`(`date`), 없는 지역 400(`region` `NOT_FOUND`), 빈 검색어는 `q` `REQUIRED` |
-| 53 | 장소 날씨 | (관리자) `GET /admin/weather/calls?callKind=` 필터(대소문자 무관), 틀린 값 400 `NOT_ALLOWED`(`params.allowed` = `FORECAST`·`ON_DEMAND`·`SEARCH`·`CLIMATE`), `calls/summary`의 `auxiliaryMonths`(`OPEN_METEO`·`OPEN_METEO_GEO`) (필요: admin) |
+| 51 | 장소 날씨 | (관리자) `GET /weather/day` region 방식: 서울을 지금 실행으로 받은 뒤 토큰 없이 200, 응답 키 7개, 오늘은 `FORECAST`(`place`·`day` 키·`cond`·`forecastUntil`·`fetchedAt` ISO·`climate` null), 40일 뒤는 `CLIMATE`(`cond`·`condText` null, 최저 < 최고, `climate.years`, `rainProb` = `rainDayRatio` × 100), `forecastUntil` 같음, 틀린 토큰도 200 |
+| 52 | 장소 날씨 | 좌표 방식은 토큰 없이 401 `UNAUTHORIZED`(좌표가 틀려도 로그인이 먼저), `/weather/places`도 401. 로그인하면 격자 좌표(소수 첫째 자리)로 오늘 `FORECAST`·60일 뒤 `CLIMATE`(`place.regionCode` null), 검색 응답 키(`items`, 항목 키 7개 — `parentRegionCode` 포함), 목업 검색 도쿄는 `regionCode` null·부산은 `BUSAN`, 해운대·중구는 시·군·구 결과(`regionCode` null, 상위 시·도 `parentRegionCode`), 빈 검색어 400(`q`). `--external`이면 401만 확인 |
+| 53 | 장소 날씨 | 날짜 검증: 없음(`REQUIRED`)·없는 달·형식(`INVALID_FORMAT`)·어제·1년 넘음(`OUT_OF_RANGE`) 모두 400 `VALIDATION_FAILED`(`date`), 없는 지역 400(`region` `NOT_FOUND`), 빈 검색어는 `q` `REQUIRED` |
+| 54 | 장소 날씨 | (관리자) `GET /admin/weather/calls?callKind=` 필터(대소문자 무관), 틀린 값 400 `NOT_ALLOWED`(`params.allowed` = `FORECAST`·`ON_DEMAND`·`SEARCH`·`CLIMATE`), `calls/summary`의 `auxiliaryMonths`(`OPEN_METEO`·`OPEN_METEO_GEO`) (필요: admin) |
 
 ### 예정 코디 (doc/21, 원시 HTTP)
 
@@ -173,9 +181,9 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 
 | # | 분류 | 확인하는 것 |
 |---|---|---|
-| 54 | 예정 코디 | 토큰 없이 목록 401 → 등록 201(응답 키 17개, 숫자 문자열 `id`, 메모 공백 제거, `weatherCheckedAt` UTC, 보낸 코디 그대로, 기기 아이템 id는 `missingItemIds`) → 목록(날짜 → 시간대 순, `from`/`to` 양 끝 포함) → PATCH(`null`은 비우고 안 보낸 필드는 그대로) → DELETE 204 → 다시 삭제·PATCH는 404 |
-| 55 | 예정 코디 | bulk: 같은 `clientId`의 POST는 200·같은 id, bulk는 요청 순서대로 만들거나 고침(`created`/`updated`), 다시 올려도 늘지 않음, `clientId` 중복(`items[1].clientId` `DUPLICATE`)·없음(`REQUIRED`)·101개(`items` `TOO_MANY`)·틀린 항목(`items[1].occasion` `NOT_ALLOWED`)은 400이고 하나도 저장하지 않음 |
-| 56 | 예정 코디 | 입력 검증의 필드 오류 코드 한꺼번에(`clientId` `INVALID_FORMAT`, `date` `OUT_OF_RANGE{min, max}` = 오늘 앞뒤 1년, `timeOfDay`·`concepts[1]`·`place.regionCode`·`outfit.items.HAT` `NOT_ALLOWED`, `place.lat` `OUT_OF_RANGE`), `weather` 필수, 1년 안 지난 날짜는 저장, 지운 옷은 `missingItemIds`에 나오고 코디는 그대로, 남의 예정 PATCH·DELETE는 입력이 틀려도 404 |
+| 55 | 예정 코디 | 토큰 없이 목록 401 → 등록 201(응답 키 17개, 숫자 문자열 `id`, 메모 공백 제거, `weatherCheckedAt` UTC, 보낸 코디 그대로, 기기 아이템 id는 `missingItemIds`) → 목록(날짜 → 시간대 순, `from`/`to` 양 끝 포함) → PATCH(`null`은 비우고 안 보낸 필드는 그대로) → DELETE 204 → 다시 삭제·PATCH는 404 |
+| 56 | 예정 코디 | bulk: 같은 `clientId`의 POST는 200·같은 id, bulk는 요청 순서대로 만들거나 고침(`created`/`updated`), 다시 올려도 늘지 않음, `clientId` 중복(`items[1].clientId` `DUPLICATE`)·없음(`REQUIRED`)·101개(`items` `TOO_MANY`)·틀린 항목(`items[1].occasion` `NOT_ALLOWED`)은 400이고 하나도 저장하지 않음 |
+| 57 | 예정 코디 | 입력 검증의 필드 오류 코드 한꺼번에(`clientId` `INVALID_FORMAT`, `date` `OUT_OF_RANGE{min, max}` = 오늘 앞뒤 1년, `timeOfDay`·`concepts[1]`·`place.regionCode`·`outfit.items.HAT` `NOT_ALLOWED`, `place.lat` `OUT_OF_RANGE`), `weather` 필수, 1년 안 지난 날짜는 저장, 지운 옷은 `missingItemIds`에 나오고 코디는 그대로, 남의 예정 PATCH·DELETE는 입력이 틀려도 404 |
 
 ### 푸시 토큰 (doc/23, 원시 HTTP)
 
@@ -183,7 +191,7 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 
 | # | 분류 | 확인하는 것 |
 |---|---|---|
-| 57 | 푸시 토큰 | 토큰 없이 401 `UNAUTHORIZED` → 등록 200(키 4개 `deviceId`·`platform`·`serverPush`·`dayBeforeTime`, `serverPush` false, `dayBeforeTime` `HH:mm`) → 같은 기기 다시 등록 200(플랫폼이 바뀜) → 검증 400(`token`·`platform`·`deviceId`) → 삭제 204(없어도 204, `deviceId` 없으면 400) |
+| 58 | 푸시 토큰 | 토큰 없이 401 `UNAUTHORIZED` → 등록 200(키 4개 `deviceId`·`platform`·`serverPush`·`dayBeforeTime`, `serverPush` false, `dayBeforeTime` `HH:mm`) → 같은 기기 다시 등록 200(플랫폼이 바뀜) → 검증 400(`token`·`platform`·`deviceId`) → 삭제 204(없어도 204, `deviceId` 없으면 400) |
 
 ### 계약에 정해지지 않아 하네스가 고른 기대값
 
@@ -226,7 +234,7 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 |---|---|
 | `run.sh` | DB·Valkey·MinIO(하네스 버킷) 준비 → 백엔드 기동·종료 → 러너 실행 |
 | `src/main.ts` | 러너. 인자 해석, 시나리오 실행, 결과 표 |
-| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`·`images`·`weather`·`plans`·`mfa`·`push`). 전체 57개(`./run.sh --list`) |
+| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`·`images`·`weather`·`plans`·`mfa`·`push`·`sso`). 전체 58개(`./run.sh --list`) |
 | `src/lib/session.ts` | 앱 모듈로 클라이언트 만들기, 요청·토큰 저장·`onAuthLost` 기록 |
 | `src/lib/http.ts` | 원시 요청과 오류 본문 형식 검사(`checkErrorBody`: `message` 없음, `traceId` = `X-Request-Id`, `fieldErrors` 항목은 `{ field, code, params? }`) |
 | `src/lib/rawUser.ts` | 앱 모듈 없이 가입·관리자 로그인한 세션 (`TOKEN_EXPIRED`면 다시 로그인) |

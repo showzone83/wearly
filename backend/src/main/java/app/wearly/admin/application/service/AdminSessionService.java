@@ -42,7 +42,7 @@ public class AdminSessionService implements AdminSessionUseCase {
   static final List<String> CLIENTS = List.of("APP", "ADMIN", "WEB");
   static final int RECENT_EVENTS = 20;
 
-  /** 로그인 이력 종류 (tb_auth_event.type, V16) */
+  /** 로그인 이력 종류 (tb_auth_event.type, V16·V22) */
   static final List<String> EVENT_TYPES =
       List.of(
           "LOGIN",
@@ -52,7 +52,9 @@ public class AdminSessionService implements AdminSessionUseCase {
           "LOGIN_FAILED",
           "MFA_SUCCESS",
           "MFA_FAILED",
-          "MFA_LOCKED");
+          "MFA_LOCKED",
+          "SSO_LOGIN",
+          "SSO_DENIED");
 
   private final SessionUseCase sessions;
   private final UserUseCase users;
@@ -103,7 +105,14 @@ public class AdminSessionService implements AdminSessionUseCase {
             .map(
                 e ->
                     new LoginEventDto(
-                        e.type(), e.sessionId(), e.client(), e.ip(), e.userAgent(), e.createdAt()))
+                        e.type(),
+                        e.sessionId(),
+                        e.client(),
+                        e.ip(),
+                        e.userAgent(),
+                        e.createdAt(),
+                        e.ssoProvider(),
+                        e.ssoAmr()))
             .toList();
     return new AdminUserSessionsDto(list, events);
   }
@@ -187,7 +196,9 @@ public class AdminSessionService implements AdminSessionUseCase {
                         r.client(),
                         r.ip(),
                         r.userAgent(),
-                        r.createdAt()))
+                        r.createdAt(),
+                        r.ssoProvider(),
+                        r.ssoAmr()))
             .toList();
     return new PageDto<>(items, paging.page(), paging.size(), queries.countAdminAuthEvents(filter));
   }

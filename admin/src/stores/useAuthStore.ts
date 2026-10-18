@@ -1,12 +1,13 @@
 // 로그인한 관리자 상태 (zustand). 토큰은 sessionStorage(api/tokenStore.ts)에 그대로 두고, 여기서는 화면용 사용자 정보와 상태만 든다.
 // 화면에서는 useAuthStore((s) => s.user)처럼 선택자로 구독하고, 컴포넌트 밖에서는 useAuthStore.getState()로 부른다.
 // 2단계 인증(doc/22): 로그인 응답이 대기(mfaToken)면 mfa에 두고(메모리만) 등록 또는 코드 입력 화면을 거친다.
+// 회사 계정(SSO, doc/22 4.2): startSso → (IdP) → /sso/callback?code → completeSso. 로그아웃하면 IdP 로그아웃으로도 보낸다.
 import { api, isApiError, onAuthLost, tokenStore } from '@/api';
 import type { ApiError, IUserDto } from '@/api';
 
 import { create } from 'zustand';
 
-import { errorText } from '@/lib/errorText';
+import { errorText, errorTextWithTrace } from '@/lib/errorText';
 import { queryClient } from '@/lib/queryClient';
 
 /**
@@ -40,6 +41,15 @@ interface IAuthStore {
   /** 로그인 때 받은 남은 복구 코드 수 (3 이하이면 화면 위에 경고). 경고를 닫거나 다시 등록하면 null */
   recoveryCodesLeft: number | null;
   login: (email: string, password: string) => Promise<void>;
+  /** 회사 계정 로그인 시작: IdP로 이동한다 (페이지를 떠난다) */
+  startSso: (providerId: string) => void;
+  /**
+   * 콜백의 교환 코드로 로그인을 마친다. 2단계 인증 대기면 mfa에 둔다 (서버가 IdP MFA를 믿지 않을 때).
+   * @returns 바로 들어갈 수 있으면 true
+   */
+  completeSso: (code: string) => Promise<boolean>;
+  /** 회사 계정 로그인 실패를 로그인 화면에 보인다 */
+  failSso: (e: unknown) => void;
   /** 대기 토큰으로 코드(또는 복구 코드)를 확인한다. 대기 토큰이 무효·잠김이면 첫 화면으로 돌아가고 오류를 다시 던진다 */
   verifyMfa: (input: { code?: string; recoveryCode?: string }) => Promise<void>;
   /** 2단계 인증 오류가 처음부터 다시 로그인해야 하는 것이면(대기 토큰 무효·잠김) 첫 화면으로 돌리고 true */
@@ -69,6 +79,10 @@ const lostReasonText = (reason: ApiError): string => {
 
 const storedUser = tokenStore.get() ? tokenStore.getUser() : null;
 
+/** 이 사이트의 SSO 콜백·로그아웃 뒤 주소. 서버 설정 redirect-allowlist와 정확히 같아야 한다 */
+const ssoCallbackUrl = (): string => `${window.location.origin}/sso/callback`;
+const ssoLoggedOutUrl = (): string => `${window.location.origin}/login`;
+
 /** 대기 토큰이 끝나면 화면도 첫 화면으로 돌린다 (서버 수명보다 조금 일찍) */
 let mfaTimer: ReturnType<typeof setTimeout> | null = null;
 const MFA_EXPIRED_TEXT = '인증 시간이 지났어요. 처음부터 다시 로그인해 주세요.';
@@ -91,6 +105,7 @@ export const useAuthStore = create<IAuthStore>()((set, get) => ({
   login: async (email, password) => {
     clearMfaTimer();
     const result = await api.auth.login({ email, password });
+    tokenStore.setSsoProvider(null);
     if (result.kind === 'signedIn') {
       set({ ...NO_PENDING, user: result.auth.user, status: 'signedIn', lostReason: null, recoveryCodesLeft: null });
       return;
@@ -100,6 +115,39 @@ export const useAuthStore = create<IAuthStore>()((set, get) => ({
     mfaTimer = setTimeout(() => {
       if (get().mfa?.mfaToken === result.mfaToken) get().cancelMfa(MFA_EXPIRED_TEXT);
     }, ms);
+  },
+
+  startSso: (providerId) => {
+    clearMfaTimer();
+    tokenStore.setSsoPending(providerId);
+    window.location.assign(api.auth.ssoStartUrl(providerId, ssoCallbackUrl()));
+  },
+
+  completeSso: async (code) => {
+    clearMfaTimer();
+    const provider = tokenStore.takeSsoPending();
+    const result = await api.auth.ssoExchange(code);
+    if (result.kind === 'signedIn') {
+      tokenStore.setSsoProvider(provider);
+      set({ ...NO_PENDING, user: result.auth.user, status: 'signedIn', lostReason: null, recoveryCodesLeft: null });
+      return true;
+    }
+    set({
+      ...NO_PENDING,
+      mfa: { mfaToken: result.mfaToken, enrolled: result.enrolled, email: '회사 계정' },
+      lostReason: null,
+    });
+    const ms = Math.max(30, result.expiresIn - 5) * 1000;
+    mfaTimer = setTimeout(() => {
+      if (get().mfa?.mfaToken === result.mfaToken) get().cancelMfa(MFA_EXPIRED_TEXT);
+    }, ms);
+    return false;
+  },
+
+  failSso: (e) => {
+    tokenStore.setSsoPending(null);
+    const text = isApiError(e) ? errorTextWithTrace(e) : '회사 계정 로그인을 마치지 못했어요. 다시 시도해 주세요.';
+    set({ ...NO_PENDING, user: null, status: 'signedOut', lostReason: text });
   },
 
   verifyMfa: async (input) => {
@@ -156,9 +204,13 @@ export const useAuthStore = create<IAuthStore>()((set, get) => ({
 
   logout: async () => {
     clearMfaTimer();
+    // 토큰을 지우기 전에 읽는다 (api.auth.logout이 저장소를 비운다)
+    const sso = tokenStore.getSsoProvider();
     await api.auth.logout();
     queryClient.clear();
     set({ ...NO_PENDING, user: null, status: 'signedOut', lostReason: null, recoveryCodesLeft: null });
+    // 회사 계정으로 들어왔으면 IdP에서도 로그아웃한다 (끝나면 /login으로 돌아온다)
+    if (sso) window.location.assign(api.auth.ssoLogoutUrl(sso, ssoLoggedOutUrl()));
   },
 
   handleAuthLost: (reason) => {

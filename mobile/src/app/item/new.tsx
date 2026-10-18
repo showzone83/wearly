@@ -9,13 +9,15 @@ import { Icon } from '@/components/Icon';
 import { defaultName, ItemForm, type ItemDraft } from '@/components/ItemForm';
 import { Mascot } from '@/components/Mascot';
 import { Badge, Button, Header, Kicker, notify, Row, Screen, StepDots, Title, TraceLabel } from '@/components/ui';
-import type { Category, ColorKey, IItemImage, SubType } from '@/data/types';
+import type { IItemImage } from '@/data/types';
 import { isApiError } from '@/api/errors';
 import { createItem, isAccountMode } from '@/lib/account';
 import { api, errorAlertMessage, errorMessage, isNetworkError, photoFile } from '@/lib/api';
 import { systemTraceId, traceLabelOf } from '@/lib/errorText';
-import { activeCodes, defaultStatus, isActiveCode, subTypeMeta, subTypesOf } from '@/lib/codes';
+import { activeCodes, defaultStatus, isActiveCode, subTypesOf } from '@/lib/codes';
+import { mockAnalyze } from '@/lib/mockAnalyze';
 import { MOCK_MODE } from '@/lib/mode';
+import { isSmallPhoto, SMALL_PHOTO_TEXT } from '@/lib/photoEditRules';
 import { isImagesUnsupported } from '@/lib/photoRules';
 import { preparePhoto, uploadPrepared } from '@/lib/photoUpload';
 import { canRecommend } from '@/lib/recommend';
@@ -55,7 +57,7 @@ function providerNote(src: AiSource): string | null {
   return PROVIDER_NAME[src.provider] ?? src.provider;
 }
 
-type PickedAsset = { uri: string; fileName?: string | null; mimeType?: string | null };
+type PickedAsset = { uri: string; fileName?: string | null; mimeType?: string | null; width?: number; height?: number };
 
 /** 등록할 사진: 기기 주소(미리보기·기기 저장용)와, 서버에 올렸으면 그 참조 */
 type TPhoto = { uri: string; image?: IItemImage };
@@ -69,42 +71,6 @@ type Outcome =
   | { kind: 'error'; message: string; photo: TPhoto; traceId?: string }
   /** 사진을 서버에 올리지 못함 → 2단계에서 오류와 '다시 시도' */
   | { kind: 'uploadError'; message: string; traceId?: string };
-
-function hash(str: string): number {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-/**
- * 목업 AI 분석: 실제 모델 대신 사진마다 고정된 제안값을 만든다.
- * 목업 실행(npm run start:mock)의 게스트 모드와, 그때 서버에 닿지 못한 경우에만 쓴다.
- */
-function mockAnalyze(uri: string): ItemDraft {
-  const h = hash(uri);
-  // 활성 코드에서 고른다. 상의는 두 번 넣어 자주 나오게 한다
-  const cats: Category[] = ['TOP', 'TOP', 'BOTTOM', 'DRESS', 'OUTER', 'SHOES', 'BAG'].filter((c) => subTypesOf(c).length > 0);
-  if (cats.length === 0) cats.push(...activeCodes('CATEGORY').filter((c) => subTypesOf(c).length > 0));
-  const category = cats[h % cats.length];
-  const subs = subTypesOf(category);
-  // h는 32비트 부호 없는 값이라 >>(부호 있는 시프트)를 쓰면 음수 인덱스가 나온다
-  const subType: SubType = subs[(h >>> 3) % subs.length];
-  const palette: ColorKey[] = activeCodes('COLOR').slice(0, 8);
-  const color = palette[(h >>> 7) % palette.length];
-  return {
-    name: defaultName({ color, subType }),
-    category,
-    subType,
-    color,
-    colors: [color],
-    pattern: pick(activeCodes('PATTERN'), 'SOLID'),
-    seasons: subTypeMeta(subType).warmth >= 2 ? ['FALL', 'WINTER'] : ['SPRING', 'FALL'],
-    styles: [pick(activeCodes('STYLE'), 'MINIMAL')],
-    formality: 2,
-    status: defaultStatus(),
-    imageUri: uri,
-  };
-}
 
 /** 원하는 코드가 활성이면 그것, 아니면 첫 활성 코드 */
 function pick(options: string[], preferred: string): string {
@@ -205,6 +171,8 @@ export default function NewItem() {
   /** 사진 올리기 실패가 시스템 오류면 그 traceId (오류 번호) */
   const [uploadTrace, setUploadTrace] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
+  /** 고른 사진이 작다 (긴 변 600 미만) → 흐리게 보일 수 있다는 안내 (막지는 않는다) */
+  const [smallPhoto, setSmallPhoto] = useState(false);
   /** 분석 중 '직접 입력'으로 넘어가면 늦게 온 분석 결과를 버린다 */
   const runRef = useRef(0);
   /** '다시 시도'에 쓸 마지막으로 고른 사진 */
@@ -233,6 +201,7 @@ export default function NewItem() {
     const run = ++runRef.current;
     assetRef.current = asset;
     setPhotoUri(asset.uri);
+    setSmallPhoto(isSmallPhoto(asset.width, asset.height));
     setDraft(null);
     setUploadError(null);
     setStage('analyze');
@@ -316,7 +285,7 @@ export default function NewItem() {
         header={header}
         footer={
           <View style={{ gap: 10 }}>
-            <Button title="계속 등록하기" variant="outline" onPress={() => { setDraft(null); setAiSource(null); setPhotoUri(undefined); setUploadError(null); setStep(1); }} />
+            <Button title="계속 등록하기" variant="outline" onPress={() => { setDraft(null); setAiSource(null); setPhotoUri(undefined); setUploadError(null); setSmallPhoto(false); setStep(1); }} />
             <Button title={after.ok ? '오늘 코디 보러 가기' : '옷장으로'} onPress={() => router.replace(after.ok ? '/home' : '/closet')} />
           </View>
         }
@@ -380,6 +349,7 @@ export default function NewItem() {
                     : '사진은 나중에 추가할 수 있어요'}
             </Text>
             {remaining !== null && <Text style={s.remaining}>오늘 남은 AI 분석 {remaining}회</Text>}
+            {smallPhoto && draft.imageUri && <Text style={s.smallInline}>{SMALL_PHOTO_TEXT}</Text>}
           </View>
         </Row>
         <ItemForm value={draft} onChange={setDraft} aiFields={fromAi ? ['category', 'color', 'pattern'] : []} />
@@ -392,6 +362,7 @@ export default function NewItem() {
       <Screen header={header} scroll={false}>
                 <View style={s.center}>
           {photoUri && <Image source={{ uri: photoUri }} style={s.analyzing} contentFit="cover" />}
+          {photoUri && smallPhoto && <Text style={s.small}>{SMALL_PHOTO_TEXT}</Text>}
           {uploadError ? (
             <>
               <Title style={s.doneTitle}>사진을 올리지 못했어요</Title>
@@ -557,5 +528,7 @@ const useStyles = makeStyles((t) => ({
   formTitle: { fontSize: 18, fontWeight: '800', color: t.colors.text },
   formSub: { fontSize: 13, color: t.colors.textSub, lineHeight: 18 },
   remaining: { fontSize: 12, color: t.colors.primary, fontWeight: '700' },
+  small: { fontSize: 12, color: t.colors.textSub, lineHeight: 17, marginTop: 8, textAlign: 'center', paddingHorizontal: 12 },
+  smallInline: { fontSize: 12, color: t.colors.textSub, lineHeight: 17 },
   provider: { fontSize: 11, color: t.colors.textSub, fontWeight: '600' },
 }));

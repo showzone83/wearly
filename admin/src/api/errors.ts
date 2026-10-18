@@ -47,6 +47,20 @@ export type TApiErrorCode =
   | 'MFA_SETUP_REQUIRED'
   | 'MFA_ALREADY_ENROLLED'
   | 'MFA_NOT_ENROLLED'
+  /** doc/22 4.2 회사 계정(SSO): 관리자 그룹이 아님 (403) */
+  | 'SSO_NOT_ADMIN'
+  /** 처음 로그인인데 IdP 이메일이 검증되지 않음 (403) */
+  | 'SSO_EMAIL_UNVERIFIED'
+  /** state 만료·재사용·다른 브라우저 (400) */
+  | 'SSO_STATE_INVALID'
+  /** 토큰 교환 거절·ID 토큰 확인 실패 (401) */
+  | 'SSO_TOKEN_INVALID'
+  /** IdP가 오류로 돌려보냄 (400). params.reason: access_denied 등 */
+  | 'SSO_IDP_ERROR'
+  /** IdP에 닿지 못함 (502) */
+  | 'SSO_PROVIDER_UNAVAILABLE'
+  /** 교환 코드 만료·재사용 (401) */
+  | 'SSO_EXCHANGE_INVALID'
   | 'INTERNAL_ERROR'
   | 'SERVICE_UNAVAILABLE'
   /** 서버에 닿지 못함 (연결 실패·시간 초과 — params.reason TIMEOUT) */

@@ -27,7 +27,7 @@ docker로 띄우기: 저장소 루트에서 `docker compose up -d --build`를 �
 npm run build        # tsc -b + vite build → dist/
 npm run lint         # 코드 규칙 검사. import 순서·빈 줄은 npm run lint -- --fix로 고친다
 npm run test:lint-rules   # 로컬 ESLint 규칙(eslint-rules/)과 import 그룹 설정 단위 테스트
-npm run test:unit        # 화면 없이 도는 순수 함수 테스트(tests/*.test.mjs 7파일 43개: errorText[서버 오류 코드 44개 표 일치], mfa, modelPicker, seasonMode, userAgent, userInfo, weather)
+npm run test:unit        # 화면 없이 도는 순수 함수 테스트(tests/*.test.mjs 7파일 43개: errorText[서버 오류 코드 51개 표 일치], mfa, modelPicker, seasonMode, userAgent, userInfo, weather)
 ```
 
 ## 관리자 계정 만들기
@@ -57,6 +57,21 @@ wearly:
 
 로컬 개발에서 번거로우면 백엔드 `application-local.yml`에 `wearly.admin.mfa.required: false`(이미 등록한 관리자는 그래도 코드를 확인한다). 복구 코드도 없을 때는 다른 관리자가 **회원** 화면에서 "2단계 인증 초기화"를 하거나 DB에서 지운다 (doc/22 4.1.7).
 
+### 회사 계정 로그인 (SSO, doc/22 4.2)
+
+서버가 `wearly.sso.enabled`(기본 꺼짐)를 켜고 공급자를 설정하면 로그인 화면 위쪽에 **"<공급자 이름> 로그인"** 버튼(예: "회사 계정 (Keycloak) 로그인")이 생긴다. 그 아래 "또는 비상 관리자 계정" 구분선 뒤에 이메일·비밀번호 칸이 그대로 있다. 꺼져 있거나 서버에 닿지 못하면 버튼은 보이지 않는다.
+
+1. 버튼을 누르면 브라우저가 백엔드 `/auth/sso/{id}/start?redirect=<이 사이트>/sso/callback`을 거쳐 IdP 로그인 화면으로 간다.
+2. 로그인을 마치면 `/sso/callback?code=…`로 돌아온다(`pages/SsoCallbackPage.tsx`). 사이트가 한 번만 쓰는 교환 코드를 `POST /auth/sso/exchange`로 보내 토큰을 받고 들어간다. 주소에는 토큰이 실리지 않는다.
+3. 실패하면 `/sso/callback?error=…&status=…&traceId=…`로 돌아오고, 로그인 화면에 오류 문구가 보인다(예: 관리자 그룹이 아니면 `SSO_NOT_ADMIN`).
+4. 로그아웃하면 이 사이트의 세션을 끊고, 회사 계정으로 들어온 세션은 IdP 로그아웃(`/auth/sso/{id}/logout?redirect=<이 사이트>/login`)도 거쳐 `/login`으로 돌아온다.
+
+- 서버 설정의 `redirect-allowlist`에 이 사이트의 `<주소>/sso/callback`과 `<주소>/login`이 **정확히** 있어야 한다(로컬 `http://localhost:5173/sso/callback`, `http://localhost:5173/login`). 없으면 시작할 때 400.
+- 서버가 IdP의 MFA를 믿지 않게 설정(`trust-idp-mfa: false`)했다면 회사 계정 로그인 뒤 2단계 인증(코드 입력) 화면이 이어진다.
+- 회사 계정으로 처음 만들어진 관리자는 이 사이트의 비밀번호가 없다. "내 계정"은 로그인 방식("회사 계정 (keycloak)")과 안내를 보이고, 비밀번호 바꾸기·2단계 인증은 쓸 수 없다.
+- 로컬에서 켜는 법(Keycloak)은 doc/22 4.2.5 — `docker compose --profile sso up -d keycloak`, `backend/config/application-local.yml`에 SSO 블록, `docker compose up -d --build backend`. 시험 계정 `admin@wearly.local` / `WearlyAdmin1!`.
+- 구현: `pages/LoginPage.tsx`(`SsoButtons`), `pages/SsoCallbackPage.tsx`, `stores/useAuthStore.ts`(`startSso`·`completeSso`·`failSso`), `api/client.ts`(`ssoProviders`·`ssoStartUrl`·`ssoExchange`·`ssoLogoutUrl`), `api/tokenStore.ts`(SSO 공급자 ID를 `sessionStorage`에 기억).
+
 ## 화면
 
 | 메뉴 | 내용 |
@@ -67,8 +82,8 @@ wearly:
 | AI 분석 기록 | 공급자·상태·회원 이메일·기간 필터, 표, 행을 누르면 결과 JSON 전체 |
 | 회원 | 이메일·이름 검색, 상태·역할 필터, 정지·해제, 관리자 지정·해제 (자기 자신은 정지·해제 불가, 마지막 관리자는 서버가 막음), **나의 정보** 열(연령대·체형·키·핏 선호 한 줄), **2단계 인증** 열과 "2단계 인증 초기화"(다른 관리자 것만, 확인 대화상자) |
 | 로그인 사용자 | 살아 있는 세션 표, 검색·기기 필터, 세션·회원 단위 강제 로그아웃 (doc/16) |
-| 관리자 로그인 기록 | `/auth-events`: 회원 ID·종류·기간 필터, 시각·회원·역할·종류(로그인 실패·2단계 인증 성공/실패/잠김 포함)·기기·IP (doc/22 4.1.5) |
-| 내 계정 | `/me`: 비밀번호 바꾸기, 2단계 인증 상태(켜짐/꺼짐·등록일·남은 복구 코드·서버 설정 필수/선택), 등록, 다시 등록(지금 비밀번호 + 코드 또는 복구 코드). 복구 코드가 적게 남으면 안내 |
+| 관리자 로그인 기록 | `/auth-events`: 회원 ID·종류·기간 필터, 시각·회원·역할·종류(로그인 실패·2단계 인증 성공/실패/잠김, 회사 계정 로그인·거부 배지와 공급자·`amr` 포함)·기기·IP (doc/22 4.1.5, 4.2) |
+| 내 계정 | `/me`: 로그인 방식(이메일·비밀번호 / 회사 계정), 비밀번호 바꾸기, 2단계 인증 상태(켜짐/꺼짐·등록일·남은 복구 코드·서버 설정 필수/선택), 등록, 다시 등록(지금 비밀번호 + 코드 또는 복구 코드). 복구 코드가 적게 남으면 안내 |
 | 날씨 | doc/17 6장. **스케줄**(켜기·주기·예보 일수·차단 기준, 예상 월 호출 수, 지금 실행, 최근 실행), **공급자**(사용·상태·키 상태·차단 해제·월 사용량·수정·시험 호출, 아래에 **Open-Meteo 보조 공급자 카드**: 평년값·장소 검색의 이번 달 호출 수와 비상업 안내), **호출 이력**(요약·필터·상세, **종류** 칸·필터 = 정기·수동 실행 / 다른 장소 날씨 / 장소 검색 / 평년값을 서버 `callKind`로 거름, 격자 좌표는 "좌표 35.7, 139.7"로 표시, 요약에 보조 공급자 호출 수), **저장된 날씨**(지역별 값·앱 응답 미리보기·원본·이 지역 새로 받기). 순수 함수는 `lib/weather.ts`(`tests/weather.test.mjs`) |
 | 앱 설정 | **테마**(doc/12 3·6장): 냥깨비·Closeta 카드(이름·설명·색 견본 18개·작은 앱 화면 미리보기·마스코트 6자세), 현재 적용 중 배지, 마지막 변경 시각·관리자, "이 테마로 바꾸기" → 확인 대화상자 → `PUT /admin/app/theme`. 사용자가 앱을 다시 열거나 앱으로 돌아오면 반영된다. 백엔드가 아직 API를 모르면(404) 안내를 띄우고 미리보기만 보여 준다. **계절 테마**(doc/12 7장, 이슈 #6): 계절 모드(끄기·자동·봄/여름/가을/겨울 고정) 선택 → 확인 대화상자 → `PUT { seasonMode }`, 4계절 × 2테마 미리보기(작은 앱 화면·계절이 바꾸는 색 견본·가장 낮은 글자 대비 WCAG AA)와 지금 앱에 보이는 조합 배지. 서버가 `seasonMode`를 모르면(옛 서버) 안내만 |
 | 변경 이력 | 대상(코드·AI 공급자·회원·앱 설정·로그인 세션·날씨)별 목록, 행을 누르면 변경 전·후 JSON. 목록에 모르는 대상 종류가 오면 탭이 따로 생긴다. 테마 변경은 '냥깨비 → Closeta'처럼 보인다 |
@@ -129,16 +144,16 @@ admin/
   src/
     api/                   관리자 API 클라이언트와 계약 타입 (앱 코드를 import하지 않음)
       client.ts            토큰 갱신 single-flight, 응답 정규화
-      tokenStore.ts        sessionStorage (wearly-admin-tokens, wearly-admin-user)
+      tokenStore.ts        sessionStorage (wearly-admin-tokens, wearly-admin-user, wearly-admin-sso[SSO 공급자 ID], wearly-admin-sso-pending[SSO 시작~콜백])
       types.ts · errors.ts(ApiError: code·params·fieldErrors·traceId) · index.ts
-    stores/                zustand 스토어: useAuthStore(로그인 사용자·상태, 로그인·2단계 인증 단계[대기 토큰·등록·코드·복구 코드]·로그아웃, 로그인 잃음 처리), useToastStore(토스트)
+    stores/                zustand 스토어: useAuthStore(로그인 사용자·상태, 로그인·2단계 인증 단계[대기 토큰·등록·코드·복구 코드]·회사 계정 로그인[startSso·completeSso·failSso]·로그아웃(SSO면 IdP 로그아웃도), 로그인 잃음 처리), useToastStore(토스트)
     components/            Layout(왼쪽 메뉴), ui(버튼·표·패널 등), Garment(일러스트·색 칩), Toaster(토스트 표시),
                            Mascot(마스코트 PNG), ThemePreview(색 견본·작은 앱 화면), SeasonPreview(4계절 × 2테마 미리보기), Mfa(QR·코드 입력·복구 코드 공용 조각), Sessions
     lib/                   queryClient(React Query 캐시), garment(앱 일러스트 데이터 래퍼), appTheme(앱 테마·마스코트 데이터 래퍼),
                            queries(TanStack Query 키·훅), format, providerTypes, modelPicker(모델 드롭다운의 순수 함수),
                            errorText(오류 코드 → 한국어 문구·오류 번호, 위 "오류 표시 규칙"), weather(날씨 화면 순수 함수: 호출 종류·격자 좌표·보조 공급자),
                            mfa(2단계 인증 화면의 순수 함수), seasonMode(계절 모드 화면 문구·대비 등급), userInfo(회원 나의 정보 한 줄), sessions·userAgent(로그인 세션 라벨·기기)
-    pages/                 Dashboard · codes/ · providers/(ApiKeySection = API 키 웹 입력, ModelPicker = 모델 드롭다운) · AiLogs · Users · Sessions · AuthEvents(관리자 로그인 기록) · MyAccount(내 계정) · weather/ · AppTheme(테마·계절 모드) · AuditLogs · Login(2단계 인증 포함)
+    pages/                 Dashboard · codes/ · providers/(ApiKeySection = API 키 웹 입력, ModelPicker = 모델 드롭다운) · AiLogs · Users · Sessions · AuthEvents(관리자 로그인 기록) · MyAccount(내 계정) · weather/ · AppTheme(테마·계절 모드) · AuditLogs · Login(2단계 인증·회사 계정 버튼 포함) · SsoCallback(회사 계정 로그인 콜백)
 ```
 
 ### 토큰

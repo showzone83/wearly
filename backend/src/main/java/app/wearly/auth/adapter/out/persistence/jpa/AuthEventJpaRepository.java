@@ -17,8 +17,10 @@ public interface AuthEventJpaRepository extends JpaRepository<AuthEventEntity, L
   @Query(
       value =
           "INSERT INTO tb_auth_event"
-              + " (user_id, type, session_id, client, ip, user_agent, created_at)"
-              + " SELECT :userId, :type, :sessionId, :client, :ip, :userAgent, :createdAt"
+              + " (user_id, type, session_id, client, ip, user_agent, created_at, sso_provider,"
+              + " sso_amr)"
+              + " SELECT :userId, :type, :sessionId, :client, :ip, :userAgent, :createdAt,"
+              + " :ssoProvider, :ssoAmr"
               + " WHERE EXISTS (SELECT 1 FROM tb_user WHERE user_id = :userId)",
       nativeQuery = true)
   int insertIfUserExists(
@@ -28,5 +30,7 @@ public interface AuthEventJpaRepository extends JpaRepository<AuthEventEntity, L
       @Param("client") String client,
       @Param("ip") String ip,
       @Param("userAgent") String userAgent,
-      @Param("createdAt") Instant createdAt);
+      @Param("createdAt") Instant createdAt,
+      @Param("ssoProvider") String ssoProvider,
+      @Param("ssoAmr") String ssoAmr);
 }

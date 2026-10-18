@@ -1336,6 +1336,29 @@ details summary {
   justify-content: space-between;
 }
 
+/* 회사 계정(SSO) 버튼과 비상 계정 로그인 사이 구분선 (doc/22 4.2) */
+.sso-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--sub);
+  font-size: 12px;
+  margin: 4px 0 -2px;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--line);
+}
+
 /* ───────── 2단계 인증 (components/Mfa, doc/22) ───────── */
 
 input.totp-input {

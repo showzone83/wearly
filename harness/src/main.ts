@@ -18,6 +18,7 @@ import { profileScenarios } from './scenarios/profile';
 import { pushScenarios } from './scenarios/push';
 import { retireScenarios } from './scenarios/retire';
 import { sessionScenarios } from './scenarios/sessions';
+import { ssoScenarios } from './scenarios/sso';
 import { tokenScenarios } from './scenarios/tokens';
 import { wardrobeScenarios } from './scenarios/wardrobe';
 import { weatherScenarios } from './scenarios/weather';
@@ -35,6 +36,7 @@ const ALL: Scenario[] = [
   ...retireScenarios,
   ...sessionScenarios,
   ...mfaScenarios,
+  ...ssoScenarios,
   ...imageScenarios,
   ...weatherScenarios,
   ...planScenarios,

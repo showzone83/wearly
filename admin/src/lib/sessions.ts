@@ -26,6 +26,9 @@ export const AUTH_EVENTS: Record<string, { label: string; tone: TBadgeTone }> = 
   MFA_SUCCESS: { label: '2단계 인증 성공', tone: 'green' },
   MFA_FAILED: { label: '2단계 인증 실패', tone: 'red' },
   MFA_LOCKED: { label: '2단계 인증 잠김', tone: 'red' },
+  // 회사 계정 로그인 (SSO, doc/22 4.2)
+  SSO_LOGIN: { label: '회사 계정 로그인', tone: 'green' },
+  SSO_DENIED: { label: '회사 계정 거부', tone: 'red' },
 };
 
 /** 종류 필터 선택지 */

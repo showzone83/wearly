@@ -3,8 +3,8 @@ package app.wearly.common.error;
 import java.util.List;
 
 /**
- * 05 문서 4장 + 07 문서 + 17·19 문서(날씨) + 18 문서(사진 저장)의 오류 코드. HTTP 상태 번호와 설명을 함께 둔다 (유스케이스가 쓰므로 Spring
- * Web 타입은 쓰지 않는다).
+ * 05 문서 4장 + 07 문서 + 17·19 문서(날씨) + 18 문서(사진 저장) + 22 문서(관리자 2단계 인증·SSO)의 오류 코드. HTTP 상태 번호와 설명을 함께
+ * 둔다 (유스케이스가 쓰므로 Spring Web 타입은 쓰지 않는다).
  *
  * <p>응답에는 code(상수 이름)·params만 나가고 설명 문장은 나가지 않는다. 설명은 로그·문서용이며 앱·관리자의 권장 문구와 같다
  * (resources/error-codes.json의 message, 테스트가 맞춰 본다). 상수 이름은 앱·관리자가 쓰므로 바꾸지 말고 추가만 한다. 셋째 인자부터는 이
@@ -30,6 +30,14 @@ public enum ErrorCode {
   MFA_SETUP_REQUIRED(409, "2단계 인증 등록을 먼저 시작해 주세요."),
   MFA_ALREADY_ENROLLED(409, "이미 2단계 인증을 등록했어요."),
   MFA_NOT_ENROLLED(409, "2단계 인증을 등록하지 않았어요."),
+  // 관리자 사이트 SSO (22 문서 4.2 2단계): 회사 계정(OIDC) 로그인
+  SSO_NOT_ADMIN(403, "관리자 그룹에 속한 회사 계정이 아니에요."),
+  SSO_EMAIL_UNVERIFIED(403, "회사 계정의 이메일을 확인할 수 없어 관리자 계정과 연결하지 못했어요."),
+  SSO_STATE_INVALID(400, "로그인 시간이 지났거나 다른 창에서 시작한 로그인이에요. 다시 시도해 주세요."),
+  SSO_TOKEN_INVALID(401, "회사 계정 로그인 결과를 확인하지 못했어요. 다시 시도해 주세요."),
+  SSO_IDP_ERROR(400, "회사 계정 로그인이 취소됐거나 실패했어요.", "reason"),
+  SSO_PROVIDER_UNAVAILABLE(502, "회사 계정 로그인 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요."),
+  SSO_EXCHANGE_INVALID(401, "로그인 시간이 지났어요. 다시 로그인해 주세요."),
   NOT_FOUND(404, "찾을 수 없어요."),
   METHOD_NOT_ALLOWED(405, "지원하지 않는 요청이에요."),
   EMAIL_TAKEN(409, "이미 가입된 이메일이에요."),
