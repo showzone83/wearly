@@ -79,6 +79,7 @@ public final class PatchItemRequest {
         get(fields, "brand"),
         get(fields, "wornCount"),
         PatchItemRequest.<LocalDate>get(fields, "lastWornAt"),
+        get(fields, "imageId"),
         errors);
   }
 

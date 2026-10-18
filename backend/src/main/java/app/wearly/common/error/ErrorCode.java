@@ -1,6 +1,9 @@
 package app.wearly.common.error;
 
-/** 05 문서 4장 + 07 문서의 오류 코드. HTTP 상태 번호와 기본 메시지를 함께 둔다 (유스케이스가 쓰므로 Spring Web 타입은 쓰지 않는다). */
+/**
+ * 05 문서 4장 + 07 문서 + 17 문서(사진 저장)의 오류 코드. HTTP 상태 번호와 기본 메시지를 함께 둔다 (유스케이스가 쓰므로 Spring Web 타입은 쓰지
+ * 않는다).
+ */
 public enum ErrorCode {
   VALIDATION_FAILED(400, "입력값을 확인해 주세요."),
   UNAUTHORIZED(401, "로그인이 필요해요."),
@@ -21,6 +24,10 @@ public enum ErrorCode {
   SECRET_KEY_MISSING(409, "서버에 WEARLY_SECRET_KEY가 없어 웹에서 API 키를 넣을 수 없어요."),
   API_KEY_INVALID(400, "API 키를 확인하지 못했어요."),
   WARDROBE_INSUFFICIENT(400, "코디를 만들 옷이 모자라요."),
+  IMAGE_INVALID(400, "사진을 처리할 수 없어요. JPEG·PNG 사진만 올릴 수 있어요."),
+  IMAGE_NOT_UPLOADED(400, "사진 올리기가 끝나지 않았어요. 다시 올려 주세요."),
+  IMAGE_IN_USE(409, "다른 옷에 쓰고 있는 사진이에요."),
+  IMAGE_UPLOAD_LIMIT(429, "오늘 올릴 수 있는 사진 수를 모두 썼어요."),
   IMAGE_TOO_LARGE(413, "사진은 10MB까지 올릴 수 있어요."),
   UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 형식이에요."),
   AI_LIMIT_EXCEEDED(429, "오늘 AI 분석 횟수를 모두 썼어요."),

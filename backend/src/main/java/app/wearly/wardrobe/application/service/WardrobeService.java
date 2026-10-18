@@ -3,6 +3,8 @@ package app.wearly.wardrobe.application.service;
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
 import app.wearly.common.error.ApiException;
+import app.wearly.image.application.port.in.ItemImageUseCase;
+import app.wearly.image.application.port.in.dto.ItemImageRefDto;
 import app.wearly.sharedkernel.code.CodeGroups;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
@@ -22,11 +24,15 @@ import app.wearly.wardrobe.domain.WardrobeItem;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 옷장 쓰기·단건 조회(JPA)와 목록 조회(MyBatis), 사용 중지·다시 사용 (13 문서) */
+/**
+ * 옷장 쓰기·단건 조회(JPA)와 목록 조회(MyBatis), 사용 중지·다시 사용 (13 문서). 대표 사진은 image 컨텍스트의 유스케이스로 붙이고 빼고 읽는다 (17
+ * 문서, 같은 트랜잭션)
+ */
 @Service
 public class WardrobeService implements WardrobeUseCase {
 
@@ -35,12 +41,19 @@ public class WardrobeService implements WardrobeUseCase {
   private final ItemPort items;
   private final ItemQueryPort queries;
   private final CodeCatalog catalog;
+  private final ItemImageUseCase images;
   private final Clock clock;
 
-  public WardrobeService(ItemPort items, ItemQueryPort queries, CodeCatalog catalog, Clock clock) {
+  public WardrobeService(
+      ItemPort items,
+      ItemQueryPort queries,
+      CodeCatalog catalog,
+      ItemImageUseCase images,
+      Clock clock) {
     this.items = items;
     this.queries = queries;
     this.catalog = catalog;
+    this.images = images;
     this.clock = clock;
   }
 
@@ -60,8 +73,8 @@ public class WardrobeService implements WardrobeUseCase {
     Boolean retired = retiredFilter(q.retired(), errors);
     ApiException.throwIfAny(errors);
     String query = blankToNull(q.q());
-    return queries
-        .findItems(
+    List<WardrobeItem> found =
+        queries.findItems(
             new ItemFilter(
                 q.userId(),
                 categoryCode,
@@ -69,16 +82,16 @@ public class WardrobeService implements WardrobeUseCase {
                 colorCode,
                 query == null ? null : query.strip(),
                 sortKey,
-                retired))
-        .stream()
-        .map(ItemDto::from)
-        .toList();
+                retired));
+    Map<Long, ItemImageRefDto> photos =
+        images.findAll(q.userId(), found.stream().map(WardrobeItem::id).toList());
+    return found.stream().map(i -> ItemDto.from(i, photos.get(i.id()))).toList();
   }
 
   @Override
   @Transactional(readOnly = true)
   public ItemDto get(long userId, long itemId) {
-    return ItemDto.from(find(userId, itemId));
+    return withImage(userId, find(userId, itemId));
   }
 
   @Override
@@ -89,7 +102,7 @@ public class WardrobeService implements WardrobeUseCase {
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, null, "", errors);
     ApiException.throwIfAny(errors);
-    return ItemDto.from(items.save(WardrobeItem.create(userId, input)));
+    return saveNew(userId, input, dto.imageId());
   }
 
   @Override
@@ -108,8 +121,8 @@ public class WardrobeService implements WardrobeUseCase {
     }
     ApiException.throwIfAny(errors);
     List<ItemDto> created = new ArrayList<>(inputs.size());
-    for (ItemInput input : inputs) {
-      created.add(ItemDto.from(items.save(WardrobeItem.create(userId, input))));
+    for (int i = 0; i < inputs.size(); i++) {
+      created.add(saveNew(userId, inputs.get(i), dtos.get(i).imageId()));
     }
     return created;
   }
@@ -139,13 +152,25 @@ public class WardrobeService implements WardrobeUseCase {
     ItemCodeValidator.validate(catalog.current(), input, previous, "", errors);
     ApiException.throwIfAny(errors);
     item.apply(input);
-    return ItemDto.from(items.save(item));
+    WardrobeItem saved = items.save(item);
+    if (patch.imageId().present()) {
+      String imageId = patch.imageId().value();
+      if (imageId == null) {
+        images.detach(userId, itemId);
+        return ItemDto.from(saved, null);
+      }
+      return ItemDto.from(saved, images.attach(userId, itemId, imageId));
+    }
+    return withImage(userId, saved);
   }
 
   @Override
   @Transactional
   public void delete(long userId, long itemId) {
-    items.delete(find(userId, itemId));
+    WardrobeItem item = find(userId, itemId);
+    // 사진을 먼저 버린다 (DELETED + 커밋 뒤 객체 삭제)
+    images.detach(userId, itemId);
+    items.delete(item);
   }
 
   @Override
@@ -156,7 +181,7 @@ public class WardrobeService implements WardrobeUseCase {
     String memo = input == null ? null : input.memo();
     ApiException.throwIfAny(RetireRules.validate(catalog.current(), reason, memo));
     item.retire(reason, memo, clock.instant());
-    return ItemDto.from(items.save(item));
+    return withImage(userId, items.save(item));
   }
 
   @Override
@@ -164,10 +189,23 @@ public class WardrobeService implements WardrobeUseCase {
   public ItemDto restore(long userId, long itemId) {
     WardrobeItem item = find(userId, itemId);
     if (!item.isRetired()) {
-      return ItemDto.from(item);
+      return withImage(userId, item);
     }
     item.restore();
-    return ItemDto.from(items.save(item));
+    return withImage(userId, items.save(item));
+  }
+
+  /** 새 아이템을 저장하고 사진이 있으면 붙인다 (붙이기가 실패하면 트랜잭션째 되돌린다) */
+  private ItemDto saveNew(long userId, ItemInput input, String imageId) {
+    WardrobeItem saved = items.save(WardrobeItem.create(userId, input));
+    if (imageId == null) {
+      return ItemDto.from(saved, null);
+    }
+    return ItemDto.from(saved, images.attach(userId, saved.id(), imageId));
+  }
+
+  private ItemDto withImage(long userId, WardrobeItem item) {
+    return ItemDto.from(item, images.find(userId, item.id()).orElse(null));
   }
 
   private WardrobeItem find(long userId, long itemId) {

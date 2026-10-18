@@ -103,6 +103,27 @@ wearly:
     email: ${WEARLY_ADMIN_EMAIL:}
     password: ${WEARLY_ADMIN_PASSWORD:}
     name: ${WEARLY_ADMIN_NAME:관리자}
+  # 옷 사진 저장소 (S3 호환, 17 문서). 로컬 기본은 compose의 MinIO(wearly-minio, 호스트 9000).
+  # 계정 wearly / wearly-minio-local은 로컬 전용 값이다 (DB 비밀번호와 같은 취급). 운영 예시: backend/config/application-cloud.example.yml
+  storage:
+    endpoint: ${WEARLY_STORAGE_ENDPOINT:http://localhost:9000}
+    region: ${WEARLY_STORAGE_REGION:us-east-1}
+    bucket: ${WEARLY_STORAGE_BUCKET:wearly-images}
+    access-key: ${WEARLY_STORAGE_ACCESS_KEY:wearly}
+    secret-key: ${WEARLY_STORAGE_SECRET_KEY:wearly-minio-local}
+    path-style: ${WEARLY_STORAGE_PATH_STYLE:true}
+    # 서명 URL 주소. 비우면 요청 Host 이름 + endpoint 포트(시뮬레이터 localhost:9000, 실제 휴대폰 <Mac LAN IP>:9000)
+    public-endpoint: ${WEARLY_STORAGE_PUBLIC_ENDPOINT:}
+    auto-create-bucket: ${WEARLY_STORAGE_AUTO_CREATE_BUCKET:false}
+    upload-url-ttl: ${WEARLY_STORAGE_UPLOAD_URL_TTL:PT10M}
+    download-url-ttl: ${WEARLY_STORAGE_DOWNLOAD_URL_TTL:PT1H}
+    max-upload-bytes: ${WEARLY_STORAGE_MAX_UPLOAD_BYTES:10MB}
+    daily-upload-limit: ${WEARLY_STORAGE_DAILY_UPLOAD_LIMIT:200}
+    max-pixels: ${WEARLY_STORAGE_MAX_PIXELS:40000000}
+    processing-concurrency: ${WEARLY_STORAGE_PROCESSING_CONCURRENCY:2}
+    stale-after: ${WEARLY_STORAGE_STALE_AFTER:P1D}
+    cleanup-enabled: ${WEARLY_STORAGE_CLEANUP_ENABLED:true}
+    cleanup-interval: ${WEARLY_STORAGE_CLEANUP_INTERVAL:PT1H}
   cors:
     allowed-origins:
       - http://localhost:8081

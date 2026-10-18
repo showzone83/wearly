@@ -35,3 +35,9 @@ wearly:
   # JWT 서명 키 (HS256, 32바이트 이상). 비워 두면 개발용 고정값. 운영(prod 프로필)에서는 필수
   # jwt:
   #   secret: ""
+
+  # 옷 사진 저장소 (doc/17). 로컬 MinIO(docker compose의 minio, 계정 wearly / wearly-minio-local) 값이 application.yml
+  # 기본값이라 로컬에서는 적지 않는다. 실제 휴대폰에서 Mac LAN IP가 아닌 다른 주소로 사진을 받아야 할 때만 public-endpoint를 넣는다.
+  # 클라우드(AWS S3·Cloudflare R2·NCP) 예시는 config/application-cloud.example.yml
+  # storage:
+  #   public-endpoint: "http://192.168.0.10:9000"

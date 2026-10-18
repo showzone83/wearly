@@ -1,13 +1,13 @@
-# Wearly 로컬 개발 환경: DB · Valkey · 백엔드 · 관리자 사이트 (앱은 Mac에서 cd mobile && npx expo start로 따로 띄운다)
+# Wearly 로컬 개발 환경: DB · Valkey · MinIO(옷 사진) · 백엔드 · 관리자 사이트 (앱은 Mac에서 cd mobile && npx expo start로 따로 띄운다)
 #
 #   docker compose up -d --build          전체 빌드·실행
-#   docker compose up -d db valkey        DB·Valkey만 (백엔드를 Mac에서 ./gradlew bootRun으로 돌릴 때)
+#   docker compose up -d db valkey minio minio-init   DB·Valkey·사진 저장소만 (백엔드를 Mac에서 ./gradlew bootRun으로 돌릴 때)
 #   docker compose up -d --build backend  백엔드만 다시 빌드·재시작
 #   docker compose logs -f backend        로그 보기
-#   docker compose down                   중지 (DB 데이터는 wearly-pgdata, 세션은 wearly-valkeydata 볼륨에 남는다)
+#   docker compose down                   중지 (DB 데이터는 wearly-pgdata, 세션은 wearly-valkeydata, 사진은 wearly-miniodata 볼륨에 남는다)
 #
 # 호스트 포트: DB 5433(다른 프로젝트의 postgres와 겹치지 않게), Valkey 6380(다른 Redis와 겹치지 않게),
-#   백엔드 8080, 관리자 사이트 5173(백엔드 CORS 허용 출처).
+#   MinIO 9000(S3 API, 앱이 서명 URL로 직접 올리고 받는다)·9001(웹 콘솔), 백엔드 8080, 관리자 사이트 5173(백엔드 CORS 허용 출처).
 # 백엔드 비밀 값은 backend/config/application-local.yml(git 제외)을 읽기 전용으로 마운트해서 넘긴다. 이미지에는 넣지 않는다.
 services:
   db:
@@ -45,19 +45,65 @@ services:
       timeout: 3s
       retries: 20
 
+  # 옷 사진 저장소 (S3 호환). 버킷 wearly-images는 비공개라 앱은 백엔드가 준 서명 URL로만 올리고 받는다.
+  # MinIO 본가는 2025년 하반기부터 커뮤니티판 Docker 이미지를 내지 않아(minio/minio·quay.io/minio/minio 모두 받을 수 없음)
+  # 같은 MinIO 코드를 이어 빌드하는 커뮤니티 포크 pgsty/minio를 쓴다. 명령·환경변수·콘솔은 MinIO와 같다.
+  # 계정 wearly / wearly-minio-local은 로컬 전용 값이다 (DB 비밀번호 wearly와 같은 취급)
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    container_name: wearly-minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: wearly
+      MINIO_ROOT_PASSWORD: wearly-minio-local
+      # Expo 웹(브라우저)이 서명 URL로 바로 PUT·GET할 수 있게 모든 출처를 허용한다 (로컬 전용. 네이티브 앱은 CORS와 상관없음)
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - wearly-miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # 버킷을 만드는 1회성 작업 (이미 있으면 그대로 통과). 끝나면 컨테이너가 멈춘다(Exited 0)
+  minio-init:
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
+    container_name: wearly-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        mc alias set local http://minio:9000 wearly wearly-minio-local
+        mc mb --ignore-existing local/wearly-images
+        mc anonymous set none local/wearly-images
+        echo "버킷 wearly-images 준비됨 (비공개)"
+
   backend:
     build:
       context: ./backend
     image: wearly-backend:local
     container_name: wearly-backend
     restart: unless-stopped
-    # application-docker.yml: DB 주소를 db:5432, Valkey를 valkey:6379로 (비밀 값 없음)
+    # application-docker.yml: DB 주소를 db:5432, Valkey를 valkey:6379, 사진 저장소를 minio:9000으로 (비밀 값 없음)
     command: ["--spring.profiles.active=docker"]
     depends_on:
       db:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     ports:
       - "8080:8080"
     volumes:
@@ -90,3 +136,4 @@ services:
 volumes:
   wearly-pgdata:
   wearly-valkeydata:
+  wearly-miniodata:

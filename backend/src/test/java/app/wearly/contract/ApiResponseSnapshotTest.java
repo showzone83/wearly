@@ -6,6 +6,7 @@ import app.wearly.support.FakeHttpServer;
 import app.wearly.support.TestApi;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
+import app.wearly.support.TestMinio;
 import app.wearly.support.TestValkey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -99,6 +100,7 @@ class ApiResponseSnapshotTest {
   @DynamicPropertySource
   static void datasource(DynamicPropertyRegistry registry) {
     TestValkey.register(registry, VALKEY_DB);
+    TestMinio.register(registry);
     registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
     registry.add("spring.datasource.username", POSTGRES::getUsername);
     registry.add("spring.datasource.password", POSTGRES::getPassword);

@@ -7,6 +7,8 @@ import app.wearly.common.application.Patch;
 import app.wearly.common.domain.FieldError;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
+import app.wearly.image.application.port.in.ItemImageUseCase;
+import app.wearly.image.application.port.in.dto.ItemImageRefDto;
 import app.wearly.sharedkernel.code.CodeChecks;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.support.TestCodes;
@@ -26,6 +28,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -147,7 +150,29 @@ class WardrobeServiceTest {
         }
       };
 
-  final WardrobeService service = new WardrobeService(items, queries, () -> codes, CLOCK);
+  /** 사진이 없는 아이템만 다루는 테스트용 (사진 붙이기는 통합 테스트 ItemImageIntegrationTest) */
+  final ItemImageUseCase noImages =
+      new ItemImageUseCase() {
+        @Override
+        public ItemImageRefDto attach(long userId, long itemId, String imageId) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void detach(long userId, long itemId) {}
+
+        @Override
+        public Optional<ItemImageRefDto> find(long userId, long itemId) {
+          return Optional.empty();
+        }
+
+        @Override
+        public Map<Long, ItemImageRefDto> findAll(long userId, Collection<Long> itemIds) {
+          return Map.of();
+        }
+      };
+
+  final WardrobeService service = new WardrobeService(items, queries, () -> codes, noImages, CLOCK);
 
   @Test
   void 목록_필터는_모르는_값만_거부하고_비활성_코드는_허용한다() {
@@ -223,6 +248,7 @@ class WardrobeServiceTest {
             Patch.absent(),
             Patch.absent(),
             Patch.of("fuchsia"),
+            Patch.absent(),
             Patch.absent(),
             Patch.absent(),
             Patch.absent(),
@@ -337,6 +363,7 @@ class WardrobeServiceTest {
         "OWNED",
         null,
         null,
+        null,
         null);
   }
 
@@ -346,6 +373,7 @@ class WardrobeServiceTest {
         Patch.absent(),
         Patch.absent(),
         color,
+        Patch.absent(),
         Patch.absent(),
         Patch.absent(),
         Patch.absent(),

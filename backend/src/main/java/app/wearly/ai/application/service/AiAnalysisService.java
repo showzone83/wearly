@@ -22,6 +22,8 @@ import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.application.ImageUpload;
 import app.wearly.common.error.ApiException;
 import app.wearly.common.error.ErrorCode;
+import app.wearly.image.application.port.in.ImageContentUseCase;
+import app.wearly.image.application.port.in.dto.ImageContentDto;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +49,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   private final AiQuotaService quota;
   private final AiCallRunner runner;
   private final AiSettings settings;
+  private final ImageContentUseCase storedImages;
 
   public AiAnalysisService(
       AiProviderRegistry registry,
@@ -54,13 +57,15 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
       CodeCatalog catalog,
       AiQuotaService quota,
       AiCallRunner runner,
-      AiSettings settings) {
+      AiSettings settings,
+      ImageContentUseCase storedImages) {
     this.registry = registry;
     this.providers = providers;
     this.catalog = catalog;
     this.quota = quota;
     this.runner = runner;
     this.settings = settings;
+    this.storedImages = storedImages;
   }
 
   @Override
@@ -95,6 +100,14 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
     } finally {
       quota.release(reservation);
     }
+  }
+
+  @Override
+  public AnalyzeResultDto analyzeStored(long userId, String imageId) {
+    ImageContentDto stored = storedImages.readOriginal(userId, imageId);
+    return analyze(
+        userId,
+        new ImageUpload(stored.bytes(), stored.contentType(), stored.bytes().length, true, false));
   }
 
   @Override

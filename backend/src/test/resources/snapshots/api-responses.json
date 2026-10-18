@@ -1478,7 +1478,8 @@
       "createdAt" : "<instant>",
       "retiredAt" : null,
       "retireReason" : null,
-      "retireMemo" : null
+      "retireMemo" : null,
+      "image" : null
     }
   },
   "wardrobe.create.invalid" : {
@@ -1573,7 +1574,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "3",
         "name" : "차콜 슬랙스",
@@ -1591,7 +1593,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "4",
         "name" : "베이지 와이드",
@@ -1609,7 +1612,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "5",
         "name" : "블랙 셔츠 원피스",
@@ -1627,7 +1631,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "6",
         "name" : "네이비 블레이저",
@@ -1645,7 +1650,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "7",
         "name" : "블랙 로퍼",
@@ -1663,7 +1669,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "8",
         "name" : "화이트 스니커즈",
@@ -1681,7 +1688,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "9",
         "name" : "브라운 토트",
@@ -1699,7 +1707,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "10",
         "name" : "핑크 블라우스",
@@ -1717,7 +1726,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       } ]
     }
   },
@@ -1765,7 +1775,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "9",
         "name" : "브라운 토트",
@@ -1783,7 +1794,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "8",
         "name" : "화이트 스니커즈",
@@ -1801,7 +1813,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "7",
         "name" : "블랙 로퍼",
@@ -1819,7 +1832,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "6",
         "name" : "네이비 블레이저",
@@ -1837,7 +1851,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "5",
         "name" : "블랙 셔츠 원피스",
@@ -1855,7 +1870,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "4",
         "name" : "베이지 와이드",
@@ -1873,7 +1889,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "3",
         "name" : "차콜 슬랙스",
@@ -1891,7 +1908,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "2",
         "name" : "화이트 셔츠",
@@ -1909,7 +1927,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "1",
         "name" : "네이비 니트",
@@ -1927,7 +1946,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       } ]
     }
   },
@@ -1951,7 +1971,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "2",
         "name" : "화이트 셔츠",
@@ -1969,7 +1990,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       } ]
     }
   },
@@ -1993,7 +2015,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       }, {
         "id" : "6",
         "name" : "네이비 블레이저",
@@ -2011,7 +2034,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       } ]
     }
   },
@@ -2035,7 +2059,8 @@
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
-        "retireMemo" : null
+        "retireMemo" : null,
+        "image" : null
       } ]
     }
   },
@@ -2085,7 +2110,8 @@
       "createdAt" : "<instant>",
       "retiredAt" : null,
       "retireReason" : null,
-      "retireMemo" : null
+      "retireMemo" : null,
+      "image" : null
     }
   },
   "wardrobe.get.notFound" : {
@@ -2125,7 +2151,8 @@
       "createdAt" : "<instant>",
       "retiredAt" : null,
       "retireReason" : null,
-      "retireMemo" : null
+      "retireMemo" : null,
+      "image" : null
     }
   },
   "wardrobe.patch.typeError" : {

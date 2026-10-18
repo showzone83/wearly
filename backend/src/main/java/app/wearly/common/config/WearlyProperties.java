@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.unit.DataSize;
 import org.springframework.validation.annotation.Validated;
 
 /**
@@ -21,6 +22,7 @@ public record WearlyProperties(
     @Valid @NotNull Jwt jwt,
     @Valid @NotNull Ai ai,
     @Valid @NotNull Cors cors,
+    @Valid @NotNull Storage storage,
     Admin admin,
     // WEARLY_SECRET_KEY: 웹 입력 AI 키를 암호화하는 마스터 키 (base64 32바이트).
     // 없으면 웹 키 기능이 꺼진다 (07 문서 6장)
@@ -71,4 +73,38 @@ public record WearlyProperties(
   }
 
   public record Cors(List<String> allowedOrigins) {}
+
+  /**
+   * 옷 사진 저장소 (S3 호환 오브젝트 스토리지, 17 문서). 로컬은 compose의 MinIO, 운영은 AWS S3·Cloudflare R2·NCP Object
+   * Storage를 같은 어댑터로 쓴다 (설정만 바꾼다).
+   */
+  public record Storage(
+      // S3 API 주소. 비우면 AWS S3 기본 주소(region으로 정함)
+      String endpoint,
+      @NotBlank String region,
+      @NotBlank String bucket,
+      // 비우면 AWS 기본 자격 증명 체인(환경변수·IAM 역할 등)
+      String accessKey,
+      String secretKey,
+      // MinIO·NCP는 true (https://host/bucket/key), AWS·R2는 false도 된다
+      boolean pathStyle,
+      // 서명 URL에 쓸 주소 (앱이 실제로 접속하는 주소). 비우면 endpoint가 있을 때 요청 Host 이름 + endpoint 포트,
+      // endpoint도 없으면(AWS) AWS 기본 주소
+      String publicEndpoint,
+      // 시작할 때 버킷이 없으면 만든다 (테스트·하네스용. 로컬 compose는 minio-init이 만든다)
+      boolean autoCreateBucket,
+      @NotNull Duration uploadUrlTtl,
+      @NotNull Duration downloadUrlTtl,
+      @NotNull DataSize maxUploadBytes,
+      // 회원별 하루(Asia/Seoul) 업로드 URL 발급 수
+      @Min(0) int dailyUploadLimit,
+      // 디코딩 전에 거르는 픽셀 수 상한 (메모리 보호)
+      @Min(1) long maxPixels,
+      // 동시에 처리(디코딩·다시 인코딩)할 사진 수
+      @Min(1) int processingConcurrency,
+      // 정리 작업: 이 시간이 지난 PENDING·아이템에 안 붙은 READY·DELETED 이미지를 지운다
+      @NotNull Duration staleAfter,
+      boolean cleanupEnabled,
+      // 정리 작업 간격 (@Scheduled fixedDelay)
+      @NotNull Duration cleanupInterval) {}
 }

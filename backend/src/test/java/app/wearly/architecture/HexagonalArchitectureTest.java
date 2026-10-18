@@ -39,7 +39,7 @@ import org.springframework.http.ResponseEntity;
 class HexagonalArchitectureTest {
 
   static final List<String> CONTEXTS =
-      List.of("auth", "user", "wardrobe", "code", "ai", "admin", "outfit", "appsetting");
+      List.of("auth", "user", "wardrobe", "code", "ai", "admin", "outfit", "appsetting", "image");
   static final Pattern CONTEXT_CLASS =
       Pattern.compile("^app\\.wearly\\.(" + String.join("|", CONTEXTS) + ")\\.(.*)$");
 
