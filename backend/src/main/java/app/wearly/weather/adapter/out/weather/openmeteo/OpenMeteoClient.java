@@ -56,6 +56,14 @@ public final class OpenMeteoClient {
    */
   public OpenMeteoClient(
       String baseUrl, String apiKey, Duration timeout, JsonMapper json, Clock clock) {
+    this.client = restClient(baseUrl, timeout);
+    this.apiKey = blankToNull(apiKey);
+    this.json = json;
+    this.clock = clock;
+  }
+
+  /** 지오코딩 클라이언트와 같이 쓰는 HTTP 설정 (HTTP/1.1, 연결 5초, 읽기 timeout) */
+  static RestClient restClient(String baseUrl, Duration timeout) {
     HttpClient http =
         HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
@@ -65,13 +73,14 @@ public final class OpenMeteoClient {
     JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(http);
     factory.setReadTimeout(timeout);
     String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-    this.client = RestClient.builder().baseUrl(base).requestFactory(factory).build();
-    this.apiKey = apiKey == null || apiKey.isBlank() ? null : apiKey.strip();
-    this.json = json;
-    this.clock = clock;
+    return RestClient.builder().baseUrl(base).requestFactory(factory).build();
   }
 
-  private record Response(int status, String body) {}
+  static String blankToNull(String apiKey) {
+    return apiKey == null || apiKey.isBlank() ? null : apiKey.strip();
+  }
+
+  record Response(int status, String body) {}
 
   public ClimateFetch fetch(String target, double lat, double lon, LocalDate from, LocalDate to) {
     Map<String, Object> vars = new LinkedHashMap<>();
@@ -194,6 +203,10 @@ public final class OpenMeteoClient {
 
   /** 유료 키가 쿼리 파라미터라서 오류 문구에서 지운다 */
   String scrub(String message) {
+    return scrub(apiKey, message);
+  }
+
+  static String scrub(String apiKey, String message) {
     if (message == null) {
       return "";
     }
@@ -205,11 +218,11 @@ public final class OpenMeteoClient {
     return out.length() > MAX_MESSAGE ? out.substring(0, MAX_MESSAGE) + "…" : out;
   }
 
-  private static long elapsed(long startedNanos) {
+  static long elapsed(long startedNanos) {
     return Duration.ofNanos(System.nanoTime() - startedNanos).toMillis();
   }
 
-  private static boolean isTimeout(Throwable e) {
+  static boolean isTimeout(Throwable e) {
     for (Throwable t = e; t != null; t = t.getCause()) {
       if (t instanceof HttpTimeoutException || t instanceof SocketTimeoutException) {
         return true;
@@ -218,7 +231,7 @@ public final class OpenMeteoClient {
     return false;
   }
 
-  private static String rootMessage(Throwable e) {
+  static String rootMessage(Throwable e) {
     Throwable t = e;
     while (t.getCause() != null && t.getCause() != t) {
       t = t.getCause();

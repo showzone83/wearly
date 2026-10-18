@@ -106,9 +106,9 @@ const coordinateDay: Scenario = {
     eq(Object.keys(search.json), ['items'], '검색 응답 키');
     const item = search.json.items[0];
     eq(Object.keys(item).sort(), ['country', 'label', 'lat', 'lon', 'region', 'regionCode'], '검색 항목 키');
-    eq([item.label, item.country, item.regionCode], ['Tokyo', 'Japan', null], '목업 검색 결과 (해외는 regionCode null)');
+    eq([item.label, item.country, item.regionCode], ['도쿄', '일본', null], '목업 검색 결과는 한글 이름 (해외는 regionCode null)');
     const busan = await user.call('GET', '/weather/places?q=busan');
-    eq(busan.json.items[0].regionCode, 'BUSAN', '국내 결과는 30km 안 REGION 코드');
+    eq([busan.json.items[0].label, busan.json.items[0].regionCode], ['부산', 'BUSAN'], '영어 검색어도 한글 이름, 국내 결과는 30km 안 REGION 코드');
     const empty = await user.call('GET', `/weather/places?q=${encodeURIComponent('   ')}`);
     checkErrorBody(empty, 400, 'VALIDATION_FAILED', '빈 검색어');
     eq(empty.json.fieldErrors.map((e: { field: string }) => e.field), ['q'], '빈 검색어 fieldErrors');

@@ -291,8 +291,10 @@ class PlaceWeatherIntegrationTest extends IntegrationTestBase {
             .get("items");
     assertThat(tokyo.size()).isEqualTo(1);
     JsonNode t = tokyo.get(0);
-    assertThat(t.get("label").asString()).isEqualTo("Tokyo");
-    assertThat(t.get("country").asString()).isEqualTo("Japan");
+    // 목업 지오코딩도 한글 이름을 준다
+    assertThat(t.get("label").asString()).isEqualTo("도쿄");
+    assertThat(t.get("region").asString()).isEqualTo("도쿄 도");
+    assertThat(t.get("country").asString()).isEqualTo("일본");
     assertThat(t.get("lat").asDouble()).isEqualTo(35.69);
     assertThat(t.has("region")).isTrue();
     assertThat(t.get("regionCode").isNull()).isTrue();
@@ -303,6 +305,7 @@ class PlaceWeatherIntegrationTest extends IntegrationTestBase {
             .expect(200)
             .body()
             .get("items");
+    assertThat(busan.get(0).get("label").asString()).isEqualTo("부산");
     assertThat(busan.get(0).get("regionCode").asString()).isEqualTo("BUSAN");
 
     for (String q : new String[] {"", "   ", "가".repeat(51)}) {
@@ -317,7 +320,7 @@ class PlaceWeatherIntegrationTest extends IntegrationTestBase {
     JsonNode calls =
         api()
             .get(
-                "/api/v1/admin/weather/calls?providerCode=WEATHERAPI&size=100",
+                "/api/v1/admin/weather/calls?providerCode=OPEN_METEO_GEO&size=100",
                 admin().accessToken())
             .expect(200)
             .body()

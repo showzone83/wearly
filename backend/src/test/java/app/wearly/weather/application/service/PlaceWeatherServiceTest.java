@@ -13,6 +13,8 @@ import app.wearly.weather.domain.CurrentWeather;
 import app.wearly.weather.domain.DailyForecast;
 import app.wearly.weather.domain.FetchErrors;
 import app.wearly.weather.domain.FetchResult;
+import app.wearly.weather.domain.GeoPlace;
+import app.wearly.weather.domain.GeocodeResult;
 import app.wearly.weather.domain.PlaceCandidate;
 import app.wearly.weather.domain.PlaceSnapshot;
 import app.wearly.weather.domain.PlaceWeatherOptions;
@@ -33,13 +35,14 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * 19 문서: 장소별 날씨 유스케이스 (가짜 포트). 순서 FORECAST → CLIMATE → 503, 좌표 캐시·TTL·격자 반올림, 회원 한도(429와 캐시 대체), 동시
- * 요청, 장소 검색(캐시·정리·REGION 붙이기·한도). 오늘은 한국 날짜 2026-10-17.
+ * 요청, 장소 검색(캐시·정리·REGION 붙이기·한도, 지오코딩·국내 지명 보정·실패 시 날씨 공급자 대체). 오늘은 한국 날짜 2026-10-17.
  */
 class PlaceWeatherServiceTest {
 
@@ -506,6 +509,218 @@ class PlaceWeatherServiceTest {
         .isEqualTo(ErrorCode.WEATHER_UNAVAILABLE);
     assertThat(other.base.searched).isEmpty();
     assertThat(other.usage).isEmpty();
+  }
+
+  // ---------------------------------------------------------------- 장소 검색 (지오코딩)
+
+  // 2026-10-18 실제 Open-Meteo 지오코딩 응답의 값 (adapter 테스트의 고정본과 같다)
+  static final GeoPlace TOKYO =
+      new GeoPlace("도쿄", "도쿄 도", "일본", "JP", "PPLC", 9733276L, 35.6895, 139.69171);
+  static final GeoPlace GANGNEUNG_KP =
+      new GeoPlace("강릉", "황해북도", "조선민주주의인민공화국", "KP", "PPL", null, 38.27573, 126.52414);
+  static final GeoPlace GANGNEUNG_SI =
+      new GeoPlace("강릉시", "강원도", "대한민국", "KR", "PPLA3", 208161L, 37.75266, 128.87239);
+  static final GeoPlace BUSAN_KR =
+      new GeoPlace("부산", "부산광역시", "대한민국", "KR", "PPLA", 3678555L, 35.10168, 129.03004);
+
+  /** 검색어별 지오코딩 답 (없는 검색어는 결과 없음) */
+  void geo(Map<String, List<GeoPlace>> answers) {
+    fakes.geoEnabled = true;
+    fakes.geoAnswer = q -> PlaceWeatherFakes.geoOk(answers.getOrDefault(q, List.of()));
+    service = fakes.service();
+  }
+
+  List<CallRecord> callsOf(String provider) {
+    return base.callRows.stream().filter(c -> c.providerCode().equals(provider)).toList();
+  }
+
+  @Test
+  void 지오코딩으로_찾아_한글_이름을_주고_SEARCH로_남기며_캐시한다() {
+    geo(Map.of("도쿄", List.of(TOKYO)));
+
+    List<PlaceCandidateDto> items = service.searchPlaces(1, " 도쿄 ");
+
+    assertThat(items)
+        .containsExactly(new PlaceCandidateDto("도쿄", "도쿄 도", "일본", 35.6895, 139.69171, null));
+    // 도쿄는 수도(PPLC)라 국내 보정 검색을 하지 않는다. 날씨 공급자 검색도 부르지 않는다
+    assertThat(fakes.geocoded).containsExactly("도쿄");
+    assertThat(base.searched).isEmpty();
+    assertThat(base.callRows)
+        .singleElement()
+        .satisfies(
+            c -> {
+              assertThat(c.providerCode()).isEqualTo("OPEN_METEO_GEO");
+              assertThat(c.callKind()).isEqualTo(CallRecord.SEARCH);
+              assertThat(c.regionCode()).isNull();
+            });
+    assertThat(base.callRunIds).containsOnlyNulls();
+
+    assertThat(service.searchPlaces(2, "도쿄")).isEqualTo(items);
+    assertThat(fakes.geocoded).hasSize(1);
+    assertThat(fakes.usage).containsOnlyKeys("SEARCH:2026-10-17:1");
+    // 지오코딩 호출은 날씨 공급자(WEATHERAPI) 월 사용량에 들어가지 않는다
+    assertThat(base.runner().monthUsage()).doesNotContainKey("WEATHERAPI");
+  }
+
+  @Test
+  void 한글_국내_지명은_시를_붙여_더_찾고_한국_결과를_맨_위에_둔다() {
+    geo(Map.of("강릉", List.of(GANGNEUNG_KP), "강릉시", List.of(GANGNEUNG_SI)));
+
+    List<PlaceCandidateDto> items = service.searchPlaces(1, "강릉");
+
+    assertThat(items)
+        .extracting(PlaceCandidateDto::label, PlaceCandidateDto::region, PlaceCandidateDto::country)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("강릉시", "강원도", "대한민국"),
+            org.assertj.core.groups.Tuple.tuple("강릉", "황해북도", "조선민주주의인민공화국"));
+    // 강릉시에서 한국 결과가 나와 강릉군은 찾지 않는다
+    assertThat(fakes.geocoded).containsExactly("강릉", "강릉시");
+    assertThat(callsOf("OPEN_METEO_GEO")).hasSize(2).allMatch(c -> c.callKind().equals("SEARCH"));
+    // 보정 검색까지 한 요청으로 센다
+    assertThat(fakes.usage).containsEntry("SEARCH:2026-10-17:1", 1);
+    assertThat(fakes.searchRows.get("강릉")).hasSize(2);
+  }
+
+  @Test
+  void 시로도_한국이_없으면_군까지_찾는다() {
+    GeoPlace yangpyeong = new GeoPlace("양평군", "경기도", "대한민국", "KR", "ADM2", 120000L, 37.49, 127.49);
+    geo(Map.of("양평군", List.of(yangpyeong)));
+
+    assertThat(service.searchPlaces(1, "양평"))
+        .extracting(PlaceCandidateDto::label)
+        .containsExactly("양평군");
+    assertThat(fakes.geocoded).containsExactly("양평", "양평시", "양평군");
+  }
+
+  @Test
+  void 영어_검색어_한국_결과가_있는_검색어_구로_끝나는_검색어는_보정하지_않는다() {
+    geo(Map.of("부산", List.of(BUSAN_KR), "busan", List.of(BUSAN_KR)));
+
+    assertThat(service.searchPlaces(1, "부산"))
+        .singleElement()
+        .satisfies(
+            c -> {
+              assertThat(c.label()).isEqualTo("부산");
+              assertThat(c.regionCode()).isEqualTo("BUSAN");
+            });
+    service.searchPlaces(1, "Busan");
+    assertThat(service.searchPlaces(1, "해운대구")).isEmpty();
+    assertThat(fakes.geocoded).containsExactly("부산", "busan", "해운대구");
+  }
+
+  @Test
+  void 정렬은_한국_행정중심_도시_시설_인구순이고_같은_격자는_하나만_10개까지() {
+    List<GeoPlace> answer = new ArrayList<>();
+    answer.add(new GeoPlace("공원", "x", "일본", "JP", "PRK", null, 10.0, 10.0));
+    answer.add(new GeoPlace("작은 마을", "x", "일본", "JP", "PPL", 100L, 11.0, 11.0));
+    answer.add(new GeoPlace("큰 마을", "x", "일본", "JP", "PPL", 5000L, 12.0, 12.0));
+    answer.add(new GeoPlace("공항", "x", "일본", "JP", "AIRP", null, 13.0, 13.0));
+    answer.add(new GeoPlace("현청", "x", "일본", "JP", "PPLA", 10L, 14.0, 14.0));
+    answer.add(new GeoPlace("북한 도시", "x", "조선", "KP", "PPLA", 900000L, 15.0, 15.0));
+    answer.add(new GeoPlace("한국 마을", null, "대한민국", "KR", "PPL", null, 16.0, 16.0));
+    // 같은 격자(16.0,16.0)의 뒤 항목은 버린다
+    answer.add(new GeoPlace("한국 마을 옆", "x", "대한민국", "KR", "PPL", null, 16.04, 15.96));
+    for (int i = 0; i < 10; i++) {
+      answer.add(new GeoPlace("기타" + i, "x", "일본", "JP", "MT", null, 20.0 + i, 20.0));
+    }
+    geo(Map.of("가나다", answer));
+
+    List<PlaceCandidateDto> items = service.searchPlaces(1, "가나다");
+
+    assertThat(items).hasSize(10);
+    assertThat(items)
+        .extracting(PlaceCandidateDto::label)
+        // 한국 → (북한 포함 나머지) 행정 중심 → 도시·마을 → 시설·지형, 같은 순위 안에서는 인구 많은 순
+        .containsExactly("한국 마을", "북한 도시", "현청", "큰 마을", "작은 마을", "공원", "공항", "기타0", "기타1", "기타2")
+        .doesNotContain("한국 마을 옆");
+    assertThat(items.getFirst().region()).isEmpty();
+    // 한국 결과가 있어 보정 검색은 하지 않는다
+    assertThat(fakes.geocoded).containsExactly("가나다");
+  }
+
+  @Test
+  void 지오코딩이_실패하면_날씨_공급자_검색으로_대신하고_캐시하지_않는다() {
+    fakes.geoEnabled = true;
+    fakes.geoAnswer = q -> PlaceWeatherFakes.geoFailed();
+    service = fakes.service();
+    base.searchAnswers.put(
+        "WEATHERAPI",
+        (p, q) ->
+            SearchResult.success(
+                List.of(new PlaceCandidate("Tokyo", "Tokyo", "Japan", 35.69, 139.69)),
+                List.of(
+                    new CallRecord(
+                        null,
+                        "WEATHERAPI",
+                        CallRecord.SEARCH,
+                        false,
+                        200,
+                        true,
+                        null,
+                        null,
+                        5,
+                        5,
+                        NOW))));
+
+    assertThat(service.searchPlaces(1, "tokyo"))
+        .extracting(PlaceCandidateDto::label)
+        .containsExactly("Tokyo");
+    assertThat(base.searched).containsExactly("WEATHERAPI:tokyo");
+    assertThat(callsOf("OPEN_METEO_GEO"))
+        .singleElement()
+        .satisfies(c -> assertThat(c.success()).isFalse());
+    assertThat(callsOf("WEATHERAPI")).hasSize(1);
+    assertThat(fakes.searchRows).isEmpty();
+    assertThat(fakes.usage).containsEntry("SEARCH:2026-10-17:1", 1);
+
+    // 지오코딩이 예외를 던져도 같은 방식으로 대신한다
+    fakes.geoAnswer =
+        q -> {
+          throw new IllegalStateException("boom");
+        };
+    service = fakes.service();
+    assertThat(service.searchPlaces(1, "tokyo")).hasSize(1);
+    assertThat(callsOf("OPEN_METEO_GEO")).hasSize(2);
+    assertThat(callsOf("OPEN_METEO_GEO").getLast().errorCode()).isEqualTo(FetchErrors.CLIENT);
+  }
+
+  @Test
+  void 지오코딩도_날씨_공급자도_안되면_503이고_보정_호출_실패는_첫_결과를_쓴다() {
+    PlaceWeatherFakes other = new PlaceWeatherFakes();
+    other.base.provider("NOSEARCH", 1, null);
+    other.geoEnabled = true;
+    other.geoAnswer = q -> PlaceWeatherFakes.geoFailed();
+    assertThat(error(() -> other.service().searchPlaces(1, "tokyo")).code())
+        .isEqualTo(ErrorCode.WEATHER_UNAVAILABLE);
+    assertThat(other.searchRows).isEmpty();
+
+    // 날씨 공급자에 검색이 없어도 지오코딩이 되면 검색된다
+    Function<String, GeocodeResult> answer =
+        q ->
+            q.equals("강릉")
+                ? PlaceWeatherFakes.geoOk(List.of(GANGNEUNG_KP))
+                : PlaceWeatherFakes.geoFailed();
+    other.geoAnswer = answer;
+    assertThat(other.service().searchPlaces(1, "강릉"))
+        .extracting(PlaceCandidateDto::label)
+        .containsExactly("강릉");
+    // 강릉시가 실패하면 강릉군은 부르지 않고 첫 결과를 캐시한다
+    assertThat(other.geocoded).containsExactly("tokyo", "강릉", "강릉시");
+    assertThat(other.searchRows).containsOnlyKeys("강릉");
+  }
+
+  @Test
+  void 지오코딩_검색도_회원_하루_한도를_따른다() {
+    fakes.options =
+        new PlaceWeatherOptions(
+            Duration.ofHours(3), 30, Duration.ofDays(1), 1, true, 10, Duration.ofSeconds(2));
+    geo(Map.of("강릉", List.of(GANGNEUNG_KP), "강릉시", List.of(GANGNEUNG_SI)));
+    service.searchPlaces(1, "강릉");
+
+    ApiException e = error(() -> service.searchPlaces(1, "도쿄"));
+    assertThat(e.code()).isEqualTo(ErrorCode.WEATHER_LIMIT);
+    assertThat(service.searchPlaces(1, "강릉")).hasSize(2);
+    assertThat(fakes.geocoded).containsExactly("강릉", "강릉시");
   }
 
   @Test

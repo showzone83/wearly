@@ -38,7 +38,7 @@ public record WearlyProperties(
   @Override
   public Weather weather() {
     return weather == null
-        ? new Weather(null, null, 0, true, null, null, null, null, null, null, null)
+        ? new Weather(null, null, 0, true, null, null, null, null, null, null, null, null)
         : weather;
   }
 
@@ -64,7 +64,9 @@ public record WearlyProperties(
       // 회원마다 하루에 공급자를 실제로 부르게 할 수 있는 장소 검색 수 (기본 100)
       @Min(0) Integer searchDailyLimit,
       // 평년값 (Open-Meteo 과거 기상 API)
-      @Valid Climate climate) {
+      @Valid Climate climate,
+      // 장소 검색 (Open-Meteo 지오코딩 API)
+      @Valid Geocoding geocoding) {
 
     @Override
     public Duration placeCacheTtl() {
@@ -89,6 +91,11 @@ public record WearlyProperties(
     @Override
     public Climate climate() {
       return climate == null ? new Climate(null, null, null, null) : climate;
+    }
+
+    @Override
+    public Geocoding geocoding() {
+      return geocoding == null ? new Geocoding(null, null, null) : geocoding;
     }
 
     @Override
@@ -133,6 +140,23 @@ public record WearlyProperties(
     @Override
     public Integer years() {
       return years == null ? 10 : years;
+    }
+  }
+
+  /**
+   * 장소 검색 (19 문서). Open-Meteo 지오코딩 API로 한글 검색어를 찾고 한글 이름을 준다. 무료 API는 비상업용이다(평년값과 같은 조건): 상업 서비스로
+   * 바꿀 때는 유료 플랜 주소(base-url)·키(api-key)를 넣거나 enabled=false로 끈다 (끄거나 실패하면 날씨 공급자 검색으로 대신하고 이름은 영어다).
+   */
+  public record Geocoding(
+      Boolean enabled,
+      // 기본 https://geocoding-api.open-meteo.com (경로 /v1/search는 서버가 붙인다)
+      String baseUrl,
+      // 유료 플랜 키. 비우면 무료 API로 부른다 (config/application-local.yml에 둔다)
+      String apiKey) {
+
+    @Override
+    public Boolean enabled() {
+      return enabled == null || enabled;
     }
   }
 

@@ -71,27 +71,23 @@ public final class MockWeather {
     return out;
   }
 
-  /** 목업 장소 검색 대상 (한국어 이름, 공급자식 영어 이름, 시·도, 나라, 위도, 경도) */
+  /** 목업 장소 검색 대상 (한국어 이름, 영어 이름, 시·도, 나라, 나라 코드, 지형 코드, 위도, 경도) */
   static final List<String[]> PLACES =
       List.of(
-          new String[] {"서울", "Seoul", "", "South Korea", "37.57", "126.98"},
-          new String[] {"부산", "Busan", "", "South Korea", "35.1", "129.04"},
-          new String[] {"제주", "Jeju", "", "South Korea", "33.51", "126.52"},
-          new String[] {"강릉", "Gangneung", "Kangwon-do", "South Korea", "37.75", "128.9"},
-          new String[] {"도쿄", "Tokyo", "Tokyo", "Japan", "35.69", "139.69"},
-          new String[] {"오사카", "Osaka", "Osaka", "Japan", "34.67", "135.5"},
-          new String[] {"상하이", "Shanghai", "Shanghai", "China", "31.23", "121.47"},
-          new String[] {"싱가포르", "Singapore", "", "Singapore", "1.29", "103.86"},
-          new String[] {"파리", "Paris", "Ile-de-France", "France", "48.87", "2.33"},
-          new String[] {
-            "런던", "London", "City of London, Greater London", "United Kingdom", "51.52", "-0.11"
-          },
-          new String[] {
-            "뉴욕", "New York", "New York", "United States of America", "40.71", "-74.01"
-          });
+          new String[] {"서울", "Seoul", "서울특별시", "대한민국", "KR", "PPLC", "37.57", "126.98"},
+          new String[] {"부산", "Busan", "부산광역시", "대한민국", "KR", "PPLA", "35.1", "129.04"},
+          new String[] {"제주", "Jeju", "제주특별자치도", "대한민국", "KR", "PPLA", "33.51", "126.52"},
+          new String[] {"강릉", "Gangneung", "강원도", "대한민국", "KR", "PPLA3", "37.75", "128.9"},
+          new String[] {"도쿄", "Tokyo", "도쿄 도", "일본", "JP", "PPLC", "35.69", "139.69"},
+          new String[] {"오사카", "Osaka", "오사카 부", "일본", "JP", "PPLA", "34.67", "135.5"},
+          new String[] {"상하이", "Shanghai", "상하이 시", "중국", "CN", "PPLA", "31.23", "121.47"},
+          new String[] {"싱가포르", "Singapore", "", "싱가포르", "SG", "PPLC", "1.29", "103.86"},
+          new String[] {"파리", "Paris", "일드프랑스", "프랑스", "FR", "PPLC", "48.87", "2.33"},
+          new String[] {"런던", "London", "잉글랜드", "영국", "GB", "PPLC", "51.52", "-0.11"},
+          new String[] {"뉴욕", "New York", "뉴욕주", "미국", "US", "PPL", "40.71", "-74.01"});
 
-  /** 목업 장소 검색: 한국어·영어 이름에 검색어가 들어간 곳 (대소문자 무시) */
-  public static List<PlaceCandidate> search(String query) {
+  /** 목업 지오코딩: 한국어·영어 이름에 검색어가 들어간 곳 (대소문자 무시). 이름은 한국어다 */
+  public static List<GeoPlace> geocode(String query) {
     String q = query == null ? "" : query.strip().toLowerCase(Locale.ROOT);
     if (q.isEmpty()) {
       return List.of();
@@ -100,9 +96,21 @@ public final class MockWeather {
         .filter(p -> p[0].contains(q) || p[1].toLowerCase(Locale.ROOT).contains(q))
         .map(
             p ->
-                new PlaceCandidate(
-                    p[1], p[2], p[3], Double.parseDouble(p[4]), Double.parseDouble(p[5])))
+                new GeoPlace(
+                    p[0],
+                    p[2].isEmpty() ? null : p[2],
+                    p[3],
+                    p[4],
+                    p[5],
+                    null,
+                    Double.parseDouble(p[6]),
+                    Double.parseDouble(p[7])))
         .toList();
+  }
+
+  /** 목업 장소 검색 (날씨 공급자 검색 대신): 목업 지오코딩과 같은 곳, 같은 한국어 이름 */
+  public static List<PlaceCandidate> search(String query) {
+    return geocode(query).stream().map(GeoPlace::toCandidate).toList();
   }
 
   /** FNV-1a 해시로 만든 0~1 값 (앱 목업의 seeded와 같은 식) */

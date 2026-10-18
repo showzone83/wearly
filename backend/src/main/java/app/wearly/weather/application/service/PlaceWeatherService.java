@@ -12,18 +12,24 @@ import app.wearly.weather.application.port.in.dto.PlaceCandidateDto;
 import app.wearly.weather.application.port.in.dto.PlaceDto;
 import app.wearly.weather.application.port.in.dto.WeatherDayDto;
 import app.wearly.weather.application.port.in.dto.WeatherDayQueryDto;
+import app.wearly.weather.application.port.out.GeocodingPort;
 import app.wearly.weather.application.port.out.PlaceSearchCachePort;
 import app.wearly.weather.application.port.out.PlaceSnapshotPort;
 import app.wearly.weather.application.port.out.UsageLimitPort;
+import app.wearly.weather.application.port.out.WeatherRunPort;
 import app.wearly.weather.application.port.out.WeatherSnapshotPort;
 import app.wearly.weather.application.port.out.WeatherSourcePort;
 import app.wearly.weather.application.service.WeatherRefreshRunner.Attempt;
 import app.wearly.weather.domain.CallRecord;
 import app.wearly.weather.domain.DailyForecast;
+import app.wearly.weather.domain.FetchErrors;
 import app.wearly.weather.domain.FetchResult;
+import app.wearly.weather.domain.GeoPlace;
+import app.wearly.weather.domain.GeocodeResult;
 import app.wearly.weather.domain.GridKey;
 import app.wearly.weather.domain.MonthlyClimate;
 import app.wearly.weather.domain.PlaceCandidate;
+import app.wearly.weather.domain.PlaceSearchRules;
 import app.wearly.weather.domain.PlaceSnapshot;
 import app.wearly.weather.domain.PlaceWeatherOptions;
 import app.wearly.weather.domain.SearchResult;
@@ -42,6 +48,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Predicate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -55,10 +63,15 @@ import org.springframework.stereotype.Service;
  *   <li>예보에 그 날짜가 없으면 그 격자·그 달의 평년값(CLIMATE).
  * </ul>
  *
+ * <p>장소 검색은 Open-Meteo 지오코딩(한글 검색어·한글 이름)으로 하고, 꺼져 있거나 실패하면 날씨 공급자(WeatherAPI) 검색으로 대신한다 (그때 이름은
+ * 영어). 한글 국내 지명은 "&lt;검색어&gt;시"·"&lt;검색어&gt;군"으로 더 찾아 보정한다 (PlaceSearchRules).
+ *
  * <p>외부 HTTP를 부를 수 있어서 트랜잭션 없이 돈다 (읽기·쓰기는 포트마다 짧은 트랜잭션).
  */
 @Service
 public class PlaceWeatherService implements PlaceWeatherUseCase {
+
+  private static final Logger log = LoggerFactory.getLogger(PlaceWeatherService.class);
 
   static final String SEARCH_UNAVAILABLE = "장소 검색을 지금 할 수 없어요. 잠시 후 다시 시도해 주세요.";
   static final String SEARCH_LIMIT = "오늘 장소 검색 횟수를 모두 썼어요. 내일 다시 시도해 주세요.";
@@ -72,6 +85,8 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
   private final WeatherLocks locks;
   private final UsageLimitPort limits;
   private final PlaceSearchCachePort searchCache;
+  private final GeocodingPort geocoding;
+  private final WeatherRunPort runs;
   private final PlaceWeatherOptions options;
   private final Clock clock;
 
@@ -85,6 +100,8 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
       WeatherLocks locks,
       UsageLimitPort limits,
       PlaceSearchCachePort searchCache,
+      GeocodingPort geocoding,
+      WeatherRunPort runs,
       PlaceWeatherOptions options,
       Clock clock) {
     this.catalog = catalog;
@@ -96,6 +113,8 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
     this.locks = locks;
     this.limits = limits;
     this.searchCache = searchCache;
+    this.geocoding = geocoding;
+    this.runs = runs;
     this.options = options;
     this.clock = clock;
   }
@@ -303,20 +322,30 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
     List<PlaceCandidate> items = searchCache.find(q).orElse(null);
     if (items == null) {
       Predicate<WeatherProvider> supports = p -> sources.supportsSearch(p.code());
-      if (!runner.anyUsable(supports)) {
+      boolean geo = geocoding.enabled();
+      if (!geo && !runner.anyUsable(supports)) {
         throw new ApiException(ErrorCode.WEATHER_UNAVAILABLE, SEARCH_UNAVAILABLE);
       }
+      // 보정 검색까지 한 요청으로 센다
       if (!limits.tryConsume(
           CallRecord.SEARCH, userId, Zones.today(clock), options.searchDailyLimit())) {
         throw new ApiException(ErrorCode.WEATHER_LIMIT, SEARCH_LIMIT);
       }
-      Attempt<SearchResult> a =
-          runner.callOnDemand(CallRecord.SEARCH, null, supports, p -> sources.search(p, q));
-      if (!a.ok()) {
-        throw new ApiException(ErrorCode.WEATHER_UNAVAILABLE, SEARCH_UNAVAILABLE);
+      items = geo ? geocode(q) : null;
+      if (items != null) {
+        searchCache.save(q, items, options.searchCacheTtl());
+      } else {
+        Attempt<SearchResult> a =
+            runner.callOnDemand(CallRecord.SEARCH, null, supports, p -> sources.search(p, q));
+        if (!a.ok()) {
+          throw new ApiException(ErrorCode.WEATHER_UNAVAILABLE, SEARCH_UNAVAILABLE);
+        }
+        items = a.result().items().stream().limit(PlaceWeatherOptions.MAX_SEARCH_RESULTS).toList();
+        // 지오코딩이 잠깐 실패해 영어 이름으로 대신한 결과는 캐시하지 않는다 (다음 검색에서 다시 한글로)
+        if (!geo) {
+          searchCache.save(q, items, options.searchCacheTtl());
+        }
       }
-      items = a.result().items().stream().limit(PlaceWeatherOptions.MAX_SEARCH_RESULTS).toList();
-      searchCache.save(q, items, options.searchCacheTtl());
     }
     List<WeatherRegion> regions = WeatherRegion.active(catalog.current());
     return items.stream()
@@ -330,6 +359,58 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
                     c.lon(),
                     nearRegion(regions, c.lat(), c.lon()).map(WeatherRegion::code).orElse(null)))
         .toList();
+  }
+
+  /** 지오코딩으로 찾고 한글 국내 지명을 보정해 정렬한다. 첫 호출이 실패하면 null (날씨 공급자 검색으로 대신). 보정 호출이 실패하면 그때까지의 결과를 쓴다. */
+  private List<PlaceCandidate> geocode(String q) {
+    GeocodeResult first = geocodeOnce(q);
+    if (!first.ok()) {
+      log.warn("장소 검색 지오코딩 실패, 날씨 공급자 검색으로 대신해요: {}", first.errorMessage());
+      return null;
+    }
+    List<GeoPlace> all = new ArrayList<>(first.places());
+    if (PlaceSearchRules.needsKoreanRetry(q, all)) {
+      for (String variant : PlaceSearchRules.koreanVariants(q)) {
+        GeocodeResult more = geocodeOnce(variant);
+        if (!more.ok()) {
+          break;
+        }
+        all.addAll(more.places());
+        if (PlaceSearchRules.hasKorea(more.places())) {
+          break;
+        }
+      }
+    }
+    return PlaceSearchRules.rank(q, all, PlaceWeatherOptions.MAX_SEARCH_RESULTS);
+  }
+
+  /** 지오코딩 한 번 (호출 이력에 SEARCH로 남긴다). 어댑터가 예외를 던져도 실패 결과로 바꾼다 */
+  private GeocodeResult geocodeOnce(String q) {
+    GeocodeResult r;
+    try {
+      r = geocoding.search(q);
+    } catch (RuntimeException e) {
+      String message = "호출 중 오류: " + e.getClass().getSimpleName();
+      r =
+          GeocodeResult.failed(
+              FetchErrors.CLIENT,
+              message,
+              List.of(
+                  new CallRecord(
+                      null,
+                      GeocodingPort.PROVIDER_CODE,
+                      CallRecord.SEARCH,
+                      false,
+                      null,
+                      false,
+                      FetchErrors.CLIENT,
+                      message,
+                      0,
+                      null,
+                      clock.instant())));
+    }
+    runs.saveCalls(null, r.calls().stream().map(c -> c.withKind(CallRecord.SEARCH)).toList());
+    return r;
   }
 
   /** 검색어 정리: 앞뒤 공백 제거, 공백 여러 개는 하나로, 소문자 (캐시 키) */

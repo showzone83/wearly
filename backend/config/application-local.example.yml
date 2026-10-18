@@ -31,6 +31,11 @@ wearly:
     #   enabled: true
     #   base-url: https://customer-archive-api.open-meteo.com
     #   api-key: ""
+    # 장소 검색(doc/19): Open-Meteo 지오코딩 무료 API(키 없음, 비상업용). 상업 서비스에서는 유료 플랜 주소·키를 넣거나 끈다 (끄면 WeatherAPI 검색, 이름은 영어)
+    # geocoding:
+    #   enabled: true
+    #   base-url: https://customer-geocoding-api.open-meteo.com
+    #   api-key: ""
 
   # 관리자 사이트에서 웹으로 넣은 AI 키를 AES-256-GCM으로 암호화하는 마스터 키 (base64로 인코딩한 32바이트).
   # 만들기: openssl rand -base64 32. 비워 두면 웹 키 입력이 꺼진다 (저장 API 409 SECRET_KEY_MISSING, 서버 설정 키는 그대로 씀).

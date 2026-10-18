@@ -16,15 +16,15 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * PlaceSearchCachePort 구현 (Valkey). 키 wearly:weather:search:&lt;정리한 검색어&gt; = [{label, region,
- * country, lat, lon}] JSON, 만료는 search-cache-ttl.
+ * PlaceSearchCachePort 구현 (Valkey). 키 wearly:weather:search:v2:&lt;정리한 검색어&gt; = [{label, region,
+ * country, lat, lon}] JSON, 만료는 search-cache-ttl. v2: 검색을 지오코딩(한글 이름)으로 바꾸면서 예전 키(영어 이름)를 버렸다.
  */
 @Component
 class ValkeyPlaceSearchCacheAdapter implements PlaceSearchCachePort {
 
   private static final Logger log = LoggerFactory.getLogger(ValkeyPlaceSearchCacheAdapter.class);
 
-  static final String PREFIX = "wearly:weather:search:";
+  static final String PREFIX = "wearly:weather:search:v2:";
 
   private final StringRedisTemplate redis;
   private final JsonMapper json;

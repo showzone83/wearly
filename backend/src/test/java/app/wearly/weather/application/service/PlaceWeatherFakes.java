@@ -2,6 +2,7 @@ package app.wearly.weather.application.service;
 
 import app.wearly.weather.application.port.out.ClimatePort;
 import app.wearly.weather.application.port.out.ClimateSourcePort;
+import app.wearly.weather.application.port.out.GeocodingPort;
 import app.wearly.weather.application.port.out.PlaceSearchCachePort;
 import app.wearly.weather.application.port.out.PlaceSnapshotPort;
 import app.wearly.weather.application.port.out.UsageLimitPort;
@@ -9,6 +10,8 @@ import app.wearly.weather.application.port.out.WeatherLockPort;
 import app.wearly.weather.domain.CallRecord;
 import app.wearly.weather.domain.ClimateFetch;
 import app.wearly.weather.domain.DailyObservation;
+import app.wearly.weather.domain.GeoPlace;
+import app.wearly.weather.domain.GeocodeResult;
 import app.wearly.weather.domain.GridKey;
 import app.wearly.weather.domain.MonthlyClimate;
 import app.wearly.weather.domain.PlaceCandidate;
@@ -24,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** 장소별 날씨 서비스 단위 테스트용 가짜 포트 (WeatherFakes 위에 19 문서의 포트를 더한다) */
@@ -42,6 +46,52 @@ final class PlaceWeatherFakes {
   final Map<String, String> lockRows = new ConcurrentHashMap<>();
   final List<String> climateFetches = Collections.synchronizedList(new ArrayList<>());
   final AtomicInteger climateSaves = new AtomicInteger();
+
+  /** 지오코딩 사용 여부. 기본은 꺼 둔다 (날씨 공급자 검색 테스트가 그대로 돌게) */
+  boolean geoEnabled = false;
+
+  /** 지오코딩에 넘긴 검색어 (차례대로) */
+  final List<String> geocoded = Collections.synchronizedList(new ArrayList<>());
+
+  /** 지오코딩 답 (검색어 → 결과). 기본은 결과 없음 */
+  Function<String, GeocodeResult> geoAnswer = q -> geoOk(List.of());
+
+  static GeocodeResult geoOk(List<GeoPlace> places) {
+    return GeocodeResult.success(
+        places,
+        List.of(
+            new CallRecord(
+                null,
+                GeocodingPort.PROVIDER_CODE,
+                CallRecord.SEARCH,
+                false,
+                200,
+                true,
+                null,
+                null,
+                50,
+                300,
+                WeatherFakes.NOW)));
+  }
+
+  static GeocodeResult geoFailed() {
+    return GeocodeResult.failed(
+        "HTTP_5XX",
+        "Open-Meteo 지오코딩 API 오류 (HTTP 502)",
+        List.of(
+            new CallRecord(
+                null,
+                GeocodingPort.PROVIDER_CODE,
+                CallRecord.SEARCH,
+                false,
+                502,
+                false,
+                "HTTP_5XX",
+                "Open-Meteo 지오코딩 API 오류 (HTTP 502)",
+                50,
+                10,
+                WeatherFakes.NOW)));
+  }
 
   /** 평년값 자료 답. 기본은 1월과 10월만 있는 2년치 */
   Supplier<ClimateFetch> climateAnswer = () -> climateOk(sampleDays());
@@ -181,6 +231,20 @@ final class PlaceWeatherFakes {
         }
       };
 
+  final GeocodingPort geocoding =
+      new GeocodingPort() {
+        @Override
+        public boolean enabled() {
+          return geoEnabled;
+        }
+
+        @Override
+        public GeocodeResult search(String query) {
+          geocoded.add(query);
+          return geoAnswer.apply(query);
+        }
+      };
+
   final WeatherLockPort locks =
       new WeatherLockPort() {
         @Override
@@ -236,6 +300,8 @@ final class PlaceWeatherFakes {
         new WeatherLocks(locks),
         limits,
         searchCache,
+        geocoding,
+        base.runs,
         options,
         base.clock);
   }

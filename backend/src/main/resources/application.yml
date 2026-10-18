@@ -127,6 +127,12 @@ wearly:
       api-key: ${WEARLY_WEATHER_CLIMATE_API_KEY:}
       # 지난 완결 연도 몇 해로 계산할지 (2026년이면 2016~2025)
       years: ${WEARLY_WEATHER_CLIMATE_YEARS:10}
+    # 장소 검색: Open-Meteo 지오코딩 API (키 없음, language=ko로 한글 검색어·한글 이름). 무료 API는 비상업용이다(평년값과 같은 조건).
+    # 끄거나 실패하면 날씨 공급자(WeatherAPI) 검색으로 대신한다 (그때 이름은 영어). 상업 서비스는 유료 주소(customer-geocoding-api.open-meteo.com)·api-key
+    geocoding:
+      enabled: ${WEARLY_WEATHER_GEOCODING_ENABLED:true}
+      base-url: ${WEARLY_WEATHER_GEOCODING_BASE_URL:https://geocoding-api.open-meteo.com}
+      api-key: ${WEARLY_WEATHER_GEOCODING_API_KEY:}
   # 웹에서 넣은 AI 키를 암호화하는 마스터 키 (base64 32바이트, openssl rand -base64 32). 없으면 웹 키 입력이 꺼진다
   secret-key: ${WEARLY_SECRET_KEY:}
   admin:
