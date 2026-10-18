@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Pressable, Switch, Text, View } from 'react-native';
+import { Platform, Pressable, Switch, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/Icon';
 import { Mascot } from '@/components/Mascot';
@@ -60,7 +60,9 @@ export default function My() {
   // 예정 전날 알림 (lib/planNotify.ts): 서버가 보내면 서버 시각, 아니면 기기 로컬 알림 시각
   const byServer = !!serverPush && serverPushActive();
   const dMinus1Sub = !notificationsSupported()
-    ? '전날 최신 예보로 재확인 · 웹 미리보기에서는 알림이 오지 않아요'
+    ? Platform.OS === 'web'
+      ? '전날 최신 예보로 재확인 · 웹 미리보기에서는 알림이 오지 않아요'
+      : '전날 최신 예보로 재확인 · 이 앱(Android Expo Go)에서는 알림이 오지 않아요'
     : byServer
       ? `전날 ${serverPush!.dayBeforeTime}쯤 최신 예보로 알려 드려요`
       : profile.notify.dMinus1 && notifyPermission === 'denied'
