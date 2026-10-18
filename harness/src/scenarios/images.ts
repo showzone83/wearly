@@ -119,23 +119,27 @@ const invalid: Scenario = {
     const text = new TextEncoder().encode('this is not an image');
     const url = await uploadUrl(u, 'image/png', text.length);
     eq(await putTo(url, Uint8Array.from(text)), 200, '글자 파일 PUT 200 (저장소는 내용을 모른다)');
-    checkErrorBody(await u.call('POST', `/images/${url.imageId}/complete`), 400, 'IMAGE_INVALID', '글자 파일 complete');
+    const textRes = await u.call('POST', `/images/${url.imageId}/complete`);
+    checkErrorBody(textRes, 400, 'IMAGE_INVALID', '글자 파일 complete');
+    eq(textRes.json.params, { reason: 'FORMAT' }, '글자 파일 → params.reason FORMAT');
     checkErrorBody(await u.call('POST', `/images/${url.imageId}/complete`), 404, 'NOT_FOUND', '실패한 이미지 다시 complete');
 
     const fake = new Uint8Array(1024);
     fake.set([0xff, 0xd8, 0xff, 0xe0]);
     const url2 = await uploadUrl(u, 'image/jpeg', fake.length);
     await putTo(url2, fake);
-    checkErrorBody(await u.call('POST', `/images/${url2.imageId}/complete`), 400, 'IMAGE_INVALID', '가짜 JPEG complete');
+    const fakeRes = await u.call('POST', `/images/${url2.imageId}/complete`);
+    checkErrorBody(fakeRes, 400, 'IMAGE_INVALID', '가짜 JPEG complete');
+    eq(fakeRes.json.params, { reason: 'DECODE' }, '가짜 JPEG → params.reason DECODE');
 
     const bad = await u.call('POST', '/images/upload-url', { body: { purpose: 'ITEM', contentType: 'image/gif', size: 10 } });
     checkErrorBody(bad, 400, 'VALIDATION_FAILED', 'GIF upload-url');
-    eq(bad.json.fieldErrors[0].field, 'contentType', 'GIF → contentType 오류');
+    eq(bad.json.fieldErrors, [{ field: 'contentType', code: 'NOT_ALLOWED', params: { allowed: ['image/jpeg', 'image/png'] } }], 'GIF → contentType NOT_ALLOWED');
     const big = await u.call('POST', '/images/upload-url', {
       body: { purpose: 'ITEM', contentType: 'image/jpeg', size: 10 * 1024 * 1024 + 1 },
     });
     checkErrorBody(big, 400, 'VALIDATION_FAILED', '10MB 초과 upload-url');
-    eq(big.json.fieldErrors[0].field, 'size', '10MB 초과 → size 오류');
+    eq(big.json.fieldErrors, [{ field: 'size', code: 'OUT_OF_RANGE', params: { min: 1, max: 10 * 1024 * 1024 } }], '10MB 초과 → size OUT_OF_RANGE');
   },
 };
 

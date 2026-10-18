@@ -490,14 +490,26 @@ export interface AnalyzeImageRequest {
 
 // ── 오류 ──
 
+/** 필드 오류. 서버는 문장 없이 { field, code, params? }만 보낸다 (backend error-codes.json의 fieldErrorCodes) */
 export interface FieldError {
   field: string;
+  /** 필드 오류 코드 (REQUIRED·TOO_LONG·OUT_OF_RANGE·NOT_ALLOWED …) */
+  code: string;
+  /** 코드의 기준 값 (max·min·allowed·format …). 값이 있을 때만 */
+  params?: Record<string, unknown>;
+  /** 화면 문구 자리. 서버가 보내지 않으면 code를 담아 둔다 (코드별 문구 표는 따로 정한다) */
   message: string;
 }
 
+/** 오류 응답 본문: { status, code, params?, fieldErrors: [{ field, code, params? }], traceId } */
 export interface ApiErrorBody {
   status: number;
   code: string;
-  message: string;
-  fieldErrors?: FieldError[];
+  /** 코드의 상세 값 (예: WARDROBE_INSUFFICIENT의 missing·alternatives). 값이 있을 때만 */
+  params?: Record<string, unknown>;
+  fieldErrors?: { field: string; code?: string; params?: Record<string, unknown>; message?: string }[];
+  /** 요청 추적 ID (응답 헤더 X-Request-Id와 같다) */
+  traceId?: string;
+  /** 예전 서버만 보낸다 */
+  message?: string;
 }

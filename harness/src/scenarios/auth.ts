@@ -30,6 +30,8 @@ const unauthorized: Scenario = {
     const s = newSession();
     const err = await expectApiError(s.api.users.me(), { status: 401, code: 'UNAUTHORIZED' }, '앱 모듈 users.me()');
     ok(Array.isArray(err.fieldErrors), 'ApiError.fieldErrors는 배열', err.fieldErrors);
+    ok(isNonEmptyString(err.traceId), 'ApiError.traceId (본문 traceId)', err.traceId);
+    eq(err.message, 'UNAUTHORIZED', '서버가 문장을 보내지 않으면 ApiError.message에는 code');
     eq(s.counts.authLost, 0, '토큰이 없을 때는 onAuthLost를 부르지 않음');
 
     // 저장소에 형식이 틀린 토큰 → TOKEN_INVALID: 갱신하지 않고 저장소 비움 + onAuthLost 1번
@@ -133,12 +135,15 @@ const weakPassword: Scenario = {
     ];
     for (const c of cases) {
       const s = newSession();
-      await expectApiError(
+      const err = await expectApiError(
         s.api.auth.signup({ email: randomEmail('weak'), password: c.password, name: c.name }),
         { status: 400, code: 'VALIDATION_FAILED' },
         `가입 검증 (${c.why})`,
       );
-      // fieldErrors는 문장 없이 { field, code }라 원시 응답으로 본다
+      // 앱 모듈은 fieldErrors를 { field, code, params?, message(=code) }로 담는다
+      const appField = err.fieldErrors.find((f) => f.field === c.field);
+      ok(appField !== undefined && isNonEmptyString(appField.code), `${c.why}: ApiError.fieldErrors에 '${c.field}' 코드`, err.fieldErrors);
+      // 원시 응답도 본다
       const res = await raw('POST', '/auth/signup', {
         body: { email: randomEmail('weak'), password: c.password, name: c.name },
       });

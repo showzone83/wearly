@@ -132,7 +132,7 @@ function analyzeForm(file: AnalyzeFile): FormData {
     // React Native: { uri, name, type } 객체를 파일 파트로 보낸다
     loose.append('image', { uri: file.uri, name: file.name || 'photo.jpg', type: file.type || 'image/jpeg' });
   } else {
-    throw new ApiError(0, 'VALIDATION_FAILED', '분석할 사진이 없어요.', [{ field: 'image', message: '사진을 골라 주세요.' }]);
+    throw new ApiError(0, 'VALIDATION_FAILED', '분석할 사진이 없어요.', [{ field: 'image', code: 'REQUIRED', message: '사진을 골라 주세요.' }]);
   }
   return form;
 }

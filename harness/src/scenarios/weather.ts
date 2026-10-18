@@ -111,7 +111,7 @@ const coordinateDay: Scenario = {
     eq([busan.json.items[0].label, busan.json.items[0].regionCode], ['부산', 'BUSAN'], '영어 검색어도 한글 이름, 국내 결과는 30km 안 REGION 코드');
     const empty = await user.call('GET', `/weather/places?q=${encodeURIComponent('   ')}`);
     checkErrorBody(empty, 400, 'VALIDATION_FAILED', '빈 검색어');
-    eq(empty.json.fieldErrors.map((e: { field: string }) => e.field), ['q'], '빈 검색어 fieldErrors');
+    eq(empty.json.fieldErrors, [{ field: 'q', code: 'REQUIRED' }], '빈 검색어 fieldErrors: q REQUIRED');
     ctx.note(`격자 ${res.json.place.lat},${res.json.place.lon} 예보 마지막 날 ${res.json.forecastUntil}`);
   },
 };
@@ -120,21 +120,22 @@ const dateValidation: Scenario = {
   group: '장소 날씨',
   name: 'GET /weather/day 날짜 검증: 없음·형식·과거·1년 넘음 → 400 VALIDATION_FAILED(date), 없는 지역 → 400(region)',
   async run() {
-    const cases: [string, string][] = [
-      ['region=SEOUL', '날짜 없음'],
-      ['region=SEOUL&date=2026-13-01', '없는 달'],
-      ['region=SEOUL&date=20261020', '형식'],
-      [`region=SEOUL&date=${seoulDate(-1)}`, '어제'],
-      [`region=SEOUL&date=${seoulDate(367)}`, '1년 넘음'],
+    const cases: [string, string, string][] = [
+      ['region=SEOUL', '날짜 없음', 'REQUIRED'],
+      ['region=SEOUL&date=2026-13-01', '없는 달', 'INVALID_FORMAT'],
+      ['region=SEOUL&date=20261020', '형식', 'INVALID_FORMAT'],
+      [`region=SEOUL&date=${seoulDate(-1)}`, '어제', 'OUT_OF_RANGE'],
+      [`region=SEOUL&date=${seoulDate(367)}`, '1년 넘음', 'OUT_OF_RANGE'],
     ];
-    for (const [q, label] of cases) {
+    for (const [q, label, code] of cases) {
       const res = await raw('GET', `/weather/day?${q}`);
       checkErrorBody(res, 400, 'VALIDATION_FAILED', label);
       eq(res.json.fieldErrors.map((e: { field: string }) => e.field), ['date'], `${label}: fieldErrors`);
+      eq(res.json.fieldErrors[0].code, code, `${label}: 필드 코드`);
     }
     const region = await raw('GET', `/weather/day?region=NOWHERE&date=${seoulDate()}`);
     checkErrorBody(region, 400, 'VALIDATION_FAILED', '없는 지역');
-    eq(region.json.fieldErrors.map((e: { field: string }) => e.field), ['region'], '없는 지역 fieldErrors');
+    eq(region.json.fieldErrors, [{ field: 'region', code: 'NOT_FOUND' }], '없는 지역 fieldErrors: region NOT_FOUND');
   },
 };
 
