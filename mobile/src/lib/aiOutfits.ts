@@ -7,6 +7,7 @@ import { SLOTS } from '@/data/constants';
 import type { Outfit, OutfitItems, Slot, TimeOfDay } from '@/data/types';
 import { slotLabel } from './codes';
 import { diffDays } from './date';
+import { slotListText } from './errorText';
 import { evaluate, recentExclusions, slotOf, type EngineInput } from './recommend';
 import { isRetired } from './retire';
 
@@ -199,9 +200,10 @@ export function rankCandidates(candidates: readonly OutfitCandidateDto[], input:
 }
 
 /**
- * WARDROBE_INSUFFICIENT의 message(모자란 칸)를 보여 줄 문구로 바꾼다.
- * 서버가 칸 코드(예: "SHOES")를 그대로 주면 이름(신발)으로 바꾼다.
+ * WARDROBE_INSUFFICIENT의 params(missing: 모자란 칸, alternatives: 상의·하의를 대신할 칸)를 보여 줄 문구로 바꾼다.
+ * 예: { missing: ['SHOES'] } → "신발이 모자라요.", { missing: ['TOP'], alternatives: ['DRESS'] } → "상의(또는 원피스)가 모자라요."
+ * 칸 이름은 코드 테이블 이름. 칸이 없으면 빈 문자열.
  */
-export function missingSlotsText(message: string): string {
-  return message.replace(/\b(TOP|BOTTOM|DRESS|OUTER|SHOES|BAG)\b/g, (m) => slotLabel(m as Slot));
+export function missingSlotsText(params: Record<string, unknown>): string {
+  return slotListText(params.missing, params.alternatives, (slot) => slotLabel(slot as Slot));
 }

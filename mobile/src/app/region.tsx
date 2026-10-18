@@ -48,7 +48,8 @@ export default function Region() {
       notify('가까운 지역', `${near.label}(으)로 바꿨어요.`);
       router.back();
     } catch (e) {
-      notify('위치를 확인하지 못했어요', (e as Error)?.message ?? '목록에서 직접 골라 주세요.');
+      console.warn('[region] 위치 확인 실패', e);
+      notify('위치를 확인하지 못했어요', '위치 서비스가 켜져 있는지 확인하거나, 목록에서 직접 골라 주세요.');
     } finally {
       setLocating(false);
     }

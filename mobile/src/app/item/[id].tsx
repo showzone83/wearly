@@ -12,7 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { removeItem, restoreItem, retireItem, saveItem } from '@/lib/account';
-import { errorMessage } from '@/lib/api';
+import { errorAlertMessage } from '@/lib/api';
 import { diffDays, todayKey } from '@/lib/date';
 import { josa } from '@/lib/josa';
 import { isRetired, retiredSummary } from '@/lib/retire';
@@ -63,7 +63,7 @@ const ItemDetail = () => {
       await removeItem(item.id);
       router.back();
     } catch (e) {
-      notify('삭제하지 못했어요', errorMessage(e));
+      notify('삭제하지 못했어요', errorAlertMessage(e));
       setBusy(false);
     }
   };
@@ -78,7 +78,7 @@ const ItemDetail = () => {
       setSheetOpen(false);
       if (!exists) gone();
     } catch (e) {
-      notify('옮기지 못했어요', errorMessage(e));
+      notify('옮기지 못했어요', errorAlertMessage(e));
     } finally {
       setBusy(false);
     }
@@ -90,7 +90,7 @@ const ItemDetail = () => {
       const exists = await restoreItem(item.id);
       if (!exists) gone();
     } catch (e) {
-      notify('다시 사용하지 못했어요', errorMessage(e));
+      notify('다시 사용하지 못했어요', errorAlertMessage(e));
     } finally {
       setBusy(false);
     }
@@ -104,7 +104,7 @@ const ItemDetail = () => {
       if (!exists) notify('이미 삭제된 옷이에요', '다른 기기에서 지운 옷이라 이 기기에서도 지웠어요.');
       router.back();
     } catch (e) {
-      notify('저장하지 못했어요', errorMessage(e));
+      notify('저장하지 못했어요', errorAlertMessage(e));
       setBusy(false);
     }
   };

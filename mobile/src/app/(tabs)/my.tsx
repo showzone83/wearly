@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 
 import { THEME_IDS, THEMES } from '@/data/themes';
 import { deleteAccount, logout, saveProfile } from '@/lib/account';
-import { API_BASE_URL, errorMessage } from '@/lib/api';
+import { API_BASE_URL, errorAlertMessage } from '@/lib/api';
 import { styleLabel } from '@/lib/codes';
 import { diffDays, todayKey } from '@/lib/date';
 import { MOCK_MODE } from '@/lib/mode';
@@ -50,7 +50,7 @@ export default function My() {
       await saveProfile(next);
     } catch (e) {
       updateProfile(before);
-      notify('알림 설정을 저장하지 못했어요', errorMessage(e));
+      notify('알림 설정을 저장하지 못했어요', errorAlertMessage(e));
     }
   };
 
@@ -61,7 +61,7 @@ export default function My() {
       await task();
       router.replace('/onboarding');
     } catch (e) {
-      notify(failTitle, errorMessage(e));
+      notify(failTitle, errorAlertMessage(e));
     } finally {
       setBusy(false);
     }

@@ -6,7 +6,7 @@ import { Chip, ChipGroup } from '@/components/Chip';
 import { condIcon, Icon } from '@/components/Icon';
 import { ItemThumb } from '@/components/ItemThumb';
 import { Mascot } from '@/components/Mascot';
-import { Button, Label, Notice, notify, PageTitle, Row, Screen, Title } from '@/components/ui';
+import { Button, Label, Notice, notify, PageTitle, Row, Screen, Title, TraceLabel } from '@/components/ui';
 import { FORMALITY_LABEL, MOOD_LABEL, OCCASION_LABEL, PLAN_OCCASIONS, TIME_LABEL, WEEKDAY_SHORT, WORK_OCCASIONS } from '@/data/constants';
 import type { ColorKey, Formality, Mood, Occasion, Outfit, Place, RecommendContext, StyleTag, TimeOfDay, TWeatherSource, Weather } from '@/data/types';
 import type { RecommendSource } from '@/lib/aiOutfits';
@@ -40,7 +40,7 @@ const SCORE_MS = 450;
 type Failure =
   | { kind: 'limit'; message: string }
   | { kind: 'insufficient'; missing: string }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string; traceId?: string };
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -399,6 +399,7 @@ export default function Coordi() {
                       ? '이 장소의 날씨는 아직 받을 수 없어요. 기온을 직접 골라 주세요.'
                       : null
               }
+              problemTrace={day.outcome?.kind === 'error' ? day.outcome.traceId : undefined}
               feel={feel}
               rain={rain}
               onFeel={(t) => {
@@ -435,6 +436,8 @@ interface IPlanWeatherBoxProps {
   loading: boolean;
   /** 서버 날씨를 받지 못한 이유 (직접 고르기 안내) */
   problem: string | null;
+  /** 시스템 오류로 받지 못했으면 그 traceId (오류 번호) */
+  problemTrace?: string;
   feel: number;
   rain: boolean;
   onFeel: (temp: number) => void;
@@ -444,7 +447,20 @@ interface IPlanWeatherBoxProps {
 }
 
 /** 예정일 날씨 (doc/19): 예보 · 평년 기준(안내 + 체감 온도 칩) · 직접 고르기 */
-const PlanWeatherBox = ({ source, weather, serverSource, climateText, loading, problem, feel, rain, onFeel, onRain, onUseServer }: IPlanWeatherBoxProps) => {
+const PlanWeatherBox = ({
+  source,
+  weather,
+  serverSource,
+  climateText,
+  loading,
+  problem,
+  problemTrace,
+  feel,
+  rain,
+  onFeel,
+  onRain,
+  onUseServer,
+}: IPlanWeatherBoxProps) => {
   const s = useStyles();
   const colors = useColors();
 
@@ -500,6 +516,7 @@ const PlanWeatherBox = ({ source, weather, serverSource, climateText, loading, p
           ? '직접 고른 체감 온도로 추천해요.'
           : (problem ?? '예보 기간 밖이라 기온을 직접 골라 주세요. D-1에 최신 예보로 다시 확인해요.')}
       </Text>
+      {!serverSource && problem && <TraceLabel traceId={problemTrace} style={{ marginTop: -6 }} />}
       {chips}
       {onUseServer && (
         <Pressable onPress={onUseServer} hitSlop={6} style={{ alignSelf: 'flex-start' }}>
@@ -569,6 +586,7 @@ function FailurePanel({
     <View style={s.panel}>
       <Title style={s.panelTitle}>{title}</Title>
       <Text style={[s.panelSub, { lineHeight: 21 }]}>{body}</Text>
+      {failure.kind === 'error' && <TraceLabel traceId={failure.traceId} style={{ textAlign: 'center' }} />}
       <View style={{ gap: 10, marginTop: 26, alignSelf: 'stretch' }}>
         {failure.kind === 'insufficient' ? (
           <Button title="옷 등록하기" icon={<Icon name="plus" color={colors.onPrimary} size={18} />} onPress={() => router.push('/item/new')} />

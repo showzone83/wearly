@@ -5,7 +5,7 @@ import type { IItemImage, WardrobeItem } from '@/data/types';
 
 // ── 표시 ──
 
-/** 목록은 썸네일(긴 변 400), 상세는 원본(긴 변 2048) */
+/** 목록은 썸네일(긴 변 400), 상세는 원본(긴 변 1600) */
 export type TImageVariant = 'thumb' | 'full';
 
 /**

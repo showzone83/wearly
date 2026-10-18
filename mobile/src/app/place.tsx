@@ -5,12 +5,13 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-nativ
 import { isApiError } from '@/api/errors';
 import type { PlaceSearchItem } from '@/api/types';
 import { Icon } from '@/components/Icon';
-import { Header, Notice, Screen } from '@/components/ui';
+import { Header, Notice, Screen, TraceLabel } from '@/components/ui';
 import type { Place } from '@/data/types';
 import { useCodesVersion } from '@/store/useCodes';
 import { usePlaceStore } from '@/store/usePlaceStore';
 import { useStore } from '@/store/useStore';
 import { api, errorMessage } from '@/lib/api';
+import { systemTraceId } from '@/lib/errorText';
 import { MOCK_MODE } from '@/lib/mode';
 import { isUnsupported, placeKey } from '@/lib/planWeather';
 import { regionList } from '@/lib/weatherSync';
@@ -25,7 +26,7 @@ type TSearch =
   | { status: 'idle' }
   | { status: 'loading'; q: string }
   | { status: 'done'; q: string; items: PlaceSearchItem[] }
-  | { status: 'error'; q: string; message: string };
+  | { status: 'error'; q: string; message: string; traceId?: string };
 
 const placeFromItem = (it: PlaceSearchItem): Place => ({
   regionCode: it.regionCode || undefined,
@@ -74,7 +75,7 @@ const PlacePicker = () => {
             isApiError(e) && isUnsupported(e, 'search')
               ? '서버가 아직 장소 검색을 지원하지 않아요. 아래 시·도 목록에서 골라 주세요.'
               : errorMessage(e, '장소를 찾지 못했어요. 잠시 후 다시 시도해 주세요.');
-          setSearch({ status: 'error', q: trimmed, message });
+          setSearch({ status: 'error', q: trimmed, message, traceId: systemTraceId(e) });
         });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -112,7 +113,12 @@ const PlacePicker = () => {
             ) : null}
           </View>
           {search.status === 'loading' && <ActivityIndicator color={c.primary} style={{ marginTop: 14 }} />}
-          {search.status === 'error' && <Text style={s.note}>{search.message}</Text>}
+          {search.status === 'error' && (
+            <View>
+              <Text style={s.note}>{search.message}</Text>
+              <TraceLabel traceId={search.traceId} />
+            </View>
+          )}
           {search.status === 'done' && search.items.length === 0 && <Text style={s.note}>‘{search.q}’에 맞는 장소가 없어요.</Text>}
           {search.status === 'done' && search.items.length > 0 && (
             <View style={s.card}>

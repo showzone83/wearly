@@ -349,7 +349,7 @@ export async function pushWorn(ids: string[]): Promise<void> {
 
 // ── 사용하지 않는 옷 (doc/13) ──
 
-/** 서버에 사용 중지 API가 아직 없을 때 (예전 서버). 화면은 message를 그대로 보여 준다 */
+/** 서버에 사용 중지 API가 아직 없을 때 (예전 서버). 화면 문구는 src/lib/errorText.ts의 APP_TEXT */
 export const RETIRE_UNSUPPORTED = 'RETIRE_UNSUPPORTED';
 
 const unsupported = (status: number) =>

@@ -11,6 +11,7 @@ import { useStore } from '@/store/useStore';
 import { useWeatherStore } from '@/store/useWeatherStore';
 import { api, errorMessage } from './api';
 import { todayKey } from './date';
+import { systemTraceId } from './errorText';
 import { MOCK_MODE } from './mode';
 import {
   applyRecheck,
@@ -31,7 +32,7 @@ export type TDayOutcome =
   /** 좌표 장소인데 로그인하지 않음 */
   | { kind: 'login' }
   /** 503 WEATHER_UNAVAILABLE · 429 WEATHER_LIMIT · 네트워크 등 */
-  | { kind: 'error'; code: string; message: string };
+  | { kind: 'error'; code: string; message: string; traceId?: string };
 
 /** 같은 장소·날짜 응답을 다시 쓰는 시간 */
 const CACHE_MS = 10 * 60_000;
@@ -93,6 +94,7 @@ export const fetchDayWeather = (place: Place, date: string, fresh = false): Prom
         kind: 'error',
         code: isApiError(e) ? e.code : 'UNKNOWN',
         message: errorMessage(e, '날씨를 받지 못했어요.'),
+        traceId: systemTraceId(e),
       };
     }
   })().finally(() => inflight.delete(key));

@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEFAULT_PROFILE, SAMPLE_ITEM_COUNT } from '@/data/seed';
 import type { Profile } from '@/data/types';
 import { finishAccountOnboarding } from '@/lib/account';
-import { errorMessage } from '@/lib/api';
+import { errorAlertMessage } from '@/lib/api';
 import { MOCK_MODE } from '@/lib/mode';
 import { useStore } from '@/store/useStore';
 import { makeStyles, useColors } from '@/theme';
@@ -64,7 +64,7 @@ export default function Onboarding() {
       await finishAccountOnboarding(profile, withSample);
       router.replace('/home');
     } catch (e) {
-      notify('설정을 저장하지 못했어요', errorMessage(e));
+      notify('설정을 저장하지 못했어요', errorAlertMessage(e));
     } finally {
       setBusy(false);
     }

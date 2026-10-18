@@ -8,11 +8,12 @@ import { GarmentArt } from '@/components/GarmentArt';
 import { Icon } from '@/components/Icon';
 import { defaultName, ItemForm, type ItemDraft } from '@/components/ItemForm';
 import { Mascot } from '@/components/Mascot';
-import { Badge, Button, Header, Kicker, notify, Row, Screen, StepDots, Title } from '@/components/ui';
+import { Badge, Button, Header, Kicker, notify, Row, Screen, StepDots, Title, TraceLabel } from '@/components/ui';
 import type { Category, ColorKey, IItemImage, SubType } from '@/data/types';
 import { isApiError } from '@/api/errors';
 import { createItem, isAccountMode } from '@/lib/account';
-import { api, errorMessage, isNetworkError, photoFile } from '@/lib/api';
+import { api, errorAlertMessage, errorMessage, isNetworkError, photoFile } from '@/lib/api';
+import { systemTraceId, traceLabelOf } from '@/lib/errorText';
 import { activeCodes, defaultStatus, isActiveCode, subTypeMeta, subTypesOf } from '@/lib/codes';
 import { MOCK_MODE } from '@/lib/mode';
 import { isImagesUnsupported } from '@/lib/photoRules';
@@ -65,9 +66,9 @@ type TStage = 'upload' | 'analyze';
 type Outcome =
   | { kind: 'ai'; source: AiSource; draft: ItemDraft; remaining?: number }
   | { kind: 'limit'; photo: TPhoto }
-  | { kind: 'error'; message: string; photo: TPhoto }
+  | { kind: 'error'; message: string; photo: TPhoto; traceId?: string }
   /** 사진을 서버에 올리지 못함 → 2단계에서 오류와 '다시 시도' */
-  | { kind: 'uploadError'; message: string };
+  | { kind: 'uploadError'; message: string; traceId?: string };
 
 function hash(str: string): number {
   let h = 0;
@@ -109,7 +110,9 @@ function pick(options: string[], preferred: string): string {
   return options.includes(preferred) ? preferred : (options[0] ?? preferred);
 }
 
+/** 개발 실행에서만: 기기 쪽 원인(연결 실패 등)을 문구 뒤에 붙인다. 배포 화면에는 정해진 문구만 */
 const causeDetail = (e: unknown): string => {
+  if (!__DEV__) return '';
   const cause = (e as { cause?: unknown }).cause;
   return cause instanceof Error ? ` (${cause.message})` : '';
 };
@@ -130,7 +133,7 @@ async function runAnalysis(asset: PickedAsset, onStage: (stage: TStage) => void)
   onStage('upload');
   let photo: TPhoto;
   try {
-    // 긴 변 2048 이하 JPEG로 바꾼 파일을 올린다. 예전 서버로 되돌아가도 이 파일로 분석·기기 저장한다
+    // 긴 변 1600 이하 JPEG로 바꾼 파일을 올린다. 예전 서버로 되돌아가도 이 파일로 분석·기기 저장한다
     const prepared = await preparePhoto(asset.uri);
     photo = { uri: prepared.uri };
     try {
@@ -142,7 +145,7 @@ async function runAnalysis(asset: PickedAsset, onStage: (stage: TStage) => void)
   } catch (e) {
     console.warn('[item/new] 사진 올리기 실패', e, (e as { cause?: unknown }).cause, asset);
     if (isNetworkError(e) && MOCK_MODE) return { kind: 'ai', source: { kind: 'fallback' }, draft: mockAnalyze(asset.uri) };
-    return { kind: 'uploadError', message: errorMessage(e, '사진을 올리지 못했어요.') + causeDetail(e) };
+    return { kind: 'uploadError', message: errorMessage(e, '사진을 올리지 못했어요.') + causeDetail(e), traceId: systemTraceId(e) };
   }
 
   onStage('analyze');
@@ -162,7 +165,7 @@ async function runAnalysis(asset: PickedAsset, onStage: (stage: TStage) => void)
     if (isNetworkError(e) && MOCK_MODE) {
       return { kind: 'ai', source: { kind: 'fallback' }, draft: { ...mockAnalyze(photo.uri), image: photo.image } };
     }
-    return { kind: 'error', message: errorMessage(e, 'AI 분석에 실패했어요.') + causeDetail(e), photo };
+    return { kind: 'error', message: errorMessage(e, 'AI 분석에 실패했어요.') + causeDetail(e), photo, traceId: systemTraceId(e) };
   }
 }
 
@@ -197,6 +200,8 @@ export default function NewItem() {
   const [stage, setStage] = useState<TStage>('analyze');
   /** 사진 올리기 실패 문구. 있으면 2단계에 오류와 '다시 시도'를 보여 준다 */
   const [uploadError, setUploadError] = useState<string | null>(null);
+  /** 사진 올리기 실패가 시스템 오류면 그 traceId (오류 번호) */
+  const [uploadTrace, setUploadTrace] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   /** 분석 중 '직접 입력'으로 넘어가면 늦게 온 분석 결과를 버린다 */
   const runRef = useRef(0);
@@ -238,6 +243,7 @@ export default function NewItem() {
     if (run !== runRef.current) return;
     if (outcome.kind === 'uploadError') {
       setUploadError(outcome.message);
+      setUploadTrace(outcome.traceId);
       return;
     }
     const wait = MIN_ANALYZE_MS - (Date.now() - started);
@@ -255,7 +261,8 @@ export default function NewItem() {
       setRemaining(0);
       notify('오늘 AI 분석을 모두 썼어요', '내일 다시 쓸 수 있어요. 이번 옷은 직접 입력으로 등록해 주세요.');
     } else {
-      notify('AI 분석을 하지 못했어요', `${outcome.message}\n직접 입력으로 등록해 주세요.`);
+      const trace = outcome.traceId ? `\n${traceLabelOf(outcome.traceId)}` : '';
+      notify('AI 분석을 하지 못했어요', `${outcome.message}\n직접 입력으로 등록해 주세요.${trace}`);
     }
     manual(outcome.photo);
   };
@@ -273,7 +280,7 @@ export default function NewItem() {
           return;
         }
       }
-      // 계정 모드는 올리기 전에 긴 변 2048·JPEG 0.85로 다시 저장하므로 여기서는 압축하지 않는다 (두 번 압축 방지)
+      // 계정 모드는 올리기 전에 긴 변 1600·JPEG 0.8로 다시 저장하므로 여기서는 압축하지 않는다 (두 번 압축 방지)
       const quality = isAccountMode() ? 1 : 0.6;
       const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality, exif: false };
       const res = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
@@ -292,7 +299,7 @@ export default function NewItem() {
       await createItem({ ...draft, name: draft.name.trim() || defaultName(draft) });
       setStep(4);
     } catch (e) {
-      notify('옷을 저장하지 못했어요', errorMessage(e));
+      notify('옷을 저장하지 못했어요', errorAlertMessage(e));
     } finally {
       setSaving(false);
     }
@@ -387,6 +394,7 @@ export default function NewItem() {
             <>
               <Title style={s.doneTitle}>사진을 올리지 못했어요</Title>
               <Text style={s.uploadError}>{uploadError}</Text>
+              <TraceLabel traceId={uploadTrace} style={{ textAlign: 'center' }} />
               <Button title="다시 시도" onPress={retryUpload} style={s.retry} />
             </>
           ) : (

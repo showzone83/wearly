@@ -1,4 +1,4 @@
-// 옷 사진 올리기 (계약 4장): 긴 변 2048 이하 JPEG(0.85)로 바꾼 뒤 upload-url → 서명 주소 PUT → complete.
+// 옷 사진 올리기 (계약 4장): 긴 변 1600 이하 JPEG(0.8)로 바꾼 뒤 upload-url → 서명 주소 PUT → complete.
 // 올린 직후에는 기기 파일로 expo-image 캐시(imageId 기반 키)를 채워 두어, 서버 주소를 처음 그릴 때도 내려받지 않는다.
 // 게스트 사진처럼 기기에만 두는 사진은 선택기 캐시가 아니라 앱 문서 폴더(photos/)에 복사해 둔다.
 import { Directory, File, Paths } from 'expo-file-system';
@@ -19,8 +19,8 @@ import {
 } from './photoRules';
 
 /** 서버로 올리는 사진의 긴 변 (계약 4장) */
-const MAX_SIDE = 2048;
-const QUALITY = 0.85;
+const MAX_SIDE = 1600;
+const QUALITY = 0.8;
 /** 썸네일 캐시를 채울 때 쓰는 긴 변 (서버 썸네일과 같은 크기) */
 const THUMB_SIDE = 400;
 
@@ -57,7 +57,7 @@ export const toJpeg = async (uri: string, maxSide = MAX_SIDE, compress = QUALITY
   }
 };
 
-/** 올릴 사진 준비(긴 변 2048 이하 JPEG 0.85). 변환에 실패하면 원본이 JPEG·PNG일 때만 그대로 쓴다 */
+/** 올릴 사진 준비(긴 변 1600 이하 JPEG 0.8). 변환에 실패하면 원본이 JPEG·PNG일 때만 그대로 쓴다 */
 export const preparePhoto = async (uri: string): Promise<IPreparedPhoto> => {
   try {
     return { uri: await toJpeg(uri), contentType: 'image/jpeg' };
@@ -65,7 +65,8 @@ export const preparePhoto = async (uri: string): Promise<IPreparedPhoto> => {
     console.warn('[photo] 사진 변환 실패, 원본으로 시도', e);
     const ext = /\.(jpe?g|png)(?:[?#].*)?$/i.exec(uri)?.[1]?.toLowerCase();
     if (ext) return { uri, contentType: ext === 'png' ? 'image/png' : 'image/jpeg' };
-    throw new ApiError(0, 'IMAGE_INVALID', '사진을 준비하지 못했어요. 다른 사진으로 시도해 주세요.');
+    // 화면 문구는 errorText의 IMAGE_INVALID(reason DECODE): "사진을 읽을 수 없어요. 다른 사진으로 시도해 주세요."
+    throw new ApiError(0, 'IMAGE_INVALID', 'IMAGE_INVALID', [], { reason: 'DECODE' });
   }
 };
 

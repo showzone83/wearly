@@ -161,7 +161,7 @@ export interface WardrobeStats {
 export interface ImageRef {
   /** 이미지 id (UUID). 주소가 바뀌어도 그대로라 화면 캐시 키로 쓴다 */
   imageId: string;
-  /** 원본(긴 변 2048 이하) 주소 */
+  /** 원본(긴 변 1600 이하) 주소 */
   url: string;
   /** 썸네일(긴 변 400) 주소 */
   thumbUrl: string;
