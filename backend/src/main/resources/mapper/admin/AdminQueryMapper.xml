@@ -87,7 +87,8 @@
                (SELECT count(*) FROM tb_ai_analysis_log l
                  WHERE l.user_id = u.user_id AND l.feature = 'ITEM_ANALYZE' AND l.status = 'SUCCESS'
                    AND l.created_at &gt;= #{todayFrom} AND l.created_at &lt; #{todayTo}) AS ai_today,
-               p.age_range, p.body_type, p.height_cm, p.fit_preference
+               p.age_range, p.body_type, p.height_cm, p.fit_preference,
+               EXISTS (SELECT 1 FROM tb_user_mfa m WHERE m.user_id = u.user_id) AS mfa_enrolled
           FROM tb_user u
           LEFT JOIN tb_user_profile p ON p.user_id = u.user_id
         <include refid="userWhere"/>
@@ -174,5 +175,33 @@
          WHERE e.user_id = #{userId}
          ORDER BY e.created_at DESC, e.auth_event_id DESC
          LIMIT #{limit}
+    </select>
+
+    <!-- 관리자 로그인 기록 (22 문서): 지금 관리자인 회원의 이벤트 + 관리자 사이트(client ADMIN)에서 일어난 이벤트 -->
+    <sql id="adminAuthEventWhere">
+        <where>
+            (u.role = 'ADMIN' OR e.client = 'ADMIN')
+            <if test="f.userId != null">AND e.user_id = #{f.userId}</if>
+            <if test="f.type != null">AND e.type = #{f.type}</if>
+            <if test="f.from != null">AND e.created_at &gt;= #{f.from}</if>
+            <if test="f.to != null">AND e.created_at &lt; #{f.to}</if>
+        </where>
+    </sql>
+
+    <select id="findAdminAuthEvents" resultType="app.wearly.admin.application.port.out.dto.AuthEventLogRowDto">
+        SELECT e.auth_event_id AS id, e.user_id, u.email, u.name, u.role, e.type, e.session_id, e.client, e.ip,
+               e.user_agent, e.created_at
+          FROM tb_auth_event e
+          JOIN tb_user u ON u.user_id = e.user_id
+        <include refid="adminAuthEventWhere"/>
+         ORDER BY e.created_at DESC, e.auth_event_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAdminAuthEvents" resultType="long">
+        SELECT count(*)
+          FROM tb_auth_event e
+          JOIN tb_user u ON u.user_id = e.user_id
+        <include refid="adminAuthEventWhere"/>
     </select>
 </mapper>

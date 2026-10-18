@@ -49,6 +49,15 @@ class CredentialJpaAdapter implements CredentialPort {
     credentials.flush();
   }
 
+  @Override
+  public void changePassword(long credentialId, String passwordHash) {
+    credentials
+        .findById(credentialId)
+        .orElseThrow(() -> new IllegalStateException("자격 증명이 없어요: " + credentialId))
+        .changePassword(passwordHash);
+    credentials.flush();
+  }
+
   private static LocalCredential toDomain(LocalCredentialEntity e) {
     return new LocalCredential(e.getId(), e.getUserId(), e.getEmail(), e.getPasswordHash());
   }

@@ -12,6 +12,7 @@ import { appSettingScenarios } from './scenarios/appSettings';
 import { authScenarios } from './scenarios/auth';
 import { codeScenarios } from './scenarios/codes';
 import { imageScenarios } from './scenarios/images';
+import { mfaScenarios } from './scenarios/mfa';
 import { planScenarios } from './scenarios/plans';
 import { profileScenarios } from './scenarios/profile';
 import { pushScenarios } from './scenarios/push';
@@ -33,6 +34,7 @@ const ALL: Scenario[] = [
   ...appSettingScenarios,
   ...retireScenarios,
   ...sessionScenarios,
+  ...mfaScenarios,
   ...imageScenarios,
   ...weatherScenarios,
   ...planScenarios,

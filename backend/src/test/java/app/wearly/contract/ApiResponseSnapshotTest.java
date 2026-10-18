@@ -60,6 +60,8 @@ import tools.jackson.databind.node.ObjectNode;
       "wearly.admin.email=" + ApiResponseSnapshotTest.ADMIN_EMAIL,
       "wearly.admin.password=" + ApiResponseSnapshotTest.ADMIN_PASSWORD,
       "wearly.admin.name=스냅샷관리자",
+      // 관리자 2단계 인증은 끈다 (일반 회원 응답과 관리자 API 응답 모양만 비교한다)
+      "wearly.admin.mfa.required=false",
       "ANTHROPIC_API_KEY=",
       "OPENAI_API_KEY=",
       "GEMINI_API_KEY=",
@@ -502,8 +504,12 @@ class ApiResponseSnapshotTest {
         api.patch("/api/v1/admin/users/999999", t, Map.of("role", "ADMIN")));
     record("admin.users.patch.promote", api.patch(userPath, t, Map.of("role", "ADMIN")));
     record("admin.users.patch.demote", api.patch(userPath, t, Map.of("role", "USER")));
+    // 22 문서: 관리자 해제는 그 회원의 세션을 모두 끊는다 → 예전 토큰 401, 다시 로그인한 세션으로 이어 간다
+    record(
+        "admin.users.patch.demotedOldToken", api.get("/api/v1/users/me", relogged.accessToken()));
+    final Session afterDemote = login("snap-b@wearly.test", "pass1234");
     record("admin.forbidden", api.get("/api/v1/admin/dashboard", a.accessToken()));
-    return relogged;
+    return afterDemote;
   }
 
   private void adminCodes(Session admin) {

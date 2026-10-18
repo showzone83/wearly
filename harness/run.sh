@@ -278,6 +278,8 @@ start_backend() {
     unset ANTHROPIC_API_KEY
     # 개발용 backend/config/application-local.yml(실제 AI 키·관리자 계정·마스터 키)을 읽지 않게 없는 경로를 준다
     # 날씨는 목업 공급자·목업 평년값(WEARLY_WEATHER_PROVIDER=mock)으로 돌아 외부 API(WeatherAPI·Open-Meteo)를 부르지 않는다 (doc/17·19)
+    # 관리자 2단계 인증(doc/22)은 필수를 끈다: 하네스 관리자는 TOTP 없이 로그인하고, MFA 시나리오는 스스로 등록한 관리자로 확인한다.
+    # TOTP 비밀 암호화에 쓰는 마스터 키는 하네스 전용 고정값 (개발용 키와 섞이지 않게)
     exec env \
       WEARLY_LOCAL_CONFIG="$HARNESS_DIR/.logs/no-local-config.yml" \
       JAVA_HOME="$java_home" \
@@ -302,6 +304,8 @@ start_backend() {
       WEARLY_ADMIN_EMAIL=admin@harness.wearly.test \
       WEARLY_ADMIN_PASSWORD=HarnessAdmin1234 \
       WEARLY_ADMIN_NAME=하네스관리자 \
+      WEARLY_ADMIN_MFA_REQUIRED=false \
+      WEARLY_SECRET_KEY="${WEARLY_SECRET_KEY:-AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}" \
       WEARLY_JWT_SECRET="${WEARLY_JWT_SECRET:-harness-only-jwt-secret-0123456789-abcdefghijklmnop}" \
       ./gradlew bootRun --console=plain --no-daemon
   ) >"$LOG_FILE" 2>&1 &

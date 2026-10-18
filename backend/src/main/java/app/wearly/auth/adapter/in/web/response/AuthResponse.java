@@ -8,7 +8,8 @@ public record AuthResponse(
     long accessTokenExpiresIn,
     String refreshToken,
     long refreshTokenExpiresIn,
-    AuthUserResponse user) {
+    AuthUserResponse user)
+    implements LoginResponse {
 
   public static AuthResponse from(AuthResultDto r) {
     return new AuthResponse(

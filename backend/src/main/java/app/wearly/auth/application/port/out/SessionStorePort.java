@@ -28,10 +28,13 @@ public interface SessionStorePort {
   Optional<LoginSession> findSession(String sessionId);
 
   /**
-   * 매 요청 인증: 세션이 살아 있고 그 회원의 것이면 true. lastSeenAt이 {@code minInterval}보다 오래됐으면 now로 고친다(목록 정렬
+   * 매 요청 인증: 세션이 살아 있고 그 회원의 것인지와 2단계 인증 여부. lastSeenAt이 {@code minInterval}보다 오래됐으면 now로 고친다(목록 정렬
    * 인덱스도).
    */
-  boolean touch(String sessionId, long userId, Instant now, Duration minInterval);
+  SessionState touch(String sessionId, long userId, Instant now, Duration minInterval);
+
+  /** 살아 있는 그 회원의 세션을 2단계 인증을 확인한 세션으로 표시한다. 없으면 false */
+  boolean markMfaVerified(String sessionId, long userId);
 
   /** 세션을 끊는다: 세션을 지우고 현재 토큰을 REVOKED로. 없으면 빈 값 */
   Optional<LoginSession> delete(String sessionId);
@@ -52,4 +55,14 @@ public interface SessionStorePort {
   long countUsersSeenSince(Instant now, Instant since);
 
   record SessionSlice(List<LoginSession> items, long total) {}
+
+  /** 매 요청 인증 결과 */
+  enum SessionState {
+    /** 세션이 없거나(끊김·만료) 다른 회원의 것 */
+    GONE,
+    /** 살아 있음 */
+    ACTIVE,
+    /** 살아 있고 2단계 인증을 확인한 세션 */
+    ACTIVE_MFA
+  }
 }

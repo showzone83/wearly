@@ -3137,7 +3137,8 @@
         "ageRange" : null,
         "bodyType" : null,
         "heightCm" : null,
-        "fitPreference" : null
+        "fitPreference" : null,
+        "mfaEnrolled" : false
       }, {
         "id" : "2",
         "email" : "snap-a@wearly.test",
@@ -3151,7 +3152,8 @@
         "ageRange" : null,
         "bodyType" : null,
         "heightCm" : null,
-        "fitPreference" : null
+        "fitPreference" : null,
+        "mfaEnrolled" : false
       }, {
         "id" : "1",
         "email" : "admin@snapshot.test",
@@ -3165,7 +3167,8 @@
         "ageRange" : null,
         "bodyType" : null,
         "heightCm" : null,
-        "fitPreference" : null
+        "fitPreference" : null,
+        "mfaEnrolled" : false
       } ],
       "page" : 0,
       "size" : 20,
@@ -3188,7 +3191,8 @@
         "ageRange" : null,
         "bodyType" : null,
         "heightCm" : null,
-        "fitPreference" : null
+        "fitPreference" : null,
+        "mfaEnrolled" : false
       } ],
       "page" : 1,
       "size" : 1,
@@ -3211,7 +3215,8 @@
         "ageRange" : null,
         "bodyType" : null,
         "heightCm" : null,
-        "fitPreference" : null
+        "fitPreference" : null,
+        "mfaEnrolled" : false
       } ],
       "page" : 0,
       "size" : 20,
@@ -3263,7 +3268,8 @@
       "ageRange" : null,
       "bodyType" : null,
       "heightCm" : null,
-      "fitPreference" : null
+      "fitPreference" : null,
+      "mfaEnrolled" : false
     }
   },
   "admin.users.patch.suspendedLogin" : {
@@ -3299,7 +3305,8 @@
       "ageRange" : null,
       "bodyType" : null,
       "heightCm" : null,
-      "fitPreference" : null
+      "fitPreference" : null,
+      "mfaEnrolled" : false
     }
   },
   "admin.users.patch.restoredOldToken" : {
@@ -3386,7 +3393,8 @@
       "ageRange" : null,
       "bodyType" : null,
       "heightCm" : null,
-      "fitPreference" : null
+      "fitPreference" : null,
+      "mfaEnrolled" : false
     }
   },
   "admin.users.patch.demote" : {
@@ -3404,7 +3412,17 @@
       "ageRange" : null,
       "bodyType" : null,
       "heightCm" : null,
-      "fitPreference" : null
+      "fitPreference" : null,
+      "mfaEnrolled" : false
+    }
+  },
+  "admin.users.patch.demotedOldToken" : {
+    "status" : 401,
+    "body" : {
+      "status" : 401,
+      "code" : "TOKEN_INVALID",
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.forbidden" : {
@@ -9922,7 +9940,7 @@
         "id" : "5",
         "adminUserId" : "1",
         "adminEmail" : "admin@snapshot.test",
-        "action" : "USER_UPDATE",
+        "action" : "USER_ROLE_CHANGE",
         "targetType" : "USER",
         "targetId" : "3",
         "before" : {
@@ -9940,7 +9958,7 @@
         "id" : "4",
         "adminUserId" : "1",
         "adminEmail" : "admin@snapshot.test",
-        "action" : "USER_UPDATE",
+        "action" : "USER_ROLE_CHANGE",
         "targetType" : "USER",
         "targetId" : "3",
         "before" : {

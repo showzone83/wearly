@@ -65,6 +65,10 @@ public class LocalCredentialEntity {
     this.lastLoginAt = at;
   }
 
+  public void changePassword(String passwordHash) {
+    this.passwordHash = passwordHash;
+  }
+
   public Long getId() {
     return id;
   }

@@ -1327,6 +1327,118 @@ details summary {
   margin: 4px 0 0;
 }
 
+/* 2단계 인증 화면(등록·복구 코드)은 QR이 있어 조금 넓다 */
+.login-card-wide {
+  max-width: 440px;
+}
+
+.login-links {
+  justify-content: space-between;
+}
+
+/* ───────── 2단계 인증 (components/Mfa, doc/22) ───────── */
+
+input.totp-input {
+  font-family: var(--mono);
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  text-align: center;
+  max-width: 220px;
+}
+
+.mfa-setup,
+.mfa-recovery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mfa-steps {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--sub);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mfa-qr {
+  align-self: center;
+  width: 208px;
+  height: 208px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  text-align: center;
+  padding: 8px;
+}
+
+.mfa-qr img {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.mfa-secret {
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  word-break: break-all;
+}
+
+.mfa-codes {
+  margin: 0;
+  padding: 12px 14px 12px 38px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 24px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.mfa-codes li {
+  font-size: 14px;
+}
+
+.mfa-code-tabs {
+  align-self: flex-start;
+}
+
+/* 화면 위 경고 띠 (복구 코드가 적게 남음) */
+.top-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.top-banner > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.w-form {
+  max-width: 420px;
+}
+
+a.btn {
+  text-decoration: none;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 /* ───────── 유틸 ───────── */
 
 .row {

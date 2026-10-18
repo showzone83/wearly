@@ -12,6 +12,8 @@ import {
   errorTextWithTrace,
   FIELD_ERROR_TEXT,
   fieldErrorText,
+  remainingAttemptsText,
+  retryAfterMinutes,
   SERVER_ERROR_TEXT,
   shortTraceId,
   statusText,
@@ -127,6 +129,44 @@ test('날씨 관리자 코드: WEATHER_NO_PROVIDER.reason·keyName, WEATHER_REFR
   assert.match(errorText({ status: 409, code: 'WEATHER_NO_PROVIDER' }), /월 한도/);
   assert.match(errorText({ status: 409, code: 'WEATHER_REFRESH_RUNNING' }), /이미 받고 있어요/);
   assert.match(errorText({ status: 502, code: 'AI_UNAVAILABLE', params: { feature: 'ITEM_ANALYZE' } }), /사진 분석/);
+});
+
+test('2단계 인증 코드: MFA_CODE_INVALID.remainingAttempts → 남은 횟수', () => {
+  assert.equal(
+    errorText({ status: 400, code: 'MFA_CODE_INVALID', params: { remainingAttempts: 3 } }),
+    '인증 코드가 맞지 않아요. (남은 횟수 3번)',
+  );
+  // 문자열로 와도 읽는다
+  assert.match(
+    errorText({ status: 400, code: 'MFA_CODE_INVALID', params: { remainingAttempts: '1' } }),
+    /남은 횟수 1번/,
+  );
+  // params가 없으면 횟수 없이
+  assert.equal(errorText({ status: 400, code: 'MFA_CODE_INVALID' }), '인증 코드가 맞지 않아요.');
+  assert.equal(remainingAttemptsText(undefined), '');
+  assert.equal(remainingAttemptsText(-1), '');
+});
+
+test('2단계 인증 잠김: MFA_LOCKED.retryAfterSeconds → 분 단위 올림', () => {
+  assert.equal(retryAfterMinutes(900), 15);
+  assert.equal(retryAfterMinutes(61), 2);
+  assert.equal(retryAfterMinutes(5), 1);
+  assert.equal(retryAfterMinutes(0), null);
+  assert.equal(retryAfterMinutes(undefined), null);
+  assert.match(
+    errorText({ status: 429, code: 'MFA_LOCKED', params: { retryAfterSeconds: 840 } }),
+    /잠시 잠겼어요\. 14분 뒤 다시 시도해 주세요\.$/,
+  );
+  assert.match(errorText({ status: 429, code: 'MFA_LOCKED' }), /잠시 후 다시 시도해 주세요/);
+});
+
+test('관리자 계정 코드: LAST_ADMIN·MFA_TOKEN_INVALID·MFA_REQUIRED, 필드별 문구', () => {
+  assert.match(errorText({ status: 409, code: 'LAST_ADMIN' }), /마지막 관리자/);
+  assert.match(errorText({ status: 401, code: 'MFA_TOKEN_INVALID' }), /처음부터 다시 로그인/);
+  assert.match(errorText({ status: 403, code: 'MFA_REQUIRED' }), /2단계 인증/);
+  assert.match(fieldErrorText({ field: 'role', code: 'CONFLICT' }), /정지된 회원/);
+  assert.match(fieldErrorText({ field: 'newPassword', code: 'INVALID_FORMAT' }), /영문과 숫자/);
+  assert.match(fieldErrorText({ field: 'id', code: 'SELF_NOT_ALLOWED' }), /자기 자신/);
 });
 
 test('필드 오류 params 해석', () => {

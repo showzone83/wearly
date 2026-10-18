@@ -24,6 +24,10 @@ export const qk = {
   aiLogs: (q: object) => ['ai', 'logs', q] as const,
   aiLog: (id: string) => ['ai', 'log', id] as const,
   users: (q: object) => ['users', q] as const,
+  /** 내 2단계 인증 상태 (내 계정 화면) */
+  myMfa: ['me', 'mfa'] as const,
+  /** 관리자 로그인 기록 */
+  authEvents: (q: object) => ['auth-events', q] as const,
   audit: (q: object) => ['audit', q] as const,
   appTheme: ['app', 'theme'] as const,
   /** 'sessions'로 시작하는 키를 무효화하면 목록과 회원별 세션이 함께 다시 읽힌다 */

@@ -2,6 +2,7 @@ package app.wearly.admin.adapter.in.web;
 
 import app.wearly.admin.adapter.in.web.response.AdminSessionResponse;
 import app.wearly.admin.adapter.in.web.response.AdminUserSessionsResponse;
+import app.wearly.admin.adapter.in.web.response.AuthEventLogResponse;
 import app.wearly.admin.adapter.in.web.response.PageResponse;
 import app.wearly.admin.application.port.in.AdminSessionUseCase;
 import app.wearly.admin.application.port.in.dto.PagingDto;
@@ -54,6 +55,20 @@ public class AdminSessionController {
       @CurrentSession String currentSessionId,
       @PathVariable String sessionId) {
     sessions.revokeSession(adminId, currentSessionId, sessionId);
+  }
+
+  /** 관리자 로그인 기록 (22 문서) */
+  @GetMapping("/auth-events")
+  public PageResponse<AuthEventLogResponse> authEvents(
+      @RequestParam(required = false) String userId,
+      @RequestParam(required = false) String type,
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to,
+      @RequestParam(required = false) Integer page,
+      @RequestParam(required = false) Integer size) {
+    return PageResponse.from(
+        sessions.authEvents(userId, type, from, to, PagingDto.of(page, size)),
+        AuthEventLogResponse::from);
   }
 
   @DeleteMapping("/users/{id}/sessions")
