@@ -138,6 +138,16 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 | 45 | 사진 저장 | 남의 이미지는 complete·아이템 등록·AI 분석 모두 404, 내 `imageId`로 AI 분석 200(`provider` mock), PENDING 이미지로 등록하면 400 `IMAGE_NOT_UPLOADED` |
 | 46 | 사진 저장 | 다른 아이템에 붙은 이미지로 등록하면 409 `IMAGE_IN_USE`, PATCH로 사진을 바꾸면 새 사진이 붙고 예전 사진 객체는 404 |
 
+### 장소별 날씨 (doc/19, 원시 HTTP)
+
+계약 17·19 문서. 앱 API 모듈을 거치지 않고 `raw()`와 `src/lib/rawUser.ts`로 확인한다(코드: `src/scenarios/weather.ts`). 하네스 백엔드는 `WEARLY_WEATHER_PROVIDER=mock`이라 예보·평년값·장소 검색이 모두 키 없이 목업으로 돈다(실제 Open-Meteo는 부르지 않는다). 번호는 `--list` 기준.
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 47 | 장소 날씨 | (관리자) `GET /weather/day` region 방식: 서울을 지금 실행으로 받은 뒤 토큰 없이 200, 응답 키 7개, 오늘은 `FORECAST`(`place`·`day` 키·`cond`·`forecastUntil`·`fetchedAt` ISO·`climate` null), 40일 뒤는 `CLIMATE`(`cond`·`condText` null, 최저 < 최고, `climate.years`, `rainProb` = `rainDayRatio` × 100), `forecastUntil` 같음, 틀린 토큰도 200 |
+| 48 | 장소 날씨 | 좌표 방식은 토큰 없이 401 `UNAUTHORIZED`(좌표가 틀려도 로그인이 먼저), `/weather/places`도 401. 로그인하면 격자 좌표(소수 첫째 자리)로 오늘 `FORECAST`·60일 뒤 `CLIMATE`(`place.regionCode` null), 검색 응답 키(`items`, 항목 키 6개), 목업 검색 도쿄는 `regionCode` null·부산은 `BUSAN`, 빈 검색어 400(`q`). `--external`이면 401만 확인 |
+| 49 | 장소 날씨 | 날짜 검증: 없음·없는 달·형식·어제·1년 넘음 모두 400 `VALIDATION_FAILED`(`date`), 없는 지역 400(`region`) |
+
 ### 계약에 정해지지 않아 하네스가 고른 기대값
 
 계약 문서에 명시되지 않은 부분은 다음처럼 기대한다. 백엔드와 다르면 둘 중 하나를 고치고 계약 문서에도 적는다.
@@ -179,7 +189,7 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 |---|---|
 | `run.sh` | DB·Valkey·MinIO(하네스 버킷) 준비 → 백엔드 기동·종료 → 러너 실행 |
 | `src/main.ts` | 러너. 인자 해석, 시나리오 실행, 결과 표 |
-| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`·`images`) |
+| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`·`images`·`weather`) |
 | `src/lib/session.ts` | 앱 모듈로 클라이언트 만들기, 요청·토큰 저장·`onAuthLost` 기록 |
 | `src/lib/http.ts` | 원시 요청과 오류 본문 형식 검사 |
 | `src/lib/rawUser.ts` | 앱 모듈 없이 가입·관리자 로그인한 세션 (`TOKEN_EXPIRED`면 다시 로그인) |

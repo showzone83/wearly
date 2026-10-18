@@ -13,6 +13,8 @@
 >
 > **사진 저장(2026-10-18)**: 옷 사진을 S3 호환 오브젝트 스토리지(로컬 MinIO)에 서버가 저장한다(`V12__item_image_storage.sql`). 이미지 API(`/images/upload-url`·`/images/{id}/complete`), 아이템 `image`·`imageId`, analyze `{imageId}` → [18_사진_저장.md](18_사진_저장.md). 이 문서의 "이미지 업로드·저장 제외"·"사진은 앱 기기에만" 문구는 계정 모드에서 18 문서가 우선이다.
 >
+> **장소별 날씨(2026-10-18)**: 예정일 코디에서 다른 장소·먼 날짜의 날씨를 본다. `GET /api/v1/weather/day`·`GET /api/v1/weather/places`, 평년값, 오류 코드 `WEATHER_LIMIT`(`V13__place_weather.sql`) → [19_장소별_날씨.md](19_장소별_날씨.md). 날씨 수집·관리자 API는 [17_날씨.md](17_날씨.md).
+>
 > **4차 변경**: AI 코디 추천 `POST /api/v1/outfits/recommendations`(`V5__outfit_recommend.sql`) → [09_AI_코디_추천.md](09_AI_코디_추천.md). 백엔드 코드 스타일(Google Java Style) → 08 문서 5장.
 
 ## 1. 범위
@@ -51,6 +53,7 @@
 3차에서 더한 테이블: `tb_ai_provider_secret`(웹 입력 AI 키의 AES-256-GCM 암호문, 07 문서 6장).
 4차: `tb_ai_analysis_log.feature` CHECK에 `OUTFIT_RECOMMEND`(AI 코디 추천, 이미지 칸은 NULL)를 더하고, 한도 집계 인덱스를 `(user_id, feature, created_at) WHERE status = 'SUCCESS'`로 바꿨다 (09 문서).
 사진 저장(2026-10-18): `V12__item_image_storage.sql` — V1의 빈 `tb_item_image`를 지우고 다시 만든다(`purpose`·`status`·`declared_size`·`upload_key`·`deleted_at` 등, 아이템당 사진 하나의 부분 유니크 인덱스, 18 문서 4장). V11은 날씨(17 문서).
+장소별 날씨(2026-10-18): `V13__place_weather.sql` — `tb_weather_place_snapshot`(REGION 밖 좌표의 예보 캐시)·`tb_weather_climate`(격자·월별 평년값)를 더하고 `tb_weather_call_log`의 `run_id`·`region_code`를 NULL 허용으로 바꿨다(`call_kind` = `FORECAST`·`ON_DEMAND`·`SEARCH`·`CLIMATE`, 19 문서 7장).
 7차(2026-10-17): `V10__auth_session_valkey.sql` — `tb_refresh_token` 삭제(토큰·세션은 Valkey), `tb_auth_event`(로그인 이력: LOGIN·LOGOUT·REFRESH_REUSED·FORCED_LOGOUT, 16 문서 3장) 추가.
 6차(2026-10-17): `V8__app_setting.sql` — `tb_app_setting`(앱 전체 설정, 초기값 `theme` = `{"themeId":"nyang"}`, 12 문서 3장). `V9__wardrobe_item_retire.sql` — `tb_wardrobe_item`에 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스 `ix_wardrobe_item_in_use (user_id) WHERE retired_at IS NULL`, CHECK `ck_wardrobe_item_retired`(사용 중지면 시각·이유가 함께 있다), 코드 그룹 `RETIRE_REASON` 5개(13 문서 2장).
 
@@ -115,6 +118,8 @@
 | 409 | `IMAGE_IN_USE` | 다른 아이템에 붙은 이미지를 붙이려 함 (18 문서) |
 | 429 | `IMAGE_UPLOAD_LIMIT` | 하루 사진 업로드 URL 발급 한도(기본 200) 초과 (18 문서) |
 | 413 | `IMAGE_TOO_LARGE` | 분석 이미지 10MB 초과 (multipart analyze) |
+| 429 | `WEATHER_LIMIT` | 장소 날씨 하루 한도 초과. `GET /weather/day`(좌표 방식)에서 회원 하루 한도(기본 30)를 넘어 공급자를 못 불렀고 예전 캐시도 평년값도 없을 때, `GET /weather/places`에서 하루 검색 한도(기본 100)를 넘었을 때 (19 문서 3·4·5장) |
+| 503 | `WEATHER_UNAVAILABLE` | 날씨를 받지 못함: `GET /weather`에서 그 지역을 한 번도 못 받음, `GET /weather/day`에서 예보도 평년값도 없음, 장소 검색을 쓸 수 없음 (17·19 문서) |
 | 429 | `AI_LIMIT_EXCEEDED` | AI 사진 분석·AI 코디 추천 일일 한도 초과 (기능별로 따로 센다) |
 | 502 | `AI_UNAVAILABLE` | AI 공급자 오류 |
 
@@ -297,6 +302,19 @@ interface AnalyzeResponse {
 - 변경 이력: `targetType = APP_SETTING`, `targetId = theme`, `before`·`after` = `{ "themeId": ... }`. `GET /admin/audit-logs?targetType=APP_SETTING`.
 - 공개 경로라 만료되거나 틀린 `Authorization` 헤더가 같이 와도 무시하고 200을 준다.
 
+### 날씨 (17·19 문서)
+
+| 메서드 | 경로 | 권한 | 설명 |
+|---|---|---|---|
+| GET | `/weather?region=` | 공개 | 서버에 저장된 지역 날씨(현재 + 오늘부터 예보). ETag/304. 17 문서 5장 |
+| GET | `/weather/day?region=&date=` | 공개 | 한 지역·한 날짜의 날씨. 틀린 토큰은 무시. `source` = `FORECAST`·`CLIMATE` |
+| GET | `/weather/day?lat=&lon=&date=` | 로그인 | REGION 밖 좌표의 날씨(격자 캐시·회원 한도). 토큰 없으면 401 `UNAUTHORIZED` |
+| GET | `/weather/places?q=` | 로그인 | 장소 검색 `{ items: [{ label, region, country, lat, lon, regionCode }] }`, 최대 10개 |
+
+- `date`는 한국 날짜 `YYYY-MM-DD`, 오늘부터 1년 안. 응답 키 7개(`place`·`date`·`source`·`day`·`forecastUntil`·`fetchedAt`·`climate`)가 항상 있다. 좌표 응답의 `place.regionCode`는 `null`이다. 자세한 모양·검증·오류는 [19_장소별_날씨.md](19_장소별_날씨.md) 3·4장.
+- 오류: 400 `VALIDATION_FAILED`(`date`·`region`·`lat`·`lon`·`q`), 401 `UNAUTHORIZED`, 429 `WEATHER_LIMIT`, 503 `WEATHER_UNAVAILABLE`.
+- 관리자 날씨 API(`/admin/weather/**`)는 17 문서 6장.
+
 ## 7. AI 분석
 
 > 2차에서 공급자 선택이 DB 기반으로 바뀌었다. **공급자 선택·실패 처리·관리는 07 문서 3장을 따른다.** 아래는 요약이다.
@@ -338,6 +356,8 @@ api.wardrobe.update(id, patch) / remove(id) / stats()
 api.wardrobe.analyze(file)                   // file: Blob | { uri, name, type } (RN)
 api.wardrobe.analyzeImage({ imageId })       // 서버에 올린 사진으로 분석 (18 문서)
 api.images.uploadUrl(req) / put(target, body) / complete(imageId)   // 사진 올리기 3단계 (put은 서명 URL로 직접, 토큰 없음)
+api.weather.day({ region } | { lat, lon }, date)   // 한 장소·한 날짜의 날씨. region은 토큰 없이, 좌표는 로그인 (19 문서)
+api.weather.places(q)                              // 장소 검색 (로그인)
 ```
 
 - `TOKEN_EXPIRED`를 받으면 Refresh로 한 번 갱신하고 원래 요청을 한 번 다시 보낸다. 동시에 여러 요청이 만료돼도 갱신 요청은 **하나만** 보낸다 (single-flight).
@@ -350,4 +370,5 @@ api.images.uploadUrl(req) / put(target, body) / complete(imageId)   // 사진 �
 - 개발용 `backend/config/application-local.yml`(실제 AI 키·관리자 계정·마스터 키)은 읽지 않는다 (`WEARLY_LOCAL_CONFIG`를 없는 경로로 준다). DB는 compose의 `db`(`wearly-postgres`)를 쓴다.
 - 시나리오는 `mobile/src/api/client.ts`를 그대로 import해 앱과 같은 코드로 서버를 부른다.
 - 사진 저장 시나리오(43~46)는 앱 모듈을 거치지 않고 원시 HTTP로 서명 URL까지 실제로 PUT·GET한다. 하네스 전용 버킷 `wearly-images-harness`(compose의 MinIO)를 쓴다 (18 문서 2장, `harness/README.md`).
+- 장소별 날씨 시나리오(47~49)는 앱 모듈을 거치지 않고 원시 HTTP로 `GET /weather/day`·`/weather/places`를 확인한다. 하네스 백엔드는 목업 날씨·목업 평년값으로 돈다 (19 문서, `harness/README.md`).
 - 6차의 앱 설정·옷 사용 중지 시나리오(30~37)는 앱 모듈을 거치지 않고 원시 HTTP로만 서버 계약을 확인한다 (`harness/README.md`).

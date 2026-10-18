@@ -68,7 +68,7 @@ cd backend
 compose의 backend가 떠 있으면 8080이 겹치므로 먼저 `docker compose stop backend`.
 
 - 서버: `http://localhost:8080`, API 기본 경로 `/api/v1`, 상태 확인 `GET /actuator/health`
-- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움) → `V8__app_setting.sql`(6차: 앱 설정 `tb_app_setting`, 초기 테마 `nyang`) → `V9__wardrobe_item_retire.sql`(6차: 옷 사용 중지 컬럼 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스, 코드 그룹 `RETIRE_REASON` 5개) → `V10__auth_session_valkey.sql`(7차: `tb_refresh_token` 삭제 — 기존 로그인은 끊김, 로그인 이력 `tb_auth_event`) → `V11__weather.sql`(날씨, 17 문서) → `V12__item_image_storage.sql`(옷 사진: V1의 빈 `tb_item_image`를 지우고 다시 만듦, 18 문서)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
+- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움) → `V8__app_setting.sql`(6차: 앱 설정 `tb_app_setting`, 초기 테마 `nyang`) → `V9__wardrobe_item_retire.sql`(6차: 옷 사용 중지 컬럼 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스, 코드 그룹 `RETIRE_REASON` 5개) → `V10__auth_session_valkey.sql`(7차: `tb_refresh_token` 삭제 — 기존 로그인은 끊김, 로그인 이력 `tb_auth_event`) → `V11__weather.sql`(날씨, 17 문서) → `V12__item_image_storage.sql`(옷 사진: V1의 빈 `tb_item_image`를 지우고 다시 만듦, 18 문서) → `V13__place_weather.sql`(장소별 날씨: `tb_weather_place_snapshot`·`tb_weather_climate`, `tb_weather_call_log`의 `run_id`·`region_code` NULL 허용과 `call_kind` 4종, 19 문서)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
 - **AI 공급자 고르기** (07 문서 3장)
   - `bootRunMock`(`WEARLY_AI_PROVIDER=mock`)이면 언제나 목업. DB 설정은 무시한다.
   - 그 밖(`bootRun`, 기본 `db`)에는 `tb_ai_provider`에서 사용(`enabled`)·모델·키를 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패(시간 초과·HTTP 오류·응답 검증 실패)하면 다음 공급자로 넘어간다.
@@ -150,6 +150,17 @@ wearly:
 | `WEARLY_WEATHER_TIMEOUT` | `wearly.weather.timeout` | `PT10S` | 날씨 공급자 호출 제한 시간 |
 | `WEARLY_WEATHER_LOG_RETENTION_DAYS` | `wearly.weather.log-retention-days` | `90` | 날씨 실행·호출 이력 보관 일수 (매일 04:00 정리) |
 | `WEARLY_WEATHER_SCHEDULER_ENABLED` | `wearly.weather.scheduler-enabled` | `true` | `false`면 날씨 주기 실행·시작 실행·이력 정리를 끈다 (테스트용). 주기·예보 일수 등 운영값은 DB와 관리자 화면에 있다 |
+| `WEARLY_WEATHER_PLACE_CACHE_TTL` | `wearly.weather.place-cache-ttl` | `PT3H` | REGION 밖 좌표 예보 캐시를 그대로 쓰는 시간 (19 문서) |
+| `WEARLY_WEATHER_ON_DEMAND_DAILY_LIMIT` | `wearly.weather.on-demand-daily-limit` | `30` | 회원마다 하루(한국 날짜)에 공급자를 실제로 부르게 할 수 있는 좌표 요청 수. 넘으면 예전 캐시 → 평년값 → 429 `WEATHER_LIMIT` |
+| `WEARLY_WEATHER_SEARCH_CACHE_TTL` | `wearly.weather.search-cache-ttl` | `P1D` | 같은 검색어의 장소 검색 결과 캐시 (Valkey) |
+| `WEARLY_WEATHER_SEARCH_DAILY_LIMIT` | `wearly.weather.search-daily-limit` | `100` | 회원마다 하루에 공급자를 실제로 부르게 할 수 있는 장소 검색 수 (캐시에서 준 검색은 세지 않음) |
+| `WEARLY_WEATHER_CLIMATE_ENABLED` | `wearly.weather.climate.enabled` | `true` | 평년값(예보 밖 날짜) 사용. false면 `CLIMATE`를 주지 않는다 |
+| `WEARLY_WEATHER_CLIMATE_BASE_URL` | `wearly.weather.climate.base-url` | `https://archive-api.open-meteo.com` | Open-Meteo 과거 기상 API. 무료는 비상업용 → 상업 전환 때 유료 주소(`customer-archive-api.open-meteo.com`)·키 또는 끄기 |
+| `WEARLY_WEATHER_CLIMATE_API_KEY` | `wearly.weather.climate.api-key` | (없음) | Open-Meteo 유료 플랜 키 |
+| `WEARLY_WEATHER_CLIMATE_YEARS` | `wearly.weather.climate.years` | `10` | 평년값에 쓰는 지난 완결 연도 수 (2026년이면 2016~2025) |
+| `WEARLY_WEATHER_GEOCODING_ENABLED` | `wearly.weather.geocoding.enabled` | `true` | 장소 검색에 Open-Meteo 지오코딩(한글 검색어·한글 이름) 사용. false나 실패면 WeatherAPI 검색(영어 이름) |
+| `WEARLY_WEATHER_GEOCODING_BASE_URL` | `wearly.weather.geocoding.base-url` | `https://geocoding-api.open-meteo.com` | 지오코딩 API 주소. 상업 전환 때 `customer-geocoding-api.open-meteo.com` |
+| `WEARLY_WEATHER_GEOCODING_API_KEY` | `wearly.weather.geocoding.api-key` | (없음) | Open-Meteo 유료 플랜 키 |
 
 - 1차의 `WEARLY_AI_MODEL`·`WEARLY_AI_EFFORT`는 없어졌다. 모델·effort는 관리자 화면(`tb_ai_provider.model`·`options.effort`)에서 바꾼다.
 - 공급자 행의 `api_key_env`는 **서버 설정 키 이름**이다 (관리자 화면의 '서버 설정 키'). 서버는 `wearly.ai.keys.<이름>` → 같은 이름의 환경변수 순으로 키를 찾는다. 다른 서버 비밀(DB 비밀번호·JWT 키)이 공급자에게 가지 않도록 이름은 `*_API_KEY` 형식만 허용한다.
@@ -300,6 +311,19 @@ LC_ALL=C.UTF-8 ./gradlew check   # spotlessCheck + checkstyleMain + checkstyleTe
 - 서버가 활성 REGION 지역의 날씨를 주기적으로 받아 `tb_weather_snapshot`에 둔다. 앱 요청은 외부 API를 부르지 않는다. 실행은 Valkey 잠금(`wearly:weather:refresh:lock`)으로 한 번에 하나만 돈다.
 - 키 없이 화면을 보려면 `WEARLY_WEATHER_PROVIDER=mock ./gradlew bootRun`.
 
+### 장소별 날씨 (19 문서, 앱 예정일 코디)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/v1/weather/day?region=&date=` | 인증 불필요(틀린 토큰은 무시). 한 지역·한 날짜의 날씨. 저장된 스냅샷만 읽는다. 예보에 그 날이 있으면 `FORECAST`, 없으면 그 달 평년값 `CLIMATE`. 400(`date` 오늘~1년·`region`), 예보도 평년값도 없으면 503 `WEATHER_UNAVAILABLE` |
+| GET | `/api/v1/weather/day?lat=&lon=&date=` | 로그인 필요(없으면 401). REGION 밖 좌표. 격자(소수 첫째 자리) 캐시 3시간, 오래됐으면 공급자를 한 번 부른다. 회원 하루 한도 초과 → 예전 캐시 → 평년값 → 429 `WEATHER_LIMIT` |
+| GET | `/api/v1/weather/places?q=` | 로그인 필요. 장소 검색(시·도 이름 맞추기 → Open-Meteo 지오코딩 → 실패 시 WeatherAPI 검색), 최대 10개, 1일 캐시 |
+
+- 좌표 응답의 `place.regionCode`는 `null`, `lat`·`lon`은 격자 좌표다. 평년값은 Open-Meteo 과거 기상 API에서 지난 10개 완결 연도로 처음 필요할 때 계산해 `tb_weather_climate`에 12개월을 저장하고 400일 뒤 다시 계산한다.
+- Valkey 키: `wearly:weather:lock:place:<격자>`·`…:lock:climate:<격자>`(60초 잠금), `wearly:weather:usage:<ON_DEMAND|SEARCH>:<날짜>:<userId>`(회원 하루 사용량), `wearly:weather:search:v3:<검색어>`(검색 캐시).
+- 호출은 `tb_weather_call_log`에 `ON_DEMAND`(WeatherAPI)·`SEARCH`(`OPEN_METEO_GEO`)·`CLIMATE`(`OPEN_METEO`)로 남는다 (`run_id` 없음).
+- Open-Meteo의 무료 API는 비상업용이다. 상업 서비스에서는 유료 주소·키를 넣거나 `climate.enabled`·`geocoding.enabled`를 끈다 (`backend/config/application-local.example.yml` 주석).
+
 ## 테스트
 
 ```bash
@@ -343,6 +367,11 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 | `RetirementTest` · `ThemeSettingTest` · `AppSettingServiceTest` · `AdminAppThemeServiceTest` | (6차, Spring 없음) 사용 중지·다시 사용 규칙과 이유·메모 검증, 허용 테마·version, 테마 변경 저장·같은 값·400, 관리자 이메일·변경 이력 |
 | `ItemImageIntegrationTest` | (사진 저장, 18 문서, 실제 MinIO) upload-url → 서명 URL로 PUT → complete(JPEG로 다시 인코딩) → 아이템 등록 → 서명 URL로 받기, PNG도 JPEG로 저장, 남의·없는 이미지 404, 잘못된 파일 `IMAGE_INVALID`(업로드 원본 삭제), upload-url 입력 검증 400, PENDING 붙이기 `IMAGE_NOT_UPLOADED`, 다른 아이템에 붙은 이미지 409 `IMAGE_IN_USE`, 사진 교체·빼기·아이템 완전 삭제·회원 탈퇴 시 객체 삭제, 하루 한도 429, 정리 작업(오래된 PENDING·안 붙은 READY·DELETED), `{ imageId }`로 AI 분석 |
 | `ImageIoProcessorAdapterTest` · `ImageRulesTest` · `StoragePresignersTest` | (Spring 없음) 큰 PNG를 2048/400 JPEG로 줄임, 작은 사진은 크기 유지, 투명 PNG는 흰 배경, EXIF 위치·방향 태그 제거와 방향 8가지, 가짜 JPEG·다른 형식 거부, 화소 상한을 디코딩 전에 거부 / 실제 바이트로 JPEG·PNG 판별, 업로드 요청 검증, `imageId` UUID 형식, 오브젝트 키 규칙 / 서명 호스트를 요청 Host 이름 + 저장소 포트로 만듦 |
+| `WeatherIntegrationTest` | (17 문서, 목업 날씨) 관리자 권한, 지금 실행 → 앱 조회·ETag·304·400·503, 한 지역 실행, 설정 검증·변경 이력, 공급자 수정·차단 해제·시험 호출, 호출 이력 필터·요약 |
+| `PlaceWeatherIntegrationTest` | (19 문서, 실제 HTTP, 목업 날씨·평년값) region 방식은 토큰 없이 `FORECAST`·`CLIMATE`, 좌표 방식·장소 검색은 로그인 필요(401), 날짜·좌표 검증 400, 좌표는 격자로 받아 캐시하고 동시에 와도 공급자는 한 번, 회원 하루 한도를 넘으면 공급자를 부르지 않고 평년값으로 답함, 장소 검색이 국내 결과에 REGION 코드를 붙이고 호출 이력에 `SEARCH`로 남음 |
+| `PlaceWeatherServiceTest` · `ClimateServiceTest` | (Spring 없음·가짜 포트) 순서 FORECAST → CLIMATE → 503/429, 한도는 실제 호출 직전에만 차감, 한도 초과 시 예전 캐시·평년값, 격자 잠금·대기, 시·도 이름 맞추기·지오코딩 정렬·국내 "시"·"군" 보정·중복 제거·`regionCode` 붙이기·지오코딩 실패 시 WeatherAPI 검색(캐시 안 함), 평년값 계산·400일 재계산·실패 10분 대기·끔 |
+| `OpenMeteoClientTest` · `OpenMeteoGeocodingClientTest` · `WeatherApiClientTest` | (가짜 HTTP 서버·응답 고정본) 과거 기상 요청 모양·일별 관측값 변환·자료 없는 날 null·오류 사유 분류·시간 초과·`apikey` 가림, 지오코딩 `language=ko` 응답 파싱·오류 사유, WeatherAPI 예보·검색 매핑 |
+| `GridKeyTest` · `MonthlyClimateTest` · `ProviderHealthTest` · `WeatherSettingTest` · `WeatherRefreshRunnerTest` · `WeatherScheduleServiceTest` | (Spring 없음) 격자 키 반올림·`-0.0`·거리, 월별 평년값 계산(평균·1mm 이상 비 온 날 비율·400일), 공급자 상태 전이, 설정 범위, 실행기(두 공급자 폴백)·스케줄 |
 | `HexagonalArchitectureTest` | 08 문서 3장·7장 규칙 19개 (ArchUnit): 의존 방향, 컨텍스트 사이는 `port.in`만, common·공유 커널은 컨텍스트를 모름, 출력 어댑터는 API 오류를 모름, `@Entity`·`@Mapper` 위치, 검증·Jackson 어노테이션은 웹 어댑터만, 컨트롤러는 `*Response`만 반환, 포트 DTO는 어댑터를 모름 |
 | `ApiResponseSnapshotTest` | (사진 저장: 아이템 응답의 `image` 필드를 반영해 스냅샷 갱신, 5차, 6차·7차에 새 필드로 갱신. 7차: 대시보드 `activeSessions`·`activeUsers24h`, `targetType` 오류 문구에 `SESSION`, 정지 해제 뒤 예전 토큰 401 단계 추가) 155개 요청의 응답(상태·헤더 일부·본문)을 `src/test/resources/snapshots/api-responses.json`과 비교. 토큰·시각·버전 등 매번 다른 값만 정규화한다. 응답 모양을 바꾸면 실패한다. 파일을 지우고 돌리면 다시 만든다 |
 | `*ServiceTest` (5차) | 서비스 단위 테스트(가짜 포트, Spring 없음): `AuthService`, `CodeManagementService`(색 짝·삭제 가드), `AdminUserService`(자기 정지 금지), `AdminAiService`(키 저장 순서), `AiCallRunner`(폴백·기록), `AiQuotaService`·`AiJsonGenerationService`(한도 예약), `WardrobeService` |
