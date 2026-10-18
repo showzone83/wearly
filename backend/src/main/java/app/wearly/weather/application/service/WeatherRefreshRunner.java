@@ -85,7 +85,7 @@ public class WeatherRefreshRunner {
     return providers.findAll().stream().anyMatch(p -> usable(p, now, used));
   }
 
-  /** 이번 달(한국 시간) 공급자별 호출 수 (실패 포함) */
+  /** 이번 달(한국 시간) 공급자별 호출 수 (실패 포함). 호출 이력을 세므로 이력 보관 일수가 한 달(31일)보다 짧으면 이번 달 이력이 지워져 한도를 적게 센다. */
   Map<String, Long> monthUsage() {
     LocalDate first = Zones.today(clock).withDayOfMonth(1);
     Map<String, Long> out = new HashMap<>();
@@ -110,20 +110,32 @@ public class WeatherRefreshRunner {
       return execute(run, regions);
     } catch (RuntimeException e) {
       log.error("날씨 실행 {} 실패", run.runId(), e);
-      RefreshRun failed = run.finish(0, Math.max(1, regions.size()), 0, clock.instant());
-      try {
-        runs.update(failed);
-      } catch (RuntimeException ignored) {
-        log.warn("날씨 실행 {} 상태를 저장하지 못했어요", run.runId());
-      }
-      return failed;
+      // 그때까지 성공한 지역 수는 세지 않는다 (받은 저장값은 남는다)
+      return markFailed(run, regions.size());
     }
+  }
+
+  /**
+   * 실행을 FAILED로 닫는다 (실패 수는 최소 1이라 지역이 0개여도 SUCCESS가 되지 않는다). 상태 저장마저 실패하면 RUNNING으로 남고, 다음 서버 시작 때
+   * closeAbandoned가 닫는다.
+   */
+  RefreshRun markFailed(RefreshRun run, int regionCount) {
+    RefreshRun failed = run.finish(0, Math.max(1, regionCount), 0, clock.instant());
+    try {
+      runs.update(failed);
+    } catch (RuntimeException ignored) {
+      log.warn("날씨 실행 {} 상태를 저장하지 못했어요", run.runId());
+    }
+    return failed;
   }
 
   RefreshRun execute(RefreshRun run, List<WeatherRegion> regions) {
     WeatherSetting setting = setting();
+    // 공급자 상태는 실행 중에 바뀌므로 복사본을 고쳐 가며 쓴다 (앞 지역에서 차단되면 다음 지역부터 건너뛴다)
     List<WeatherProvider> list = new ArrayList<>(providers.findAll());
+    // DB에서 한 번만 세고 호출할 때마다 더한다 (지역마다 한도를 다시 본다)
     Map<String, Long> used = monthUsage();
+    // 1순위 = priority가 가장 작은 "켜진" 공급자. 그 밖의 공급자로 받으면 fallback으로 센다
     String primary =
         list.stream()
             .filter(WeatherProvider::enabled)

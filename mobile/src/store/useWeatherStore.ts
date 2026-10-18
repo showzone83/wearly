@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { WeatherDto } from '@/api/types';
+import { todayKey } from '@/lib/date';
 
 /** 지역을 고르지 않았을 때 (서버 기본값과 같다) */
 export const DEFAULT_REGION = 'SEOUL';
@@ -46,8 +47,14 @@ export const useWeatherStore = create<IWeatherState>()(
   ),
 );
 
-/** 지금 고른 지역의 서버 날씨 (지역을 막 바꿔 아직 받지 못했으면 null) */
+/**
+ * 지금 고른 지역의 서버 날씨. 지역을 막 바꿔 아직 받지 못했거나, 오래 서버에 닿지 못해 저장한 예보가 모두 지난 날짜면 null
+ * (그때는 lib/weather.ts가 목업 날씨로 일관되게 떨어진다)
+ */
 export function currentServerWeather(): WeatherDto | null {
   const { weather, regionCode } = useWeatherStore.getState();
-  return weather && weather.region.code === regionCode ? weather : null;
+  if (!weather || weather.region.code !== regionCode) return null;
+  // 날짜 키(YYYY-MM-DD)는 문자열 비교가 날짜 순서와 같다
+  const today = todayKey();
+  return weather.days.some((d) => d.date >= today) ? weather : null;
 }

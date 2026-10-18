@@ -339,8 +339,8 @@ final class WeatherFakes {
         }
       };
 
-  /** 바로 실행한다 (테스트에서 비동기 대신) */
-  final RefreshExecutorPort executor = Runnable::run;
+  /** 바로 실행한다 (테스트에서 비동기 대신). 서비스를 만들기 전에 바꿀 수 있다 */
+  RefreshExecutorPort executor = Runnable::run;
 
   final CodeCatalog catalog =
       () ->
@@ -372,6 +372,22 @@ final class WeatherFakes {
   WeatherScheduleService schedule() {
     return new WeatherScheduleService(
         runner(), runs, snapshots, lock, new WeatherOptions(false, true, 90), clock);
+  }
+
+  WeatherAdminService admin() {
+    return new WeatherAdminService(
+        runner(),
+        settings,
+        providers,
+        snapshots,
+        runs,
+        logs,
+        sources,
+        lock,
+        executor,
+        catalog,
+        new WeatherOptions(false, true, 90),
+        clock);
   }
 
   static final String AUTH = FetchErrors.AUTH;

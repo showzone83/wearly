@@ -227,7 +227,10 @@ public class WeatherAdminService implements WeatherAdminUseCase {
     return new WeatherProviderChangeDto(before, view(provider(providerCode), used, now));
   }
 
-  /** 트랜잭션 없이: 외부 HTTP 동안 DB 연결을 잡지 않는다 */
+  /**
+   * 트랜잭션 없이: 외부 HTTP 동안 DB 연결을 잡지 않는다. 키를 확인하려는 호출이라 차단·월 한도를 보지 않고 공급자 상태도 바꾸지 않는다. 호출 기록은 남으므로 월
+   * 사용량에는 들어간다.
+   */
   @Override
   public ProviderTestResultDto testProvider(long adminId, String providerCode, String regionCode) {
     WeatherProvider p = provider(providerCode);
@@ -282,6 +285,7 @@ public class WeatherAdminService implements WeatherAdminUseCase {
       lock.release(owner);
       throw e;
     }
+    // 여기부터 잠금을 푸는 책임은 실행 스레드에 있다 (잠금은 owner 값으로 풀어 스레드와 상관없다)
     try {
       executor.submit(
           () -> {
@@ -292,7 +296,8 @@ public class WeatherAdminService implements WeatherAdminUseCase {
             }
           });
     } catch (RuntimeException e) {
-      runner.executeSafely(run, List.of());
+      // 실행 스레드에 넘기지 못했으면 잠금도 여기서 푼다
+      runner.markFailed(run, regions.size());
       lock.release(owner);
       throw e;
     }

@@ -1,6 +1,6 @@
 import type { Weather } from '@/data/types';
 import { currentServerWeather } from '@/store/useWeatherStore';
-import { diffDays, fromKey, todayKey } from './date';
+import { diffDays, fromKey, todayKey, toKey } from './date';
 
 // 날씨: 서버가 받아 둔 예보(GET /weather, doc/17)가 있으면 그 값을 쓰고,
 // 없으면(목업 실행·서버에 닿지 못함·아직 받은 적 없음) 목업 날씨를 쓴다.
@@ -64,10 +64,13 @@ export function hasForecast(key: string): boolean {
   return n >= 0 && n < FORECAST_DAYS;
 }
 
-/** 홈 화면의 "지금" 날씨. 서버 값이 없으면 null (오늘 예보만 보여 준다) */
+/**
+ * 홈 화면의 "지금" 날씨. 서버 값이 없거나 오늘 받은 값이 아니면 null (오늘 예보만 보여 준다).
+ * stale은 받은 시점의 서버 판정이라, 기기가 오래 오프라인이면 지난 값을 "지금"으로 보이지 않게 날짜로 한 번 더 거른다.
+ */
 export function currentWeather(): { temp: number; condText: string | null; stale: boolean; region: string } | null {
   const server = currentServerWeather();
-  if (!server) return null;
+  if (!server || toKey(new Date(server.fetchedAt)) !== todayKey()) return null;
   return {
     temp: Math.round(server.current.temp),
     condText: server.current.condText,
