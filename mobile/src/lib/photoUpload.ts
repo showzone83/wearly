@@ -155,8 +155,13 @@ export const photoDir = (): Directory => new Directory(Paths.document, 'photos')
 /**
  * 기기 사진을 앱 문서 폴더(photos/{itemId}.jpg)로 복사하고 새 주소를 돌려준다.
  * 선택기 캐시는 OS가 지울 수 있기 때문이다. 이미 폴더 안이거나 샘플·웹 주소면 그대로, 실패하면 원래 주소.
+ * @param version 사진을 바꿀 때 붙이는 버전 (photos/{itemId}-{version}.jpg, photoRules.photoFileName)
  */
-export const keepPhotoLocally = async (uri: string | undefined, itemId: string): Promise<string | undefined> => {
+export const keepPhotoLocally = async (
+  uri: string | undefined,
+  itemId: string,
+  version?: string,
+): Promise<string | undefined> => {
   if (!uri || isWeb) return uri;
   try {
     const dir = photoDir();
@@ -164,7 +169,7 @@ export const keepPhotoLocally = async (uri: string | undefined, itemId: string):
     const src = new File(uri);
     if (!src.exists) return uri;
     dir.create({ intermediates: true, idempotent: true });
-    const dest = new File(dir, photoFileName(itemId));
+    const dest = new File(dir, photoFileName(itemId, version));
     await src.copy(dest, { overwrite: true });
     return dest.uri;
   } catch (e) {
@@ -180,5 +185,18 @@ export const localPhotoExists = (uri: string): boolean => {
     return new File(uri).exists;
   } catch {
     return false;
+  }
+};
+
+/** 앱 사진 폴더 안의 기기 사진 파일을 지운다 (바꾸거나 뺀 예전 사진). 실패해도 다음 시작 때 정리 작업이 지운다 */
+export const deletePhotoFiles = (uris: string[]): void => {
+  if (isWeb) return;
+  for (const uri of uris) {
+    try {
+      const file = new File(uri);
+      if (file.exists) file.delete();
+    } catch (e) {
+      console.warn('[photo] 예전 사진 파일을 지우지 못했어요', uri, e);
+    }
   }
 };

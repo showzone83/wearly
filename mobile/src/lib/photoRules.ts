@@ -139,8 +139,16 @@ export const migrationErrorAction = (e: unknown, stage: 'upload' | 'attach'): TM
 
 // ── 앱 문서 폴더의 기기 사진 ──
 
-/** 아이템 사진 파일 이름: photos/{itemId}.jpg (id의 특수 문자는 _로) */
-export const photoFileName = (itemId: string): string => `${itemId.replace(/[^A-Za-z0-9_-]/g, '_')}.jpg`;
+/**
+ * 아이템 사진 파일 이름: photos/{itemId}.jpg (id의 특수 문자는 _로).
+ * 사진을 바꿀 때는 버전을 붙인 새 이름(photos/{itemId}-{version}.jpg)으로 복사한다:
+ * 같은 이름을 덮어쓰면 expo-image가 같은 주소의 예전 사진을 계속 보여 준다. 예전 파일은 바꾼 쪽이 지운다
+ */
+export const photoFileName = (itemId: string, version?: string): string => {
+  const safe = itemId.replace(/[^A-Za-z0-9_-]/g, '_');
+  const v = version?.replace(/[^A-Za-z0-9_-]/g, '_');
+  return v ? `${safe}-${v}.jpg` : `${safe}.jpg`;
+};
 
 /** 앱 문서 폴더로 옮겨 둘 사진인지: 기기 파일인데 아직 사진 폴더 밖(선택기 캐시 등)에 있다 */
 export const needsLocalCopy = (uri: string | undefined, photoDirUri: string): uri is string =>
