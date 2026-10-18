@@ -61,7 +61,7 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 - 예정 코디 서버 저장 `/plans`(목록·만들기·bulk·PATCH·삭제, 500개 한도 `PLAN_LIMIT`)와 앱 동기화(`clientId`·합치기·대기열) ([doc/21](doc/21_예정_코디_저장.md)) (0fdc1d7, 2f90f2b, 15eac69)
 - 관리자: 날씨 호출 이력에 종류(정기·다른 장소·검색·평년값)와 필터, Open-Meteo 이번 달 호출 수 (362a0fb, 2f90f2b)
 - AI 호출 프롬프트 캐싱(사진 분석·코디 추천): 고정 지시문(지시·허용 값·점수 기준)을 system으로 분리하고 Claude는 끝에 `cache_control`(5분)을 붙이며, 호출 성공 로그에 `AI {feature} 성공 … input= output= cacheRead= cacheWrite=`를 남기고 DB의 입력 토큰은 캐시 포함 입력 전체로 기록한다. 실측(2026-10-18, claude-haiku-5-5 사진 분석 2회): 1번째 `cacheWrite` 2,654 → 2번째 `cacheRead` 2,654, 입력 비용 약 85% 절감, 응답 3.8초 → 1.1초. 설정 `wearly.ai.prompt-cache.enabled`(기본 켬). 캐시 토큰을 담는 DB 칸은 아직 없다([진행 중](#진행-중-아직-dev에-없음)) ([doc/18](doc/18_사진_저장.md) 13장, [doc/09](doc/09_AI_코디_추천.md)) (5c457da, 93b7209)
-- 예정 코디 D-1 알림: 앱 로컬 알림(`expo-notifications`, 예정 전날 설정 시각 기본 20:00·30분 단위, iOS 60개 상한, 권한 처음 한 번, 마이 화면 설정, 누르면 그 예정의 PLAN 모드)과 서버 `notify` 컨텍스트(`PUT·DELETE /me/push-token`, `V17` `tb_push_token`·`tb_push_send_log`, 매일 19:30 KST D-1 작업이 장소 날씨를 다시 확인해 기온 3°C·비 여부가 바뀌면 "예보가 바뀌었어요", Expo Push 어댑터, 설정 `wearly.notify.*`, 기본 꺼짐·provider `log`). Expo Go에서는 로컬 알림만 되고 원격 푸시는 안 된다 ([doc/23](doc/23_D-1_알림.md), [doc/21](doc/21_예정_코디_저장.md) 9장) (a4aad23, d28e382)
+- 예정 코디 D-1 알림: 앱 로컬 알림(`expo-notifications`, 예정 전날 설정 시각 기본 20:00·30분 단위, iOS 60개 상한, 권한 처음 한 번, 마이 화면 설정, 누르면 그 예정의 PLAN 모드)과 서버 `notify` 컨텍스트(`PUT·DELETE /me/push-token`, `V17` `tb_push_token`·`tb_push_send_log`, 매일 19:30 KST D-1 작업이 장소 날씨를 다시 확인해 기온 3°C·비 여부가 바뀌면 "예보가 바뀌었어요", Expo Push 어댑터, 설정 `wearly.notify.*`, 기본 꺼짐·provider `log`). iOS Expo Go에서는 로컬 알림만 되고 원격 푸시는 안 된다(안드로이드 Expo Go는 알림 끔) ([doc/23](doc/23_D-1_알림.md), [doc/21](doc/21_예정_코디_저장.md) 9장) (a4aad23, d28e382)
 - 계절 테마: 테마 위에 계절 색 10개를 덮어쓴다. 서버 `seasonMode`(`OFF` 기본·`AUTO`·`SPRING`~`WINTER`, `GET /app/config`·`PUT /admin/app/theme`, 마이그레이션 없음), 앱은 한국 날짜로 계절 계산·글자 대비 WCAG AA 4.5:1 검사·홈 계절 인사·마이 화면에서 끄기, 관리자는 계절 모드 선택(확인 대화상자)과 4계절×2테마 미리보기 ([doc/12](doc/12_디자인_테마.md) 7장, 이슈 #6) (68b6795, ee8eeb3)
 - 나의 정보: 연령대·체형(스트레이트·웨이브·내추럴)·키·핏 선호. 코드 그룹 `AGE_RANGE`·`BODY_TYPE`·`FIT`와 프로필 칸(`V21`), 프로필 API 필드·검증, 앱 더보기 > 나의 정보 화면·온보딩 STEP 4(건너뛸 수 있음)·체형 설명 카드, 관리자 회원 표 조회와 BODY_TYPE 설명 입력, AI 코디 추천의 사용자 메시지에 "회원 정보" 한 줄 ([doc/06](doc/06_코드_관리.md), [doc/05](doc/05_백엔드_API.md), [doc/09](doc/09_AI_코디_추천.md), 이슈 #5) (6693a29, e41d387)
 - `dev.sh`: compose 실행, 백엔드·DB 실시간 로그 창, Expo 창을 한 번에 ([doc/15](doc/15_터미널_명령.md)) (0cb0b3b)
@@ -89,6 +89,7 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 - Flyway V12 마이그레이션을 적용된 원본으로 되돌림(주석만 바꿔도 체크섬이 달라져 서버가 뜨지 않음) (e7ed166)
 - Docker 빌드에서 `gradlew` 줄바꿈을 LF로 맞춤(Windows autocrlf 대응) (9ffb102) (작성: kang6123)
 - 불필요한 `baseUrl`·`SuppressWarnings` 제거 (869417d) (작성: kang6123)
+- 앱: Android Expo Go에서 알림 모듈(`ExpoTopicSubscriptionModule`) 오류로 앱이 뜨지 않던 문제. `expo-notifications`를 처음 필요할 때 한 번만 불러오고 Android Expo Go에서는 D-1 알림을 끈다 ([doc/23](doc/23_D-1_알림.md) 8.1, 이슈 #9) (f2cd9bc)
 
 #### 보안
 - 날씨 API 키가 견본 파일(`backend/config/application-local.example.yml`)에 실제 값으로 커밋된 것(079eb7c)을 견본에서 지우고 git 제외 파일로 옮김 (e4ab5b8). 키는 git 기록에 남아 있으므로 weatherapi.com에서 재발급 권장
