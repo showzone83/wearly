@@ -58,3 +58,14 @@ wearly:
   # 클라우드(AWS S3·Cloudflare R2·NCP) 예시는 config/application-cloud.example.yml
   # storage:
   #   public-endpoint: "http://192.168.0.10:9000"
+
+  # 예정 코디 D-1 서버 푸시 (notify). 기본은 꺼짐(enabled: false)이고 provider: log(보내지 않고 로그만).
+  # 실제 휴대폰으로 보내려면 enabled: true, provider: expo. Expo "enhanced push security"를 켰다면 access-token을 넣는다
+  # notify:
+  #   push:
+  #     enabled: true
+  #     provider: expo
+  #     expo:
+  #       access-token: ""
+  #   day-before:
+  #     time: "19:30"

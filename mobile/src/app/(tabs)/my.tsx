@@ -12,8 +12,11 @@ import { API_BASE_URL, errorAlertMessage } from '@/lib/api';
 import { styleLabel } from '@/lib/codes';
 import { diffDays, todayKey } from '@/lib/date';
 import { MOCK_MODE } from '@/lib/mode';
+import { ensureNotifyPermission, notificationsSupported, openNotifySettings, serverPushActive } from '@/lib/planNotify';
+import { notifyTimeLabel, stepNotifyTime } from '@/lib/planNotifyRules';
 import { activeItems } from '@/lib/retire';
 import { regionLabel } from '@/lib/weatherSync';
+import { useNotifyStore } from '@/store/useNotifyStore';
 import { useStore } from '@/store/useStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { useWeatherStore } from '@/store/useWeatherStore';
@@ -31,6 +34,9 @@ export default function My() {
   const user = useStore((s) => s.user);
   const themeId = useThemeStore((s) => s.themeId);
   const regionCode = useWeatherStore((s) => s.regionCode);
+  const notifyTime = useNotifyStore((s) => s.time);
+  const notifyPermission = useNotifyStore((s) => s.permission);
+  const serverPush = useNotifyStore((s) => s.serverPush);
   const [busy, setBusy] = useState(false);
   const s = useStyles();
 
@@ -40,11 +46,34 @@ export default function My() {
   const active = inUse.filter((i) => i.lastWornAt && diffDays(today, i.lastWornAt) <= 30).length;
   const usage = inUse.length ? Math.round((active / inUse.length) * 100) : 0;
 
+  // 예정 전날 알림 (lib/planNotify.ts): 서버가 보내면 서버 시각, 아니면 기기 로컬 알림 시각
+  const byServer = !!serverPush && serverPushActive();
+  const dMinus1Sub = !notificationsSupported()
+    ? '전날 최신 예보로 재확인 · 웹 미리보기에서는 알림이 오지 않아요'
+    : byServer
+      ? `전날 ${serverPush!.dayBeforeTime}쯤 최신 예보로 알려 드려요`
+      : profile.notify.dMinus1 && notifyPermission === 'denied'
+        ? '기기에서 알림 권한이 꺼져 있어요'
+        : `전날 ${notifyTimeLabel(notifyTime)} · 최신 예보로 재확인`;
+
   // 바로 바꿔 보여 주고, 계정 모드면 서버에 저장한다. 실패하면 되돌린다
   const toggle = async (key: keyof typeof profile.notify) => {
     const before = profile;
     const next = { ...profile, notify: { ...profile.notify, [key]: !profile.notify[key] } };
     updateProfile(next);
+    // 예정 전날 알림을 켜면 알림 권한을 묻는다 (이미 거부했으면 다시 묻지 않고 설정 화면 안내)
+    if (key === 'dMinus1' && next.notify.dMinus1 && notificationsSupported()) {
+      void ensureNotifyPermission(true).then((p) => {
+        if (p === 'denied') {
+          confirm(
+            '알림 권한이 꺼져 있어요',
+            '예정 전날 알림을 받으려면 기기 설정에서 Wearly 알림을 허용해 주세요.',
+            openNotifySettings,
+            '설정 열기',
+          );
+        }
+      });
+    }
     if (!isAccount) return;
     try {
       await saveProfile(next);
@@ -159,11 +188,22 @@ export default function My() {
         <ToggleRow
           icon="calendar"
           label="D-1 예정일 알림"
-          sub="전날 최신 예보로 재확인"
+          sub={dMinus1Sub}
           value={profile.notify.dMinus1}
           onChange={() => void toggle('dMinus1')}
-          last
+          last={!profile.notify.dMinus1 || !notificationsSupported() || byServer}
         />
+        {profile.notify.dMinus1 && notificationsSupported() && !byServer && (
+          notifyPermission === 'denied' ? (
+            <MenuRow icon="bell" label="알림 권한 허용하기" value="기기 설정" last onPress={openNotifySettings} />
+          ) : (
+            <TimeStepRow
+              label="전날 알림 시각"
+              value={notifyTimeLabel(notifyTime)}
+              onStep={(dir) => useNotifyStore.getState().setTime(stepNotifyTime(notifyTime, dir))}
+            />
+          )
+        )}
       </MenuCard>
 
       {MOCK_MODE && (
@@ -349,6 +389,34 @@ const ToggleRow = ({ icon, label, sub, value, onChange, last }: IToggleRowProps)
   );
 };
 
+interface ITimeStepRowProps {
+  label: string;
+  value: string;
+  onStep: (dir: 1 | -1) => void;
+}
+
+/** 30분 단위 시각 고르기 (− 값 +) */
+const TimeStepRow = ({ label, value, onStep }: ITimeStepRowProps) => {
+  const s = useStyles();
+  const c = useColors();
+
+  return (
+    <View style={[s.row, s.rowLast]}>
+      <Icon name="bell" size={21} />
+      <Text style={s.rowLabel}>{label}</Text>
+      <Row style={{ gap: 4 }}>
+        <Pressable style={s.stepBtn} onPress={() => onStep(-1)} hitSlop={6} accessibilityLabel="30분 앞으로">
+          <Text style={[s.stepText, { color: c.text }]}>−</Text>
+        </Pressable>
+        <Text style={s.stepValue}>{value}</Text>
+        <Pressable style={s.stepBtn} onPress={() => onStep(1)} hitSlop={6} accessibilityLabel="30분 뒤로">
+          <Text style={[s.stepText, { color: c.text }]}>+</Text>
+        </Pressable>
+      </Row>
+    </View>
+  );
+};
+
 const useStyles = makeStyles((t) => ({
   profile: { ...cardBase(t), flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
   avatar: {
@@ -383,6 +451,17 @@ const useStyles = makeStyles((t) => ({
   rowLabel: { flex: 1, fontSize: 15, color: t.colors.text, fontWeight: '600' },
   rowSub: { fontSize: 12, color: t.colors.textSub, marginTop: 2 },
   rowValue: { fontSize: 13, color: t.colors.textMuted, maxWidth: 150 },
+  stepBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: t.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepText: { fontSize: 17, fontWeight: '700', lineHeight: 20 },
+  stepValue: { fontSize: 14, fontWeight: '700', color: t.colors.text, minWidth: 74, textAlign: 'center' },
   bottomArt: { alignItems: 'flex-end', marginTop: 18, marginRight: 6 },
   foot: { color: t.colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 8, lineHeight: 18 },
 }));

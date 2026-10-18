@@ -14,6 +14,7 @@ import { errorAlertMessage } from '@/lib/api';
 import { styleLabel } from '@/lib/codes';
 import { newId } from '@/lib/context';
 import { longLabel, todayKey } from '@/lib/date';
+import { askNotifyPermissionOnce } from '@/lib/planNotify';
 import { savePlan } from '@/lib/planSync';
 import { WEIGHTS } from '@/lib/recommend';
 import { engineInput, useStore } from '@/store/useStore';
@@ -67,6 +68,8 @@ export default function Result() {
           notify('예정을 서버에 저장하지 못했어요', `${errorAlertMessage(out.error)}\n이 예정은 이 기기에만 있어요.`);
         }
       });
+      // 처음 예정을 저장할 때 한 번 알림 권한을 묻는다 (D-1 알림이 켜져 있을 때만, 거부하면 다시 묻지 않는다)
+      void askNotifyPermissionOnce();
       router.dismissTo('/calendar');
     } else {
       saveDayOutfit(todayKey(), current);
