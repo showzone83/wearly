@@ -12,7 +12,7 @@
 - [`doc/18_사진_저장.md`](../doc/18_사진_저장.md) — 옷 사진 서버 저장: S3 호환 저장소(로컬 MinIO), 서명 URL 올리기·받기, `/images/**`, 아이템 `image`·`imageId`, `analyze {imageId}`, 클라우드 전환
 - [`doc/20_오류_응답.md`](../doc/20_오류_응답.md) — 오류 응답: 문장 없이 `{ status, code, params?, fieldErrors, traceId }`, 오류 분류(기본·업무·시스템), `traceId`(`X-Request-Id`·MDC·로그 패턴), `error-codes.json` 카탈로그와 앱·관리자 문구 표 일치 검사, 새 코드 추가 순서
 - [`doc/21_예정_코디_저장.md`](../doc/21_예정_코디_저장.md) — 예정 코디 서버 저장: `GET·POST·PATCH·DELETE /plans`, `POST /plans/bulk`, 검증·`PLAN_LIMIT`(500개)·`missingItemIds`, V14, 앱 동기화 규칙
-- [`doc/22_관리자_계정_관리.md`](../doc/22_관리자_계정_관리.md) — 관리자 계정 보완(1단계, 구현함): 자동 승격 막기, 비밀번호 변경, 관리자 지정·해제(`LAST_ADMIN`), 2단계 인증 TOTP(`/auth/mfa/*`, `/admin/me/mfa/*`, V15·V16), 관리자 로그인 기록
+- [`doc/22_관리자_계정_관리.md`](../doc/22_관리자_계정_관리.md) — 관리자 계정 보완(1단계, 구현함) + 회사 계정 로그인 SSO(2단계, 구현함: 범용 OIDC Authorization Code + PKCE, `/auth/sso/*`, V22, 로컬 Keycloak): 자동 승격 막기, 비밀번호 변경, 관리자 지정·해제(`LAST_ADMIN`), 2단계 인증 TOTP(`/auth/mfa/*`, `/admin/me/mfa/*`, V15·V16), 관리자 로그인 기록
 - [`doc/23_D-1_알림.md`](../doc/23_D-1_알림.md) — 예정 코디 D-1 알림: `PUT·DELETE /me/push-token`, `notify` 컨텍스트, 매일 19:30 D-1 작업, Expo Push 어댑터, V17
 - [`doc/12_디자인_테마.md`](../doc/12_디자인_테마.md) 7장 — 계절 테마 `seasonMode` (이슈 #6), [`doc/06_코드_관리.md`](../doc/06_코드_관리.md) — 나의 정보 코드 그룹(이슈 #5)·계절 코드 7개(이슈 #4)
 - [`doc/16_세션_Valkey.md`](../doc/16_세션_Valkey.md) — 7차: Refresh 토큰·로그인 세션을 Valkey로, Access 토큰 `sid` 확인, 관리자 로그인 사용자 보기·강제 로그아웃
@@ -21,7 +21,7 @@
 |---|---|
 | Spring Boot | 4.1.1 (Java 21 toolchain, Gradle 9.8.1 wrapper, Kotlin DSL) |
 | 데이터 접근 | Spring Data JPA (Hibernate 7.4) + MyBatis (mybatis-spring-boot-starter 4.1.0) |
-| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V17·V20·V21) |
+| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V17·V20~V22) |
 | 사진 저장소 | S3 호환 오브젝트 스토리지: AWS SDK v2 `S3Client`·`S3Presigner`. 로컬은 MinIO 포크 `pgsty/minio`, 운영은 AWS S3·Cloudflare R2·네이버 클라우드. 사진 처리는 JDK ImageIO + metadata-extractor (18 문서) |
 | 세션 저장소 | Valkey 9.1 (Redis 호환), `spring-boot-starter-data-redis`(Lettuce). Refresh 토큰·로그인 세션 (16 문서) |
 | 인증 | Spring Security OAuth2 Resource Server, JWT HS256 (Nimbus) + 매 요청 `sid` 세션 확인 |
@@ -59,6 +59,7 @@ docker compose down                       # 중지 (DB 데이터는 wearly-pgdat
 - 헬스체크는 `/actuator/health`(Valkey 상태 포함). 시작 순서는 db·valkey·minio(healthy)·minio-init(버킷 만들기 끝) → backend → admin.
 - MinIO(옷 사진, 18 문서): 이미지 `pgsty/minio:RELEASE.2026-08-04T00-00-00Z`(공식 `minio/minio`는 받을 수 없어 커뮤니티 포크를 쓴다), 컨테이너 `wearly-minio`, S3 API 9000·웹 콘솔 9001(http://localhost:9001), 로컬 전용 계정 `wearly` / `wearly-minio-local`, 볼륨 `wearly-miniodata`, CORS는 환경변수 `MINIO_API_CORS_ALLOW_ORIGIN`. `minio-init`(`pgsty/mc`)이 비공개 버킷 `wearly-images`를 만들고 끝난다(Exited 0). 들여다보기는 doc/14 8장.
 - Valkey: 이미지 `valkey/valkey:9.1`, 컨테이너 `wearly-valkey`, 호스트 6380, AOF(`--appendonly yes`), 헬스체크 `valkey-cli ping`. 들여다보기는 `docker exec -it wearly-valkey valkey-cli` (doc/14 7장).
+- 관리자 SSO 시험용 Keycloak(22 문서 4.2.5)은 **profile `sso`**라 평소 `docker compose up`에는 뜨지 않는다: `docker compose --profile sso up -d keycloak`(이미지 `quay.io/keycloak/keycloak:26.8.1`, 컨테이너 `wearly-keycloak`, 호스트 8180, 콘솔 `admin` / `wearly-keycloak-local`, realm `infra/keycloak/wearly-realm.json`, 모두 로컬 전용 시험 값). 백엔드를 켤 설정은 위 "관리자 회사 계정 로그인 (SSO)". 끄기 `docker compose --profile sso stop keycloak`, 처음 상태로 `docker compose --profile sso rm -sf keycloak`. compose 안의 백엔드는 `application-docker.yml`의 `wearly.sso.backchannel-rewrites`로 서버끼리 부르는 주소만 `keycloak:8080`으로 바꾼다.
 - 관리자 사이트(`admin/Dockerfile`, 빌드 컨텍스트는 저장소 루트)는 nginx가 빌드 결과를 서빙한다. API 주소는 빌드 인자 `VITE_API_URL`(기본 `http://localhost:8080`). 관리자 사이트를 vite(`npm run dev`, 5173)로 띄울 때는 포트가 겹치므로 `docker compose up -d --build db backend`만 띄운다.
 
 ### Mac에서 직접 실행
@@ -73,7 +74,7 @@ cd backend
 compose의 backend가 떠 있으면 8080이 겹치므로 먼저 `docker compose stop backend`.
 
 - 서버: `http://localhost:8080`, API 기본 경로 `/api/v1`, 상태 확인 `GET /actuator/health`
-- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움) → `V8__app_setting.sql`(6차: 앱 설정 `tb_app_setting`, 초기 테마 `nyang`) → `V9__wardrobe_item_retire.sql`(6차: 옷 사용 중지 컬럼 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스, 코드 그룹 `RETIRE_REASON` 5개) → `V10__auth_session_valkey.sql`(7차: `tb_refresh_token` 삭제 — 기존 로그인은 끊김, 로그인 이력 `tb_auth_event`) → `V11__weather.sql`(날씨, 17 문서) → `V12__item_image_storage.sql`(옷 사진: V1의 빈 `tb_item_image`를 지우고 다시 만듦, 18 문서) → `V13__place_weather.sql`(장소별 날씨: `tb_weather_place_snapshot`·`tb_weather_climate`, `tb_weather_call_log`의 `run_id`·`region_code` NULL 허용과 `call_kind` 4종, 19 문서)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). → `V14__planned_outfit.sql`(예정 코디, 21 문서) → `V15__admin_mfa.sql`(관리자 2단계 인증 TOTP 비밀·복구 코드, 22 문서) → `V16__auth_event_mfa.sql`(로그인 이력 종류 4개 추가·최신순 인덱스) → `V17__push_token.sql`(푸시 토큰·D-1 발송 기록, 23 문서) → `V20__item_colors_purchase.sql`(이슈 #4: 보조 색·구입일, 계절 코드 3개) → `V21__user_personal_info.sql`(이슈 #5: 나의 정보 칸, 코드 3그룹)을 적용한다. V18·V19 번호는 비어 있다(캐시 토큰 칸이 V19 예정, 18 문서 13.4). JPA는 `ddl-auto: validate`.
+- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움) → `V8__app_setting.sql`(6차: 앱 설정 `tb_app_setting`, 초기 테마 `nyang`) → `V9__wardrobe_item_retire.sql`(6차: 옷 사용 중지 컬럼 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스, 코드 그룹 `RETIRE_REASON` 5개) → `V10__auth_session_valkey.sql`(7차: `tb_refresh_token` 삭제 — 기존 로그인은 끊김, 로그인 이력 `tb_auth_event`) → `V11__weather.sql`(날씨, 17 문서) → `V12__item_image_storage.sql`(옷 사진: V1의 빈 `tb_item_image`를 지우고 다시 만듦, 18 문서) → `V13__place_weather.sql`(장소별 날씨: `tb_weather_place_snapshot`·`tb_weather_climate`, `tb_weather_call_log`의 `run_id`·`region_code` NULL 허용과 `call_kind` 4종, 19 문서)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). → `V14__planned_outfit.sql`(예정 코디, 21 문서) → `V15__admin_mfa.sql`(관리자 2단계 인증 TOTP 비밀·복구 코드, 22 문서) → `V16__auth_event_mfa.sql`(로그인 이력 종류 4개 추가·최신순 인덱스) → `V17__push_token.sql`(푸시 토큰·D-1 발송 기록, 23 문서) → `V20__item_colors_purchase.sql`(이슈 #4: 보조 색·구입일, 계절 코드 3개) → `V21__user_personal_info.sql`(이슈 #5: 나의 정보 칸, 코드 3그룹) → `V22__admin_sso.sql`(관리자 회사 계정 로그인 SSO: `tb_user_sso`, 로그인 이력 `SSO_LOGIN`·`SSO_DENIED`와 `sso_provider`·`sso_amr`, 22 문서 4.2)을 적용한다. V18·V19 번호는 비어 있다(캐시 토큰 칸이 V19 예정, 18 문서 13.4). JPA는 `ddl-auto: validate`.
 - **AI 공급자 고르기** (07 문서 3장)
   - `bootRunMock`(`WEARLY_AI_PROVIDER=mock`)이면 언제나 목업. DB 설정은 무시한다.
   - 그 밖(`bootRun`, 기본 `db`)에는 `tb_ai_provider`에서 사용(`enabled`)·모델·키를 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패(시간 초과·HTTP 오류·응답 검증 실패)하면 다음 공급자로 넘어간다.
@@ -83,6 +84,7 @@ compose의 backend가 떠 있으면 8080이 겹치므로 먼저 `docker compose 
   - 처음 상태: `claude`(사용, `claude-opus-5-5`, 키 `ANTHROPIC_API_KEY`), `openai`·`gemini`(꺼짐, 모델 비움). 그래서 `config/application-local.yml`의 `wearly.ai.keys.ANTHROPIC_API_KEY`만 넣으면 1차와 같이 Claude로 돈다.
 - **관리자 계정**: `wearly.admin.email`·`wearly.admin.password`(환경변수 `WEARLY_ADMIN_EMAIL`·`WEARLY_ADMIN_PASSWORD`)가 있고 **관리자가 한 명도 없을 때만** 시작할 때 그 계정을 만든다(이름 `wearly.admin.name`, 기본 "관리자"). 그 이메일로 이미 가입한 일반 회원은 관리자로 올리지 않는다(경고 로그만). 비밀번호는 첫 생성에만 쓰고 이후에는 관리자 사이트 "내 계정"에서 바꾼다. 가입 API로는 관리자를 만들 수 없다 (22 문서 4.1.1).
 - **관리자 2단계 인증**: 관리자 사이트 로그인은 기본(`wearly.admin.mfa.required: true`)으로 TOTP(인증 앱) 등록·코드 확인을 거친다. 비밀을 마스터 키(`wearly.secret-key`)로 암호화하므로 **켜려면 마스터 키가 꼭 필요**하다. 로컬에서 번거로우면 `application-local.yml`에 `wearly.admin.mfa.required: false`(등록한 관리자는 그래도 코드를 확인한다). 흐름·휴대폰 분실 대처는 22 문서 4.1.4~4.1.7.
+- **관리자 회사 계정 로그인 (SSO)**: `wearly.sso.enabled`(기본 `false`)를 켜고 `wearly.sso.providers.<id>`에 OIDC 공급자(`issuer-uri`·`client-id`·`client-secret`·`admin-groups`·`redirect-allowlist`)를 적으면 관리자 로그인 화면에 "<display-name> 로그인" 버튼이 생긴다. 견본(Keycloak·Entra ID·Google Workspace)은 `config/application-local.example.yml`의 `sso:` 주석. 설정이 모자란 공급자는 서버를 멈추지 않고 빼며 ERROR 로그를 남기고, 비밀번호 + TOTP 비상 계정은 그대로 들어온다. 로컬 시험은 `docker compose --profile sso up -d keycloak`(8180, 22 문서 4.2.5). 흐름·계정 연결·한계는 22 문서 4.2.
 - 운영 프로필(`SPRING_PROFILES_ACTIVE=prod`)은 `WEARLY_JWT_SECRET`이 없으면 기동하지 않는다.
 
 실행 가능한 jar: `./gradlew bootJar` → `build/libs/wearly-backend-0.0.1-SNAPSHOT.jar` (`backend/`에서 `java -jar`로 실행해야 `./config/application-local.yml`을 읽는다)
@@ -108,6 +110,16 @@ wearly:
     name: "관리자"
     # mfa:
     #   required: false           # 관리자 2단계 인증을 끈다 (로컬 개발용, 기본 true)
+  # sso:                          # 관리자 회사 계정 로그인 (22 문서 4.2). 견본 전체는 application-local.example.yml
+  #   enabled: true
+  #   providers:
+  #     keycloak:
+  #       display-name: "회사 계정 (Keycloak)"
+  #       issuer-uri: http://localhost:8180/realms/wearly
+  #       client-id: wearly-admin
+  #       client-secret: "wearly-admin-local-secret"   # 로컬 Keycloak 시험 값. 실제 IdP 비밀은 환경변수로
+  #       admin-groups: [wearly-admins]
+  #       redirect-allowlist: [http://localhost:5173/sso/callback, http://localhost:5173/login]
 ```
 
 아래 값은 OS 환경변수(왼쪽 이름)로도 덮어쓸 수 있다 (운영 서버·CI). 같은 항목을 yml과 환경변수에 함께 두지 않는다.
@@ -140,6 +152,10 @@ wearly:
 | `WEARLY_ADMIN_NAME` | `wearly.admin.name` | `관리자` | 새로 만들 때의 이름 |
 | `WEARLY_ADMIN_MFA_REQUIRED` | `wearly.admin.mfa.required` | `true` | 관리자 사이트 로그인에 2단계 인증(TOTP) 필수. `false`면 등록하지 않은 관리자는 비밀번호만으로 들어온다 (등록한 관리자는 코드 확인). `true`는 마스터 키 필요. 22 문서 4.1.4 |
 | `WEARLY_ADMIN_MFA_ISSUER` | `wearly.admin.mfa.issuer` | `Wearly` | 인증 앱에 보이는 발급자 이름 |
+| `WEARLY_SSO_ENABLED` | `wearly.sso.enabled` | `false` | 관리자 사이트 회사 계정 로그인(SSO) 켜기. 22 문서 4.2 |
+| `WEARLY_SSO_TRUST_IDP_MFA` | `wearly.sso.trust-idp-mfa` | `true` | IdP가 MFA를 맡는다고 보고 SSO 세션에 앱 TOTP를 묻지 않는다. `false`면 앱 TOTP도 거친다 |
+| `WEARLY_SSO_HTTP_TIMEOUT` | `wearly.sso.http-timeout` | `PT10S` | IdP(discovery·token·JWKS) 호출 제한 시간 |
+| `WEARLY_SSO_PROVIDERS_<ID>_CLIENTSECRET` 등 | `wearly.sso.providers.<id>.*` | (없음) | 공급자 설정(`display-name`·`issuer-uri`·`discovery-uri`·`client-id`·`client-secret`·`scopes`·`roles-claim`·`admin-groups`·`admin-emails`·`redirect-allowlist`·`callback-uri`·`assume-email-verified`·`enabled`). 환경변수 이름은 점을 `_`로, 하이픈을 빼서 만든다(`client-secret` → `…_CLIENTSECRET`, `_CLIENT_SECRET`은 묶이지 않는다). `wearly.sso.backchannel-rewrites`(서버끼리 부르는 IdP 주소 바꾸기)는 `application-docker.yml`에 있다 |
 | `WEARLY_NOTIFY_PUSH_ENABLED` | `wearly.notify.push.enabled` | `false` | D-1 알림 서버 푸시 사용. false면 토큰은 받지만 D-1 작업을 예약하지 않는다. 23 문서 6장 |
 | `WEARLY_NOTIFY_PUSH_PROVIDER` | `wearly.notify.push.provider` | `log` | `expo`(Expo Push API로 보냄) · `log`(보내지 않고 건수만 로그) |
 | `WEARLY_NOTIFY_EXPO_BASE_URL` | `wearly.notify.push.expo.base-url` | `https://exp.host` | Expo Push API 주소 |
@@ -302,6 +318,18 @@ LC_ALL=C.UTF-8 ./gradlew check   # spotlessCheck + checkstyleMain + checkstyleTe
 
 - 대기 토큰은 5분이고 관리자 API에는 쓸 수 없다. 코드를 확인하지 않은 세션으로 `/admin/**`를 부르면 403 `MFA_REQUIRED`. 틀리면 400 `MFA_CODE_INVALID`(`remainingAttempts`), 5번 틀리면 15분 잠금 429 `MFA_LOCKED`(`retryAfterSeconds`). 로그인 이력에 `LOGIN_FAILED`·`MFA_SUCCESS`·`MFA_FAILED`·`MFA_LOCKED`가 남는다.
 
+### 인증 — 관리자 회사 계정 로그인 SSO (22 문서 4.2, 로그인 없이 부르는 공개 경로)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/v1/auth/sso/providers` | `{ enabled, providers: [{ id, displayName }] }`. 꺼져 있으면 `{ enabled: false, providers: [] }` |
+| GET | `/api/v1/auth/sso/{provider}/start?redirect=` | IdP 로그인으로 302 (state·nonce·PKCE는 Valkey 5분 + 쿠키 `wearly_sso_state`). `redirect`가 허용 목록에 없으면 400 |
+| GET | `/api/v1/auth/sso/{provider}/callback` | IdP가 돌려보내는 주소. 302로 관리자 사이트 `?code=<교환 코드>` 또는 `?error=<오류 코드>&status=…&traceId=…` |
+| POST | `/api/v1/auth/sso/exchange` | `{ code }` → `/auth/login`과 같은 모양(교환 코드는 1분·1회, 아니면 401 `SSO_EXCHANGE_INVALID`) |
+| GET | `/api/v1/auth/sso/{provider}/logout?redirect=` | IdP 로그아웃으로 302 |
+
+- 꺼져 있으면(기본) `providers`만 200 빈 목록이고 나머지는 404 `NOT_FOUND`. SSO 오류 코드 7개(`SSO_*`)는 22 문서 4.2.8.
+
 ## API 요약 (6차에서 더한 것)
 
 ### 앱 설정 (12 문서 3장)
@@ -340,7 +368,7 @@ LC_ALL=C.UTF-8 ./gradlew check   # spotlessCheck + checkstyleMain + checkstyleTe
 
 ### 오류 응답 (20 문서)
 
-모든 오류는 `{ status, code, params?, fieldErrors: [{ field, code, params? }], traceId }`이고 **문장(`message`)은 없다.** 응답 헤더 `X-Request-Id`(보내면 형식이 맞을 때 그 값, 아니면 서버가 만든 값)가 `traceId`와 같다. 코드 44개(관리자 2단계 인증 8개 포함, 20 문서 12장)·필드 오류 코드 21개의 기준은 `src/main/resources/error-codes.json`, 앱·관리자는 이 파일로 화면 문구 표를 맞춘다.
+모든 오류는 `{ status, code, params?, fieldErrors: [{ field, code, params? }], traceId }`이고 **문장(`message`)은 없다.** 응답 헤더 `X-Request-Id`(보내면 형식이 맞을 때 그 값, 아니면 서버가 만든 값)가 `traceId`와 같다. 코드 51개(관리자 2단계 인증 8개·회사 계정 로그인 7개 포함, 20 문서 12·13장)·필드 오류 코드 21개의 기준은 `src/main/resources/error-codes.json`, 앱·관리자는 이 파일로 화면 문구 표를 맞춘다.
 
 ### 예정 코디 (21 문서, `V14__planned_outfit.sql`)
 
@@ -460,6 +488,8 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 | `AiProviderFallbackIntegrationTest` | (DB 공급자 실행) 공급자 없으면 502, priority 순 시도·실패 시 다음 공급자·실패 기록, 전부 실패 502·한도 미차감, 시험 분석(사용 여부 무관·한도 미차감·ADMIN_TEST), AI 기록 검색·상세·대시보드 |
 | `AdminUserIntegrationTest` | 시작 시 관리자 생성·기존 회원 승격, 회원 검색, 정지 시 로그인 403·토큰 401·refresh 401, 자기 자신 강등·정지 400, 대시보드 |
 | `AdminMfaIntegrationTest` | (22 문서) 관리자 사이트 로그인이 대기 토큰을 주고 등록(setup → verify) 뒤에야 관리자 API가 열림·복구 코드 10개, 5번 틀리면 잠기고 대기 토큰이 무효, 일반 회원/앱 로그인은 그대로 토큰, 비밀번호 변경 시 다른 세션만 끊김, 내 2단계 인증 초기화 → 다시 등록, 다른 관리자의 초기화 시 그 세션 끊김, 관리자 해제 시 권한이 바로 빠짐 |
+| `SsoIntegrationTest` · `SsoNoTrustIdpMfaIntegrationTest` · `SsoDisabledIntegrationTest` | (22 문서 4.2, 가짜 OIDC 서버 `FakeOidcServer`) 새 관리자 생성·교환 코드로 토큰 발급·1회용, 관리자 그룹이 아니면 거부(회원 안 만듦), 그룹에서 빠지면 관리자 해제·세션 끊기, 기존 관리자와 연결·일반 회원 비승격, 이메일 미검증 거부, state 1회·쿠키 확인, ID 토큰 불일치, IdP 오류·연결 실패, 인가 응답 `iss` 불일치, 허용 목록 밖 주소, IdP 로그아웃 / `trust-idp-mfa: false`면 앱 2단계 인증을 거침 / 꺼진 기본 동작(빈 목록, 404) |
+| `IdTokenVerifierTest` · `SsoConfigTest` · `SsoProviderTest` | (Spring 없음) ID 토큰 확인(서명 알고리즘·iss·aud/azp·exp·iat·nonce·sub) / 설정이 모자란 공급자를 빼고 로그 / 공급자 값 정리·관리자 그룹·이메일 판단 |
 | `TotpTest` · `AdminAccountServiceTest` · `AuthServiceTest` | (Spring 없음) RFC 6238 시험 벡터(SHA-1·256·512)·앞뒤 1단계만 받음·마지막으로 쓴 단계 이하 거부·Base32(RFC 4648)·인증 앱 등록 주소 / 관리자가 없으면 설정 계정을 만들고 같은 이메일의 일반 회원은 올리지 않으며 관리자가 있으면 설정을 쓰지 않음·로그의 이메일은 앞 2글자만 / 로그인 흐름(`LOGIN_FAILED` 기록, 관리자 사이트만 대기 토큰) |
 | `DayBeforeNotifyIntegrationTest` · `PushTokenIntegrationTest` | (23 문서, 실제 DB·HTTP) 알림을 켠 회원에게만 하루 한 번 보냄, `DeviceNotRegistered` 토큰 삭제 / 등록(기기마다 하나·같은 기기는 바꿈)·같은 토큰은 다른 회원으로 옮김·삭제 204·검증 오류 모음·401·탈퇴 시 삭제 |
 | `DayBeforeNotifyServiceTest` · `ExpoPushSenderAdapterTest` · `DayBeforeMessageTest` · `PushTokenRulesTest` | (Spring 없음) D-1 작업 순서·건너뜀·하루 한 번·예보 바뀜·날씨 재확인 생략/실패·토큰 삭제·예외 때 기록 풀기 / 가짜 Expo 서버로 100개 묶음·티켓 해석·헤더 / 알림 문구 / 토큰·플랫폼·기기 ID 검증 |
@@ -526,7 +556,7 @@ app.wearly.common                  컨텍스트를 모른다 (ArchUnit)
 
 | 컨텍스트 | domain | 입력 포트 (주요) | 출력 어댑터 |
 |---|---|---|---|
-| `auth` | `RefreshToken`(회전·재사용 판단), `RefreshTokens`, `LoginSession`, `ClientKind`·`ClientInfo`, `AuthEvent`, `AccessTokenClaims`, `LocalCredential`, `EmailTakenException` | `AuthUseCase`, `AuthenticationUseCase`, `AccountUseCase`, `SessionUseCase`(7차) | valkey(세션·Refresh 토큰, Lua 스크립트 `ValkeyScripts`), JPA(자격 증명·로그인 이력), security(BCrypt, JWT 발급). 입력 어댑터 `adapter.in.user`(탈퇴 시 세션 삭제, user의 `UserDeletedListener` 구현). 보안 필터 체인은 `auth.config.SecurityConfig` |
+| `auth` | `RefreshToken`(회전·재사용 판단), `RefreshTokens`, `LoginSession`, `ClientKind`·`ClientInfo`, `AuthEvent`, `AccessTokenClaims`, `LocalCredential`, `EmailTakenException`, SSO: `SsoProvider`·`SsoSettings`·`SsoState`·`SsoGrant`·`SsoLink`·`SsoRedirects`·`SsoSecrets`·`IdTokenClaims`·`OidcMetadata` | `AuthUseCase`, `AuthenticationUseCase`, `AccountUseCase`, `SessionUseCase`(7차), `SsoUseCase`(SSO, 22 문서 4.2: `SsoService`·`SsoAccountService`) | valkey(세션·Refresh 토큰, Lua 스크립트 `ValkeyScripts`), JPA(자격 증명·로그인 이력), security(BCrypt, JWT 발급), oidc(`HttpOidcAdapter`: discovery·JWKS·토큰 교환, `IdTokenVerifier`: Nimbus ID 토큰 확인, `OidcPort`), valkey(`ValkeySsoStoreAdapter`: state·교환 코드), JPA(`SsoLinkJpaAdapter`: `tb_user_sso`). SSO 계정 알림은 `SsoAccountListener`(auth가 정의, admin의 `SsoAccountAuditListener`가 변경 이력으로 남김). 설정 `auth.config.SsoConfig`·`SsoProperties`. 입력 어댑터 `adapter.in.user`(탈퇴 시 세션 삭제, user의 `UserDeletedListener` 구현). 보안 필터 체인은 `auth.config.SecurityConfig` |
 | `user` | `User`(이름·상태·역할 불변식), `UserStatus`, `UserRole`, `UserProfile`, `WorkType` | `UserUseCase`, `ProfileUseCase`, `ProfileCodeUsageUseCase`, `UserDeletedListener`(SPI: auth가 구현) | JPA(회원·프로필), MyBatis(프로필 코드 사용 수) |
 | `wardrobe` | `WardrobeItem`, `ItemInput`, `ItemRules`(불변식), `ItemCodeValidator`, `WardrobeStatsRules`, `Retirement`·`RetireRules`(6차 사용 중지) | `WardrobeUseCase`, `WardrobeStatsUseCase`, `ItemCodeUsageUseCase` | JPA(아이템 쓰기·단건), MyBatis(목록·통계·코드 사용 수) |
 | `code` | `Code`, `CodeAttrs`, `CodeRules` (스냅샷·검증 정책은 공유 커널) | `CodeCatalog`, `CodeManagementUseCase`, `CodeUsageSource`(SPI: 옷장·프로필이 구현) | JPA(코드 쓰기), MyBatis(스냅샷 캐시) |
