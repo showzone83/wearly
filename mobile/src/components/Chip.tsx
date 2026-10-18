@@ -11,17 +11,37 @@ interface IChipProps {
   onPress?: () => void;
   dot?: ColorKey;
   small?: boolean;
+  /** 길게 누르기 (예: 색 칩을 주 색상으로) */
+  onLongPress?: () => void;
+  /** 이름 뒤에 붙이는 작은 표시 (예: 고른 순서 ①②③) */
+  mark?: string;
+  /** 화면 낭독용 이름 (없으면 label) */
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 /** 알약 칩: 선택 = 초록 채움 + 흰 글자, 비선택 = 흰 바탕 + 연한 테두리 */
-export const Chip = ({ label, selected, onPress, dot, small }: IChipProps) => {
+export const Chip = ({
+  label,
+  selected,
+  onPress,
+  dot,
+  small,
+  onLongPress,
+  mark,
+  accessibilityLabel,
+  accessibilityHint,
+}: IChipProps) => {
   const s = useStyles();
   const c = useColors();
 
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ selected }}
       style={[s.chip, small && s.small, selected ? s.on : s.off]}
     >
@@ -29,6 +49,7 @@ export const Chip = ({ label, selected, onPress, dot, small }: IChipProps) => {
         <View style={[s.dot, { backgroundColor: colorMeta(dot).hex }, colorMeta(dot).light >= 0.9 && s.dotEdge]} />
       )}
       <Text style={[s.text, small && { fontSize: 13 }, { color: selected ? c.onPrimary : c.text }]}>{label}</Text>
+      {mark ? <Text style={[s.mark, { color: selected ? c.onPrimary : c.textSub }]}>{mark}</Text> : null}
     </Pressable>
   );
 };
@@ -186,6 +207,7 @@ const useStyles = makeStyles((t) => ({
   on: { backgroundColor: t.colors.primary, borderColor: t.colors.primary },
   off: { backgroundColor: t.colors.chip, borderColor: t.colors.chipBorder },
   text: { fontSize: 14, fontWeight: '600' },
+  mark: { fontSize: 13, fontWeight: '800', marginLeft: -2 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   dotEdge: { borderWidth: 1, borderColor: t.colors.border },
   dots: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },

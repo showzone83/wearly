@@ -18,6 +18,7 @@ import type {
 } from '@/data/types';
 import { categorySlot, colorLabel, colorMeta, isGoodPair, isRecommendable, subTypeMeta } from './codes';
 import { diffDays } from './date';
+import { itemColors, subColors } from './itemAttrs';
 import { josa } from './josa';
 import { isRetired } from './retire';
 
@@ -66,11 +67,16 @@ function clamp(n: number, lo = 0, hi = 1) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+/**
+ * 기온에 맞는 계절 코드. 기존 네 계절 판단 뒤에 초봄·초여름·초가을을 덧붙인다 (기존 판단은 그대로).
+ * 근거(서울 평년): 3월 평균 약 6°C·최고 12°C = 초봄, 6월 평균 약 22°C·최고 27°C = 초여름, 9월 평균 약 21°C = 초가을.
+ * 백엔드 OutfitRequest.Weather.seasons()와 같아야 한다.
+ */
 export function seasonsFor(temp: number): Season[] {
-  if (temp >= 24) return ['SUMMER'];
-  if (temp >= 17) return ['SPRING', 'FALL', 'SUMMER'];
-  if (temp >= 9) return ['SPRING', 'FALL'];
-  if (temp >= 4) return ['FALL', 'WINTER'];
+  if (temp >= 24) return ['SUMMER', 'EARLY_SUMMER'];
+  if (temp >= 17) return ['SPRING', 'FALL', 'SUMMER', 'EARLY_SUMMER', 'EARLY_FALL'];
+  if (temp >= 9) return ['SPRING', 'FALL', 'EARLY_SPRING'];
+  if (temp >= 4) return ['FALL', 'WINTER', 'EARLY_SPRING'];
   return ['WINTER'];
 }
 
@@ -97,16 +103,76 @@ function colorParts(r: Resolved): { parts: WardrobeItem[]; upper?: WardrobeItem;
 
 // ---------------------------------------------------------------- 점수 항목
 
+/** 보조 색끼리(또는 보조 색과 주 색상) 좋은 짝 한 쌍의 가점 */
+export const SUB_PAIR_BONUS = 0.05;
+/** 보조 색 짝 가점의 합계 상한 */
+export const SUB_PAIR_MAX = 0.1;
+/** 한 옷의 보조 색이 다른 옷의 색과 같을 때(색 반복으로 이어지는 느낌) 가점, 한 번만 */
+export const SUB_ECHO_BONUS = 0.05;
+/** 보조 색까지 치면 포인트 색이 둘 이상일 때 감점 (주 색상 포인트가 이미 둘 이상이면 주 색상 감점만) */
+export const SUB_ACCENT_PENALTY = 0.1;
+
+/** 두 색의 순서 없는 키 */
+const pairKey = (a: ColorKey, b: ColorKey): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
+
+/**
+ * 보조 색 보정 (GitHub 이슈 #4). 보조 색이 없는 코디는 0점·이유 없음이라 기존 점수와 같다.
+ * @param parts 색 조화를 볼 옷 (colorParts)
+ * @param primaryPairs 주 색상끼리 이미 가점을 준 좋은 짝 (pairKey)
+ * @param primaryAccents 주 색상 중 포인트 색(뉴트럴이 아닌 색, 중복 없이)
+ */
+function subColorAdjust(
+  parts: WardrobeItem[],
+  primaryPairs: Set<string>,
+  primaryAccents: ColorKey[],
+): { delta: number; reason?: string } {
+  const subs = parts.map(subColors);
+  if (subs.every((x) => x.length === 0)) return { delta: 0 };
+  const all = parts.map(itemColors);
+  let delta = 0;
+  let reason: string | undefined;
+
+  // (a) 보조 색 짝: 서로 다른 두 옷의 색 a·b 중 적어도 하나가 보조 색이고 잘 어울리는 짝 (주 색상끼리 센 짝은 빼고)
+  const subPairs = new Set<string>();
+  for (let i = 0; i < parts.length; i++) {
+    for (let j = i + 1; j < parts.length; j++) {
+      for (const a of all[i]) {
+        for (const b of all[j]) {
+          if (a === b) continue;
+          if (a === all[i][0] && b === all[j][0]) continue; // 둘 다 주 색상
+          const k = pairKey(a, b);
+          if (primaryPairs.has(k) || subPairs.has(k) || !isGoodPair(a, b)) continue;
+          subPairs.add(k);
+          reason ??= `${colorLabel(a)}×${colorLabel(b)} 보조 색까지 어울려요`;
+        }
+      }
+    }
+  }
+  delta += Math.min(SUB_PAIR_MAX, subPairs.size * SUB_PAIR_BONUS);
+
+  // (b) 색 반복: 한 옷의 보조 색이 다른 옷의 주 색상이나 보조 색과 같다
+  const echo = parts.some((_, i) => subs[i].some((c) => parts.some((_, j) => j !== i && all[j].includes(c))));
+  if (echo) delta += SUB_ECHO_BONUS;
+
+  // (c) 보조 포인트 과다: 보조 색 포인트(주 색상 포인트와 다른 색)까지 치면 포인트가 둘 이상
+  const subAccents = new Set(subs.flat().filter((c) => !colorMeta(c).neutral && !primaryAccents.includes(c)));
+  if (primaryAccents.length <= 1 && subAccents.size + primaryAccents.length >= 2) delta -= SUB_ACCENT_PENALTY;
+
+  return { delta, reason };
+}
+
 export function colorScore(r: Resolved): { score: number; reason?: string } {
   const { parts, upper, lower } = colorParts(r);
   let s = 0.6;
   let reason: string | undefined;
 
   const distinct: ColorKey[] = [...new Set(parts.map((i) => i.color))];
+  const primaryPairs = new Set<string>();
   for (let a = 0; a < distinct.length; a++) {
     for (let b = a + 1; b < distinct.length; b++) {
       if (isGoodPair(distinct[a], distinct[b])) {
         s += 0.15;
+        primaryPairs.add(pairKey(distinct[a], distinct[b]));
         reason ??= `${colorLabel(distinct[a])}×${colorLabel(distinct[b])} 조합이 안정적이에요`;
       }
     }
@@ -137,6 +203,11 @@ export function colorScore(r: Resolved): { score: number; reason?: string } {
       (colorMeta(r.SHOES.color).light < 0.35 && colorMeta(r.BAG.color).light < 0.35);
     if (sameFamily) s += 0.05;
   }
+
+  // 보조 색 보정은 주 색상 판단 뒤에 더한다. 이유는 주 색상 이유가 없을 때만
+  const sub = subColorAdjust(parts, primaryPairs, accents);
+  s += sub.delta;
+  reason ??= sub.reason;
 
   return { score: clamp(s), reason };
 }
@@ -209,7 +280,9 @@ export function tasteScore(r: Resolved, input: EngineInput): number {
   for (const i of parts) {
     let p = 0.5;
     if (liked.length > 0) p += 0.3 * (i.styles.filter((x) => liked.includes(x)).length > 0 ? 1 : -0.3);
+    // 주 색상이 선호 색이면 +0.1, 아니고 보조 색 중 하나가 선호 색이면 +0.05
     if (input.profile.colors.includes(i.color)) p += 0.1;
+    else if (subColors(i).some((c) => input.profile.colors.includes(c))) p += 0.05;
     p += 0.1 * clamp(input.affinity[i.id] ?? 0, -3, 3);
     s += clamp(p);
   }

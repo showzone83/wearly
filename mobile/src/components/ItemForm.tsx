@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 
-import type { WardrobeItem } from '@/data/types';
+import type { ColorKey, WardrobeItem } from '@/data/types';
 import {
   activeCodes,
   categoryLabel,
@@ -13,23 +14,44 @@ import {
   subTypesOf,
   withCurrent,
 } from '@/lib/codes';
+import { itemColors, makePrimaryColor, MAX_COLORS, toggleColor, type IColorPick } from '@/lib/itemAttrs';
 import { useCodesVersion } from '@/store/useCodes';
 import { inputBase, makeStyles, useColors } from '@/theme';
-import { ChipGroup } from './Chip';
+import { Chip, ChipGroup } from './Chip';
+import { PurchaseDateField } from './PurchaseDateField';
 import { Badge, Label, Row } from './ui';
 
 /** 등록·수정 폼 값. 착용 기록과 사용 중지(doc/13)는 폼에서 고치지 않는다 */
 export type ItemDraft = Omit<
   WardrobeItem,
-  'id' | 'wornCount' | 'createdAt' | 'lastWornAt' | 'retiredAt' | 'retireReason' | 'retireMemo'
->;
+  | 'id'
+  | 'wornCount'
+  | 'createdAt'
+  | 'lastWornAt'
+  | 'retiredAt'
+  | 'retireReason'
+  | 'retireMemo'
+  | 'colors'
+  | 'purchasedAt'
+  | 'purchasedAtEstimated'
+> & {
+  /** 색 1~3개, 첫 번째가 주 색상. color는 늘 colors[0]과 같게 둔다 */
+  colors: ColorKey[];
+  /** 구입일 YYYY-MM-DD. undefined = 모름 (저장하면 등록일이 들어가고 estimated) */
+  purchasedAt?: string;
+};
 
-/** 아이템에서 폼 값만 뽑는다 (사용 중지 필드가 폼 저장으로 덮이지 않게) */
-export const draftOf = (i: ItemDraft): ItemDraft => ({
+/**
+ * 아이템(또는 폼 값)에서 폼 값만 뽑는다 (사용 중지 필드가 폼 저장으로 덮이지 않게).
+ * 등록일로 채운 구입일(estimated)은 "모름"으로 연다. 예전 데이터(colors 없음)는 [color]
+ */
+export const draftOf = (i: ItemDraft | WardrobeItem): ItemDraft => ({
   name: i.name,
   category: i.category,
   subType: i.subType,
-  color: i.color,
+  color: itemColors(i)[0],
+  colors: itemColors(i),
+  purchasedAt: 'purchasedAtEstimated' in i && i.purchasedAtEstimated ? undefined : i.purchasedAt,
   pattern: i.pattern,
   seasons: i.seasons,
   styles: i.styles,
@@ -46,18 +68,31 @@ export function defaultName(d: Pick<ItemDraft, 'color' | 'subType'>): string {
   return `${colorLabel(d.color)} ${subTypeLabel(d.subType)}`;
 }
 
+/** 고른 순서 표시 (①②③) */
+const ORDER_MARK = ['①', '②', '③'];
+
+const COLOR_HINT = '첫 번째가 주 색상 · 길게 누르면 주 색상으로';
+const COLOR_BLOCK_TEXT: Record<NonNullable<IColorPick['blocked']>, string> = {
+  FULL: `색은 ${MAX_COLORS}개까지 고를 수 있어요`,
+  LAST: '색은 하나 이상 골라야 해요',
+};
+
 interface Props {
   value: ItemDraft;
   onChange: (next: ItemDraft) => void;
   /** AI가 제안한 항목에 표시 */
   aiFields?: ('category' | 'color' | 'pattern')[];
+  /** 구입일 "날짜 고르기"를 처음 누를 때 채울 날짜 (수정 화면은 등록일). 없으면 오늘 */
+  purchaseBaseDate?: string;
 }
 
 /**
  * 옷 등록 3단계 · 아이템 수정 공용 폼 (목업 p.41).
  * 고를 수 있는 값은 서버 코드의 활성 값이다. 이미 저장된 값이 비활성이면 선택된 칩으로 함께 보여 준다.
  */
-export function ItemForm({ value, onChange, aiFields = [] }: Props) {
+export function ItemForm({ value, onChange, aiFields = [], purchaseBaseDate }: Props) {
+  /** 색을 더 고르거나 빼지 못했을 때 안내 (다음 색 변경까지 보인다) */
+  const [colorNote, setColorNote] = useState<string | null>(null);
   const s = useStyles();
   const colors = useColors();
   useCodesVersion(); // 코드가 갱신되면 다시 그린다
@@ -69,6 +104,12 @@ export function ItemForm({ value, onChange, aiFields = [] }: Props) {
     onChange(next);
   };
   const ai = (f: (typeof aiFields)[number]) => aiFields.includes(f) && <Badge tone="green">AI</Badge>;
+
+  const picked = value.colors.length > 0 ? value.colors : [value.color];
+  const onPickColor = (r: IColorPick) => {
+    setColorNote(r.blocked ? COLOR_BLOCK_TEXT[r.blocked] : null);
+    if (!r.blocked) patch({ colors: r.colors, color: r.colors[0] });
+  };
 
   return (
     <View style={{ gap: 24 }}>
@@ -100,15 +141,36 @@ export function ItemForm({ value, onChange, aiFields = [] }: Props) {
         <Row style={s.labelRow}>
           <Label style={s.noMargin}>주요 색상</Label>
           {ai('color')}
+          <Text style={s.labelSub}>{MAX_COLORS}개까지</Text>
         </Row>
-        <ChipGroup
-          options={withCurrent(activeCodes('COLOR'), value.color)}
-          labels={colorLabel}
-          value={value.color}
-          dots
-          small
-          onChange={([color]) => patch({ color })}
-        />
+        <View style={s.chips}>
+          {withCurrent(activeCodes('COLOR'), picked).map((c) => {
+            const order = picked.indexOf(c);
+            return (
+              <Chip
+                key={c}
+                label={colorLabel(c)}
+                dot={c}
+                small
+                selected={order >= 0}
+                mark={order >= 0 ? ORDER_MARK[order] : undefined}
+                accessibilityLabel={
+                  order === 0 ? `${colorLabel(c)}, 주 색상` : order > 0 ? `${colorLabel(c)}, ${order + 1}번째 색` : colorLabel(c)
+                }
+                accessibilityHint="길게 누르면 주 색상으로 바꿔요"
+                onPress={() => onPickColor(toggleColor(picked, c))}
+                onLongPress={() => onPickColor(makePrimaryColor(picked, c))}
+              />
+            );
+          })}
+        </View>
+        <Text style={s.colorSummary}>
+          주 색상 {colorLabel(picked[0])}
+          {picked.length > 1 ? ` · 보조 색 ${picked.slice(1).map(colorLabel).join(', ')}` : ''}
+        </Text>
+        <Text style={[s.hint, colorNote && { color: colors.danger }]} accessibilityLiveRegion="polite">
+          {colorNote ?? COLOR_HINT}
+        </Text>
       </View>
       <View>
         <Row style={s.labelRow}>
@@ -160,6 +222,11 @@ export function ItemForm({ value, onChange, aiFields = [] }: Props) {
           onChange={([status]) => patch({ status })}
         />
       </View>
+      <PurchaseDateField
+        value={value.purchasedAt}
+        onChange={(purchasedAt) => onChange({ ...value, purchasedAt })}
+        baseDate={purchaseBaseDate}
+      />
       <View>
         <Label>이름</Label>
         <TextInput value={value.name} onChangeText={(name) => onChange({ ...value, name })} style={s.input} placeholder="예: 네이비 니트" placeholderTextColor={colors.textMuted} />
@@ -185,5 +252,9 @@ const useStyles = makeStyles((t) => ({
   labelRow: { gap: 8, marginBottom: 12 },
   subTypes: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.colors.border },
   noMargin: { marginBottom: 0 },
+  labelSub: { fontSize: 12, color: t.colors.textMuted },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  colorSummary: { fontSize: 13, color: t.colors.text, fontWeight: '600', marginTop: 10 },
+  hint: { fontSize: 12, color: t.colors.textSub, marginTop: 4 },
   input: inputBase(t),
 }));

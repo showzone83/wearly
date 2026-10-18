@@ -32,6 +32,7 @@ class MockAiProviderTest {
   void 어떤_사진이든_활성_코드_안에서_짝이_맞는_값을_고른다() {
     Random random = new Random(42);
     Set<String> seenSubTypes = new HashSet<>();
+    int withSubColor = 0;
     for (int i = 0; i < 3000; i++) {
       byte[] photo = new byte[32];
       random.nextBytes(photo);
@@ -41,6 +42,14 @@ class MockAiProviderTest {
               .suggestion();
       assertThat(codes.belongsTo(s.subType(), s.category())).isTrue();
       assertThat(codes.selectable(CodeGroups.COLOR, s.color())).isTrue();
+      assertThat(s.colors())
+          .hasSizeBetween(1, 2)
+          .doesNotHaveDuplicates()
+          .startsWith(s.color())
+          .allMatch(v -> codes.selectable(CodeGroups.COLOR, v));
+      if (s.colors().size() > 1) {
+        withSubColor++;
+      }
       assertThat(codes.selectable(CodeGroups.PATTERN, s.pattern())).isTrue();
       assertThat(s.seasons())
           .isNotEmpty()
@@ -56,6 +65,8 @@ class MockAiProviderTest {
       seenSubTypes.add(s.subType());
     }
     assertThat(seenSubTypes).hasSize(codes.selectableCodes(CodeGroups.SUB_TYPE).size());
+    // 보조 색은 셋 중 하나꼴
+    assertThat(withSubColor).isBetween(800, 1200);
   }
 
   @Test

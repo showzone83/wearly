@@ -32,6 +32,7 @@ public final class MockSuggestions {
     out.put("category", subType.parent());
     out.put("subType", subType.code());
     out.put("color", color.code());
+    out.put("colors", colors(codes.selectableCodes(CodeGroups.COLOR), color, h[9], h[10]));
     out.put("pattern", pattern.code());
     out.put("seasons", pickSome(codes.selectableCodes(CodeGroups.SEASON), h[3], h[4]));
     out.put("styles", pickSome(codes.selectableCodes(CodeGroups.STYLE), h[5], h[6]));
@@ -45,6 +46,18 @@ public final class MockSuggestions {
       throw new AiProviderException("NO_CODES", "고를 수 있는 코드가 없어요.");
     }
     return values.get(Math.floorMod(b, values.size()));
+  }
+
+  /** 주 색상 + 사진 셋 중 하나꼴로 보조 색 하나 (주 색상과 다른 색) */
+  private static List<String> colors(
+      List<CodeEntry> values, CodeEntry color, byte chance, byte pick) {
+    List<String> out = new ArrayList<>();
+    out.add(color.code());
+    List<CodeEntry> others = values.stream().filter(c -> !c.code().equals(color.code())).toList();
+    if (Math.floorMod(chance, 3) == 0 && !others.isEmpty()) {
+      out.add(others.get(Math.floorMod(pick, others.size())).code());
+    }
+    return out;
   }
 
   /** 1~2개를 코드 순서대로 고른다 */

@@ -1121,6 +1121,13 @@
       "description": "attrs 없음",
       "codes": [
         {
+          "code": "EARLY_SPRING",
+          "label": "초봄",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 5
+        },
+        {
           "code": "SPRING",
           "label": "봄",
           "parent": null,
@@ -1128,11 +1135,25 @@
           "sortOrder": 10
         },
         {
+          "code": "EARLY_SUMMER",
+          "label": "초여름",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 15
+        },
+        {
           "code": "SUMMER",
           "label": "여름",
           "parent": null,
           "attrs": {},
           "sortOrder": 20
+        },
+        {
+          "code": "EARLY_FALL",
+          "label": "초가을",
+          "parent": null,
+          "attrs": {},
+          "sortOrder": 25
         },
         {
           "code": "FALL",

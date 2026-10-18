@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.wearly.common.application.Patch;
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.image.application.port.in.ItemImageUseCase;
@@ -42,6 +43,12 @@ class WardrobeServiceTest {
 
   static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-17T01:02:03.456Z"), ZoneOffset.UTC);
 
+  /** 저장 시각: 2026-03-01 16:30 UTC = 서울 2026-03-02 */
+  static final Instant CREATED = Instant.parse("2026-03-01T16:30:00Z");
+
+  /** CLOCK의 서울 날짜 */
+  static final LocalDate TODAY = LocalDate.of(2026, 10, 17);
+
   /** navy는 비활성 (이미 저장된 값이면 그대로 둘 수 있다) */
   final CodeSnapshot codes = TestCodes.withInactive("COLOR:navy");
 
@@ -66,6 +73,7 @@ class WardrobeServiceTest {
                   item.category(),
                   item.subType(),
                   item.color(),
+                  item.subColors(),
                   item.pattern(),
                   item.seasons(),
                   item.styles(),
@@ -74,7 +82,9 @@ class WardrobeServiceTest {
                   item.brand(),
                   item.wornCount(),
                   item.lastWornAt(),
-                  Instant.EPOCH,
+                  item.purchasedAt(),
+                  item.purchasedAtEstimated(),
+                  item.createdAt() == null ? CREATED : item.createdAt(),
                   item.retirement());
           rows.put(id, saved);
           return saved;
@@ -257,6 +267,8 @@ class WardrobeServiceTest {
             Patch.absent(),
             Patch.absent(),
             Patch.absent(),
+            Patch.absent(),
+            Patch.absent(),
             List.of(typeError));
 
     assertThatThrownBy(() -> service.patch(USER, id, bad))
@@ -345,17 +357,119 @@ class WardrobeServiceTest {
     assertThat(patched.retireReason()).isEqualTo("NOT_WORN");
   }
 
+  @Test
+  void 색은_colors가_예전_color보다_우선이고_첫_색이_주_색상() {
+    // 둘 다 오면 colors를 쓴다 (비활성 navy는 무시된다)
+    ItemDto created = service.create(USER, create("navy", List.of("white", "gray", "black"), null));
+    assertThat(created.color()).isEqualTo("white");
+    assertThat(created.colors()).containsExactly("white", "gray", "black");
+
+    // 예전 color 하나도 받는다
+    ItemDto legacy = service.create(USER, create("gray", null, null));
+    assertThat(legacy.colors()).containsExactly("gray");
+
+    assertThatThrownBy(
+            () -> service.create(USER, create(null, List.of("white", "gray", "white"), null)))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            e ->
+                assertThat(e.fieldErrors())
+                    .containsExactly(new FieldError("colors[2]", FieldErrorCode.DUPLICATE)));
+    assertThatThrownBy(() -> service.create(USER, create(null, List.of("white", "navy"), null)))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            e ->
+                assertThat(e.fieldErrors())
+                    .containsExactly(new FieldError("colors[1]", CodeChecks.INACTIVE)));
+    assertThatThrownBy(() -> service.create(USER, create(null, null, null)))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            e -> assertThat(e.fieldErrors()).containsExactly(FieldError.required("colors")));
+  }
+
+  @Test
+  void PATCH의_예전_color는_주_색상만_바꾸고_colors는_전부_바꾼다() {
+    long id = service.create(USER, create(null, List.of("white", "gray", "black"), null)).id();
+
+    ItemDto primary = service.patch(USER, id, patch(b -> b.color = Patch.of("black")));
+    assertThat(primary.colors()).containsExactly("black", "gray");
+    assertThat(primary.color()).isEqualTo("black");
+
+    ItemDto replaced =
+        service.patch(
+            USER,
+            id,
+            patch(
+                b -> {
+                  b.colors = Patch.of(List.of("gray", "white"));
+                  b.color = Patch.of("black");
+                }));
+    assertThat(replaced.colors()).containsExactly("gray", "white");
+
+    // 저장돼 있던 비활성 색은 보조 색 자리에 그대로 둘 수 있다
+    long old = givenItemWithColor("navy");
+    ItemDto withSub =
+        service.patch(USER, old, patch(b -> b.colors = Patch.of(List.of("white", "navy"))));
+    assertThat(withSub.colors()).containsExactly("white", "navy");
+
+    assertThatThrownBy(() -> service.patch(USER, id, patch(b -> b.color = Patch.of(null))))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            e -> assertThat(e.fieldErrors()).containsExactly(FieldError.required("color")));
+  }
+
+  @Test
+  void 구입일을_비우면_등록일로_넣고_추정_표시한다() {
+    ItemDto unknown = service.create(USER, create("white", null, null));
+    assertThat(unknown.purchasedAt()).isEqualTo(TODAY);
+    assertThat(unknown.purchasedAtEstimated()).isTrue();
+
+    LocalDate bought = LocalDate.of(2024, 5, 1);
+    ItemDto known = service.patch(USER, unknown.id(), patch(b -> b.purchasedAt = Patch.of(bought)));
+    assertThat(known.purchasedAt()).isEqualTo(bought);
+    assertThat(known.purchasedAtEstimated()).isFalse();
+
+    // 다른 필드만 고치면 구입일은 그대로
+    assertThat(
+            service
+                .patch(USER, unknown.id(), patch(Patch.of("새 이름"), Patch.absent()))
+                .purchasedAt())
+        .isEqualTo(bought);
+
+    // null을 보내면 모름 → 등록일(저장 시각의 서울 날짜)
+    ItemDto reset = service.patch(USER, unknown.id(), patch(b -> b.purchasedAt = Patch.of(null)));
+    assertThat(reset.purchasedAt()).isEqualTo(LocalDate.of(2026, 3, 2));
+    assertThat(reset.purchasedAtEstimated()).isTrue();
+
+    assertThatThrownBy(() -> service.create(USER, create("white", null, TODAY.plusDays(1))))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            e ->
+                assertThat(e.fieldErrors())
+                    .containsExactly(
+                        new FieldError(
+                            "purchasedAt",
+                            FieldErrorCode.OUT_OF_RANGE,
+                            Map.of("min", "1990-01-01", "max", "2026-10-17"))));
+    assertThat(service.create(USER, create("white", null, TODAY)).purchasedAtEstimated()).isFalse();
+  }
+
   private long givenItemWithColor(String color) {
     // 비활성이 되기 전에 저장된 아이템
-    return items.save(WardrobeItem.create(USER, create(color).toInput())).id();
+    return items.save(WardrobeItem.create(USER, create(color).toInput(), TODAY)).id();
   }
 
   private static CreateItemDto create(String color) {
+    return create(color, null, null);
+  }
+
+  private static CreateItemDto create(String color, List<String> colors, LocalDate purchasedAt) {
     return new CreateItemDto(
         "화이트 셔츠",
         "TOP",
         "SHIRT",
         color,
+        colors,
         "SOLID",
         List.of("SPRING"),
         List.of("NEAT"),
@@ -364,24 +478,45 @@ class WardrobeServiceTest {
         null,
         null,
         null,
+        purchasedAt,
         null);
   }
 
   private static PatchItemDto patch(Patch<String> name, Patch<String> color) {
+    return patch(
+        b -> {
+          b.name = name;
+          b.color = color;
+        });
+  }
+
+  /** 보낼 필드만 채운 PATCH (나머지는 안 보냄) */
+  private static PatchItemDto patch(java.util.function.Consumer<PatchBuilder> fill) {
+    PatchBuilder b = new PatchBuilder();
+    fill.accept(b);
     return new PatchItemDto(
-        name,
+        b.name,
         Patch.absent(),
         Patch.absent(),
-        color,
-        Patch.absent(),
-        Patch.absent(),
-        Patch.absent(),
-        Patch.absent(),
+        b.color,
+        b.colors,
         Patch.absent(),
         Patch.absent(),
         Patch.absent(),
         Patch.absent(),
+        Patch.absent(),
+        Patch.absent(),
+        Patch.absent(),
+        Patch.absent(),
+        b.purchasedAt,
         Patch.absent(),
         List.of());
+  }
+
+  private static final class PatchBuilder {
+    Patch<String> name = Patch.absent();
+    Patch<String> color = Patch.absent();
+    Patch<List<String>> colors = Patch.absent();
+    Patch<LocalDate> purchasedAt = Patch.absent();
   }
 }

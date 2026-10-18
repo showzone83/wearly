@@ -34,6 +34,7 @@ class WardrobeItemJpaAdapter implements ItemPort {
         item.category(),
         item.subType(),
         item.color(),
+        item.subColors(),
         item.pattern(),
         item.seasons(),
         item.styles(),
@@ -41,7 +42,9 @@ class WardrobeItemJpaAdapter implements ItemPort {
         item.status(),
         item.brand(),
         item.wornCount(),
-        item.lastWornAt());
+        item.lastWornAt(),
+        item.purchasedAt(),
+        item.purchasedAtEstimated());
     Retirement r = item.retirement();
     e.retirement(
         r == null ? null : r.at(), r == null ? null : r.reason(), r == null ? null : r.memo());
@@ -62,6 +65,7 @@ class WardrobeItemJpaAdapter implements ItemPort {
         e.getCategory(),
         e.getSubType(),
         e.getColor(),
+        e.getSubColors(),
         e.getPattern(),
         e.getSeasons(),
         e.getStyles(),
@@ -70,6 +74,8 @@ class WardrobeItemJpaAdapter implements ItemPort {
         e.getBrand(),
         e.getWornCount(),
         e.getLastWornAt(),
+        e.getPurchasedAt(),
+        e.isPurchasedAtEstimated(),
         e.getCreatedAt(),
         e.getRetiredAt() == null
             ? null

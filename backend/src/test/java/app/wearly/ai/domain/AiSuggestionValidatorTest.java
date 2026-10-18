@@ -39,6 +39,7 @@ class AiSuggestionValidatorTest {
                 "TOP",
                 "KNIT",
                 "navy",
+                List.of("navy"),
                 "SOLID",
                 List.of("FALL", "WINTER"),
                 List.of("NEAT"),
@@ -47,6 +48,30 @@ class AiSuggestionValidatorTest {
     Map<String, Object> longName = valid();
     longName.put("name", "가".repeat(45));
     assertThat(AiSuggestionValidator.validate(longName, codes).name()).hasSize(40);
+  }
+
+  @Test
+  void colors는_주_색상을_맨_앞에_두고_중복없이_3개까지() {
+    assertThat(
+            AiSuggestionValidator.validate(with("colors", List.of("navy", "white")), codes)
+                .colors())
+        .containsExactly("navy", "white");
+    // color가 colors에서 빠졌거나 뒤에 있어도 color를 주 색상으로 맨 앞에 둔다
+    assertThat(
+            AiSuggestionValidator.validate(
+                    with("colors", List.of("white", "gray", "navy", "black", "white")), codes)
+                .colors())
+        .containsExactly("navy", "white", "gray");
+    // 예전 응답 (colors 없음)
+    assertThat(AiSuggestionValidator.validate(valid(), codes).colors()).containsExactly("navy");
+    assertRejected(with("colors", List.of("navy", "fuchsia")));
+    assertRejected(with("colors", "navy"));
+    // 새 계절 코드도 허용 값이다
+    assertThat(
+            AiSuggestionValidator.validate(
+                    with("seasons", List.of("EARLY_SPRING", "EARLY_FALL")), codes)
+                .seasons())
+        .containsExactly("EARLY_SPRING", "EARLY_FALL");
   }
 
   @Test

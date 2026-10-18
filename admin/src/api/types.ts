@@ -348,7 +348,10 @@ export interface IAiSuggestion {
   name?: string;
   category?: string;
   subType?: string;
+  /** 주 색상 (= colors[0]) */
   color?: string;
+  /** 색 1~3개, 첫 번째가 주 색상 (이슈 #4). 예전 서버는 없다 */
+  colors?: string[];
   pattern?: string;
   seasons?: string[];
   styles?: string[];

@@ -19,6 +19,7 @@ import {
   subTypeLabel,
   withCurrent,
 } from '@/lib/codes';
+import { itemColors } from '@/lib/itemAttrs';
 import { activeItems, retiredItems, retireReasonLabel } from '@/lib/retire';
 import { useCodesVersion } from '@/store/useCodes';
 import { useStore } from '@/store/useStore';
@@ -57,9 +58,9 @@ export default function Closet() {
 
   const list = useMemo(() => {
     const term = q.trim();
-    // 이름·브랜드와 함께 종류·세부 종류·색 이름으로도 찾는다
+    // 이름·브랜드와 함께 종류·세부 종류·색 이름(보조 색 포함, 서버 color 필터와 같다)으로도 찾는다
     const matches = (i: WardrobeItem) =>
-      [i.name, i.brand ?? '', categoryLabel(i.category), subTypeLabel(i.subType), colorLabel(i.color)].some((t) =>
+      [i.name, i.brand ?? '', categoryLabel(i.category), subTypeLabel(i.subType), ...itemColors(i).map(colorLabel)].some((t) =>
         t.includes(term),
       );
     const filtered = (retiredView ? retired : items).filter(

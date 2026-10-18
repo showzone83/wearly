@@ -18,7 +18,8 @@ class RetirementTest {
   static final Instant T2 = Instant.parse("2026-10-18T01:00:00Z");
 
   static WardrobeItem item() {
-    return WardrobeItem.create(7L, WardrobeDomainTest.input("TOP", "KNIT", "navy"));
+    return WardrobeItem.create(
+        7L, WardrobeDomainTest.input("TOP", "KNIT", "navy"), WardrobeDomainTest.TODAY);
   }
 
   @Test

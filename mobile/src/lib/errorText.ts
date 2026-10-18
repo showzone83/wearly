@@ -102,6 +102,22 @@ const dateRangeParts = (min: unknown, max: unknown): [string, string] => {
   return [fmt(a, min), fmt(b, max)];
 };
 
+/**
+ * 날짜 필드(min·max가 YYYY-MM-DD 문자열) 문구. verb: "볼"(날씨) · "고를"(구입일).
+ * OUT_OF_RANGE·INVALID_FORMAT이 아니면 null (기본 문구)
+ */
+const dateFieldText = (code: string, p: TParams, verb: string): string | null => {
+  if (code === 'OUT_OF_RANGE') {
+    const [min, max] = dateRangeParts(p.min, p.max);
+    if (has(p, 'min') && has(p, 'max')) return `${min}부터 ${max}까지의 날짜만 ${verb} 수 있어요.`;
+    if (has(p, 'min')) return `${min}부터의 날짜만 ${verb} 수 있어요.`;
+    if (has(p, 'max')) return `${max}까지의 날짜만 ${verb} 수 있어요.`;
+    return `${verb} 수 없는 날짜예요.`;
+  }
+  if (code === 'INVALID_FORMAT') return '날짜 형식(YYYY-MM-DD)이 올바르지 않아요.';
+  return null;
+};
+
 // ── 서버 오류 코드 (error-codes.json errorCodes, 36개) ──
 
 const AI_FEATURE: Record<string, string> = { ITEM_ANALYZE: 'AI 사진 분석', OUTFIT_RECOMMEND: 'AI 코디 추천' };
@@ -287,15 +303,14 @@ export const FIELD_TEXT: Record<string, TFieldText> = {
  */
 const FIELD_OVERRIDE: Record<string, (code: string, p: TParams) => string | null> = {
   /** GET /weather/day: min·max가 YYYY-MM-DD 문자열 */
-  date: (code, p) => {
-    if (code === 'OUT_OF_RANGE') {
-      const [min, max] = dateRangeParts(p.min, p.max);
-      if (has(p, 'min') && has(p, 'max')) return `${min}부터 ${max}까지의 날짜만 볼 수 있어요.`;
-      if (has(p, 'min')) return `${min}부터의 날짜만 볼 수 있어요.`;
-      if (has(p, 'max')) return `${max}까지의 날짜만 볼 수 있어요.`;
-      return '볼 수 없는 날짜예요.';
-    }
-    if (code === 'INVALID_FORMAT') return '날짜 형식(YYYY-MM-DD)이 올바르지 않아요.';
+  date: (code, p) => dateFieldText(code, p, '볼'),
+  /** 옷 구입일: 1990-01-01 ~ 오늘(서울). min·max가 YYYY-MM-DD 문자열 */
+  purchasedAt: (code, p) => dateFieldText(code, p, '고를'),
+  /** 옷 색 목록 (colors[i]도 배열 번호를 빼고 여기로 온다) */
+  colors: (code, p) => {
+    if (code === 'TOO_MANY') return has(p, 'max') ? `색은 ${str(p.max)}개까지 고를 수 있어요.` : '색이 너무 많아요.';
+    if (code === 'DUPLICATE') return '같은 색을 두 번 고를 수 없어요.';
+    if (code === 'REQUIRED') return '색을 하나 이상 골라 주세요.';
     return null;
   },
   /** 사진 업로드 size는 바이트. 목록 조회의 size(쪽 크기)는 작은 숫자라 기본 문구 */
@@ -327,6 +342,8 @@ const FIELD_LABEL: Record<string, string> = {
   category: '종류',
   subType: '세부 종류',
   color: '색',
+  colors: '색',
+  purchasedAt: '구입일',
   pattern: '패턴',
   seasons: '계절',
   styles: '스타일',
