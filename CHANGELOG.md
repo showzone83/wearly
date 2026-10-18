@@ -71,6 +71,8 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 - 관리자 사이트 회사 계정 로그인(SSO, 범용 OIDC) 2단계: 서버 주도 Authorization Code + PKCE(S256)로 `GET /auth/sso/providers`·`/{p}/start`·`/{p}/callback`·`POST /auth/sso/exchange`·`/{p}/logout`. state·nonce·verifier는 Valkey 5분 + state 쿠키, 교환 코드는 1분·1회라 토큰을 URL에 싣지 않고, ID 토큰은 JWKS 서명(RS·PS·ES)·iss·aud/azp·exp·iat·nonce·sub를 확인한다. IdP 계정은 발급자+sub로 `tb_user_sso`(`V22`)에 연결하고, 같은 이메일의 일반 회원(고객)은 올리지 않고 비밀번호 없는 관리자를 따로 만든다. 로그인마다 IdP 그룹(`admin-groups`·`admin-emails`)으로 역할을 맞추고(아니면 403 `SSO_NOT_ADMIN`, 연결된 관리자는 `USER`로 내리고 세션 끊기), `trust-idp-mfa`(기본 true)면 앱 TOTP 없이 들어온다. 로그인 이력 `SSO_LOGIN`·`SSO_DENIED`(+`sso_provider`·`sso_amr`), 변경 이력 `SSO_ACCOUNT_CREATE`·`SSO_ACCOUNT_LINK`. 기본은 꺼짐이고 비상 계정(비밀번호 + TOTP)은 그대로. 로컬 Keycloak(`docker compose --profile sso up -d keycloak`, 8180, realm `infra/keycloak/wearly-realm.json`), 관리자 로그인 화면 회사 계정 버튼·`/sso/callback`·IdP 로그아웃, Entra ID·Google Workspace 설정 견본 ([doc/22](doc/22_관리자_계정_관리.md) 4.2, [doc/10](doc/10_백엔드_흐름.md) 3.15) (302aaca)
 - 옷 색 복수(1~3개, 첫 번째가 주 색상)·구입일·계절 코드 3개: 아이템 `colors`(예전 `color`도 받음)와 `purchasedAt`·`purchasedAtEstimated`(비우면 등록일), 계절 `EARLY_SPRING`·`EARLY_SUMMER`·`EARLY_FALL`(`V20`), AI 사진 분석 결과 `colors`, 앱 색 칩 ①②③·구입일 입력, 관리자 시험 분석 색상 행 ([doc/05](doc/05_백엔드_API.md), [doc/06](doc/06_코드_관리.md), [doc/18](doc/18_사진_저장.md) 7.5, 이슈 #4) (78f9e62, 859ae6a)
 - 옷 상세에서 사진 바꾸기·빼기와 AI 다시 분석, 작은 사진 안내(긴 변 600 미만, 등록 2·3단계에도): 사진 시트(다시 찍기·앨범·빼기) → 1600 JPEG 업로드 → PATCH `imageId`(빼기는 `null`), 새 사진 뒤 누를 때만 분석해 바뀌는 항목을 "이전 → 새 값"으로 미리 보고 적용, 게스트 기기 사진은 `photos/{itemId}-{버전}.jpg`로 교체. 앱 단위 테스트 13개 추가(합계 24) ([doc/18](doc/18_사진_저장.md) 9.5장, [doc/04](doc/04_목업_앱.md)) (f541fa0, 이슈 #8)
+- 날씨 이력: 받기에 성공할 때마다 지역·날짜(한국 날짜)별 행을 고쳐 지난 날씨를 남긴다(예보는 마지막 값, 실측은 최저·최고·평균·비 관측 수). `tb_weather_daily_history`(`V23`), 이력 정리 대상 아님, 관리자 `GET /admin/weather/history` ([doc/17](doc/17_날씨.md) 2장) (e900b63) (작성: kang6123)
+- DB 테이블·컬럼 코멘트: V1~V22의 37개 테이블과 모든 컬럼에 `COMMENT ON`(허용 값·코드 그룹·가리키는 테이블·단위)을 달아 psql `\d+`·DBeaver에서 보이게 함(`V24`). V23부터는 테이블을 만드는 마이그레이션에서 바로 단다 ([doc/08](doc/08_백엔드_구조.md) 8장) (de8e8d9, 7d5c610) (작성: kang6123)
 
 #### 변경
 - 사진 크기 줄이기: 보관 1600px·품질 0.8, AI 전송 1024px. 2048 대비 이미지 토큰 약 74% 감소(4,082 → 1,048) ([doc/18](doc/18_사진_저장.md)) (837fe16, 0fdc1d7)
@@ -84,12 +86,17 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 - 하네스 시나리오 58개로 늘림(SSO 꺼짐 기본 동작 46번이 끼어 이후 번호가 하나씩 밀림). `harness/run.sh`는 `WEARLY_SSO_ENABLED=false`로 띄운다 (302aaca)
 - 검사 현황(2026-10-18 SSO 반영 뒤): 백엔드 634개, 하네스 58개, 관리자 단위 43개, 앱 `check:errors` 서버 51·필드 21·앱 5. compose 재빌드 뒤 Flyway `V22` 적용, `/auth/sso/providers`는 `{ enabled: false, providers: [] }`(로컬 설정에서 아직 꺼 둠). 로컬 Keycloak은 Python으로 로그인 폼을 POST해 전체 흐름 성공·교환 코드 재사용 401·`viewer@wearly.local` `SSO_NOT_ADMIN`·로그아웃 302, docker 프로필 그대로도 성공(iss 불일치 없음), 헤드리스 Chrome으로 관리자 화면 로그인 성공 ([doc/22](doc/22_관리자_계정_관리.md) 4.2.9)
 - 검사 현황(2026-10-18 20:12 compose 재빌드 뒤): 백엔드 602개, 하네스 57개, 관리자 단위 43개, 앱 단위 11개. Flyway V15·V16·V17·V20·V21 적용 확인
+- 날씨 이력·테이블 코멘트 마이그레이션 번호를 dev 뒤로 옮김: 병합할 때마다 dev가 같은 번호를 먼저 써서 V12·V13 → V15·V16 → V22·V23 → **V23·V24**. 예전 번호로 적용한 로컬 DB는 `flyway_schema_history`의 그 두 행과 `tb_weather_daily_history`를 지우고 다시 띄운다 ([doc/08](doc/08_백엔드_구조.md) 8장 "번호는 병합 전에 확인한다") (bfaf3aa, 2c2cfd7, 7d5c610) (작성: kang6123)
+- 날씨 코드에 이유 중심 커멘트(잠금 TTL 계산·연장 없음, 월 한도는 호출 이력으로 세므로 보관 일수 31일 이상 전제, 차단·시험 호출, ETag에 오늘 날짜) (2072cca) (작성: kang6123)
+- 검사 현황(2026-10-18 dev 병합 뒤): 백엔드 645개(`clean check`), 하네스 58개, 관리자 단위 44개·린트·빌드, 앱 단위 24개·`check:errors` 서버 51·필드 21·앱 5·`expo-doctor` 21/21
 
 #### 수정
 - Flyway V12 마이그레이션을 적용된 원본으로 되돌림(주석만 바꿔도 체크섬이 달라져 서버가 뜨지 않음) (e7ed166)
 - Docker 빌드에서 `gradlew` 줄바꿈을 LF로 맞춤(Windows autocrlf 대응) (9ffb102) (작성: kang6123)
 - 불필요한 `baseUrl`·`SuppressWarnings` 제거 (869417d) (작성: kang6123)
 - 앱: Android Expo Go에서 알림 모듈(`ExpoTopicSubscriptionModule`) 오류로 앱이 뜨지 않던 문제. `expo-notifications`를 처음 필요할 때 한 번만 불러오고 Android Expo Go에서는 D-1 알림을 끈다 ([doc/23](doc/23_D-1_알림.md) 8.1, 이슈 #9) (f2cd9bc)
+- 날씨 리뷰에서 찾은 버그 3건: 앱에서 "가까운 지역 찾기" 직후 옛 지역 요청에 묻혀 새 지역 날씨를 받지 않던 문제, 오프라인 뒤 지난 날짜만 남은 저장 예보·"지금" 기온을 그대로 쓰던 문제, 관리자 "지금 실행"을 실행 스레드에 넘기지 못했을 때 실행 기록이 SUCCESS로 남던 문제(FAILED로 닫고 테스트 추가) ([doc/17](doc/17_날씨.md)) (812d341) (작성: kang6123)
+- 관리자 2단계 인증 화면의 `SECRET_KEY_MISSING` 문구가 AI 키 웹 입력 안내로 나오던 문제: 마스터 키가 없거나 형식이 틀렸을 때(base64 32바이트가 아님) 만드는 방법을 안내 (7ac9a7a) (작성: kang6123)
 
 #### 보안
 - 날씨 API 키가 견본 파일(`backend/config/application-local.example.yml`)에 실제 값으로 커밋된 것(079eb7c)을 견본에서 지우고 git 제외 파일로 옮김 (e4ab5b8). 키는 git 기록에 남아 있으므로 weatherapi.com에서 재발급 권장
@@ -102,6 +109,7 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 - 날씨([doc/17](doc/17_날씨.md)), 사진 저장([doc/18](doc/18_사진_저장.md)), 장소별 날씨([doc/19](doc/19_장소별_날씨.md)), 오류 응답([doc/20](doc/20_오류_응답.md)), 예정 코디 저장([doc/21](doc/21_예정_코디_저장.md)), 관리자 계정 관리 결정([doc/22](doc/22_관리자_계정_관리.md)) (feaf9fa, 80aecc5, cc80431, f46b7c5, 0a13fe5, 39e8782)
 - 관리자 계정 관리([doc/22](doc/22_관리자_계정_관리.md)) 4.2를 "구현함"으로: 로그인 흐름·API·콜백 확인 순서·계정 연결 규칙·설정 표·로컬 Keycloak·Entra/Google 전환·오류 코드·확인 내역·한계, 5.1에 실제 IdP 연결 체크리스트. 오류 응답([doc/20](doc/20_오류_응답.md)) 13장, 요청 흐름([doc/10](doc/10_백엔드_흐름.md)) 3.15, API([doc/05](doc/05_백엔드_API.md))·관리자 사이트([doc/07](doc/07_관리자_사이트.md))·백엔드 구조([doc/08](doc/08_백엔드_구조.md))·DB 명령([doc/14](doc/14_DB_명령.md))·터미널 명령([doc/15](doc/15_터미널_명령.md))·각 README(하네스 시나리오 번호 정리 포함) 반영 (302aaca)
 - D-1 알림([doc/23](doc/23_D-1_알림.md)) 새로. 관리자 계정 관리([doc/22](doc/22_관리자_계정_관리.md)) 1단계를 "구현함"으로 고치고 구현 상세·처음 로그인 안내·휴대폰 분실 대처 추가. 디자인 테마([doc/12](doc/12_디자인_테마.md))에 계절 테마 7장. API([doc/05](doc/05_백엔드_API.md))·코드 관리([doc/06](doc/06_코드_관리.md))·관리자 사이트([doc/07](doc/07_관리자_사이트.md))·구조([doc/08](doc/08_백엔드_구조.md))·AI 추천([doc/09](doc/09_AI_코디_추천.md))·흐름([doc/10](doc/10_백엔드_흐름.md) 3.13·3.14)·DB 명령([doc/14](doc/14_DB_명령.md))·터미널 명령([doc/15](doc/15_터미널_명령.md))·사진 저장([doc/18](doc/18_사진_저장.md) 13장 프롬프트 캐싱)·장소별 날씨([doc/19](doc/19_장소별_날씨.md))·오류 응답([doc/20](doc/20_오류_응답.md) 12장)·예정 코디([doc/21](doc/21_예정_코디_저장.md) 9장)·목업 앱([doc/04](doc/04_목업_앱.md) 5.1장)과 backend·admin·harness README를 이번 작업에 맞춰 갱신
+- 백엔드 구조([doc/08](doc/08_백엔드_구조.md))에 8장 "DB 마이그레이션": 적용된 파일은 고치지 않는다, 모든 테이블·컬럼에 `COMMENT ON`, 병합 전에 번호 확인 (de8e8d9, 7d5c610) (작성: kang6123)
 
 ## 진행 중 (아직 `dev`에 없음)
 
