@@ -12,4 +12,5 @@ public record UserListRowDto(
     Instant createdAt,
     long itemCount,
     long retiredItemCount,
-    long aiToday) {}
+    long aiToday,
+    boolean mfaEnrolled) {}

@@ -19,13 +19,23 @@ import type {
   IAuditLog,
   IAuditQuery,
   IAuthEvent,
+  IAuthEventQuery,
+  IAuthEventRow,
   IAuthResponse,
   ICodeCreate,
   ICodePatch,
   IDashboard,
   ILoginRequest,
+  IMfaEnableResponse,
+  IMfaPendingResponse,
+  IMfaResetRequest,
+  IMfaSetupResponse,
+  IMfaVerifyRequest,
+  IMfaVerifyResponse,
+  IMyMfaStatus,
   IPage,
   IPageQuery,
+  IPasswordChangeRequest,
   IProviderCreate,
   IProviderModel,
   IProviderModelList,
@@ -50,6 +60,8 @@ import type {
   IWeatherTestResult,
   TAiLogDetail,
   TKeySource,
+  TLoginResponse,
+  TLoginResult,
   TProviderPatch,
   TWeatherSettingUpdate,
 } from '@/api/types';
@@ -202,6 +214,41 @@ const toAuthEvent = (r: Record<string, unknown>): IAuthEvent => {
     ip: str(r.ip),
     userAgent: str(r.userAgent),
     createdAt: String(r.createdAt ?? ''),
+  };
+};
+
+/** 관리자 로그인 기록 한 줄 (doc/22). 사용자 정보가 중첩 객체(user)로 와도 받는다 */
+const toAuthEventRow = (r: Record<string, unknown>): IAuthEventRow => {
+  const user = (r.user && typeof r.user === 'object' ? r.user : {}) as Record<string, unknown>;
+  const role = str(r.role ?? user.role);
+  return {
+    ...toAuthEvent(r),
+    id: String(r.id ?? ''),
+    userId: String(r.userId ?? user.id ?? ''),
+    email: str(r.email ?? user.email),
+    name: str(r.name ?? user.name),
+    role: role === 'ADMIN' || role === 'USER' ? role : null,
+  };
+};
+
+/** 회원 행. mfaEnrolled가 없는 예전 서버면 false */
+const toAdminUser = (r: Record<string, unknown>): IAdminUser => {
+  return { ...(r as unknown as IAdminUser), id: String(r.id ?? ''), mfaEnrolled: r.mfaEnrolled === true };
+};
+
+/** 로그인 응답이 2단계 인증 대기인가 (토큰 대신 mfaToken이 온다) */
+const isMfaPending = (raw: TLoginResponse): raw is IMfaPendingResponse => {
+  return typeof (raw as Partial<IMfaPendingResponse>).mfaToken === 'string';
+};
+
+/** 내 2단계 인증 상태 */
+const toMyMfaStatus = (raw: unknown): IMyMfaStatus => {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  return {
+    enrolled: r.enrolled === true,
+    enrolledAt: str(r.enrolledAt),
+    recoveryCodesLeft: num(r.recoveryCodesLeft),
+    required: r.required === true,
   };
 };
 
@@ -424,7 +471,9 @@ export const createAdminApi = (options: IAdminApiOptions) => {
 
     if (original.status === 403) {
       // 관리자 API의 403 FORBIDDEN = 이 계정이 더는 관리자가 아니다 (역할이 내려감)
-      if (original.code === 'FORBIDDEN') lose(original);
+      // 403 MFA_REQUIRED = 2단계 인증을 거치지 않은 세션 (doc/22) → 다시 로그인해 코드를 확인해야 한다
+      // (REAUTH_FAILED 같은 다른 403은 로그인 상태를 그대로 둔다)
+      if (original.code === 'FORBIDDEN' || original.code === 'MFA_REQUIRED') lose(original);
       throw original;
     }
     if (original.code !== 'TOKEN_EXPIRED') {
@@ -450,21 +499,56 @@ export const createAdminApi = (options: IAdminApiOptions) => {
 
   const get = <T>(path: string, query?: TQuery) => request<T>('GET', path, { auth: true, query });
 
+  /** 로그인 응답(토큰)을 저장한다. 관리자가 아니면 서버 토큰을 바로 폐기하고 NOT_ADMIN 오류를 던진다 */
+  const acceptAuth = async (auth: IAuthResponse): Promise<void> => {
+    if (auth.user?.role !== 'ADMIN') {
+      // 관리자가 아닌 계정의 토큰은 저장하지 않고 서버에서도 폐기한다
+      await request<void>('POST', '/auth/logout', { json: { refreshToken: auth.refreshToken } }).catch(() => undefined);
+      throw new ApiError(403, 'NOT_ADMIN');
+    }
+    tokenStore.set({ accessToken: auth.accessToken, refreshToken: auth.refreshToken });
+    tokenStore.setUser(auth.user);
+  };
+
   return {
     auth: {
-      /** 로그인. role이 ADMIN이 아니면 서버 토큰을 바로 폐기하고 NOT_ADMIN 오류를 던진다 */
-      login: async (req: ILoginRequest): Promise<IAuthResponse> => {
-        const auth = await request<IAuthResponse>('POST', '/auth/login', { json: req });
-        if (auth.user?.role !== 'ADMIN') {
-          // 관리자가 아닌 계정의 토큰은 저장하지 않고 서버에서도 폐기한다
-          await request<void>('POST', '/auth/logout', { json: { refreshToken: auth.refreshToken } }).catch(
-            () => undefined,
-          );
-          throw new ApiError(403, 'NOT_ADMIN');
+      /**
+       * 로그인. 2단계 인증이 필요한 관리자면 토큰 없이 대기 정보(kind 'mfa')를 돌려준다 — 토큰은 저장하지 않는다.
+       * role이 ADMIN이 아니면 서버 토큰을 바로 폐기하고 NOT_ADMIN 오류를 던진다.
+       * 오류: 401 INVALID_CREDENTIALS · 403 ACCOUNT_SUSPENDED · 429 MFA_LOCKED(retryAfterSeconds)
+       */
+      login: async (req: ILoginRequest): Promise<TLoginResult> => {
+        const raw = await request<TLoginResponse>('POST', '/auth/login', { json: req });
+        if (isMfaPending(raw)) {
+          return {
+            kind: 'mfa',
+            mfaToken: raw.mfaToken,
+            enrolled: raw.mfa?.enrolled === true,
+            expiresIn: num(raw.mfaTokenExpiresIn) ?? 300,
+          };
         }
-        tokenStore.set({ accessToken: auth.accessToken, refreshToken: auth.refreshToken });
-        tokenStore.setUser(auth.user);
-        return auth;
+        await acceptAuth(raw);
+        return { kind: 'signedIn', auth: raw };
+      },
+      /**
+       * TOTP 등록 시작 (대기 토큰, Authorization 없음). 다시 부르면 새 비밀이 나온다(앞의 것 무효).
+       * 오류: 401 MFA_TOKEN_INVALID · 409 MFA_ALREADY_ENROLLED · 409 SECRET_KEY_MISSING · 429 MFA_LOCKED
+       */
+      mfaSetup: (mfaToken: string): Promise<IMfaSetupResponse> => {
+        return request<IMfaSetupResponse>('POST', '/auth/mfa/setup', { json: { mfaToken } });
+      },
+      /**
+       * 코드 확인 → 토큰 발급·저장. recoveryCodes는 처음 등록할 때만 온다.
+       * 오류: 400 MFA_CODE_INVALID(remainingAttempts) · 401 MFA_TOKEN_INVALID · 409 MFA_SETUP_REQUIRED · 429 MFA_LOCKED
+       */
+      mfaVerify: async (req: IMfaVerifyRequest): Promise<IMfaVerifyResponse> => {
+        const raw = await request<IMfaVerifyResponse>('POST', '/auth/mfa/verify', { json: req });
+        await acceptAuth(raw);
+        return {
+          ...raw,
+          recoveryCodes: Array.isArray(raw.recoveryCodes) ? raw.recoveryCodes.map(String) : null,
+          recoveryCodesLeft: num(raw.recoveryCodesLeft),
+        };
       },
       logout: async (): Promise<void> => {
         const tokens = tokenStore.get();
@@ -479,6 +563,28 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       },
       me: (): Promise<IUserDto> => {
         return request<IUserDto>('GET', '/users/me', { auth: true });
+      },
+    },
+
+    /** 내 관리자 계정 (doc/22). 비밀번호 변경·2단계 인증 초기화는 다른 기기의 내 세션을 끊고 지금 세션은 둔다 */
+    me: {
+      mfaStatus: async (): Promise<IMyMfaStatus> => {
+        return toMyMfaStatus(await get<unknown>('/admin/me/mfa'));
+      },
+      /** 204. 오류: 400 VALIDATION_FAILED(currentPassword·newPassword) · 403 REAUTH_FAILED */
+      changePassword: (body: IPasswordChangeRequest): Promise<void> => {
+        return request<void>('POST', '/admin/me/password', { auth: true, json: body });
+      },
+      /** 내 TOTP·복구 코드 삭제 (204). 이어서 mfaSetup → mfaEnable로 다시 등록한다 */
+      mfaReset: (body: IMfaResetRequest): Promise<void> => {
+        return request<void>('POST', '/admin/me/mfa/reset', { auth: true, json: body });
+      },
+      mfaSetup: (): Promise<IMfaSetupResponse> => {
+        return request<IMfaSetupResponse>('POST', '/admin/me/mfa/setup', { auth: true });
+      },
+      mfaEnable: async (code: string): Promise<IMfaEnableResponse> => {
+        const raw = await request<IMfaEnableResponse>('POST', '/admin/me/mfa/enable', { auth: true, json: { code } });
+        return { recoveryCodes: Array.isArray(raw?.recoveryCodes) ? raw.recoveryCodes.map(String) : [] };
       },
     },
 
@@ -578,10 +684,22 @@ export const createAdminApi = (options: IAdminApiOptions) => {
 
     users: {
       list: async (q: IUserQuery): Promise<IPage<IAdminUser>> => {
-        return toPage<IAdminUser>(await get<unknown>('/admin/users', { ...q }), q);
+        return toPage(await get<unknown>('/admin/users', { ...q }), q, toAdminUser);
       },
+      /** 정지·해제, 역할 지정·해제. 역할 해제 오류: 400 role SELF_NOT_ALLOWED · 400 role CONFLICT · 409 LAST_ADMIN */
       update: (id: string, patch: IUserPatch) => {
         return request<IAdminUser>('PATCH', `/admin/users/${enc(id)}`, { auth: true, json: patch });
+      },
+      /** 다른 관리자의 2단계 인증 초기화 (204). 그 회원의 세션도 모두 끊긴다. 자기 자신은 400 id SELF_NOT_ALLOWED */
+      resetMfa: (id: string): Promise<void> => {
+        return request<void>('DELETE', `/admin/users/${enc(id)}/mfa`, { auth: true });
+      },
+    },
+
+    /** 관리자 로그인 기록 (doc/22, 최신순) */
+    authEvents: {
+      list: async (q: IAuthEventQuery): Promise<IPage<IAuthEventRow>> => {
+        return toPage(await get<unknown>('/admin/auth-events', { ...q }), q, toAuthEventRow);
       },
     },
 

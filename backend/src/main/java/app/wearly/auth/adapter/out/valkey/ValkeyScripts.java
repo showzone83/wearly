@@ -14,7 +14,7 @@ final class ValkeyScripts {
 
   /**
    * 새 세션. KEYS: rt, session, userSessions, INDEX, EXPIRY. ARGV: tokenHash, userId, sessionId,
-   * nowMs, expireAtMs, client, userAgent, ip
+   * nowMs, expireAtMs, client, userAgent, ip, mfa("1" = 2단계 인증을 확인한 세션, 그 밖은 "0")
    */
   static final RedisScript<Long> CREATE =
       new DefaultRedisScript<>(
@@ -24,6 +24,7 @@ final class ValkeyScripts {
           redis.call('PEXPIREAT', KEYS[1], ARGV[5])
           redis.call('HSET', KEYS[2], 'userId', ARGV[2], 'currentHash', ARGV[1], 'client', ARGV[6],
             'userAgent', ARGV[7], 'ip', ARGV[8], 'createdAt', ARGV[4], 'lastSeenAt', ARGV[4])
+          if ARGV[9] == '1' then redis.call('HSET', KEYS[2], 'mfa', '1') end
           redis.call('PEXPIREAT', KEYS[2], ARGV[5])
           redis.call('SADD', KEYS[3], ARGV[3])
           if redis.call('PEXPIRETIME', KEYS[3]) < tonumber(ARGV[5]) then
@@ -88,19 +89,30 @@ final class ValkeyScripts {
           List.class);
 
   /**
-   * 매 요청 인증. 세션이 있고 회원이 같으면 1, lastSeenAt이 간격보다 오래됐으면 고친다. KEYS: session, INDEX. ARGV: userId,
-   * nowMs, intervalMs, sessionId
+   * 매 요청 인증. 세션이 없거나 회원이 다르면 0, 있으면 1(2단계 인증을 확인한 세션이면 2). lastSeenAt이 간격보다 오래됐으면 고친다. KEYS:
+   * session, INDEX. ARGV: userId, nowMs, intervalMs, sessionId
    */
   static final RedisScript<Long> TOUCH =
       new DefaultRedisScript<>(
           """
-          local f = redis.call('HMGET', KEYS[1], 'userId', 'lastSeenAt')
+          local f = redis.call('HMGET', KEYS[1], 'userId', 'lastSeenAt', 'mfa')
           if f[1] ~= ARGV[1] then return 0 end
           local now = tonumber(ARGV[2])
           if now - tonumber(f[2] or '0') >= tonumber(ARGV[3]) then
             redis.call('HSET', KEYS[1], 'lastSeenAt', ARGV[2])
             redis.call('ZADD', KEYS[2], now, ARGV[4])
           end
+          if f[3] == '1' then return 2 end
+          return 1
+          """,
+          Long.class);
+
+  /** 세션을 2단계 인증을 확인한 세션으로 표시한다(있을 때만). KEYS: session. ARGV: userId. @return 1 표시함, 0 없음 */
+  static final RedisScript<Long> MARK_MFA =
+      new DefaultRedisScript<>(
+          """
+          if redis.call('HGET', KEYS[1], 'userId') ~= ARGV[1] then return 0 end
+          redis.call('HSET', KEYS[1], 'mfa', '1')
           return 1
           """,
           Long.class);

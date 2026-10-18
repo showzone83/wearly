@@ -11,12 +11,15 @@ import app.wearly.admin.application.port.in.dto.PatchUserDto;
 import app.wearly.common.web.CurrentUser;
 import app.wearly.common.web.JsonPatches;
 import app.wearly.common.web.PathIds;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
 
@@ -59,6 +62,13 @@ public class AdminController {
             ? new PatchUserDto(JsonPatches.string(body, "status"), JsonPatches.string(body, "role"))
             : null;
     return AdminUserResponse.from(users.patch(adminId, PathIds.parse(id), patch));
+  }
+
+  /** 다른 관리자의 2단계 인증 초기화 (22 문서). 그 회원의 세션을 모두 끊는다 */
+  @DeleteMapping("/users/{id}/mfa")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void resetUserMfa(@CurrentUser long adminId, @PathVariable String id) {
+    users.resetMfa(adminId, PathIds.parse(id));
   }
 
   @GetMapping("/audit-logs")

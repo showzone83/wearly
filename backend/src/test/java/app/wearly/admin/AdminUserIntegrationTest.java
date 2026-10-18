@@ -38,24 +38,62 @@ class AdminUserIntegrationTest extends IntegrationTestBase {
   }
 
   @Test
-  void 이미_있는_회원은_ADMIN으로_올리고_비밀번호는_그대로() {
+  void 관리자가_이미_있으면_설정_이메일의_일반_회원을_올리지_않는다() {
     String email = uniqueEmail();
-    Session s = api().signup(email, "pass1234", "기존회원");
-    long id = bootstrap.ensureAdmin(email.toUpperCase(), "other-password-9", "무시됨");
-    assertThat(id).isEqualTo(Long.parseLong(s.userId()));
-    // 같은 Access 토큰으로도 바로 관리자 API를 쓸 수 있다 (권한은 매 요청 DB 역할)
-    api().get("/api/v1/admin/dashboard", s.accessToken()).expect(200);
+    Session s = api().signup(email, "pass1234", "선점회원");
+    // 관리자가 이미 있으므로(시작 때 만든 관리자) 설정은 쓰지 않는다 — 새로 만들지도, 올리지도 않는다
+    assertThat(bootstrap.ensureAdmin(email.toUpperCase(), "other-password-9", "무시됨")).isEmpty();
+    assertThat(bootstrap.ensureAdmin(uniqueEmail(), "other-password-9", "새관리자")).isEmpty();
+    api().get("/api/v1/admin/dashboard", s.accessToken()).expectError(403, "FORBIDDEN");
     Resp login =
         api()
             .post("/api/v1/auth/login", null, Map.of("email", email, "password", "pass1234"))
             .expect(200);
-    assertThat(login.body().get("user").get("role").asString()).isEqualTo("ADMIN");
-    assertThat(login.body().get("user").get("name").asString()).isEqualTo("기존회원");
-    // 정리: 다시 USER로
+    assertThat(login.body().get("user").get("role").asString()).isEqualTo("USER");
+  }
+
+  @Test
+  void 관리자로_지정하면_바로_쓰고_해제하면_세션이_끊긴다() {
+    Session s = signup();
+    String t = admin().accessToken();
+    Resp promoted =
+        api().patch("/api/v1/admin/users/" + s.userId(), t, Map.of("role", "ADMIN")).expect(200);
+    assertThat(promoted.body().get("role").asString()).isEqualTo("ADMIN");
+    assertThat(promoted.body().get("mfaEnrolled").asBoolean()).isFalse();
+    // 같은 Access 토큰으로 바로 관리자 API를 쓴다 (권한은 매 요청 DB 역할, 2단계 인증 필수는 꺼져 있음)
+    api().get("/api/v1/admin/dashboard", s.accessToken()).expect(200);
+
+    api().patch("/api/v1/admin/users/" + s.userId(), t, Map.of("role", "USER")).expect(200);
+    // 해제하면 그 회원의 세션이 모두 끊겨 권한이 바로 빠진다
+    api().get("/api/v1/users/me", s.accessToken()).expectError(401, "TOKEN_INVALID");
     api()
-        .patch("/api/v1/admin/users/" + s.userId(), admin().accessToken(), Map.of("role", "USER"))
-        .expect(200);
-    api().get("/api/v1/admin/dashboard", s.accessToken()).expectError(403, "FORBIDDEN");
+        .post("/api/v1/auth/refresh", null, Map.of("refreshToken", s.refreshToken()))
+        .expectError(401, "REFRESH_INVALID");
+
+    JsonNode audits =
+        api().get("/api/v1/admin/audit-logs?targetType=USER&size=100", t).body().get("items");
+    java.util.List<String> actions = new java.util.ArrayList<>();
+    for (JsonNode a : audits) {
+      if (a.get("targetId").asString().equals(s.userId())) {
+        actions.add(a.get("action").asString());
+        assertThat(a.get("before").has("role")).isTrue();
+        assertThat(a.get("after").has("role")).isTrue();
+      }
+    }
+    assertThat(actions).containsExactly("USER_ROLE_CHANGE", "USER_ROLE_CHANGE");
+  }
+
+  @Test
+  void 정지된_회원은_관리자로_지정할_수_없다() {
+    Session s = signup();
+    String t = admin().accessToken();
+    api().patch("/api/v1/admin/users/" + s.userId(), t, Map.of("status", "SUSPENDED")).expect(200);
+    Resp r =
+        api()
+            .patch("/api/v1/admin/users/" + s.userId(), t, Map.of("role", "ADMIN"))
+            .expectError(400, "VALIDATION_FAILED");
+    assertThat(r.body().get("fieldErrors").get(0).get("field").asString()).isEqualTo("role");
+    assertThat(r.body().get("fieldErrors").get(0).get("code").asString()).isEqualTo("CONFLICT");
   }
 
   @Test

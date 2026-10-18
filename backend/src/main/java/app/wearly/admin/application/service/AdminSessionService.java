@@ -3,10 +3,12 @@ package app.wearly.admin.application.service;
 import app.wearly.admin.application.port.in.AdminSessionUseCase;
 import app.wearly.admin.application.port.in.dto.AdminSessionDto;
 import app.wearly.admin.application.port.in.dto.AdminUserSessionsDto;
+import app.wearly.admin.application.port.in.dto.AuthEventLogDto;
 import app.wearly.admin.application.port.in.dto.LoginEventDto;
 import app.wearly.admin.application.port.in.dto.PageDto;
 import app.wearly.admin.application.port.in.dto.PagingDto;
 import app.wearly.admin.application.port.out.AdminQueryPort;
+import app.wearly.admin.application.port.out.AdminQueryPort.AuthEventFilter;
 import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.application.port.out.dto.UserBriefRowDto;
 import app.wearly.admin.domain.AuditTargets;
@@ -19,6 +21,7 @@ import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.common.error.BusinessException;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -38,6 +41,18 @@ public class AdminSessionService implements AdminSessionUseCase {
 
   static final List<String> CLIENTS = List.of("APP", "ADMIN", "WEB");
   static final int RECENT_EVENTS = 20;
+
+  /** 로그인 이력 종류 (tb_auth_event.type, V16) */
+  static final List<String> EVENT_TYPES =
+      List.of(
+          "LOGIN",
+          "LOGOUT",
+          "REFRESH_REUSED",
+          "FORCED_LOGOUT",
+          "LOGIN_FAILED",
+          "MFA_SUCCESS",
+          "MFA_FAILED",
+          "MFA_LOCKED");
 
   private final SessionUseCase sessions;
   private final UserUseCase users;
@@ -133,6 +148,48 @@ public class AdminSessionService implements AdminSessionUseCase {
         Long.toString(userId),
         before,
         Map.<String, Object>of("sessionCount", 0));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public PageDto<AuthEventLogDto> authEvents(
+      String userId, String type, String from, String to, PagingDto paging) {
+    List<FieldError> errors = new ArrayList<>();
+    Long uid = null;
+    String rawUser = SearchText.blankToNull(userId);
+    if (rawUser != null) {
+      try {
+        uid = Long.parseLong(rawUser);
+      } catch (NumberFormatException e) {
+        errors.add(FieldError.invalidFormat("userId"));
+      }
+    }
+    String tp = SearchText.blankToNull(type);
+    if (tp != null && !EVENT_TYPES.contains(tp)) {
+      errors.add(FieldError.notAllowed("type", EVENT_TYPES));
+    }
+    BusinessException.throwIfAny(errors);
+    AuthEventFilter filter =
+        new AuthEventFilter(
+            uid, tp, SearchTimes.parse("from", from, false), SearchTimes.parse("to", to, true));
+    List<AuthEventLogDto> items =
+        queries.findAdminAuthEvents(filter, paging.size(), paging.offset()).stream()
+            .map(
+                r ->
+                    new AuthEventLogDto(
+                        r.id(),
+                        r.userId(),
+                        r.email(),
+                        r.name(),
+                        r.role(),
+                        r.type(),
+                        r.sessionId(),
+                        r.client(),
+                        r.ip(),
+                        r.userAgent(),
+                        r.createdAt()))
+            .toList();
+    return new PageDto<>(items, paging.page(), paging.size(), queries.countAdminAuthEvents(filter));
   }
 
   /** 세션에 회원 이메일·이름·역할을 붙인다 (순서 유지) */

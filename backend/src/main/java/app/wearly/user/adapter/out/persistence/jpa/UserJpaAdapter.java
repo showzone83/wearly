@@ -4,6 +4,7 @@ import app.wearly.user.application.port.out.UserPort;
 import app.wearly.user.domain.User;
 import app.wearly.user.domain.UserRole;
 import app.wearly.user.domain.UserStatus;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
@@ -40,6 +41,16 @@ class UserJpaAdapter implements UserPort {
   public void deleteById(long userId) {
     users.findById(userId).ifPresent(users::delete);
     users.flush();
+  }
+
+  @Override
+  public long countAdmins() {
+    return users.countAdmins();
+  }
+
+  @Override
+  public List<Long> lockActiveAdminIds() {
+    return users.lockActiveAdminIds();
   }
 
   static User toDomain(UserEntity e) {

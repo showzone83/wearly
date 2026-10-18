@@ -23,8 +23,16 @@ public record AuthEvent(
     LOGOUT,
     /** 이미 회전된 Refresh 토큰 재사용 → 세션 끊김 */
     REFRESH_REUSED,
-    /** 관리자 강제 로그아웃·회원 정지로 세션 끊김 */
-    FORCED_LOGOUT
+    /** 관리자 강제 로그아웃·회원 정지·역할 해제·비밀번호 변경·2단계 인증 초기화로 세션 끊김 */
+    FORCED_LOGOUT,
+    /** 가입한 이메일로 비밀번호가 틀림 (없는 이메일은 남기지 않는다) */
+    LOGIN_FAILED,
+    /** 관리자 2단계 인증(TOTP·복구 코드) 성공 */
+    MFA_SUCCESS,
+    /** 관리자 2단계 인증 코드가 틀림 */
+    MFA_FAILED,
+    /** 2단계 인증을 여러 번 틀려 잠김 */
+    MFA_LOCKED
   }
 
   /** 요청을 보낸 기기 정보로 */

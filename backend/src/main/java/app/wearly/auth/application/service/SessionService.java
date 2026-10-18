@@ -7,6 +7,7 @@ import app.wearly.auth.application.port.in.dto.SessionStatsDto;
 import app.wearly.auth.application.port.out.AuthEventPort;
 import app.wearly.auth.application.port.out.SessionStorePort;
 import app.wearly.auth.application.port.out.SessionStorePort.SessionSlice;
+import app.wearly.auth.application.port.out.SessionStorePort.SessionState;
 import app.wearly.auth.domain.AuthEvent;
 import app.wearly.auth.domain.ClientInfo;
 import app.wearly.auth.domain.LoginSession;
@@ -52,8 +53,14 @@ public class SessionService implements SessionUseCase {
   /** 로그인·가입: 새 세션을 만들고 LOGIN을 남긴다 (가입·로그인 트랜잭션 안에서) */
   @Transactional(propagation = Propagation.MANDATORY)
   public Issued start(long userId, ClientInfo client) {
+    return start(userId, client, false);
+  }
+
+  /** mfaVerified: 관리자 2단계 인증을 확인하고 만드는 세션 */
+  @Transactional(propagation = Propagation.MANDATORY)
+  public Issued start(long userId, ClientInfo client, boolean mfaVerified) {
     Instant now = clock.instant();
-    LoginSession session = LoginSession.start(userId, client, now);
+    LoginSession session = LoginSession.start(userId, client, now, mfaVerified);
     String raw = RefreshTokens.newRawToken();
     store.create(
         session,
@@ -103,12 +110,27 @@ public class SessionService implements SessionUseCase {
                     AuthEvent.of(s.userId(), AuthEvent.Type.LOGOUT, s.id(), by, clock.instant())));
   }
 
-  /** 매 요청: 세션이 살아 있고 그 회원의 것인지 (lastSeenAt은 1분에 한 번만 쓴다) */
-  public boolean isActive(long userId, String sessionId) {
+  /** 매 요청: 세션이 살아 있고 그 회원의 것인지와 2단계 인증 여부 (lastSeenAt은 1분에 한 번만 쓴다) */
+  public SessionState check(long userId, String sessionId) {
     if (sessionId == null || sessionId.isBlank()) {
-      return false;
+      return SessionState.GONE;
     }
     return store.touch(sessionId, userId, clock.instant(), LoginSession.SEEN_WRITE_INTERVAL);
+  }
+
+  /** 지금 세션을 2단계 인증을 확인한 세션으로 표시한다 (로그인 중 TOTP를 켤 때) */
+  public void markMfaVerified(long userId, String sessionId) {
+    if (sessionId != null && !sessionId.isBlank()) {
+      store.markMfaVerified(sessionId, userId);
+    }
+  }
+
+  /** 그 세션의 기기 정보 (없으면 빈 값) */
+  public Optional<ClientInfo> clientOf(String sessionId) {
+    if (sessionId == null || sessionId.isBlank()) {
+      return Optional.empty();
+    }
+    return store.findSession(sessionId).map(s -> new ClientInfo(s.client(), s.userAgent(), s.ip()));
   }
 
   public long refreshTtlSeconds() {
@@ -156,6 +178,23 @@ public class SessionService implements SessionUseCase {
   public int endUserSessions(long userId) {
     int n = 0;
     for (LoginSession s : store.findByUser(userId)) {
+      Optional<LoginSession> ended = store.delete(s.id());
+      if (ended.isPresent()) {
+        recordForced(ended.get());
+        n++;
+      }
+    }
+    return n;
+  }
+
+  @Override
+  @Transactional
+  public int endOtherSessions(long userId, String keepSessionId) {
+    int n = 0;
+    for (LoginSession s : store.findByUser(userId)) {
+      if (s.id().equals(keepSessionId)) {
+        continue;
+      }
       Optional<LoginSession> ended = store.delete(s.id());
       if (ended.isPresent()) {
         recordForced(ended.get());

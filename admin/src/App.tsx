@@ -4,9 +4,11 @@ import { Layout } from '@/components/Layout';
 import { AiLogsPage } from '@/pages/AiLogsPage';
 import { AppThemePage } from '@/pages/AppThemePage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
+import { AuthEventsPage } from '@/pages/AuthEventsPage';
 import { CodesPage } from '@/pages/codes/CodesPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { LoginPage } from '@/pages/LoginPage';
+import { MyAccountPage } from '@/pages/MyAccountPage';
 import { ProvidersPage } from '@/pages/providers/ProvidersPage';
 import { SessionsPage } from '@/pages/SessionsPage';
 import { UsersPage } from '@/pages/UsersPage';
@@ -43,6 +45,8 @@ export const App = () => {
         <Route path="ai/logs" element={<AiLogsPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="sessions" element={<SessionsPage />} />
+        <Route path="auth-events" element={<AuthEventsPage />} />
+        <Route path="me" element={<MyAccountPage />} />
         <Route path="weather" element={<Navigate to="/weather/schedule" replace />} />
         <Route path="weather/schedule" element={<WeatherSchedulePage />} />
         <Route path="weather/providers" element={<WeatherProvidersPage />} />

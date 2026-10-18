@@ -53,7 +53,15 @@ public class InMemorySessionStore implements SessionStorePort {
     sessions.put(
         s.id(),
         new LoginSession(
-            s.id(), s.userId(), s.client(), s.userAgent(), s.ip(), s.createdAt(), now, now));
+            s.id(),
+            s.userId(),
+            s.client(),
+            s.userAgent(),
+            s.ip(),
+            s.createdAt(),
+            now,
+            now,
+            s.mfaVerified()));
     return true;
   }
 
@@ -63,9 +71,33 @@ public class InMemorySessionStore implements SessionStorePort {
   }
 
   @Override
-  public boolean touch(String sessionId, long userId, Instant now, Duration minInterval) {
+  public SessionState touch(String sessionId, long userId, Instant now, Duration minInterval) {
     LoginSession s = sessions.get(sessionId);
-    return s != null && s.userId() == userId;
+    if (s == null || s.userId() != userId) {
+      return SessionState.GONE;
+    }
+    return s.mfaVerified() ? SessionState.ACTIVE_MFA : SessionState.ACTIVE;
+  }
+
+  @Override
+  public boolean markMfaVerified(String sessionId, long userId) {
+    LoginSession s = sessions.get(sessionId);
+    if (s == null || s.userId() != userId) {
+      return false;
+    }
+    sessions.put(
+        sessionId,
+        new LoginSession(
+            s.id(),
+            s.userId(),
+            s.client(),
+            s.userAgent(),
+            s.ip(),
+            s.createdAt(),
+            s.lastRefreshAt(),
+            s.lastSeenAt(),
+            true));
+    return true;
   }
 
   @Override

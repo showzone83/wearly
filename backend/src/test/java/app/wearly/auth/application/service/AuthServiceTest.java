@@ -4,8 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.wearly.auth.application.port.in.dto.AuthResultDto;
+import app.wearly.auth.application.port.in.dto.AuthenticatedDto;
 import app.wearly.auth.application.port.in.dto.ClientDto;
 import app.wearly.auth.application.port.in.dto.LoginDto;
+import app.wearly.auth.application.port.in.dto.LoginResultDto;
+import app.wearly.auth.application.port.in.dto.MfaVerifyDto;
+import app.wearly.auth.application.port.in.dto.MfaVerifyResultDto;
 import app.wearly.auth.application.port.in.dto.SignupDto;
 import app.wearly.auth.application.port.out.AccessTokenIssuer;
 import app.wearly.auth.application.port.out.AuthEventPort;
@@ -15,11 +19,13 @@ import app.wearly.auth.domain.AuthEvent;
 import app.wearly.auth.domain.ClientKind;
 import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
+import app.wearly.auth.domain.MfaPolicy;
 import app.wearly.auth.domain.RefreshTokens;
 import app.wearly.auth.domain.TokenPolicy;
 import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.support.FakeUsers;
+import app.wearly.support.InMemoryMfa;
 import app.wearly.support.InMemorySessionStore;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.time.Clock;
@@ -81,6 +87,13 @@ class AuthServiceTest {
         public void markLogin(long credentialId, Instant at) {
           loginMarks.add(credentialId);
         }
+
+        @Override
+        public void changePassword(long credentialId, String passwordHash) {
+          LocalCredential c = credentialRows.get(credentialId);
+          credentialRows.put(
+              credentialId, new LocalCredential(c.id(), c.userId(), c.email(), passwordHash));
+        }
       };
 
   final PasswordHasher hasher =
@@ -113,7 +126,26 @@ class AuthServiceTest {
   final SessionService sessions =
       new SessionService(store, eventPort, new TokenPolicy(Duration.ofDays(14)), clock);
 
-  final AuthService service = new AuthService(users, credentials, sessions, issuer, hasher, clock);
+  final InMemoryMfa mfaStore = new InMemoryMfa();
+
+  /** 관리자 2단계 인증 필수 (설정 wearly.admin.mfa.required 기본값) */
+  final MfaService mfa =
+      new MfaService(
+          users,
+          mfaStore,
+          mfaStore,
+          mfaStore.cipher,
+          mfaStore.totp,
+          sessions,
+          issuer,
+          credentials,
+          hasher,
+          eventPort,
+          new MfaPolicy(true, null),
+          clock);
+
+  final AuthService service =
+      new AuthService(users, credentials, sessions, mfa, issuer, hasher, eventPort, clock);
 
   @Test
   void 가입하면_이메일을_정규화해_저장하고_토큰을_준다() {
@@ -163,6 +195,10 @@ class AuthServiceTest {
             e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS));
     assertThat(checkedHashes).containsExactly("hash:wearly-dummy-password-1", "hash:pass1234");
     assertThat(loginMarks).isEmpty();
+    // 가입한 이메일의 비밀번호 실패만 로그인 이력에 남긴다 (없는 이메일은 남기지 않는다)
+    assertThat(events.stream().filter(e -> e.type() == AuthEvent.Type.LOGIN_FAILED))
+        .singleElement()
+        .satisfies(e -> assertThat(e.sessionId()).isNull());
   }
 
   @Test
@@ -193,9 +229,11 @@ class AuthServiceTest {
     service.signup(new SignupDto("c@wearly.test", "pass1234", "기기"), ClientDto.UNKNOWN);
     events.clear();
     AuthResultDto r =
-        service.login(
-            new LoginDto("c@wearly.test", "pass1234"),
-            new ClientDto("admin", "Mozilla/5.0 Chrome", "203.0.113.9"));
+        service
+            .login(
+                new LoginDto("c@wearly.test", "pass1234"),
+                new ClientDto("admin", "Mozilla/5.0 Chrome", "203.0.113.9"))
+            .tokens();
 
     String sid = r.accessToken().substring(r.accessToken().lastIndexOf(':') + 1);
     var session = store.sessions.get(sid);
@@ -214,14 +252,15 @@ class AuthServiceTest {
               assertThat(e.sessionId()).isEqualTo(session.id());
               assertThat(e.client()).isEqualTo(ClientKind.ADMIN);
             });
-    assertThat(service.authenticate(r.user().id(), session.id())).contains("USER");
+    assertThat(service.authenticate(r.user().id(), session.id()))
+        .contains(new AuthenticatedDto("USER", false));
     assertThat(service.authenticate(r.user().id(), null)).isEmpty(); // sid 없는 옛 토큰
     assertThat(service.authenticate(r.user().id() + 1, session.id())).isEmpty(); // 남의 세션
   }
 
   @Test
   void 회전한_토큰을_다시_쓰면_세션을_끊고_REFRESH_REUSED를_남긴다() {
-    AuthResultDto first = service.login(signupAndLogin(), PHONE);
+    AuthResultDto first = service.login(signupAndLogin(), PHONE).tokens();
     String sid =
         store.findToken(RefreshTokens.hash(first.refreshToken())).orElseThrow().sessionId();
     AuthResultDto second = service.refresh(first.refreshToken(), PHONE);
@@ -244,7 +283,7 @@ class AuthServiceTest {
 
   @Test
   void 로그아웃하면_세션이_끊기고_LOGOUT을_남긴다_없는_토큰은_조용히() {
-    AuthResultDto r = service.login(signupAndLogin(), PHONE);
+    AuthResultDto r = service.login(signupAndLogin(), PHONE).tokens();
     String sid = store.findToken(RefreshTokens.hash(r.refreshToken())).orElseThrow().sessionId();
 
     service.logout("unknown", PHONE);
@@ -265,7 +304,7 @@ class AuthServiceTest {
   void 강제_로그아웃은_그_회원의_세션만_모두_끊는다() {
     final AuthResultDto b =
         service.signup(new SignupDto("other@wearly.test", "pass1234", "남"), PHONE);
-    final AuthResultDto a = service.login(signupAndLogin(), PHONE); // 가입 + 로그인 = 세션 2개
+    final AuthResultDto a = service.login(signupAndLogin(), PHONE).tokens(); // 가입 + 로그인 = 세션 2개
     events.clear();
 
     assertThat(sessions.endUserSessions(a.user().id())).isEqualTo(2);
@@ -290,6 +329,158 @@ class AuthServiceTest {
     assertThat(checkedHashes)
         .containsExactly(
             "hash:wearly-dummy-password-1", "hash:wearly-dummy-password-1", "hash:pass1234");
+  }
+
+  // ── 관리자 2단계 인증 (22 문서) ──
+
+  static final ClientDto ADMIN_SITE = new ClientDto("admin", "Mozilla/5.0 Chrome", "203.0.113.9");
+
+  /** 관리자 계정 (자격 증명 포함) */
+  private long admin(String email) {
+    return service.createAccount(email, "pass1234", "관리자", UserAccountDto.ROLE_ADMIN);
+  }
+
+  private static String sid(AuthResultDto r) {
+    return r.accessToken().substring(r.accessToken().lastIndexOf(':') + 1);
+  }
+
+  private static ErrorCode codeOf(Runnable call) {
+    try {
+      call.run();
+    } catch (BusinessException e) {
+      return e.code();
+    }
+    throw new AssertionError("BusinessException이 나지 않았어요");
+  }
+
+  @Test
+  void 관리자_사이트_로그인은_대기_토큰을_주고_앱_로그인_세션은_관리자_API를_못_쓴다() {
+    long id = admin("m1@wearly.test");
+
+    LoginResultDto site = service.login(new LoginDto("m1@wearly.test", "pass1234"), ADMIN_SITE);
+    assertThat(site.tokens()).isNull();
+    assertThat(site.mfa().enrolled()).isFalse();
+    assertThat(site.mfa().expiresInSeconds()).isEqualTo(300);
+    assertThat(store.sessions).isEmpty(); // 대기 중에는 세션이 없다
+    assertThat(loginMarks).isEmpty();
+
+    // 앱 로그인은 예전처럼 토큰을 주지만, 그 세션은 2단계 인증을 거치지 않았다
+    AuthResultDto app = service.login(new LoginDto("m1@wearly.test", "pass1234"), PHONE).tokens();
+    assertThat(service.authenticate(id, sid(app)))
+        .contains(new AuthenticatedDto(UserAccountDto.ROLE_ADMIN, true));
+  }
+
+  @Test
+  void 등록하면_복구_코드를_주고_같은_코드는_다시_못_쓴다() {
+    long id = admin("m2@wearly.test");
+    String token =
+        service.login(new LoginDto("m2@wearly.test", "pass1234"), ADMIN_SITE).mfa().mfaToken();
+
+    // 등록 시작 없이 코드를 보내면 409
+    assertThat(codeOf(() -> mfa.verify(new MfaVerifyDto(token, "000100", null), ADMIN_SITE)))
+        .isEqualTo(ErrorCode.MFA_SETUP_REQUIRED);
+    assertThat(mfa.setup(token).otpauthUrl()).contains("m2@wearly.test");
+    MfaVerifyResultDto first = mfa.verify(new MfaVerifyDto(token, "000100", null), ADMIN_SITE);
+    assertThat(first.recoveryCodes()).hasSize(10).doesNotHaveDuplicates();
+    assertThat(first.recoveryCodesLeft()).isEqualTo(10);
+    assertThat(mfaStore.enrollments.get(id).lastUsedStep()).isEqualTo(100);
+    assertThat(service.authenticate(id, sid(first.tokens())))
+        .contains(new AuthenticatedDto(UserAccountDto.ROLE_ADMIN, false));
+    assertThat(events.stream().map(AuthEvent::type))
+        .containsSubsequence(AuthEvent.Type.LOGIN, AuthEvent.Type.MFA_SUCCESS);
+    // 대기 토큰은 한 번만 쓴다
+    assertThat(codeOf(() -> mfa.verify(new MfaVerifyDto(token, "000101", null), ADMIN_SITE)))
+        .isEqualTo(ErrorCode.MFA_TOKEN_INVALID);
+
+    // 다음 로그인: 등록됨. 같은 단계의 코드(재사용)는 틀린 코드로 센다
+    String next =
+        service.login(new LoginDto("m2@wearly.test", "pass1234"), ADMIN_SITE).mfa().mfaToken();
+    assertThat(codeOf(() -> mfa.verify(new MfaVerifyDto(next, "000100", null), ADMIN_SITE)))
+        .isEqualTo(ErrorCode.MFA_CODE_INVALID);
+    assertThatThrownBy(() -> mfa.setup(next))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.MFA_ALREADY_ENROLLED));
+    String recovery = first.recoveryCodes().get(3);
+    MfaVerifyResultDto viaRecovery =
+        mfa.verify(new MfaVerifyDto(next, null, recovery.toUpperCase()), ADMIN_SITE);
+    assertThat(viaRecovery.recoveryCodes()).isNull();
+    assertThat(viaRecovery.recoveryCodesLeft()).isEqualTo(9);
+    assertThat(mfaStore.failures).doesNotContainKey(id); // 성공하면 틀린 횟수를 지운다
+
+    // 쓴 복구 코드는 다시 못 쓴다
+    String again =
+        service.login(new LoginDto("m2@wearly.test", "pass1234"), ADMIN_SITE).mfa().mfaToken();
+    assertThat(codeOf(() -> mfa.verify(new MfaVerifyDto(again, null, recovery), ADMIN_SITE)))
+        .isEqualTo(ErrorCode.MFA_CODE_INVALID);
+    assertThat(mfa.verify(new MfaVerifyDto(again, "000101", null), ADMIN_SITE).tokens())
+        .isNotNull();
+  }
+
+  @Test
+  void 다섯_번_틀리면_잠그고_대기_토큰을_지운다() {
+    final long id = admin("m3@wearly.test");
+    String token =
+        service.login(new LoginDto("m3@wearly.test", "pass1234"), ADMIN_SITE).mfa().mfaToken();
+    mfa.setup(token);
+    events.clear();
+
+    for (int i = 1; i <= 4; i++) {
+      final int tried = i;
+      assertThatThrownBy(() -> mfa.verify(new MfaVerifyDto(token, "999999", null), ADMIN_SITE))
+          .isInstanceOfSatisfying(
+              BusinessException.class,
+              e -> {
+                assertThat(e.code()).isEqualTo(ErrorCode.MFA_CODE_INVALID);
+                assertThat(e.params()).containsEntry("remainingAttempts", 5L - tried);
+              });
+    }
+    assertThatThrownBy(() -> mfa.verify(new MfaVerifyDto(token, "999999", null), ADMIN_SITE))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            e -> {
+              assertThat(e.code()).isEqualTo(ErrorCode.MFA_LOCKED);
+              assertThat(e.params()).containsEntry("retryAfterSeconds", 900L);
+            });
+    assertThat(mfaStore.pending).isEmpty();
+    assertThat(codeOf(() -> mfa.verify(new MfaVerifyDto(token, "000100", null), ADMIN_SITE)))
+        .isEqualTo(ErrorCode.MFA_TOKEN_INVALID);
+    // 잠긴 동안에는 비밀번호가 맞아도 대기 토큰을 주지 않는다
+    assertThat(codeOf(() -> service.login(new LoginDto("m3@wearly.test", "pass1234"), ADMIN_SITE)))
+        .isEqualTo(ErrorCode.MFA_LOCKED);
+    assertThat(events.stream().map(AuthEvent::type))
+        .containsExactly(
+            AuthEvent.Type.MFA_FAILED,
+            AuthEvent.Type.MFA_FAILED,
+            AuthEvent.Type.MFA_FAILED,
+            AuthEvent.Type.MFA_FAILED,
+            AuthEvent.Type.MFA_FAILED,
+            AuthEvent.Type.MFA_LOCKED);
+    assertThat(events).allMatch(e -> e.userId() == id && e.client() == ClientKind.ADMIN);
+    // 형식이 틀린 입력은 횟수에 넣지 않고 400
+    mfaStore.locks.clear();
+    String next =
+        service.login(new LoginDto("m3@wearly.test", "pass1234"), ADMIN_SITE).mfa().mfaToken();
+    assertThat(codeOf(() -> mfa.verify(new MfaVerifyDto(next, "12ab", null), ADMIN_SITE)))
+        .isEqualTo(ErrorCode.VALIDATION_FAILED);
+    assertThat(mfaStore.failures).doesNotContainKey(id);
+  }
+
+  @Test
+  void 비밀번호를_바꾸면_다른_세션만_끊는다() {
+    AuthResultDto keep = service.signup(new SignupDto("p@wearly.test", "pass1234", "비번"), PHONE);
+    AuthResultDto other = service.login(new LoginDto("p@wearly.test", "pass1234"), PHONE).tokens();
+    long id = keep.user().id();
+
+    assertThat(codeOf(() -> service.changePassword(id, sid(keep), "wrong", "newpass99")))
+        .isEqualTo(ErrorCode.REAUTH_FAILED);
+    assertThat(codeOf(() -> service.changePassword(id, sid(keep), "pass1234", "short")))
+        .isEqualTo(ErrorCode.VALIDATION_FAILED);
+    assertThat(service.changePassword(id, sid(keep), "pass1234", "newpass99")).isEqualTo(1);
+
+    assertThat(service.authenticate(id, sid(keep))).isPresent();
+    assertThat(service.authenticate(id, sid(other))).isEmpty();
+    assertThat(service.passwordMatches(id, "newpass99")).isTrue();
   }
 
   private LoginDto signupAndLogin() {

@@ -63,6 +63,13 @@ public class FakeSessions implements SessionUseCase {
   }
 
   @Override
+  public int endOtherSessions(long userId, String keepSessionId) {
+    int before = rows.size();
+    rows.removeIf(s -> s.userId() == userId && !s.sessionId().equals(keepSessionId));
+    return before - rows.size();
+  }
+
+  @Override
   public void dropUserSessions(long userId) {
     rows.removeIf(s -> s.userId() == userId);
   }

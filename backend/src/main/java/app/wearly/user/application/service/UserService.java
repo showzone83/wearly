@@ -12,6 +12,7 @@ import app.wearly.user.domain.UserRole;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -60,6 +61,18 @@ public class UserService implements UserUseCase {
     User user = users.findById(userId).orElseThrow(BusinessException::notFound);
     user.changeAccess(status, role);
     return toAccount(users.save(user));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public long countAdmins() {
+    return users.countAdmins();
+  }
+
+  @Override
+  @Transactional(propagation = Propagation.MANDATORY)
+  public List<Long> lockActiveAdmins() {
+    return users.lockActiveAdminIds();
   }
 
   @Override

@@ -2,9 +2,11 @@ package app.wearly.admin.adapter.out.persistence.mybatis;
 
 import app.wearly.admin.adapter.out.persistence.mybatis.mapper.AdminQueryMapper;
 import app.wearly.admin.application.port.out.AdminQueryPort;
+import app.wearly.admin.application.port.out.AdminQueryPort.AuthEventFilter;
 import app.wearly.admin.application.port.out.dto.AiCountsDto;
 import app.wearly.admin.application.port.out.dto.AiLogRowDto;
 import app.wearly.admin.application.port.out.dto.AuditLogRowDto;
+import app.wearly.admin.application.port.out.dto.AuthEventLogRowDto;
 import app.wearly.admin.application.port.out.dto.AuthEventRowDto;
 import app.wearly.admin.application.port.out.dto.DashboardCountsDto;
 import app.wearly.admin.application.port.out.dto.ProviderStatDto;
@@ -87,5 +89,16 @@ class AdminQueryMybatisAdapter implements AdminQueryPort {
   @Override
   public List<AuthEventRowDto> findAuthEvents(long userId, int limit) {
     return mapper.findAuthEvents(userId, limit);
+  }
+
+  @Override
+  public List<AuthEventLogRowDto> findAdminAuthEvents(
+      AuthEventFilter filter, int limit, long offset) {
+    return mapper.findAdminAuthEvents(filter, limit, offset);
+  }
+
+  @Override
+  public long countAdminAuthEvents(AuthEventFilter filter) {
+    return mapper.countAdminAuthEvents(filter);
   }
 }

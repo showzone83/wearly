@@ -30,6 +30,13 @@ public interface SessionUseCase {
   /** 강제 로그아웃·정지: 그 회원의 세션을 모두 끊고 세션마다 FORCED_LOGOUT을 남긴다. @return 끊은 세션 수 */
   int endUserSessions(long userId);
 
+  /**
+   * 비밀번호 변경·자기 2단계 인증 초기화: keepSessionId(지금 세션)만 남기고 그 회원의 다른 세션을 모두 끊는다(세션마다 FORCED_LOGOUT).
+   *
+   * @return 끊은 세션 수
+   */
+  int endOtherSessions(long userId, String keepSessionId);
+
   /** 탈퇴: 기록 없이 그 회원의 세션을 모두 지운다 (회원 행과 이력이 함께 지워지므로) */
   void dropUserSessions(long userId);
 

@@ -17,7 +17,8 @@ public record AdminUserResponse(
     String createdAt,
     long itemCount,
     long retiredItemCount,
-    long aiToday) {
+    long aiToday,
+    boolean mfaEnrolled) {
 
   public static AdminUserResponse from(AdminUserDto d) {
     return new AdminUserResponse(
@@ -29,6 +30,7 @@ public record AdminUserResponse(
         Times.iso(d.createdAt()),
         d.itemCount(),
         d.retiredItemCount(),
-        d.aiToday());
+        d.aiToday(),
+        d.mfaEnrolled());
   }
 }

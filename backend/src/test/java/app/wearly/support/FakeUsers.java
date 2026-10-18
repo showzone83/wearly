@@ -5,6 +5,7 @@ import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -50,5 +51,18 @@ public class FakeUsers implements UserUseCase {
   @Override
   public void delete(long userId) {
     rows.remove(userId);
+  }
+
+  @Override
+  public long countAdmins() {
+    return rows.values().stream().filter(UserAccountDto::isAdmin).count();
+  }
+
+  @Override
+  public List<Long> lockActiveAdmins() {
+    return rows.values().stream()
+        .filter(u -> u.isAdmin() && u.isActive())
+        .map(UserAccountDto::id)
+        .toList();
   }
 }

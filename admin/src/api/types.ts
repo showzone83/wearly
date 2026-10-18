@@ -67,6 +67,77 @@ export interface ILoginRequest {
   password: string;
 }
 
+// ───────── 관리자 2단계 인증 (TOTP, doc/22) ─────────
+
+/**
+ * 2단계 인증이 필요한 관리자의 로그인 응답 (`POST /auth/login`, X-Wearly-Client: admin).
+ * 토큰·user가 없고, mfaToken(5분짜리 대기 토큰)으로 /auth/mfa/setup·verify만 부를 수 있다. 화면은 메모리에만 둔다.
+ */
+export interface IMfaPendingResponse {
+  mfa: { required: boolean; enrolled: boolean };
+  mfaToken: string;
+  /** 대기 토큰 수명(초) */
+  mfaTokenExpiresIn: number;
+}
+
+/** `POST /auth/login` 응답: 토큰(일반 회원·2단계 인증이 필요 없는 관리자) 또는 2단계 인증 대기 */
+export type TLoginResponse = IAuthResponse | IMfaPendingResponse;
+
+/** api.auth.login 결과. mfa면 토큰을 저장하지 않았다 */
+export type TLoginResult =
+  { kind: 'signedIn'; auth: IAuthResponse } | { kind: 'mfa'; mfaToken: string; enrolled: boolean; expiresIn: number };
+
+/** TOTP 등록 시작 응답 (`POST /auth/mfa/setup`, `POST /admin/me/mfa/setup`). 다시 부르면 새 비밀이 나온다 */
+export interface IMfaSetupResponse {
+  /** 수동 입력용 BASE32 비밀 */
+  secret: string;
+  /** otpauth://totp/… — QR로 보여 준다 */
+  otpauthUrl: string;
+}
+
+/** `POST /auth/mfa/verify` 본문. code(6자리) 또는 recoveryCode(등록된 관리자만) 하나 */
+export interface IMfaVerifyRequest {
+  mfaToken: string;
+  code?: string;
+  recoveryCode?: string;
+}
+
+/** `POST /auth/mfa/verify` 응답 */
+export interface IMfaVerifyResponse extends IAuthResponse {
+  /** 처음 등록할 때만 10개(한 번만 보여 준다). 그 밖에는 null */
+  recoveryCodes: string[] | null;
+  /** 남은 복구 코드 수. 3 이하이면 다시 등록하라고 알린다 */
+  recoveryCodesLeft: number | null;
+}
+
+/** `GET /admin/me/mfa` */
+export interface IMyMfaStatus {
+  enrolled: boolean;
+  enrolledAt: string | null;
+  recoveryCodesLeft: number | null;
+  /** 서버 설정 wearly.admin.mfa.required */
+  required: boolean;
+}
+
+/** `POST /admin/me/password` */
+export interface IPasswordChangeRequest {
+  currentPassword: string;
+  /** 8~64자, 영문과 숫자 포함 */
+  newPassword: string;
+}
+
+/** `POST /admin/me/mfa/reset`. code 또는 recoveryCode 하나 */
+export interface IMfaResetRequest {
+  currentPassword: string;
+  code?: string;
+  recoveryCode?: string;
+}
+
+/** `POST /admin/me/mfa/enable` 응답 */
+export interface IMfaEnableResponse {
+  recoveryCodes: string[];
+}
+
 // ───────── 대시보드 ─────────
 
 export interface IProviderStat7d {
@@ -327,6 +398,8 @@ export interface IAdminUser {
   createdAt: string;
   itemCount: number;
   aiToday: number;
+  /** TOTP를 등록했는지 (관리자만 의미 있음). 예전 서버면 false */
+  mfaEnrolled: boolean;
 }
 
 export interface IUserQuery extends IPageQuery {
@@ -372,7 +445,16 @@ export interface ISessionQuery extends IPageQuery {
   client?: string;
 }
 
-export type TAuthEventType = 'LOGIN' | 'LOGOUT' | 'REFRESH_REUSED' | 'FORCED_LOGOUT' | (string & {});
+export type TAuthEventType =
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'REFRESH_REUSED'
+  | 'FORCED_LOGOUT'
+  | 'LOGIN_FAILED'
+  | 'MFA_SUCCESS'
+  | 'MFA_FAILED'
+  | 'MFA_LOCKED'
+  | (string & {});
 
 /** 회원별 최근 로그인 이력 (`tb_auth_event`) */
 export interface IAuthEvent {
@@ -389,6 +471,27 @@ export interface IUserSessions {
   sessions: IAdminSession[];
   /** 최근 이력 (최신순, 최대 20개) */
   events: IAuthEvent[];
+}
+
+// ───────── 관리자 로그인 기록 (doc/22) ─────────
+
+/** `GET /admin/auth-events` 한 줄: 지금 관리자인 회원의 이벤트 + 관리자 사이트에서 일어난 모든 이벤트 */
+export interface IAuthEventRow extends IAuthEvent {
+  id: string;
+  userId: string;
+  email: string | null;
+  name: string | null;
+  role: TUserRole | null;
+}
+
+export interface IAuthEventQuery extends IPageQuery {
+  /** 회원 ID (숫자 문자열) */
+  userId?: string;
+  /** TAuthEventType 하나 */
+  type?: string;
+  /** YYYY-MM-DD (한국 날짜, to 포함) */
+  from?: string;
+  to?: string;
 }
 
 // ───────── 변경 이력 ─────────

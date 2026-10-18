@@ -1,14 +1,13 @@
 package app.wearly.auth.config;
 
 import app.wearly.auth.adapter.in.web.ExpiryValidator;
+import app.wearly.auth.adapter.in.web.RestAccessDeniedHandler;
 import app.wearly.auth.adapter.in.web.RestAuthenticationEntryPoint;
 import app.wearly.auth.adapter.in.web.UserIdAuthenticationConverter;
 import app.wearly.auth.adapter.in.web.UserIdMdcFilter;
 import app.wearly.auth.application.port.in.AuthenticationUseCase;
 import app.wearly.auth.domain.TokenPolicy;
 import app.wearly.common.config.WearlyProperties;
-import app.wearly.common.error.ErrorCode;
-import app.wearly.common.error.ErrorResponseWriter;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -53,7 +52,7 @@ public class SecurityConfig {
   SecurityFilterChain securityFilterChain(
       HttpSecurity http,
       RestAuthenticationEntryPoint entryPoint,
-      ErrorResponseWriter errorWriter,
+      RestAccessDeniedHandler accessDenied,
       AuthenticationUseCase authentication,
       JwtDecoder jwtDecoder)
       throws Exception {
@@ -86,18 +85,14 @@ public class SecurityConfig {
                 oauth
                     .bearerTokenResolver(bearerTokenResolver())
                     .authenticationEntryPoint(entryPoint)
-                    .accessDeniedHandler(
-                        (req, res, e) -> errorWriter.write(req, res, ErrorCode.FORBIDDEN))
+                    .accessDeniedHandler(accessDenied)
                     .jwt(
                         jwt ->
                             jwt.decoder(jwtDecoder)
                                 .jwtAuthenticationConverter(
                                     new UserIdAuthenticationConverter(authentication))))
         .exceptionHandling(
-            ex ->
-                ex.authenticationEntryPoint(entryPoint)
-                    .accessDeniedHandler(
-                        (req, res, e) -> errorWriter.write(req, res, ErrorCode.FORBIDDEN)))
+            ex -> ex.authenticationEntryPoint(entryPoint).accessDeniedHandler(accessDenied))
         // 로그의 userId (인증 뒤, 권한 검사 앞이라 403 로그에도 찍힌다)
         .addFilterAfter(new UserIdMdcFilter(), BearerTokenAuthenticationFilter.class);
     return http.build();

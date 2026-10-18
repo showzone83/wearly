@@ -11,11 +11,14 @@ import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.application.port.out.dto.UserListRowDto;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.admin.domain.SearchText;
+import app.wearly.auth.application.port.in.MfaUseCase;
 import app.wearly.auth.application.port.in.SessionUseCase;
+import app.wearly.auth.application.port.in.dto.MfaStatusDto;
 import app.wearly.common.domain.FieldError;
 import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.common.domain.Zones;
 import app.wearly.common.error.BusinessException;
+import app.wearly.common.error.ErrorCode;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.time.Clock;
@@ -27,7 +30,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 회원 목록(MyBatis)·정지·역할 변경(user·auth 컨텍스트 유스케이스) (07 문서 4장 "회원") */
+/** 회원 목록(MyBatis)·정지·역할 지정·해제·2단계 인증 초기화(user·auth 컨텍스트 유스케이스) (07 문서 4장 "회원", 22 문서 4.1) */
 @Service
 public class AdminUserService implements AdminUserUseCase {
 
@@ -37,6 +40,7 @@ public class AdminUserService implements AdminUserUseCase {
   private final AdminQueryPort queries;
   private final UserUseCase users;
   private final SessionUseCase sessions;
+  private final MfaUseCase mfa;
   private final RecordAuditPort audit;
   private final Clock clock;
 
@@ -44,11 +48,13 @@ public class AdminUserService implements AdminUserUseCase {
       AdminQueryPort queries,
       UserUseCase users,
       SessionUseCase sessions,
+      MfaUseCase mfa,
       RecordAuditPort audit,
       Clock clock) {
     this.queries = queries;
     this.users = users;
     this.sessions = sessions;
+    this.mfa = mfa;
     this.audit = audit;
     this.clock = clock;
   }
@@ -114,16 +120,56 @@ public class AdminUserService implements AdminUserUseCase {
         role = v;
       }
     }
+    boolean promoting = !user.isAdmin() && UserAccountDto.ROLE_ADMIN.equals(role);
+    if (promoting && UserAccountDto.SUSPENDED.equals(status)) {
+      // 정지된 회원은 관리자로 지정할 수 없다 (22 문서)
+      errors.add(new FieldError("role", FieldErrorCode.CONFLICT));
+    }
     BusinessException.throwIfAny(errors);
+    boolean wasUsableAdmin = user.isAdmin() && user.isActive();
+    boolean staysUsableAdmin =
+        UserAccountDto.ROLE_ADMIN.equals(role) && UserAccountDto.ACTIVE.equals(status);
+    if (wasUsableAdmin && !staysUsableAdmin) {
+      // 쓸 수 있는 관리자가 한 명도 남지 않으면 409 (동시 해제에도 맞게 관리자 행을 잠그고 센다)
+      List<Long> admins = users.lockActiveAdmins();
+      if (admins.stream().noneMatch(id -> id != userId)) {
+        throw new BusinessException(ErrorCode.LAST_ADMIN);
+      }
+    }
     Map<String, Object> before = state(user);
     boolean suspending =
         !UserAccountDto.SUSPENDED.equals(user.status()) && UserAccountDto.SUSPENDED.equals(status);
+    boolean demoting = user.isAdmin() && !UserAccountDto.ROLE_ADMIN.equals(role);
     UserAccountDto after = users.changeAccess(userId, status, role);
-    if (suspending) {
+    if (suspending || demoting) {
+      // 정지·관리자 해제는 그 회원의 세션을 모두 끊어 바로 반영한다 (FORCED_LOGOUT)
       sessions.endUserSessions(userId);
     }
-    audit.record(
-        adminId, "USER_UPDATE", AuditTargets.USER, Long.toString(userId), before, state(after));
+    String action = user.role().equals(role) ? "USER_UPDATE" : "USER_ROLE_CHANGE";
+    audit.record(adminId, action, AuditTargets.USER, Long.toString(userId), before, state(after));
+    return view(userId);
+  }
+
+  @Override
+  @Transactional
+  public void resetMfa(long adminId, long userId) {
+    if (userId == adminId) {
+      throw BusinessException.validation("id", FieldErrorCode.SELF_NOT_ALLOWED);
+    }
+    UserAccountDto user = users.get(userId);
+    final MfaStatusDto before = mfa.remove(userId);
+    final int ended = sessions.endUserSessions(userId);
+    Map<String, Object> b = new LinkedHashMap<>();
+    b.put("email", user.email());
+    b.put("enrolled", before.enrolled());
+    b.put("recoveryCodesLeft", before.recoveryCodesLeft());
+    Map<String, Object> a = new LinkedHashMap<>();
+    a.put("enrolled", false);
+    a.put("endedSessions", ended);
+    audit.record(adminId, "USER_MFA_RESET", AuditTargets.USER, Long.toString(userId), b, a);
+  }
+
+  private AdminUserDto view(long userId) {
     return page(new UserFilter(userId, null, null, null), new PagingDto(0, 1)).items().getFirst();
   }
 
@@ -145,6 +191,7 @@ public class AdminUserService implements AdminUserUseCase {
         r.createdAt(),
         r.itemCount(),
         r.retiredItemCount(),
-        r.aiToday());
+        r.aiToday(),
+        r.mfaEnrolled());
   }
 }

@@ -3,6 +3,7 @@ package app.wearly.admin.application.port.out;
 import app.wearly.admin.application.port.out.dto.AiCountsDto;
 import app.wearly.admin.application.port.out.dto.AiLogRowDto;
 import app.wearly.admin.application.port.out.dto.AuditLogRowDto;
+import app.wearly.admin.application.port.out.dto.AuthEventLogRowDto;
 import app.wearly.admin.application.port.out.dto.AuthEventRowDto;
 import app.wearly.admin.application.port.out.dto.DashboardCountsDto;
 import app.wearly.admin.application.port.out.dto.ProviderStatDto;
@@ -44,6 +45,15 @@ public interface AdminQueryPort {
 
   /** 그 회원의 로그인 이력 최신순 (tb_auth_event) */
   List<AuthEventRowDto> findAuthEvents(long userId, int limit);
+
+  /**
+   * 관리자 로그인 기록 (22 문서): 지금 관리자인 회원의 이벤트 + 관리자 사이트(client ADMIN)에서 일어난 이벤트, 최신순. from·to는 [from, to)
+   */
+  List<AuthEventLogRowDto> findAdminAuthEvents(AuthEventFilter filter, int limit, long offset);
+
+  long countAdminAuthEvents(AuthEventFilter filter);
+
+  record AuthEventFilter(Long userId, String type, Instant from, Instant to) {}
 
   /** id가 있으면 그 회원 하나만 */
   record UserFilter(Long id, String query, String status, String role) {}
