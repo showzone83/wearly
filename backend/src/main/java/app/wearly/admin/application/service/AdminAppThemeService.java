@@ -7,15 +7,18 @@ import app.wearly.admin.domain.AuditTargets;
 import app.wearly.appsetting.application.port.in.AppSettingUseCase;
 import app.wearly.appsetting.application.port.in.dto.ThemeChangeDto;
 import app.wearly.appsetting.application.port.in.dto.ThemeSettingDto;
+import app.wearly.appsetting.application.port.in.dto.ThemeUpdateDto;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 관리자 테마 조회·변경 (12 문서 3장). 실제 저장은 appsetting 컨텍스트의 유스케이스가 하고, 여기서는 관리자 이메일을 붙이고 변경 이력을 같은 트랜잭션에
- * 남긴다.
+ * 관리자 테마·계절 모드 조회·변경 (12 문서 3장, 이슈 #6). 실제 저장은 appsetting 컨텍스트의 유스케이스가 하고, 여기서는 관리자 이메일을 붙이고 변경 이력을
+ * 같은 트랜잭션에 남긴다.
  */
 @Service
 public class AdminAppThemeService implements AdminAppThemeUseCase {
@@ -42,16 +45,21 @@ public class AdminAppThemeService implements AdminAppThemeUseCase {
 
   @Override
   @Transactional
-  public AdminThemeDto changeTheme(long adminId, String themeId) {
-    ThemeChangeDto change = settings.changeTheme(adminId, themeId);
+  public AdminThemeDto changeTheme(long adminId, ThemeUpdateDto update) {
+    ThemeChangeDto change = settings.changeTheme(adminId, update);
     if (change.changed()) {
-      audit.record(
-          adminId,
-          ACTION,
-          AuditTargets.APP_SETTING,
-          TARGET_ID,
-          Map.of("themeId", change.before().themeId()),
-          Map.of("themeId", change.after().themeId()));
+      // 바뀐 필드만 남긴다: 테마만 바꾸면 예전처럼 {"themeId": ...}
+      Map<String, Object> before = new LinkedHashMap<>();
+      Map<String, Object> after = new LinkedHashMap<>();
+      if (!Objects.equals(change.before().themeId(), change.after().themeId())) {
+        before.put("themeId", change.before().themeId());
+        after.put("themeId", change.after().themeId());
+      }
+      if (!Objects.equals(change.before().seasonMode(), change.after().seasonMode())) {
+        before.put("seasonMode", change.before().seasonMode());
+        after.put("seasonMode", change.after().seasonMode());
+      }
+      audit.record(adminId, ACTION, AuditTargets.APP_SETTING, TARGET_ID, before, after);
     }
     return view(change.after());
   }
@@ -61,6 +69,6 @@ public class AdminAppThemeService implements AdminAppThemeUseCase {
         s.updatedBy() == null
             ? null
             : users.find(s.updatedBy()).map(UserAccountDto::email).orElse(null);
-    return new AdminThemeDto(s.themeId(), s.updatedAt(), email);
+    return new AdminThemeDto(s.themeId(), s.seasonMode(), s.updatedAt(), email);
   }
 }

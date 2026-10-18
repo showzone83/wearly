@@ -84,15 +84,17 @@ function useSession(hydrated: boolean) {
 }
 
 /**
- * 서버 앱 설정(테마) 동기화 (doc/12 3장): 테마 저장값을 복원한 뒤 한 번, 앱이 다시 활성이 될 때마다 한 번.
- * 실패해도 화면을 막지 않는다.
+ * 서버 앱 설정(테마·계절 모드) 동기화 (doc/12 3장, 이슈 #6): 테마 저장값을 복원한 뒤 한 번, 앱이 다시 활성이 될 때마다 한 번.
+ * 활성이 될 때 날짜로 계절도 다시 계산한다(AUTO에서 달이 바뀌었을 수 있다, 목업 실행 포함). 실패해도 화면을 막지 않는다.
  */
 const useAppConfigSync = (themeHydrated: boolean) => {
   useEffect(() => {
     if (!themeHydrated) return;
     void syncAppConfig();
     const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active') void syncAppConfig();
+      if (next !== 'active') return;
+      useThemeStore.getState().refreshSeason();
+      void syncAppConfig();
     });
     return () => sub.remove();
   }, [themeHydrated]);

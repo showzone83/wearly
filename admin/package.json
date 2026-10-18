@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:lint-rules": "node eslint-rules/rules.test.js",
-    "test:unit": "node --test tests/*.test.mjs"
+    "test:unit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/*.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.3",

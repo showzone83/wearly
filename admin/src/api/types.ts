@@ -418,14 +418,21 @@ export interface IAuditQuery extends IPageQuery {
  */
 export interface IAppTheme {
   themeId: string;
+  /**
+   * 계절 테마 모드 (이슈 #6): OFF · AUTO · SPRING · SUMMER · FALL · WINTER.
+   * 서버가 아직 모르면(옛 서버) null — 화면은 계절 모드 고르기를 막는다
+   */
+  seasonMode: string | null;
   /** 마지막 변경 시각 (ISO). 초기값이면 null일 수 있다 */
   updatedAt: string | null;
   /** 바꾼 관리자 이메일. 초기값이거나 계정이 지워졌으면 null */
   updatedBy: string | null;
 }
 
+/** PUT /admin/app/theme 본문. 보낸 값만 바뀐다(빠진 값은 그대로) */
 export interface IAppThemeUpdate {
-  themeId: string;
+  themeId?: string;
+  seasonMode?: string;
 }
 
 // ───────── 날씨 (doc/17 6장) ─────────

@@ -350,7 +350,7 @@ export function createApiClient(options: ApiClientOptions) {
     },
     app: {
       /**
-       * 앱 설정 (인증 불필요, doc/12 3장). 지금은 테마 ID. etag를 주면 If-None-Match로 보내고,
+       * 앱 설정 (인증 불필요, doc/12 3장). 테마 ID와 계절 모드. etag를 주면 If-None-Match로 보내고,
        * 서버가 304를 주면 `{ changed: false }`를 돌려준다.
        */
       async config(etag?: string | null): Promise<AppConfigResult> {

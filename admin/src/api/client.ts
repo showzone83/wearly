@@ -222,6 +222,7 @@ const toAppTheme = (raw: unknown): IAppTheme => {
   const byObj = by && typeof by === 'object' ? (by as Record<string, unknown>) : null;
   return {
     themeId: String(r.themeId ?? ''),
+    seasonMode: str(r.seasonMode),
     updatedAt: str(r.updatedAt),
     updatedBy: byObj ? str(byObj.email ?? byObj.name) : str(by),
   };
@@ -610,7 +611,7 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       theme: async (): Promise<IAppTheme> => {
         return toAppTheme(await get<unknown>('/admin/app/theme'));
       },
-      /** 앱 테마 바꾸기. 허용 값 밖이면 400 VALIDATION_FAILED(themeId) */
+      /** 앱 테마·계절 모드 바꾸기 (보낸 값만). 허용 값 밖이면 400 VALIDATION_FAILED(themeId · seasonMode) */
       setTheme: async (body: IAppThemeUpdate): Promise<IAppTheme> => {
         return toAppTheme(await request<unknown>('PUT', '/admin/app/theme', { auth: true, json: body }));
       },

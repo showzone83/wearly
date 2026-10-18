@@ -368,6 +368,11 @@ export type CodesResult =
 export interface AppConfigDto {
   /** 앱 테마 ID (nyang · closeta). 앱이 모르는 값이면 무시한다 */
   themeId: string;
+  /**
+   * 계절 테마 모드 (이슈 #6): OFF · AUTO · SPRING · SUMMER · FALL · WINTER. 옛 서버는 보내지 않는다(없으면 OFF).
+   * AUTO의 지금 계절은 서버가 주지 않고 앱이 한국 날짜로 계산한다(data/seasons.ts)
+   */
+  seasonMode?: string;
   /** 설정이 바뀐 시각(ISO). ETag와 같은 값 */
   version: string;
 }

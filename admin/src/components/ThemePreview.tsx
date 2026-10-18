@@ -23,13 +23,32 @@ export const ColorSwatches = ({ theme }: { theme: ITheme }) => {
 
 const TABS = ['홈', '내 옷장', '+', '코디추천', '더보기'];
 
-/** 작은 앱 화면: 인사 + 마스코트, 날씨 카드, 통계 카드, 칩, 코디 카드, 주 버튼, 하단 탭 */
-export const MiniAppPreview = ({ theme }: { theme: ITheme }) => {
+/**
+ * 작은 앱 화면: 인사 + 마스코트, 날씨 카드, 통계 카드, 칩, 코디 카드, 주 버튼, 하단 탭.
+ * seasonGreeting을 주면 앱 홈처럼 인사 위에 계절 인사 알약을 그린다(이슈 #6). compact는 계절 미리보기 격자용 작은 크기
+ */
+export const MiniAppPreview = ({
+  theme,
+  seasonGreeting,
+  compact,
+  label,
+}: {
+  theme: ITheme;
+  seasonGreeting?: string;
+  compact?: boolean;
+  label?: string;
+}) => {
   return (
-    <div className="tp-phone" style={themeVars(theme)} aria-label={`${theme.name} 앱 화면 미리보기`} role="img">
+    <div
+      className={compact ? 'tp-phone tp-compact' : 'tp-phone'}
+      style={themeVars(theme)}
+      aria-label={label ?? `${theme.name} 앱 화면 미리보기`}
+      role="img"
+    >
       <div className="tp-screen">
         <div className="tp-greet">
           <div>
+            {seasonGreeting ? <div className="tp-season">{seasonGreeting}</div> : null}
             <div className="tp-title">안녕하세요!</div>
             <div className="tp-sub">오늘 뭐 입지? 이제 고민 끝.</div>
           </div>

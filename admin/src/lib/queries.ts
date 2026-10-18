@@ -2,7 +2,14 @@
 import { useMemo } from 'react';
 
 import { api, isApiError } from '@/api';
-import type { IAdminCode, IAdminCodeGroup, IWeatherProviderPatch, IWeatherRun, TWeatherSettingUpdate } from '@/api';
+import type {
+  IAdminCode,
+  IAdminCodeGroup,
+  IAppThemeUpdate,
+  IWeatherProviderPatch,
+  IWeatherRun,
+  TWeatherSettingUpdate,
+} from '@/api';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -183,11 +190,11 @@ export const useAppTheme = () => {
   return useQuery({ queryKey: qk.appTheme, queryFn: () => api.appSettings.theme() });
 };
 
-/** 앱 테마 바꾸기. 성공하면 현재 테마 캐시를 응답으로 바꾸고 변경 이력을 다시 읽게 한다 */
+/** 앱 테마·계절 모드 바꾸기 (보낸 값만). 성공하면 현재 테마 캐시를 응답으로 바꾸고 변경 이력을 다시 읽게 한다 */
 export const useUpdateAppTheme = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (themeId: string) => api.appSettings.setTheme({ themeId }),
+    mutationFn: (body: IAppThemeUpdate) => api.appSettings.setTheme(body),
     onSuccess: (data) => {
       // 본문 없이(204) 오면 themeId가 비어 있으므로 서버에서 다시 읽는다
       if (data.themeId) queryClient.setQueryData(qk.appTheme, data);

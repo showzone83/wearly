@@ -10,6 +10,8 @@ const garmentShapes = fileURLToPath(new URL('../mobile/src/data/garmentShapes.ts
 const garmentFallback = fileURLToPath(new URL('./src/lib/garmentShapesFallback.ts', import.meta.url));
 // 앱 디자인 테마 값과 마스코트 그림도 같은 폴더의 순수 TS를 그대로 가져온다 (doc/12 2·4·6장). 대체 파일은 없다.
 const appThemes = fileURLToPath(new URL('../mobile/src/data/themes.ts', import.meta.url));
+// 계절 테마 색·모드 (이슈 #6). 테마 위에 덮어쓰는 계절 색과 모드 이름
+const appSeasons = fileURLToPath(new URL('../mobile/src/data/seasons.ts', import.meta.url));
 const appMascots = fileURLToPath(new URL('../mobile/src/data/mascots/index.ts', import.meta.url));
 // 마스코트 그림은 디자인 보드에서 잘라 온 PNG 폴더를 그대로 쓴다 (src/lib/appTheme.ts의 import.meta.glob)
 const appMascotImages = fileURLToPath(new URL('../mobile/assets/mascots', import.meta.url));
@@ -20,6 +22,7 @@ export default defineConfig({
     alias: {
       '@garment-shapes': existsSync(garmentShapes) ? garmentShapes : garmentFallback,
       '@app-themes': appThemes,
+      '@app-seasons': appSeasons,
       '@app-mascots': appMascots,
       '@app-mascot-images': appMascotImages,
       '@': fileURLToPath(new URL('./src', import.meta.url)),
