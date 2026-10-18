@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import app.wearly.ai.adapter.out.ai.JsonObjectParser;
 import app.wearly.ai.adapter.out.ai.openai.OpenAiProvider;
 import app.wearly.ai.domain.AiImage;
+import app.wearly.ai.domain.AiJsonResult;
 import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiResult;
 import app.wearly.ai.domain.AnalysisPrompt;
@@ -79,7 +80,11 @@ class OpenAiProviderTest {
     assertThat(message.get("role").asString()).isEqualTo("user");
     JsonNode content = message.get("content");
     assertThat(content.get(0).get("type").asString()).isEqualTo("input_text");
-    assertThat(content.get(0).get("text").asString()).contains("TOP(상의): TEE(티셔츠)");
+    assertThat(content.get(0).get("text").asString()).isEqualTo(AnalysisPrompt.REQUEST);
+    // 고정 지시문(허용 값 목록)은 instructions로 앞에 둔다 (자동 캐시가 같은 앞부분을 읽게)
+    assertThat(body.get("instructions").asString())
+        .isEqualTo(AnalysisPrompt.instructions(codes))
+        .contains("TOP(상의): TEE(티셔츠)");
     assertThat(content.get(1).get("type").asString()).isEqualTo("input_image");
     assertThat(content.get(1).get("detail").asString()).isEqualTo("auto");
     String url = content.get(1).get("image_url").asString();
@@ -105,6 +110,26 @@ class OpenAiProviderTest {
     assertThat(r.model()).isEqualTo("gpt-test-2026-01-01");
     assertThat(r.inputTokens()).isEqualTo(1200);
     assertThat(r.outputTokens()).isEqualTo(345);
+  }
+
+  @Test
+  void 자동_캐시에서_읽은_입력_토큰을_읽는다() {
+    ObjectNode r =
+        JSON.readValue(response(ClaudeAiProviderTest.validSuggestion()), ObjectNode.class);
+    ((ObjectNode) r.get("usage")).putObject("input_tokens_details").put("cached_tokens", 1024);
+    server.respond(200, JSON.writeValueAsString(r));
+    AiJsonResult result = provider.generateJson(AnalysisPrompt.request(image(), codes), image());
+    assertThat(result.inputTokens()).isEqualTo(1200);
+    assertThat(result.cacheReadTokens()).isEqualTo(1024);
+    assertThat(result.cacheWriteTokens()).isNull();
+
+    // 캐시 정보가 없으면 null
+    server.respond(200, response(ClaudeAiProviderTest.validSuggestion()));
+    assertThat(
+            provider
+                .generateJson(AnalysisPrompt.request(image(), codes), image())
+                .cacheReadTokens())
+        .isNull();
   }
 
   @Test

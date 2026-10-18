@@ -28,6 +28,10 @@ import java.util.stream.Collectors;
  *   <li>사용자 메시지: 조건(상황·날씨·고정 등), 취향, 최근 코디, 색 짝(내 옷에 있는 색만), 칸별 옷 목록
  *   <li>스키마: 칸별 값은 그 칸에 쓸 수 있는 내 옷 id의 enum (못 쓰는 칸은 null만)
  * </ul>
+ *
+ * <p>프롬프트 캐싱: 시스템 지시는 회원·요청과 상관없이 늘 같은 문자열이라 Claude가 캐시하는 고정 부분이다 (바뀌는 값을 넣지 않는다). 사용자 메시지와 스키마는 회원
+ * 옷장·조건에 따라 바뀐다. Claude는 output_config.format이 바뀌면 캐시를 다시 쓰므로, 같은 회원이 같은 옷장·고정 조건으로 5분 안에 다시 받을 때만
+ * 캐시를 읽는다. 스키마 객체는 순서를 지키는 맵으로 만든다 (같은 입력이면 같은 바이트).
  */
 public final class OutfitPrompt {
 
@@ -196,7 +200,10 @@ public final class OutfitPrompt {
     candidate.put("aiScores", object(scores));
 
     Map<String, Object> root = new LinkedHashMap<>();
-    root.put("candidates", Map.of("type", "array", "items", object(candidate)));
+    Map<String, Object> candidates = new LinkedHashMap<>();
+    candidates.put("type", "array");
+    candidates.put("items", object(candidate));
+    root.put("candidates", candidates);
     return object(root);
   }
 

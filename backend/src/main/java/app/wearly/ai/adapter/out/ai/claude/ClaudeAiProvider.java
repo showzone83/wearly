@@ -13,6 +13,7 @@ import com.anthropic.core.JsonValue;
 import com.anthropic.errors.AnthropicException;
 import com.anthropic.errors.AnthropicServiceException;
 import com.anthropic.models.messages.Base64ImageSource;
+import com.anthropic.models.messages.CacheControlEphemeral;
 import com.anthropic.models.messages.ContentBlockParam;
 import com.anthropic.models.messages.ImageBlockParam;
 import com.anthropic.models.messages.JsonOutputFormat;
@@ -21,6 +22,7 @@ import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
 import com.anthropic.models.messages.StopReason;
 import com.anthropic.models.messages.TextBlockParam;
+import com.anthropic.models.messages.Usage;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,10 @@ import java.util.stream.Collectors;
 /**
  * Claude 공급자 (Anthropic Java SDK). 사진(base64, 선택)과 프롬프트를 주고 구조화된 JSON 출력(output_config.format)으로
  * 받는다. 무엇을 묻고 어떻게 검증할지는 호출한 쪽이 정한다 (사진 분석은 도메인 AnalysisPrompt·AiSuggestionValidator).
+ *
+ * <p>프롬프트 캐싱: 지시문(instructions)은 요청마다 같은 고정 부분이라 system 블록 하나로 보내고, promptCache가 켜져 있으면 그 블록 끝에
+ * cache_control(ephemeral, 기본 5분)을 붙인다. 캐시 앞부분은 tools → system 순서라 이 블록까지가 캐시되고, 요청마다 바뀌는 사진·사용자
+ * 메시지는 그 뒤에 온다. output_config.format(스키마)을 바꾸면 캐시가 깨지므로 스키마도 바이트 단위로 같아야 한다.
  */
 public class ClaudeAiProvider implements AiModelPort {
 
@@ -49,7 +55,9 @@ public class ClaudeAiProvider implements AiModelPort {
   private final long maxTokens;
   private final JsonObjectParser parser;
   private final String apiKey;
+  private final boolean promptCache;
 
+  /** 프롬프트 캐싱 켜짐 */
   public ClaudeAiProvider(
       String id,
       AnthropicClient client,
@@ -58,6 +66,21 @@ public class ClaudeAiProvider implements AiModelPort {
       long maxTokens,
       JsonObjectParser parser,
       String apiKey) {
+    this(id, client, model, effort, maxTokens, parser, apiKey, true);
+  }
+
+  /**
+   * @param promptCache true면 지시문(system) 끝에 cache_control을 붙인다 (wearly.ai.prompt-cache.enabled)
+   */
+  public ClaudeAiProvider(
+      String id,
+      AnthropicClient client,
+      String model,
+      String effort,
+      long maxTokens,
+      JsonObjectParser parser,
+      String apiKey,
+      boolean promptCache) {
     this.id = id;
     this.client = client;
     this.model = model;
@@ -65,6 +88,7 @@ public class ClaudeAiProvider implements AiModelPort {
     this.maxTokens = maxTokens;
     this.parser = parser;
     this.apiKey = apiKey;
+    this.promptCache = promptCache;
   }
 
   @Override
@@ -78,8 +102,8 @@ public class ClaudeAiProvider implements AiModelPort {
   }
 
   /**
-   * 사진이 있으면 user 메시지 = [image(base64), text], 없으면 text만. 지시문이 있으면 system. 구조화 출력은
-   * output_config.format = 호출한 쪽의 스키마
+   * 사진이 있으면 user 메시지 = [image(base64), text], 없으면 text만. 지시문이 있으면 system (promptCache면 끝에
+   * cache_control). 구조화 출력은 output_config.format = 호출한 쪽의 스키마
    */
   @Override
   public AiJsonResult generateJson(AiJsonPrompt prompt, AiImage image) {
@@ -88,11 +112,17 @@ public class ClaudeAiProvider implements AiModelPort {
           "UNSUPPORTED_MEDIA", "Claude가 받지 않는 형식이에요: " + image.mediaType());
     }
     Message message = send(buildParams(prompt, image));
+    Usage usage = message.usage();
+    long cacheRead = usage.cacheReadInputTokens().orElse(0L);
+    long cacheWrite = usage.cacheCreationInputTokens().orElse(0L);
     return new AiJsonResult(
         parser.parseObject(outputText(message)),
         message.model().asString(),
-        message.usage().inputTokens(),
-        message.usage().outputTokens());
+        // input_tokens는 마지막 캐시 지점 뒤(캐시 안 된 부분)만 센다. 기록은 다른 공급자와 같게 입력 전체로 남긴다
+        usage.inputTokens() + cacheRead + cacheWrite,
+        usage.outputTokens(),
+        usage.cacheReadInputTokens().orElse(null),
+        usage.cacheCreationInputTokens().orElse(null));
   }
 
   private Message send(MessageCreateParams params) {
@@ -112,7 +142,17 @@ public class ClaudeAiProvider implements AiModelPort {
   MessageCreateParams buildParams(AiJsonPrompt prompt, AiImage image) {
     MessageCreateParams.Builder b = MessageCreateParams.builder().model(model).maxTokens(maxTokens);
     if (prompt.instructions() != null) {
-      b.system(prompt.instructions());
+      if (promptCache) {
+        // 고정 지시문 끝에 캐시 지점 (TTL 기본 5분). 지시문이 모델별 최소 길이보다 짧으면 캐시되지 않을 뿐 오류는 없다
+        b.systemOfTextBlockParams(
+            List.of(
+                TextBlockParam.builder()
+                    .text(prompt.instructions())
+                    .cacheControl(CacheControlEphemeral.builder().build())
+                    .build()));
+      } else {
+        b.system(prompt.instructions());
+      }
     }
     if (image == null) {
       b.addUserMessage(prompt.prompt());

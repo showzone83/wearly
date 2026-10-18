@@ -187,7 +187,9 @@ public record WearlyProperties(
       // 사진 분석: 공급자에 보내기 전에 긴 변을 이 픽셀 이하로 줄인다 (기본 1024). 이미 작으면 그대로 보낸다
       @Min(64) @Max(8192) Integer imageMaxSide,
       // 줄일 때 JPEG 품질 (0.1~1.0, 기본 0.8)
-      @DecimalMin("0.1") @DecimalMax("1.0") Double imageQuality) {
+      @DecimalMin("0.1") @DecimalMax("1.0") Double imageQuality,
+      // 프롬프트 캐싱 (Claude cache_control). 없으면 켜짐
+      PromptCache promptCache) {
 
     @Override
     public Map<String, List<CatalogModel>> modelCatalog() {
@@ -202,6 +204,23 @@ public record WearlyProperties(
     @Override
     public Double imageQuality() {
       return imageQuality == null ? 0.8 : imageQuality;
+    }
+
+    @Override
+    public PromptCache promptCache() {
+      return promptCache == null ? new PromptCache(null) : promptCache;
+    }
+  }
+
+  /*
+   * 프롬프트 캐싱 (wearly.ai.prompt-cache.*). enabled=true(기본)면 Claude 요청의 고정 지시문(system) 끝에
+   * cache_control(ephemeral, 5분)을 붙인다. OpenAI·Gemini는 공급자가 같은 앞부분을 자동으로 캐시하므로 이 설정과 상관없다
+   */
+  public record PromptCache(Boolean enabled) {
+
+    @Override
+    public Boolean enabled() {
+      return enabled == null || enabled;
     }
   }
 

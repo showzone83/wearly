@@ -25,7 +25,11 @@ import tools.jackson.databind.json.JsonMapper;
  * 명세(openai/openai-openapi)의 CreateResponse를 따른다. - 입력: user 메시지 content = [input_text(프롬프트),
  * input_image(data URL, detail, 사진이 있을 때)], 지시문은 instructions - 구조화 출력: text.format = { type:
  * json_schema, name, schema, strict: true } - 결과: output[].type=message →
- * content[].type=output_text의 text, refusal이면 거절 - 토큰: usage.input_tokens / usage.output_tokens
+ * content[].type=output_text의 text, refusal이면 거절 - 토큰: usage.input_tokens / usage.output_tokens, 캐시
+ * 읽기는 usage.input_tokens_details.cached_tokens
+ *
+ * <p>프롬프트 캐싱: OpenAI는 1024토큰 이상인 프롬프트의 같은 앞부분을 자동으로 캐시한다 (요청에 따로 적을 것이 없다). 앞부분 순서는 구조화 출력 스키마 →
+ * instructions(고정 지시문) → input(사용자 메시지·사진)이라 고정 부분이 앞에 온다.
  */
 public class OpenAiProvider implements AiModelPort {
 
@@ -83,7 +87,10 @@ public class OpenAiProvider implements AiModelPort {
         parser.parseObject(outputText(root)),
         root.path("model").asString(model),
         longOrNull(usage, "input_tokens"),
-        longOrNull(usage, "output_tokens"));
+        longOrNull(usage, "output_tokens"),
+        // 자동 캐시(1024토큰 이상 같은 앞부분)에서 읽은 입력. 쓰기 요금이 따로 없어 쓰기 토큰은 없다
+        longOrNull(usage.path("input_tokens_details"), "cached_tokens"),
+        null);
   }
 
   private JsonNode send(Map<String, Object> requestBody) {
@@ -110,7 +117,10 @@ public class OpenAiProvider implements AiModelPort {
 
   Map<String, Object> requestBody(AiJsonPrompt prompt, AiImage image) {
     List<Map<String, Object>> content = new ArrayList<>();
-    content.add(Map.of("type", "input_text", "text", prompt.prompt()));
+    Map<String, Object> text = new LinkedHashMap<>();
+    text.put("type", "input_text");
+    text.put("text", prompt.prompt());
+    content.add(text);
     if (image != null) {
       Map<String, Object> imagePart = new LinkedHashMap<>();
       imagePart.put("type", "input_image");
