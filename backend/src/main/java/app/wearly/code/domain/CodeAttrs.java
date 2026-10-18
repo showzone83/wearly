@@ -1,6 +1,7 @@
 package app.wearly.code.domain;
 
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.sharedkernel.code.CodeGroups;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.sharedkernel.code.Slots;
@@ -17,6 +18,8 @@ import java.util.regex.Pattern;
 public final class CodeAttrs {
 
   static final Pattern HEX = Pattern.compile("^#[0-9A-Fa-f]{6}$");
+
+  static final int SHAPE_MAX = 30;
 
   private CodeAttrs() {}
 
@@ -43,14 +46,15 @@ public final class CodeAttrs {
         };
     for (String key : in.keySet()) {
       if (!allowed.contains(key)) {
-        errors.add(new FieldError("attrs." + key, "이 그룹에 없는 속성이에요."));
+        errors.add(FieldError.notAllowed("attrs." + key));
       }
     }
     switch (group) {
       case CodeGroups.CATEGORY -> {
         Object slot = in.get("slot");
         if (slot != null && !(slot instanceof String s && Slots.ALL.contains(s))) {
-          errors.add(new FieldError("attrs.slot", String.join("·", Slots.ALL) + " 또는 null이어야 해요."));
+          // 칸 코드 또는 null
+          errors.add(FieldError.notAllowed("attrs.slot", Slots.ALL));
         }
         out.put("slot", slot);
       }
@@ -58,15 +62,22 @@ public final class CodeAttrs {
         out.put("volume", integer(in, "volume", -1, 1, errors));
         out.put("warmth", integer(in, "warmth", 0, 3, errors));
         Object shape = in.get("shape");
-        if (!(shape instanceof String s) || s.isBlank() || s.length() > 30) {
-          errors.add(new FieldError("attrs.shape", "1~30자 문자열이어야 해요."));
+        if (!(shape instanceof String s)) {
+          errors.add(
+              shape == null
+                  ? FieldError.required("attrs.shape")
+                  : FieldError.invalidType("attrs.shape", "string"));
+        } else if (s.isBlank()) {
+          errors.add(FieldError.required("attrs.shape"));
+        } else if (s.length() > SHAPE_MAX) {
+          errors.add(FieldError.tooLong("attrs.shape", SHAPE_MAX));
         }
         out.put("shape", shape instanceof String s ? s.strip() : shape);
       }
       case CodeGroups.COLOR -> {
         Object hex = in.get("hex");
         if (!(hex instanceof String s) || !HEX.matcher(s).matches()) {
-          errors.add(new FieldError("attrs.hex", "#RRGGBB 형식이어야 해요."));
+          errors.add(FieldError.invalidFormat("attrs.hex", "#RRGGBB"));
           out.put("hex", hex);
         } else {
           out.put("hex", s.toUpperCase(Locale.ROOT));
@@ -77,7 +88,10 @@ public final class CodeAttrs {
             || Double.isNaN(n.doubleValue())
             || n.doubleValue() < 0
             || n.doubleValue() > 1) {
-          errors.add(new FieldError("attrs.light", "0~1 숫자여야 해요."));
+          errors.add(
+              light instanceof Number
+                  ? FieldError.outOfRange("attrs.light", 0, 1)
+                  : FieldError.invalidType("attrs.light", "number"));
         }
         out.put("light", light);
         out.put("pairs", pairs(in.get("pairs"), self, codes, errors));
@@ -115,15 +129,16 @@ public final class CodeAttrs {
       return List.of();
     }
     if (!(value instanceof List<?> list)) {
-      errors.add(new FieldError("attrs.pairs", "색 코드 배열이어야 해요."));
+      errors.add(FieldError.invalidType("attrs.pairs", "array"));
       return List.of();
     }
     TreeSet<String> out = new TreeSet<>();
     for (Object o : list) {
       if (!(o instanceof String s) || !codes.known(CodeGroups.COLOR, s)) {
-        errors.add(new FieldError("attrs.pairs", "있는 색 코드만 넣을 수 있어요: " + o));
+        // 없는 색 코드 (받은 값은 응답에 되돌려 쓰지 않는다)
+        errors.add(FieldError.notAllowed("attrs.pairs"));
       } else if (s.equals(self)) {
-        errors.add(new FieldError("attrs.pairs", "자기 자신은 넣을 수 없어요."));
+        errors.add(new FieldError("attrs.pairs", FieldErrorCode.SELF_NOT_ALLOWED));
       } else {
         out.add(s);
       }
@@ -137,7 +152,10 @@ public final class CodeAttrs {
     if (!(v instanceof Integer || v instanceof Long)
         || ((Number) v).longValue() < min
         || ((Number) v).longValue() > max) {
-      errors.add(new FieldError("attrs." + key, min + "~" + max + " 정수여야 해요."));
+      errors.add(
+          v instanceof Integer || v instanceof Long
+              ? FieldError.outOfRange("attrs." + key, min, max)
+              : FieldError.invalidType("attrs." + key, "integer"));
       return v;
     }
     return ((Number) v).intValue();
@@ -150,7 +168,10 @@ public final class CodeAttrs {
         || Double.isNaN(n.doubleValue())
         || n.doubleValue() < min
         || n.doubleValue() > max) {
-      errors.add(new FieldError("attrs." + key, (int) min + "~" + (int) max + " 숫자여야 해요."));
+      errors.add(
+          v instanceof Number
+              ? FieldError.outOfRange("attrs." + key, (int) min, (int) max)
+              : FieldError.invalidType("attrs." + key, "number"));
     }
     return v;
   }
@@ -158,7 +179,7 @@ public final class CodeAttrs {
   private static Object bool(Map<String, Object> in, String key, List<FieldError> errors) {
     Object v = in.get(key);
     if (!(v instanceof Boolean)) {
-      errors.add(new FieldError("attrs." + key, "true 또는 false여야 해요."));
+      errors.add(FieldError.invalidType("attrs." + key, "boolean"));
     }
     return v;
   }

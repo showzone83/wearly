@@ -212,7 +212,7 @@ class OutfitProviderFallbackIntegrationTest extends IntegrationTestBase {
         200, gemini(candidates(slots("123456789", ids.get("차콜 슬랙스"), null, ids.get("블랙 로퍼")))));
     TestApi.Resp r =
         api().post(PATH, s.accessToken(), request(context())).expectError(502, "AI_UNAVAILABLE");
-    assertThat(r.body().get("message").asString()).contains("코디 추천");
+    assertThat(r.body().get("params").get("feature").asString()).isEqualTo("OUTFIT_RECOMMEND");
     List<String> codes =
         jdbc.queryForList(
             "select error_code from tb_ai_analysis_log where user_id = ?"

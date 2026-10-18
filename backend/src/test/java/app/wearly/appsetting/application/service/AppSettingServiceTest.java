@@ -8,7 +8,7 @@ import app.wearly.appsetting.application.port.in.dto.ThemeChangeDto;
 import app.wearly.appsetting.application.port.out.AppSettingPort;
 import app.wearly.appsetting.domain.ThemeSetting;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
@@ -77,7 +77,7 @@ class AppSettingServiceTest {
   void 허용하지_않는_테마는_400_themeId() {
     assertThatThrownBy(() -> service.changeTheme(5L, "dark"))
         .isInstanceOfSatisfying(
-            ApiException.class,
+            BusinessException.class,
             e -> {
               assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED);
               assertThat(e.fieldErrors()).extracting(FieldError::field).containsExactly("themeId");

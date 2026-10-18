@@ -10,7 +10,7 @@ import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.application.port.out.dto.AuthEventRowDto;
 import app.wearly.admin.application.port.out.dto.UserBriefRowDto;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.support.FakeSessions;
 import app.wearly.support.FakeUsers;
@@ -96,7 +96,8 @@ class AdminSessionServiceTest {
 
     assertThatThrownBy(() -> service.list("s-admin", null, "TV", PagingDto.of(0, 20)))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
   }
 
   @Test
@@ -106,7 +107,7 @@ class AdminSessionServiceTest {
     assertThat(r.events()).singleElement().satisfies(e -> assertThat(e.type()).isEqualTo("LOGIN"));
     assertThatThrownBy(() -> service.userSessions("s-admin", 999))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
   }
 
   @Test
@@ -125,10 +126,11 @@ class AdminSessionServiceTest {
 
     assertThatThrownBy(() -> service.revokeSession(admin.id(), "s-admin", "s-admin"))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
     assertThatThrownBy(() -> service.revokeSession(admin.id(), "s-admin", "s-member-web"))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
     assertThat(audits).hasSize(1);
   }
 
@@ -148,9 +150,10 @@ class AdminSessionServiceTest {
 
     assertThatThrownBy(() -> service.revokeUserSessions(admin.id(), admin.id()))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED));
     assertThatThrownBy(() -> service.revokeUserSessions(admin.id(), 999))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
   }
 }

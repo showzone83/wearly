@@ -133,18 +133,18 @@ const weakPassword: Scenario = {
     ];
     for (const c of cases) {
       const s = newSession();
-      const err = await expectApiError(
+      await expectApiError(
         s.api.auth.signup({ email: randomEmail('weak'), password: c.password, name: c.name }),
         { status: 400, code: 'VALIDATION_FAILED' },
         `가입 검증 (${c.why})`,
       );
-      const fields = (err.fieldErrors ?? []).map((f) => f.field);
-      ok(fields.includes(c.field), `${c.why}: fieldErrors에 '${c.field}' 포함`, err.fieldErrors);
-      ok(
-        (err.fieldErrors ?? []).every((f) => isNonEmptyString(f.message)),
-        `${c.why}: fieldErrors 항목마다 message`,
-        err.fieldErrors,
-      );
+      // fieldErrors는 문장 없이 { field, code }라 원시 응답으로 본다
+      const res = await raw('POST', '/auth/signup', {
+        body: { email: randomEmail('weak'), password: c.password, name: c.name },
+      });
+      checkErrorBody(res, 400, 'VALIDATION_FAILED', `가입 검증 원시 응답 (${c.why})`);
+      const fields = (res.json.fieldErrors ?? []).map((f: { field: string }) => f.field);
+      ok(fields.includes(c.field), `${c.why}: fieldErrors에 '${c.field}' 포함`, res.json.fieldErrors);
     }
     const res = await raw('POST', '/auth/signup', { body: { email: 'not-an-email', password: TEST_PASSWORD, name: '하네스' } });
     checkErrorBody(res, 400, 'VALIDATION_FAILED', '이메일 형식 오류');

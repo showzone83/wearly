@@ -19,8 +19,15 @@ public class CorsConfig {
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     // X-Wearly-Client: 로그인 세션의 기기 종류 (app | admin | web, 16 문서 4장). 앱·관리자 사이트가 모든 요청에 붙인다
     config.setAllowedHeaders(
-        List.of("Authorization", "Content-Type", "Accept", "If-None-Match", "X-Wearly-Client"));
-    config.setExposedHeaders(List.of("WWW-Authenticate", "ETag"));
+        List.of(
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "If-None-Match",
+            "X-Wearly-Client",
+            "X-Request-Id"));
+    // X-Request-Id: 요청 추적 ID (오류 본문 traceId와 같다). 보내면 그 값을, 안 보내면 서버가 만든 값을 돌려준다
+    config.setExposedHeaders(List.of("WWW-Authenticate", "ETag", "X-Request-Id"));
     config.setAllowCredentials(false);
     config.setMaxAge(3600L);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

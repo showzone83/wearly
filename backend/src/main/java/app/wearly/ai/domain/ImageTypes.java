@@ -1,6 +1,7 @@
 package app.wearly.ai.domain;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -17,6 +18,9 @@ public final class ImageTypes {
           "image/webp", "image/webp",
           "image/heic", "image/heic",
           "image/heif", "image/heic");
+
+  /** 올릴 수 있는 형식 이름 (오류 응답 params.allowed) */
+  public static final List<String> NAMES = List.of("jpeg", "png", "webp", "heic");
 
   private ImageTypes() {}
 

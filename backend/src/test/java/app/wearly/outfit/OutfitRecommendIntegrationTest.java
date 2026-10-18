@@ -158,7 +158,9 @@ class OutfitRecommendIntegrationTest extends IntegrationTestBase {
         api()
             .post(PATH, s.accessToken(), request(context()))
             .expectError(400, "WARDROBE_INSUFFICIENT");
-    assertThat(r.body().get("message").asString()).contains("BOTTOM 또는 DRESS").contains("SHOES");
+    assertThat(r.body().get("params").get("missing").toString())
+        .isEqualTo("[\"BOTTOM\",\"SHOES\"]");
+    assertThat(r.body().get("params").get("alternatives").toString()).isEqualTo("[\"DRESS\"]");
     Integer logs =
         jdbc.queryForObject(
             "select count(*) from tb_ai_analysis_log where user_id = ?",
@@ -183,7 +185,7 @@ class OutfitRecommendIntegrationTest extends IntegrationTestBase {
     }
     Resp r =
         api().post(PATH, s.accessToken(), request(context())).expectError(429, "AI_LIMIT_EXCEEDED");
-    assertThat(r.body().get("message").asString()).contains("코디 추천");
+    assertThat(r.body().get("params").get("feature").asString()).isEqualTo("OUTFIT_RECOMMEND");
     // 사진 분석 한도(3)는 그대로
     byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 7, 7, 7};
     assertThat(

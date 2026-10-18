@@ -1,12 +1,12 @@
 package app.wearly.ai.domain;
 
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /** 관리자 공급자 입력 규칙 (07 문서 3·4장) */
 public final class AiProviderRules {
@@ -22,19 +22,21 @@ public final class AiProviderRules {
   /** 목업 응답의 provider 값과 겹치므로 예약 */
   public static final String MOCK_ID = "mock";
 
+  public static final int DISPLAY_NAME_MAX = 50;
+
   private AiProviderRules() {}
 
   public static String providerId(String raw, List<FieldError> errors) {
     String id = raw == null ? null : raw.strip();
     if (id == null || !PROVIDER_ID.matcher(id).matches()) {
-      errors.add(new FieldError("providerId", "영문 소문자로 시작하는 소문자·숫자·밑줄·하이픈 1~30자여야 해요."));
+      errors.add(FieldError.invalidFormat("providerId"));
     } else if (MOCK_ID.equals(id)) {
-      errors.add(new FieldError("providerId", "mock은 목업 실행용 이름이라 쓸 수 없어요."));
+      errors.add(new FieldError("providerId", FieldErrorCode.RESERVED));
     }
     return id;
   }
 
-  /** 공급자 종류. 허용 값 문구는 AiProviderType 상수에서 만든다 (공급자를 더해도 고칠 곳이 없다, M2) */
+  /** 공급자 종류. 허용 값 목록(params.allowed)은 AiProviderType 상수에서 만든다 (공급자를 더해도 고칠 곳이 없다, M2) */
   public static AiProviderType type(String raw, List<FieldError> errors) {
     String name = raw == null ? null : raw.strip();
     for (AiProviderType t : AiProviderType.values()) {
@@ -43,17 +45,17 @@ public final class AiProviderRules {
       }
     }
     errors.add(
-        new FieldError(
-            "type",
-            Arrays.stream(AiProviderType.values()).map(Enum::name).collect(Collectors.joining(", "))
-                + " 중 하나여야 해요."));
+        FieldError.notAllowed(
+            "type", Arrays.stream(AiProviderType.values()).map(Enum::name).toList()));
     return null;
   }
 
   public static String displayName(String raw, List<FieldError> errors) {
     String v = raw == null ? null : raw.strip();
-    if (v == null || v.isEmpty() || v.length() > 50) {
-      errors.add(new FieldError("displayName", "1~50자로 입력해 주세요."));
+    if (v == null || v.isEmpty()) {
+      errors.add(FieldError.required("displayName"));
+    } else if (v.length() > DISPLAY_NAME_MAX) {
+      errors.add(FieldError.tooLong("displayName", DISPLAY_NAME_MAX));
     }
     return v;
   }
@@ -62,7 +64,7 @@ public final class AiProviderRules {
   public static String model(String raw, List<FieldError> errors) {
     String v = raw == null || raw.isBlank() ? null : raw.strip();
     if (v != null && !MODEL.matcher(v).matches()) {
-      errors.add(new FieldError("model", "영문·숫자·. _ - : / @ 1~100자여야 해요."));
+      errors.add(FieldError.invalidFormat("model"));
     }
     return v;
   }
@@ -70,7 +72,7 @@ public final class AiProviderRules {
   public static String apiKeyEnv(String raw, List<FieldError> errors) {
     String v = raw == null ? null : raw.strip();
     if (v == null || !ENV_NAME.matcher(v).matches()) {
-      errors.add(new FieldError("apiKeyEnv", "영문 대문자·숫자·밑줄로 된 *_API_KEY 형식의 환경변수 이름이어야 해요."));
+      errors.add(FieldError.invalidFormat("apiKeyEnv"));
     }
     return v;
   }

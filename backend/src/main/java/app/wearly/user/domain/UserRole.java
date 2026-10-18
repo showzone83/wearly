@@ -7,8 +7,6 @@ public enum UserRole {
   USER,
   ADMIN;
 
-  static final String MESSAGE = "USER 또는 ADMIN이어야 해요.";
-
   /** 정확한 이름만 받는다 (대소문자·공백 그대로) */
   public static Optional<UserRole> parse(String raw) {
     for (UserRole r : values()) {

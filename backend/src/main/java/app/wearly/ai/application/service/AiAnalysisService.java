@@ -20,7 +20,8 @@ import app.wearly.ai.domain.AnalysisPrompt;
 import app.wearly.ai.domain.ImageTypes;
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.application.ImageUpload;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.domain.FieldError;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.List;
@@ -40,6 +41,10 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   public static final long MAX_IMAGE_BYTES = AiImages.MAX_IMAGE_BYTES;
 
   private static final Logger log = LoggerFactory.getLogger(AiAnalysisService.class);
+
+  /** 한도·장애 응답의 params: 어느 기능인지 (코디 추천과 문구를 나눌 수 있게) */
+  private static final Map<String, Object> FEATURE_PARAMS =
+      Map.of("feature", AiCallRecord.FEATURE_ITEM_ANALYZE);
 
   private final AiProviderRegistry registry;
   private final AiProviderPort providers;
@@ -71,12 +76,12 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
     AiQuotaService.Reservation reservation =
         quota
             .reserve(userId, AiCallRecord.FEATURE_ITEM_ANALYZE, limit)
-            .orElseThrow(() -> new ApiException(ErrorCode.AI_LIMIT_EXCEEDED));
+            .orElseThrow(() -> new BusinessException(ErrorCode.AI_LIMIT_EXCEEDED, FEATURE_PARAMS));
     try {
       List<AiModelPort> candidates = registry.candidates();
       if (candidates.isEmpty()) {
         log.warn("AI 분석 불가: 쓸 수 있는 AI 공급자가 없음 (관리자 화면에서 공급자·모델·키 환경변수를 확인)");
-        throw new ApiException(ErrorCode.AI_UNAVAILABLE);
+        throw new BusinessException(ErrorCode.AI_UNAVAILABLE, FEATURE_PARAMS);
       }
       CodeSnapshot codes = catalog.current();
       AiCallRunner.Call call =
@@ -88,7 +93,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
       AiCallRunner.Attempt<AiSuggestion> ok =
           runner
               .first(candidates, call, json -> suggestion(json, codes))
-              .orElseThrow(() -> new ApiException(ErrorCode.AI_UNAVAILABLE));
+              .orElseThrow(() -> new BusinessException(ErrorCode.AI_UNAVAILABLE, FEATURE_PARAMS));
       int remaining = (int) Math.max(0, limit - reservation.used());
       return new AnalyzeResultDto(
           AiSuggestionDto.from(ok.value()), ok.provider(), ok.model(), remaining);
@@ -99,7 +104,8 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
 
   @Override
   public ProviderTestResultDto test(long adminUserId, String providerId, ImageUpload upload) {
-    AiProviderSetting setting = providers.findById(providerId).orElseThrow(ApiException::notFound);
+    AiProviderSetting setting =
+        providers.findById(providerId).orElseThrow(BusinessException::notFound);
     AiImage image = readImage(upload);
     AiModelPort provider;
     try {
@@ -160,19 +166,20 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   /** 검사 순서: 파트 없음·빈 파일 → 10MB 초과 → 읽기 실패 → 형식 */
   private static AiImage readImage(ImageUpload file) {
     if (file == null || file.isEmpty()) {
-      throw ApiException.validation("image", "사진을 올려 주세요.");
+      throw BusinessException.validation(FieldError.required("image"));
     }
     if (file.size() > MAX_IMAGE_BYTES) {
-      throw new ApiException(ErrorCode.IMAGE_TOO_LARGE);
+      throw new BusinessException(ErrorCode.IMAGE_TOO_LARGE);
     }
     if (file.unreadable()) {
-      throw ApiException.validation("image", "사진을 읽을 수 없어요.");
+      throw BusinessException.validation(FieldError.invalidFormat("image"));
     }
     byte[] bytes = file.bytes();
     String mediaType =
         ImageTypes.resolve(file.contentType(), bytes)
             .orElseThrow(
-                () -> ApiException.validation("image", "jpeg, png, webp, heic 사진만 올릴 수 있어요."));
+                () ->
+                    BusinessException.validation(FieldError.notAllowed("image", ImageTypes.NAMES)));
     return new AiImage(bytes, mediaType, sha256(bytes));
   }
 

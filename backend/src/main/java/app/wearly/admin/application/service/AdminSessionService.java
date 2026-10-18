@@ -14,7 +14,9 @@ import app.wearly.admin.domain.SearchText;
 import app.wearly.auth.application.port.in.SessionUseCase;
 import app.wearly.auth.application.port.in.dto.SessionDto;
 import app.wearly.auth.application.port.in.dto.SessionSliceDto;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
+import app.wearly.common.error.BusinessException;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.util.LinkedHashMap;
@@ -34,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AdminSessionService implements AdminSessionUseCase {
 
-  static final Set<String> CLIENTS = Set.of("APP", "ADMIN", "WEB");
+  static final List<String> CLIENTS = List.of("APP", "ADMIN", "WEB");
   static final int RECENT_EVENTS = 20;
 
   private final SessionUseCase sessions;
@@ -56,7 +58,7 @@ public class AdminSessionService implements AdminSessionUseCase {
       String currentSessionId, String q, String client, PagingDto paging) {
     String cl = SearchText.blankToNull(client);
     if (cl != null && !CLIENTS.contains(cl)) {
-      throw ApiException.validation("client", "APP, ADMIN, WEB 중 하나여야 해요.");
+      throw BusinessException.validation(FieldError.notAllowed("client", CLIENTS));
     }
     String query = SearchText.blankToNull(q);
     if (query == null && cl == null) {
@@ -95,11 +97,12 @@ public class AdminSessionService implements AdminSessionUseCase {
   @Transactional
   public void revokeSession(long adminId, String currentSessionId, String sessionId) {
     if (sessionId != null && sessionId.equals(currentSessionId)) {
-      throw ApiException.validation("sessionId", "지금 쓰고 있는 세션은 끊을 수 없어요. 로그아웃을 해 주세요.");
+      // 지금 쓰고 있는 세션은 끊을 수 없다 (로그아웃을 쓴다)
+      throw BusinessException.validation("sessionId", FieldErrorCode.SELF_NOT_ALLOWED);
     }
-    SessionDto target = sessions.findSession(sessionId).orElseThrow(ApiException::notFound);
+    SessionDto target = sessions.findSession(sessionId).orElseThrow(BusinessException::notFound);
     if (!sessions.endSession(sessionId)) {
-      throw ApiException.notFound();
+      throw BusinessException.notFound();
     }
     AdminSessionDto view = join(List.of(target), currentSessionId).getFirst();
     Map<String, Object> before = new LinkedHashMap<>();
@@ -116,7 +119,7 @@ public class AdminSessionService implements AdminSessionUseCase {
   @Transactional
   public void revokeUserSessions(long adminId, long userId) {
     if (userId == adminId) {
-      throw ApiException.validation("id", "자기 자신의 세션은 모두 끊을 수 없어요.");
+      throw BusinessException.validation("id", FieldErrorCode.SELF_NOT_ALLOWED);
     }
     UserAccountDto user = users.get(userId);
     int ended = sessions.endUserSessions(userId);

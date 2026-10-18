@@ -1,33 +1,30 @@
 package app.wearly.wardrobe.adapter.in.web.request;
 
 import app.wearly.wardrobe.application.port.in.dto.CreateItemDto;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.List;
+import org.hibernate.validator.constraints.Range;
 
 /**
  * 05 문서 6장 ItemInput (ItemDto에서 id·createdAt을 뺀 등록 입력). wornCount·lastWornAt은 선택. 속성 값은 코드 문자열 (06
  * 문서)이고 코드 테이블 검증은 유스케이스가 한다. Bean Validation은 빠른 실패용이다.
  */
 public record ItemRequest(
-    @NotBlank(message = "이름을 입력해 주세요.") @Size(max = 40, message = "이름은 40자까지 쓸 수 있어요.") String name,
-    @NotNull(message = "필수 값이에요.") String category,
-    @NotNull(message = "필수 값이에요.") String subType,
-    @NotNull(message = "필수 값이에요.") String color,
-    @NotNull(message = "필수 값이에요.") String pattern,
-    @NotNull(message = "필수 값이에요.") List<@NotNull(message = "허용되지 않는 값이에요.") String> seasons,
-    @NotNull(message = "필수 값이에요.") List<@NotNull(message = "허용되지 않는 값이에요.") String> styles,
-    @NotNull(message = "필수 값이에요.")
-        @Min(value = 1, message = "1~3이어야 해요.")
-        @Max(value = 3, message = "1~3이어야 해요.")
-        Integer formality,
-    @NotNull(message = "필수 값이에요.") String status,
-    @Size(max = 40, message = "브랜드는 40자까지 쓸 수 있어요.") String brand,
-    @Min(value = 0, message = "0 이상이어야 해요.") Integer wornCount,
+    @NotBlank @Size(max = 40) String name,
+    @NotNull String category,
+    @NotNull String subType,
+    @NotNull String color,
+    @NotNull String pattern,
+    @NotNull List<@NotNull String> seasons,
+    @NotNull List<@NotNull String> styles,
+    @NotNull @Range(min = 1, max = 3) Integer formality,
+    @NotNull String status,
+    @Size(max = 40) String brand,
+    @Min(0) Integer wornCount,
     LocalDate lastWornAt) {
 
   public CreateItemDto toDto() {

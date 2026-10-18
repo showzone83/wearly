@@ -240,7 +240,7 @@ const outfit: Scenario = {
     });
     checkErrorBody(pinned, 400, 'VALIDATION_FAILED', '사용 중지 옷을 고정·중심으로');
     sameSet(pinned.json.fieldErrors.map((e: { field: string }) => e.field), ['context.fixed.SHOES', 'context.anchorItemId'], 'fieldErrors');
-    ok(pinned.json.fieldErrors.every((e: { message: string }) => e.message === '사용하지 않는 옷이에요.'), '메시지', pinned.json.fieldErrors);
+    ok(pinned.json.fieldErrors.every((e: { code: string }) => e.code === 'ITEM_RETIRED'), '코드 ITEM_RETIRED', pinned.json.fieldErrors);
   },
 };
 

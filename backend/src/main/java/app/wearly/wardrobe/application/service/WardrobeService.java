@@ -2,7 +2,7 @@ package app.wearly.wardrobe.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.sharedkernel.code.CodeGroups;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
@@ -22,7 +22,6 @@ import app.wearly.wardrobe.domain.WardrobeItem;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class WardrobeService implements WardrobeUseCase {
 
-  private static final Set<String> SORTS = Set.of("recent", "worn", "name");
+  private static final List<String> SORTS = List.of("recent", "worn", "name");
 
   private final ItemPort items;
   private final ItemQueryPort queries;
@@ -55,10 +54,10 @@ public class WardrobeService implements WardrobeUseCase {
     String colorCode = filterCode(codes, CodeGroups.COLOR, q.color(), "color", errors);
     String sortKey = blankToNull(q.sort()) == null ? "recent" : q.sort().strip();
     if (!SORTS.contains(sortKey)) {
-      errors.add(new FieldError("sort", "recent, worn, name 중 하나여야 해요."));
+      errors.add(FieldError.notAllowed("sort", SORTS));
     }
     Boolean retired = retiredFilter(q.retired(), errors);
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     String query = blankToNull(q.q());
     return queries
         .findItems(
@@ -85,10 +84,10 @@ public class WardrobeService implements WardrobeUseCase {
   @Transactional
   public ItemDto create(long userId, CreateItemDto dto) {
     ItemInput input = dto.toInput();
-    ApiException.throwIfAny(ItemRules.validate(input, ""));
+    BusinessException.throwIfAny(ItemRules.validate(input, ""));
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, null, "", errors);
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     return ItemDto.from(items.save(WardrobeItem.create(userId, input)));
   }
 
@@ -101,12 +100,12 @@ public class WardrobeService implements WardrobeUseCase {
     for (int i = 0; i < inputs.size(); i++) {
       invalid.addAll(ItemRules.validate(inputs.get(i), "items[" + i + "]."));
     }
-    ApiException.throwIfAny(invalid);
+    BusinessException.throwIfAny(invalid);
     List<FieldError> errors = new ArrayList<>();
     for (int i = 0; i < inputs.size(); i++) {
       ItemCodeValidator.validate(codes, inputs.get(i), null, "items[" + i + "].", errors);
     }
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     List<ItemDto> created = new ArrayList<>(inputs.size());
     for (ItemInput input : inputs) {
       created.add(ItemDto.from(items.save(WardrobeItem.create(userId, input))));
@@ -118,7 +117,7 @@ public class WardrobeService implements WardrobeUseCase {
   @Transactional
   public ItemDto patch(long userId, long itemId, PatchItemDto patch) {
     WardrobeItem item = find(userId, itemId);
-    ApiException.throwIfAny(patch.inputErrors());
+    BusinessException.throwIfAny(patch.inputErrors());
     ItemInput previous = item.toInput();
     ItemInput input =
         new ItemInput(
@@ -134,10 +133,10 @@ public class WardrobeService implements WardrobeUseCase {
             patch.brand().orElse(previous.brand()),
             patch.wornCount().orElse(previous.wornCount()),
             patch.lastWornAt().orElse(previous.lastWornAt()));
-    ApiException.throwIfAny(ItemRules.validate(input, ""));
+    BusinessException.throwIfAny(ItemRules.validate(input, ""));
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, previous, "", errors);
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     item.apply(input);
     return ItemDto.from(items.save(item));
   }
@@ -154,7 +153,7 @@ public class WardrobeService implements WardrobeUseCase {
     WardrobeItem item = find(userId, itemId);
     String reason = input == null ? null : input.reason();
     String memo = input == null ? null : input.memo();
-    ApiException.throwIfAny(RetireRules.validate(catalog.current(), reason, memo));
+    BusinessException.throwIfAny(RetireRules.validate(catalog.current(), reason, memo));
     item.retire(reason, memo, clock.instant());
     return ItemDto.from(items.save(item));
   }
@@ -171,7 +170,7 @@ public class WardrobeService implements WardrobeUseCase {
   }
 
   private WardrobeItem find(long userId, long itemId) {
-    return items.find(userId, itemId).orElseThrow(ApiException::notFound);
+    return items.find(userId, itemId).orElseThrow(BusinessException::notFound);
   }
 
   private static String filterCode(
@@ -181,7 +180,7 @@ public class WardrobeService implements WardrobeUseCase {
       return null;
     }
     if (!codes.known(group, value.strip())) {
-      errors.add(new FieldError(field, "허용되지 않는 값이에요."));
+      errors.add(FieldError.notAllowed(field));
       return null;
     }
     return value.strip();
@@ -198,7 +197,8 @@ public class WardrobeService implements WardrobeUseCase {
       case "true" -> Boolean.TRUE;
       case ItemSearchDto.RETIRED_ALL -> null;
       default -> {
-        errors.add(new FieldError("retired", "false, true, all 중 하나여야 해요."));
+        errors.add(
+            FieldError.notAllowed("retired", List.of("false", "true", ItemSearchDto.RETIRED_ALL)));
         yield Boolean.FALSE;
       }
     };

@@ -12,7 +12,7 @@ import app.wearly.code.application.port.out.CodeSnapshotPort;
 import app.wearly.code.domain.Code;
 import app.wearly.code.domain.CodeAttrs;
 import app.wearly.common.application.Patch;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.sharedkernel.code.CodeEntry;
 import app.wearly.sharedkernel.code.CodeGroupEntry;
@@ -172,11 +172,15 @@ class CodeManagementServiceTest {
 
     assertThatThrownBy(() -> service.delete(CodeGroups.COLOR, "white"))
         .isInstanceOfSatisfying(
-            ApiException.class,
+            BusinessException.class,
             e -> {
               assertThat(e.code()).isEqualTo(ErrorCode.CODE_IN_USE);
-              assertThat(e.getMessage())
-                  .isEqualTo("아이템 2개, 프로필 1개에서 쓰고 있어 삭제할 수 없어요. 대신 비활성화해 주세요.");
+              // 사용처 순서(아이템 → 프로필)대로 종류와 개수를 params로 준다
+              assertThat(e.params().get("usages"))
+                  .isEqualTo(
+                      List.of(
+                          Map.of("kind", "ITEM", "count", 2L),
+                          Map.of("kind", "PROFILE", "count", 1L)));
             });
     assertThat(rows).containsKey("COLOR:white");
     assertThat(refreshes).isZero();
@@ -189,8 +193,10 @@ class CodeManagementServiceTest {
 
     assertThatThrownBy(() -> service.delete(CodeGroups.CATEGORY, "TOP"))
         .isInstanceOfSatisfying(
-            ApiException.class,
-            e -> assertThat(e.getMessage()).startsWith("하위 세부 종류 " + children + "개에서"));
+            BusinessException.class,
+            e ->
+                assertThat(e.params().get("usages"))
+                    .isEqualTo(List.of(Map.of("kind", "SUB_TYPE", "count", children))));
   }
 
   @Test

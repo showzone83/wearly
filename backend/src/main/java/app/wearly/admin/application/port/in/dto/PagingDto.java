@@ -1,9 +1,12 @@
 package app.wearly.admin.application.port.in.dto;
 
-import app.wearly.common.error.ApiException;
+import app.wearly.common.domain.FieldError;
+import app.wearly.common.error.BusinessException;
 
 /** 목록 페이지 요청. page는 0부터, size 기본 20·최대 100 (07 문서 4장) */
 public record PagingDto(int page, int size) {
+
+  public static final int MAX_SIZE = 100;
 
   public long offset() {
     return (long) page * size;
@@ -14,10 +17,10 @@ public record PagingDto(int page, int size) {
     int p = page == null ? 0 : page;
     int s = size == null ? 20 : size;
     if (p < 0) {
-      throw ApiException.validation("page", "0 이상이어야 해요.");
+      throw BusinessException.validation(FieldError.outOfRange("page", 0, null));
     }
-    if (s < 1 || s > 100) {
-      throw ApiException.validation("size", "1~100이어야 해요.");
+    if (s < 1 || s > MAX_SIZE) {
+      throw BusinessException.validation(FieldError.outOfRange("size", 1, MAX_SIZE));
     }
     return new PagingDto(p, s);
   }

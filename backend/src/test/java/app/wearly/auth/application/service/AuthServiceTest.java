@@ -17,7 +17,7 @@ import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
 import app.wearly.auth.domain.RefreshTokens;
 import app.wearly.auth.domain.TokenPolicy;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.support.FakeUsers;
 import app.wearly.support.InMemorySessionStore;
@@ -133,7 +133,7 @@ class AuthServiceTest {
     assertThatThrownBy(
             () -> service.signup(new SignupDto("KIM@wearly.test", "x1234567", "다른"), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.EMAIL_TAKEN));
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.EMAIL_TAKEN));
     assertThat(users.rows).hasSize(1);
   }
 
@@ -144,7 +144,7 @@ class AuthServiceTest {
     assertThatThrownBy(
             () -> service.signup(new SignupDto("race@wearly.test", "pass1234", "경쟁"), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.EMAIL_TAKEN));
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.EMAIL_TAKEN));
     assertThat(store.sessions).isEmpty();
   }
 
@@ -155,10 +155,12 @@ class AuthServiceTest {
 
     assertThatThrownBy(() -> service.login(new LoginDto("none@wearly.test", "pass1234"), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS));
     assertThatThrownBy(() -> service.login(new LoginDto("a@wearly.test", "wrong"), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS));
     assertThat(checkedHashes).containsExactly("hash:wearly-dummy-password-1", "hash:pass1234");
     assertThat(loginMarks).isEmpty();
   }
@@ -170,14 +172,17 @@ class AuthServiceTest {
 
     assertThatThrownBy(() -> service.login(new LoginDto("s@wearly.test", "wrong"), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS));
     assertThatThrownBy(() -> service.login(new LoginDto("s@wearly.test", "pass1234"), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.ACCOUNT_SUSPENDED));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.ACCOUNT_SUSPENDED));
     // 정지 회원의 Refresh 토큰도 받지 않는다
     assertThatThrownBy(() -> service.refresh(r.refreshToken(), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_INVALID));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_INVALID));
     // 세션이 살아 있어도 정지 회원의 Access 토큰은 받지 않는다
     String sid = r.accessToken().substring(r.accessToken().lastIndexOf(':') + 1);
     assertThat(service.authenticate(r.user().id(), sid)).isEmpty();
@@ -226,11 +231,12 @@ class AuthServiceTest {
 
     assertThatThrownBy(() -> service.refresh(first.refreshToken(), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_REUSED));
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_REUSED));
     // 재사용을 감지하면 같은 세션의 최신 토큰도 못 쓰고 Access 토큰도 막힌다
     assertThatThrownBy(() -> service.refresh(second.refreshToken(), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_INVALID));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_INVALID));
     assertThat(service.authenticate(second.user().id(), sid)).isEmpty();
     assertThat(events.stream().map(AuthEvent::type))
         .containsSubsequence(AuthEvent.Type.LOGIN, AuthEvent.Type.REFRESH_REUSED);
@@ -250,7 +256,8 @@ class AuthServiceTest {
     assertThat(events.getLast().type()).isEqualTo(AuthEvent.Type.LOGOUT);
     assertThatThrownBy(() -> service.refresh(r.refreshToken(), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_INVALID));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_INVALID));
     assertThat(service.authenticate(r.user().id(), sid)).isEmpty();
   }
 
@@ -267,7 +274,8 @@ class AuthServiceTest {
     assertThat(events).hasSize(2).allMatch(e -> e.type() == AuthEvent.Type.FORCED_LOGOUT);
     assertThatThrownBy(() -> service.refresh(a.refreshToken(), PHONE))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_INVALID));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.REFRESH_INVALID));
     assertThat(sessions.endSession("no-such-session")).isFalse();
   }
 

@@ -1,7 +1,7 @@
 package app.wearly.outfit.application.service;
 
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.outfit.application.port.in.dto.RecommendOutfitDto;
 import app.wearly.outfit.domain.OutfitCodes;
 import app.wearly.outfit.domain.OutfitRequest;
@@ -34,7 +34,7 @@ final class OutfitRequestValidator {
   static OutfitRequest validate(RecommendOutfitDto cmd, CodeSnapshot codes) {
     List<FieldError> errors = new ArrayList<>();
     if (cmd == null || cmd.context() == null) {
-      throw ApiException.validation("context", "필수 값이에요.");
+      throw BusinessException.validation(FieldError.required("context"));
     }
     RecommendOutfitDto.Context c = cmd.context();
     final LocalDate date = date("context.date", c.date(), errors);
@@ -56,7 +56,7 @@ final class OutfitRequestValidator {
             : oneOf("context.timeOfDay", c.timeOfDay(), OutfitCodes.TIMES_OF_DAY.keySet(), errors);
     String memo = blankToNull(c.memo() == null ? null : c.memo().strip());
     if (memo != null && memo.codePointCount(0, memo.length()) > MEMO_MAX) {
-      errors.add(new FieldError("context.memo", MEMO_MAX + "자 이하로 입력해 주세요."));
+      errors.add(FieldError.tooLong("context.memo", MEMO_MAX));
     }
     Set<String> exclude = ids("excludeItemIds", cmd.excludeItemIds(), errors);
     Set<String> liked = ids("likedItemIds", cmd.likedItemIds(), errors);
@@ -64,9 +64,9 @@ final class OutfitRequestValidator {
     List<OutfitRequest.RecentOutfit> recent = recent(cmd.recent(), errors);
     int count = cmd.count() == null ? OutfitRequest.DEFAULT_COUNT : cmd.count();
     if (count < 1 || count > OutfitRequest.MAX_COUNT) {
-      errors.add(new FieldError("count", "1~" + OutfitRequest.MAX_COUNT + " 사이여야 해요."));
+      errors.add(FieldError.outOfRange("count", 1, OutfitRequest.MAX_COUNT));
     }
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     return new OutfitRequest(
         date,
         occasion,
@@ -88,13 +88,13 @@ final class OutfitRequestValidator {
 
   private static LocalDate date(String field, String raw, List<FieldError> errors) {
     if (raw == null || raw.isBlank()) {
-      errors.add(new FieldError(field, "필수 값이에요."));
+      errors.add(FieldError.required(field));
       return null;
     }
     try {
       return LocalDate.parse(raw.strip());
     } catch (DateTimeParseException e) {
-      errors.add(new FieldError(field, "YYYY-MM-DD 날짜여야 해요."));
+      errors.add(FieldError.invalidFormat(field, "YYYY-MM-DD"));
       return null;
     }
   }
@@ -102,7 +102,7 @@ final class OutfitRequestValidator {
   private static String oneOf(
       String field, String raw, Collection<String> allowed, List<FieldError> errors) {
     if (raw == null || !allowed.contains(raw.strip())) {
-      errors.add(new FieldError(field, String.join(", ", allowed) + " 중 하나여야 해요."));
+      errors.add(FieldError.notAllowed(field, allowed));
       return null;
     }
     return raw.strip();
@@ -118,7 +118,7 @@ final class OutfitRequestValidator {
     double min = temperature("context.weather.min", w.min(), errors);
     double max = temperature("context.weather.max", w.max(), errors);
     if (w.rainProb() == null || w.rainProb().isNaN() || w.rainProb() < 0 || w.rainProb() > 100) {
-      errors.add(new FieldError("context.weather.rainProb", "0~100 숫자여야 해요."));
+      errors.add(FieldError.outOfRange("context.weather.rainProb", 0, 100));
     }
     String cond =
         oneOf("context.weather.cond", w.cond(), OutfitCodes.WEATHER_CONDITIONS.keySet(), errors);
@@ -130,7 +130,7 @@ final class OutfitRequestValidator {
 
   private static double temperature(String field, Double value, List<FieldError> errors) {
     if (value == null || value.isNaN() || value < -60 || value > 60) {
-      errors.add(new FieldError(field, "-60~60 숫자여야 해요."));
+      errors.add(FieldError.outOfRange(field, -60, 60));
       return 0;
     }
     return value;
@@ -145,10 +145,7 @@ final class OutfitRequestValidator {
     raw.forEach(
         (slot, id) -> {
           if (!OutfitCodes.SLOTS.contains(slot)) {
-            errors.add(
-                new FieldError(
-                    "context.fixed." + slot,
-                    String.join(", ", OutfitCodes.SLOTS) + " 칸만 고정할 수 있어요."));
+            errors.add(FieldError.notAllowed("context.fixed." + slot, OutfitCodes.SLOTS));
           }
         });
     for (String slot : OutfitCodes.SLOTS) {
@@ -167,13 +164,14 @@ final class OutfitRequestValidator {
       return List.of();
     }
     if (raw.size() > CODE_LIST_MAX) {
-      errors.add(new FieldError(field, CODE_LIST_MAX + "개까지 보낼 수 있어요."));
+      errors.add(FieldError.tooMany(field, CODE_LIST_MAX));
       return List.of();
     }
     Set<String> out = new LinkedHashSet<>();
     for (String v : raw) {
       if (v == null || !codes.known(group, v)) {
-        errors.add(new FieldError(field, "모르는 코드예요: " + v));
+        // 모르는 코드 (받은 값은 응답에 되돌려 쓰지 않는다)
+        errors.add(FieldError.notAllowed(field));
       } else {
         out.add(v);
       }
@@ -187,7 +185,7 @@ final class OutfitRequestValidator {
       return Set.of();
     }
     if (raw.size() > ID_LIST_MAX) {
-      errors.add(new FieldError(field, ID_LIST_MAX + "개까지 보낼 수 있어요."));
+      errors.add(FieldError.tooMany(field, ID_LIST_MAX));
       return Set.of();
     }
     Set<String> out = new LinkedHashSet<>();
@@ -201,7 +199,7 @@ final class OutfitRequestValidator {
       return List.of();
     }
     if (raw.size() > RECENT_MAX) {
-      errors.add(new FieldError("recent", RECENT_MAX + "개까지 보낼 수 있어요."));
+      errors.add(FieldError.tooMany("recent", RECENT_MAX));
       return List.of();
     }
     List<OutfitRequest.RecentOutfit> out = new ArrayList<>();
@@ -209,7 +207,7 @@ final class OutfitRequestValidator {
       RecommendOutfitDto.Recent r = raw.get(i);
       String field = "recent[" + i + "]";
       if (r == null) {
-        errors.add(new FieldError(field, "필수 값이에요."));
+        errors.add(FieldError.required(field));
         continue;
       }
       LocalDate date = date(field + ".date", r.date(), errors);

@@ -22,7 +22,7 @@ import app.wearly.ai.application.port.in.dto.VerifiedKeyDto;
 import app.wearly.auth.application.port.in.AccountUseCase;
 import app.wearly.common.application.ImageUpload;
 import app.wearly.common.domain.Zones;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -145,7 +145,7 @@ public class AdminAiService implements AdminAiProviderUseCase {
       long adminId, String providerId, String apiKey, String currentPassword, Boolean verify) {
     AiProviderDto current = providers.get(providerId);
     if (!current.secretStoreEnabled()) {
-      throw new ApiException(ErrorCode.SECRET_KEY_MISSING);
+      throw new BusinessException(ErrorCode.SECRET_KEY_MISSING);
     }
     reauthenticate(adminId, currentPassword);
     VerifiedKeyDto key = keys.checkKey(providerId, apiKey, verify == null || verify);
@@ -176,7 +176,7 @@ public class AdminAiService implements AdminAiProviderUseCase {
   /** 요청한 관리자의 비밀번호를 다시 확인한다 (틀리거나 비면 403 REAUTH_FAILED) */
   private void reauthenticate(long adminId, String currentPassword) {
     if (!accounts.passwordMatches(adminId, currentPassword)) {
-      throw new ApiException(ErrorCode.REAUTH_FAILED);
+      throw new BusinessException(ErrorCode.REAUTH_FAILED);
     }
   }
 

@@ -21,8 +21,9 @@ import app.wearly.admin.domain.SearchText;
 import app.wearly.ai.application.port.in.AiFeatures;
 import app.wearly.auth.application.port.in.SessionUseCase;
 import app.wearly.auth.application.port.in.dto.SessionStatsDto;
+import app.wearly.common.domain.FieldError;
 import app.wearly.common.domain.Zones;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.outfit.application.port.in.OutfitFeatures;
 import java.time.Clock;
 import java.time.Duration;
@@ -38,9 +39,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AdminDashboardService implements AdminDashboardUseCase {
 
-  static final Set<String> STATUSES = Set.of("SUCCESS", "FAILED");
+  static final List<String> STATUSES = List.of("SUCCESS", "FAILED");
 
-  /** 기록 필터에 쓸 수 있는 기능: ai 자체 기능 + AI를 쓰는 컨텍스트의 기능 (L6, 순서는 오류 문구 순서) */
+  /** 기록 필터에 쓸 수 있는 기능: ai 자체 기능 + AI를 쓰는 컨텍스트의 기능 (L6, 순서는 오류 응답 params.allowed 순서) */
   static final List<String> FEATURE_NAMES =
       Stream.concat(AiFeatures.ALL.stream(), Stream.of(OutfitFeatures.OUTFIT_RECOMMEND)).toList();
 
@@ -92,11 +93,11 @@ public class AdminDashboardService implements AdminDashboardUseCase {
   public PageDto<AiLogDto> aiLogs(AiLogSearchDto search, PagingDto paging) {
     String st = SearchText.blankToNull(search.status());
     if (st != null && !STATUSES.contains(st)) {
-      throw ApiException.validation("status", "SUCCESS 또는 FAILED여야 해요.");
+      throw BusinessException.validation(FieldError.notAllowed("status", STATUSES));
     }
     String ft = SearchText.blankToNull(search.feature());
     if (ft != null && !FEATURES.contains(ft)) {
-      throw ApiException.validation("feature", String.join(", ", FEATURE_NAMES) + " 중 하나여야 해요.");
+      throw BusinessException.validation(FieldError.notAllowed("feature", FEATURE_NAMES));
     }
     String email = SearchText.blankToNull(search.userEmail());
     AiLogFilter filter =
@@ -119,7 +120,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
   public AiLogDetailDto aiLog(long id) {
     AiLogRowDto r = queries.findAiLog(id);
     if (r == null) {
-      throw ApiException.notFound();
+      throw BusinessException.notFound();
     }
     return new AiLogDetailDto(
         r.id(),
@@ -144,7 +145,7 @@ public class AdminDashboardService implements AdminDashboardUseCase {
   public PageDto<AuditLogDto> auditLogs(String targetType, PagingDto paging) {
     String tt = SearchText.blankToNull(targetType);
     if (tt != null && !AuditTargets.ALL.contains(tt)) {
-      throw ApiException.validation("targetType", AuditTargets.NAMES + " 중 하나여야 해요.");
+      throw BusinessException.validation(FieldError.notAllowed("targetType", AuditTargets.ALL));
     }
     List<AuditLogDto> items =
         queries.findAuditLogs(tt, paging.size(), paging.offset()).stream()

@@ -152,8 +152,8 @@ public class CodeIntegrationTest extends IntegrationTestBase {
             .expectError(400, "VALIDATION_FAILED");
     assertThat(mismatch.body().get("fieldErrors").get(0).get("field").asString())
         .isEqualTo("subType");
-    assertThat(mismatch.body().get("fieldErrors").get(0).get("message").asString())
-        .contains("카테고리");
+    assertThat(mismatch.body().get("fieldErrors").get(0).get("code").asString())
+        .isEqualTo("SUBTYPE_MISMATCH");
 
     // 코드는 대소문자를 구분한다 (색은 소문자)
     api()
@@ -215,7 +215,7 @@ public class CodeIntegrationTest extends IntegrationTestBase {
               .expectError(400, "VALIDATION_FAILED");
       assertThat(r.body().get("fieldErrors").findValuesAsString("field"))
           .containsExactlyInAnyOrder("color", "pattern");
-      assertThat(r.body().get("fieldErrors").get(0).get("message").asString()).contains("고를 수 없는");
+      assertThat(r.body().get("fieldErrors").findValuesAsString("code")).containsOnly("INACTIVE");
 
       // PATCH에서 안 바꾼 비활성 필드는 통과, 같은 값을 다시 보내도 통과
       Resp p =

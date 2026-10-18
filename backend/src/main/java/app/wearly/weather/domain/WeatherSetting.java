@@ -68,7 +68,7 @@ public record WeatherSetting(
 
   private static void range(List<FieldError> errors, String field, int v, int min, int max) {
     if (v < min || v > max) {
-      errors.add(new FieldError(field, min + "~" + max + " 사이여야 해요."));
+      errors.add(FieldError.outOfRange(field, min, max));
     }
   }
 }

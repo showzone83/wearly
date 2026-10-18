@@ -143,12 +143,24 @@ const badPair: Scenario = {
     const ok2 = await u.api.wardrobe.update(shirt.id, { category: 'BOTTOM', subType: 'CHINO' });
     eq([ok2.category, ok2.subType], ['BOTTOM', 'CHINO'], '짝을 함께 바꾸면 허용');
 
-    const err = await expectApiError(
+    await expectApiError(
       u.api.wardrobe.create(item({ formality: 4 as unknown as 1 })),
       { status: 400, code: 'VALIDATION_FAILED' },
       'formality 4',
     );
-    ok(err.fieldErrors.length > 0, 'formality 오류에 fieldErrors', err.fieldErrors);
+    const bad = await raw('POST', '/wardrobe/items', {
+      token: (await tokensOf(u)).accessToken,
+      body: item({ formality: 4 as unknown as 1 }),
+    });
+    checkErrorBody(bad, 400, 'VALIDATION_FAILED', 'formality 4 원시 응답');
+    ok(
+      bad.json.fieldErrors.some(
+        (f: { field: string; code: string; params?: { min?: number; max?: number } }) =>
+          f.field === 'formality' && f.code === 'OUT_OF_RANGE' && f.params?.min === 1 && f.params?.max === 3,
+      ),
+      'formality 오류는 OUT_OF_RANGE {min:1,max:3}',
+      bad.json.fieldErrors,
+    );
     await expectApiError(
       u.api.wardrobe.create(item({ name: '' })),
       { status: 400, code: 'VALIDATION_FAILED' },

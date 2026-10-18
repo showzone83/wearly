@@ -1,6 +1,7 @@
 package app.wearly.wardrobe.domain;
 
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.sharedkernel.code.CodeChecks;
 import app.wearly.sharedkernel.code.CodeGroups;
 import app.wearly.sharedkernel.code.CodeSnapshot;
@@ -9,7 +10,7 @@ import java.util.List;
 /** 아이템 입력의 코드 검증: 그룹에 있는지, 새 값은 활성인지, subType의 parent가 category인지 */
 public final class ItemCodeValidator {
 
-  public static final String SUBTYPE_MISMATCH = "카테고리와 맞지 않는 세부 종류예요.";
+  public static final FieldErrorCode SUBTYPE_MISMATCH = FieldErrorCode.SUBTYPE_MISMATCH;
 
   private ItemCodeValidator() {}
 

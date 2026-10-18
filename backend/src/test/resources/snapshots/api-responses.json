@@ -36,8 +36,8 @@
     "body" : {
       "status" : 409,
       "code" : "EMAIL_TAKEN",
-      "message" : "이미 가입된 이메일이에요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "auth.signup.invalid" : {
@@ -45,17 +45,20 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "email",
-        "message" : "이메일 형식이 아니에요."
+        "code" : "INVALID_FORMAT"
       }, {
         "field" : "name",
-        "message" : "이름은 20자까지 쓸 수 있어요."
+        "code" : "TOO_LONG",
+        "params" : {
+          "max" : 20
+        }
       }, {
         "field" : "password",
-        "message" : "비밀번호는 8~64자, 영문과 숫자를 모두 포함해야 해요."
-      } ]
+        "code" : "INVALID_FORMAT"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "auth.signup.empty" : {
@@ -63,17 +66,17 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "email",
-        "message" : "이메일을 입력해 주세요."
+        "code" : "REQUIRED"
       }, {
         "field" : "name",
-        "message" : "이름을 입력해 주세요."
+        "code" : "REQUIRED"
       }, {
         "field" : "password",
-        "message" : "비밀번호를 입력해 주세요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "auth.signup.badJson" : {
@@ -81,11 +84,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "body",
-        "message" : "요청 본문을 읽을 수 없어요."
-      } ]
+        "code" : "INVALID_FORMAT",
+        "params" : {
+          "format" : "json"
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "auth.login" : {
@@ -109,8 +115,8 @@
     "body" : {
       "status" : 401,
       "code" : "INVALID_CREDENTIALS",
-      "message" : "이메일 또는 비밀번호가 맞지 않아요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "auth.login.unknown" : {
@@ -118,8 +124,8 @@
     "body" : {
       "status" : 401,
       "code" : "INVALID_CREDENTIALS",
-      "message" : "이메일 또는 비밀번호가 맞지 않아요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "auth.refresh" : {
@@ -143,8 +149,8 @@
     "body" : {
       "status" : 401,
       "code" : "REFRESH_REUSED",
-      "message" : "보안을 위해 다시 로그인해 주세요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "auth.refresh.missing" : {
@@ -152,8 +158,8 @@
     "body" : {
       "status" : 401,
       "code" : "REFRESH_INVALID",
-      "message" : "다시 로그인해 주세요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "auth.logout" : {
@@ -232,11 +238,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "dressCodes[1]",
-        "message" : "허용되지 않는 값이에요."
-      } ]
+        "code" : "NOT_ALLOWED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "profile.put.invalid" : {
@@ -244,35 +250,39 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "colors",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "dressCodes",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "moods",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "name",
-        "message" : "이름을 입력해 주세요."
+        "code" : "REQUIRED"
       }, {
         "field" : "notify",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "offRule",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "workDays[0]",
-        "message" : "0(일)~6(토)이어야 해요."
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 0,
+          "max" : 6
+        }
       }, {
         "field" : "workRule",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "workType",
-        "message" : "필수 값이에요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "profile.put.badCode" : {
@@ -280,14 +290,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "colors[1]",
-        "message" : "허용되지 않는 값이에요."
+        "code" : "NOT_ALLOWED"
       }, {
         "field" : "moods[0]",
-        "message" : "허용되지 않는 값이에요."
-      } ]
+        "code" : "NOT_ALLOWED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "profile.put.notOnboarded" : {
@@ -1660,38 +1670,45 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "category",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "color",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "formality",
-        "message" : "1~3이어야 해요."
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 1,
+          "max" : 3
+        }
       }, {
         "field" : "name",
-        "message" : "이름을 입력해 주세요."
+        "code" : "REQUIRED"
       }, {
         "field" : "pattern",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "seasons[1]",
-        "message" : "허용되지 않는 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "status",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "styles",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "subType",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "wornCount",
-        "message" : "0 이상이어야 해요."
-      } ]
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 0
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.create.badCodes" : {
@@ -1699,20 +1716,20 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "color",
-        "message" : "허용되지 않는 값이에요."
+        "code" : "NOT_ALLOWED"
       }, {
         "field" : "status",
-        "message" : "허용되지 않는 값이에요."
+        "code" : "NOT_ALLOWED"
       }, {
         "field" : "styles[1]",
-        "message" : "허용되지 않는 값이에요."
+        "code" : "NOT_ALLOWED"
       }, {
         "field" : "subType",
-        "message" : "카테고리와 맞지 않는 세부 종류예요."
-      } ]
+        "code" : "SUBTYPE_MISMATCH"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.create.badType" : {
@@ -1720,11 +1737,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "formality",
-        "message" : "허용되지 않는 값이에요."
-      } ]
+        "code" : "INVALID_FORMAT"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.bulk" : {
@@ -1900,11 +1917,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "items[1].name",
-        "message" : "이름을 입력해 주세요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.bulk.empty" : {
@@ -1912,11 +1929,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "items",
-        "message" : "필수 값이에요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.list" : {
@@ -2224,20 +2241,23 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "category",
-        "message" : "허용되지 않는 값이에요."
+        "code" : "NOT_ALLOWED"
       }, {
         "field" : "color",
-        "message" : "허용되지 않는 값이에요."
+        "code" : "NOT_ALLOWED"
       }, {
         "field" : "sort",
-        "message" : "recent, worn, name 중 하나여야 해요."
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "recent", "worn", "name" ]
+        }
       }, {
         "field" : "status",
-        "message" : "허용되지 않는 값이에요."
-      } ]
+        "code" : "NOT_ALLOWED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.get" : {
@@ -2267,8 +2287,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.get.badId" : {
@@ -2276,8 +2296,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.patch" : {
@@ -2307,11 +2327,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "formality",
-        "message" : "허용되지 않는 값이에요."
-      } ]
+        "code" : "INVALID_FORMAT"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.patch.listTypeError" : {
@@ -2319,11 +2339,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "seasons",
-        "message" : "허용되지 않는 값이에요."
-      } ]
+        "code" : "INVALID_FORMAT"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.patch.nulls" : {
@@ -2331,14 +2351,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "category",
-        "message" : "필수 값이에요."
+        "code" : "REQUIRED"
       }, {
         "field" : "name",
-        "message" : "이름을 입력해 주세요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.patch.invalid" : {
@@ -2346,17 +2366,27 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "brand",
-        "message" : "브랜드는 40자까지 쓸 수 있어요."
+        "code" : "TOO_LONG",
+        "params" : {
+          "max" : 40
+        }
       }, {
         "field" : "formality",
-        "message" : "1~3이어야 해요."
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 1,
+          "max" : 3
+        }
       }, {
         "field" : "wornCount",
-        "message" : "0 이상이어야 해요."
-      } ]
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 0
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.patch.badCode" : {
@@ -2364,11 +2394,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "subType",
-        "message" : "카테고리와 맞지 않는 세부 종류예요."
-      } ]
+        "code" : "SUBTYPE_MISMATCH"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.patch.notObject" : {
@@ -2376,11 +2406,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "body",
-        "message" : "JSON 객체를 보내 주세요."
-      } ]
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "object"
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.patch.notFound" : {
@@ -2388,8 +2421,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.patch.notFoundBadBody" : {
@@ -2397,8 +2430,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "wardrobe.stats" : {
@@ -2461,8 +2494,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "ai.analyze" : {
@@ -2508,11 +2541,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "image",
-        "message" : "사진을 올려 주세요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "ai.analyze.empty" : {
@@ -2520,11 +2553,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "image",
-        "message" : "사진을 올려 주세요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "ai.analyze.badType" : {
@@ -2532,11 +2565,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "image",
-        "message" : "jpeg, png, webp, heic 사진만 올릴 수 있어요."
-      } ]
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "jpeg", "png", "webp", "heic" ]
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "ai.analyze.third" : {
@@ -2563,8 +2599,11 @@
     "body" : {
       "status" : 429,
       "code" : "AI_LIMIT_EXCEEDED",
-      "message" : "오늘 AI 분석 횟수를 모두 썼어요.",
-      "fieldErrors" : [ ]
+      "params" : {
+        "feature" : "ITEM_ANALYZE"
+      },
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "outfit.recommend" : {
@@ -2684,41 +2723,74 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "context.avoidColors",
-        "message" : "모르는 코드예요: fuchsia"
+        "code" : "NOT_ALLOWED"
       }, {
         "field" : "context.date",
-        "message" : "YYYY-MM-DD 날짜여야 해요."
+        "code" : "INVALID_FORMAT",
+        "params" : {
+          "format" : "YYYY-MM-DD"
+        }
       }, {
         "field" : "context.fixed.HAT",
-        "message" : "TOP, BOTTOM, DRESS, OUTER, SHOES, BAG 칸만 고정할 수 있어요."
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "TOP", "BOTTOM", "DRESS", "OUTER", "SHOES", "BAG" ]
+        }
       }, {
         "field" : "context.memo",
-        "message" : "200자 이하로 입력해 주세요."
+        "code" : "TOO_LONG",
+        "params" : {
+          "max" : 200
+        }
       }, {
         "field" : "context.mood",
-        "message" : "NEAT, COMFY, CHIC 중 하나여야 해요."
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "NEAT", "COMFY", "CHIC" ]
+        }
       }, {
         "field" : "context.occasion",
-        "message" : "COMMUTE, MEETING, FIELD, DINNER, DAILY, INTERVIEW, WEDDING, DATE, TRAVEL, GATHERING 중 하나여야 해요."
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "COMMUTE", "MEETING", "FIELD", "DINNER", "DAILY", "INTERVIEW", "WEDDING", "DATE", "TRAVEL", "GATHERING" ]
+        }
       }, {
         "field" : "context.weather.cond",
-        "message" : "SUNNY, CLOUDY, RAIN 중 하나여야 해요."
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "SUNNY", "CLOUDY", "RAIN" ]
+        }
       }, {
         "field" : "context.weather.rainProb",
-        "message" : "0~100 숫자여야 해요."
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 0,
+          "max" : 100
+        }
       }, {
         "field" : "context.weather.temp",
-        "message" : "-60~60 숫자여야 해요."
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : -60,
+          "max" : 60
+        }
       }, {
         "field" : "count",
-        "message" : "1~6 사이여야 해요."
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 1,
+          "max" : 6
+        }
       }, {
         "field" : "recent[0].date",
-        "message" : "YYYY-MM-DD 날짜여야 해요."
-      } ]
+        "code" : "INVALID_FORMAT",
+        "params" : {
+          "format" : "YYYY-MM-DD"
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "outfit.recommend.noContext" : {
@@ -2726,11 +2798,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "context",
-        "message" : "필수 값이에요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "outfit.recommend.badPin" : {
@@ -2738,14 +2810,17 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "context.anchorItemId",
-        "message" : "내 옷장에 없는 아이템이에요."
+        "code" : "NOT_OWNED"
       }, {
         "field" : "context.fixed.BOTTOM",
-        "message" : "BOTTOM 칸에 넣을 수 없는 아이템이에요."
-      } ]
+        "code" : "SLOT_MISMATCH",
+        "params" : {
+          "slot" : "BOTTOM"
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "outfit.recommend.insufficient" : {
@@ -2753,8 +2828,12 @@
     "body" : {
       "status" : 400,
       "code" : "WARDROBE_INSUFFICIENT",
-      "message" : "추천할 수 있는 옷이 모자라요: TOP·BOTTOM 또는 DRESS, SHOES",
-      "fieldErrors" : [ ]
+      "params" : {
+        "missing" : [ "TOP", "BOTTOM", "SHOES" ],
+        "alternatives" : [ "DRESS" ]
+      },
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "outfit.recommend.third" : {
@@ -2850,8 +2929,11 @@
     "body" : {
       "status" : 429,
       "code" : "AI_LIMIT_EXCEEDED",
-      "message" : "오늘 AI 코디 추천 횟수를 모두 썼어요.",
-      "fieldErrors" : [ ]
+      "params" : {
+        "feature" : "OUTFIT_RECOMMEND"
+      },
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.dashboard" : {
@@ -2959,11 +3041,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "status",
-        "message" : "ACTIVE 또는 SUSPENDED여야 해요."
-      } ]
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "ACTIVE", "SUSPENDED" ]
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.users.badPage" : {
@@ -2971,11 +3056,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "page",
-        "message" : "0 이상이어야 해요."
-      } ]
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 0
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.users.patch" : {
@@ -2997,8 +3085,8 @@
     "body" : {
       "status" : 401,
       "code" : "TOKEN_INVALID",
-      "message" : "로그인 정보가 올바르지 않아요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.users.patch.suspendedSignin" : {
@@ -3006,8 +3094,8 @@
     "body" : {
       "status" : 403,
       "code" : "ACCOUNT_SUSPENDED",
-      "message" : "이용이 정지된 계정이에요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.users.patch.restore" : {
@@ -3029,8 +3117,8 @@
     "body" : {
       "status" : 401,
       "code" : "TOKEN_INVALID",
-      "message" : "로그인 정보가 올바르지 않아요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.users.patch.self" : {
@@ -3038,14 +3126,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "role",
-        "message" : "자기 자신의 관리자 역할은 내릴 수 없어요."
+        "code" : "SELF_NOT_ALLOWED"
       }, {
         "field" : "status",
-        "message" : "자기 자신은 정지할 수 없어요."
-      } ]
+        "code" : "SELF_NOT_ALLOWED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.users.patch.badValues" : {
@@ -3053,14 +3141,20 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "role",
-        "message" : "USER 또는 ADMIN이어야 해요."
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "USER", "ADMIN" ]
+        }
       }, {
         "field" : "status",
-        "message" : "ACTIVE 또는 SUSPENDED여야 해요."
-      } ]
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "ACTIVE", "SUSPENDED" ]
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.users.patch.notObject" : {
@@ -3068,11 +3162,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "body",
-        "message" : "JSON 객체를 보내 주세요."
-      } ]
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "object"
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.users.patch.notFound" : {
@@ -3080,8 +3177,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.users.patch.promote" : {
@@ -3117,8 +3214,8 @@
     "body" : {
       "status" : 403,
       "code" : "FORBIDDEN",
-      "message" : "접근할 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes" : {
@@ -4576,8 +4673,8 @@
     "body" : {
       "status" : 409,
       "code" : "CODE_EXISTS",
-      "message" : "이미 있는 코드예요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.create.invalid" : {
@@ -4585,32 +4682,44 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "attrs.extra",
-        "message" : "이 그룹에 없는 속성이에요."
+        "code" : "NOT_ALLOWED"
       }, {
         "field" : "attrs.hex",
-        "message" : "#RRGGBB 형식이어야 해요."
+        "code" : "INVALID_FORMAT",
+        "params" : {
+          "format" : "#RRGGBB"
+        }
       }, {
         "field" : "attrs.light",
-        "message" : "0~1 숫자여야 해요."
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "number"
+        }
       }, {
         "field" : "attrs.neutral",
-        "message" : "true 또는 false여야 해요."
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "boolean"
+        }
       }, {
         "field" : "attrs.pairs",
-        "message" : "있는 색 코드만 넣을 수 있어요: nope"
+        "code" : "NOT_ALLOWED"
       }, {
         "field" : "code",
-        "message" : "영문 소문자·숫자·밑줄 1~30자여야 해요."
+        "code" : "INVALID_FORMAT",
+        "params" : {
+          "format" : "lower"
+        }
       }, {
         "field" : "label",
-        "message" : "1~50자로 입력해 주세요."
+        "code" : "REQUIRED"
       }, {
         "field" : "parent",
-        "message" : "세부 종류(SUB_TYPE)만 상위 코드를 가질 수 있어요."
-      } ]
+        "code" : "NOT_ALLOWED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.create.subType" : {
@@ -4634,8 +4743,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.create.noBody" : {
@@ -4643,11 +4752,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "body",
-        "message" : "JSON 객체를 보내 주세요."
-      } ]
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "object"
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.patch" : {
@@ -4672,26 +4784,35 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "active",
-        "message" : "true 또는 false여야 해요."
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "boolean"
+        }
       }, {
         "field" : "attrs",
-        "message" : "JSON 객체여야 해요."
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "object"
+        }
       }, {
         "field" : "code",
-        "message" : "코드는 바꿀 수 없어요."
+        "code" : "IMMUTABLE"
       }, {
         "field" : "label",
-        "message" : "1~50자로 입력해 주세요."
+        "code" : "REQUIRED"
       }, {
         "field" : "parent",
-        "message" : "세부 종류(SUB_TYPE)만 상위 코드를 가질 수 있어요."
+        "code" : "NOT_ALLOWED"
       }, {
         "field" : "sortOrder",
-        "message" : "정수여야 해요."
-      } ]
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "integer"
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.patch.parentNull" : {
@@ -4699,11 +4820,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "parent",
-        "message" : "세부 종류는 상위 종류(CATEGORY 코드)가 필요해요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.patch.notFound" : {
@@ -4711,8 +4832,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.patch.notObject" : {
@@ -4720,11 +4841,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "body",
-        "message" : "JSON 객체를 보내 주세요."
-      } ]
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "object"
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.reorder" : {
@@ -6190,11 +6314,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "codes",
-        "message" : "그룹의 코드 7개를 빠짐없이 한 번씩 보내 주세요."
-      } ]
+        "code" : "INCOMPLETE",
+        "params" : {
+          "expected" : 7
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.delete.inUse" : {
@@ -6202,8 +6329,17 @@
     "body" : {
       "status" : 409,
       "code" : "CODE_IN_USE",
-      "message" : "아이템 2개, 프로필 1개에서 쓰고 있어 삭제할 수 없어요. 대신 비활성화해 주세요.",
-      "fieldErrors" : [ ]
+      "params" : {
+        "usages" : [ {
+          "kind" : "ITEM",
+          "count" : 2
+        }, {
+          "kind" : "PROFILE",
+          "count" : 1
+        } ]
+      },
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.delete.category" : {
@@ -6211,8 +6347,17 @@
     "body" : {
       "status" : 409,
       "code" : "CODE_IN_USE",
-      "message" : "아이템 1개, 하위 세부 종류 6개에서 쓰고 있어 삭제할 수 없어요. 대신 비활성화해 주세요.",
-      "fieldErrors" : [ ]
+      "params" : {
+        "usages" : [ {
+          "kind" : "ITEM",
+          "count" : 1
+        }, {
+          "kind" : "SUB_TYPE",
+          "count" : 6
+        } ]
+      },
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.codes.delete" : {
@@ -6224,8 +6369,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "codes.afterAdmin" : {
@@ -7756,8 +7901,8 @@
     "body" : {
       "status" : 409,
       "code" : "PROVIDER_EXISTS",
-      "message" : "이미 있는 공급자 ID예요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.providers.create.invalid" : {
@@ -7765,26 +7910,33 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "apiKeyEnv",
-        "message" : "영문 대문자·숫자·밑줄로 된 *_API_KEY 형식의 환경변수 이름이어야 해요."
+        "code" : "INVALID_FORMAT"
       }, {
         "field" : "displayName",
-        "message" : "1~50자로 입력해 주세요."
+        "code" : "REQUIRED"
       }, {
         "field" : "model",
-        "message" : "영문·숫자·. _ - : / @ 1~100자여야 해요."
+        "code" : "INVALID_FORMAT"
       }, {
         "field" : "priority",
-        "message" : "0~10000이어야 해요."
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 0,
+          "max" : 10000
+        }
       }, {
         "field" : "providerId",
-        "message" : "mock은 목업 실행용 이름이라 쓸 수 없어요."
+        "code" : "RESERVED"
       }, {
         "field" : "type",
-        "message" : "CLAUDE, OPENAI, GEMINI 중 하나여야 해요."
-      } ]
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "CLAUDE", "OPENAI", "GEMINI" ]
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.providers.create.badOptions" : {
@@ -7792,17 +7944,24 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "options.effort",
-        "message" : "low, medium, high, xhigh, max 중 하나여야 해요."
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "low", "medium", "high", "xhigh", "max" ]
+        }
       }, {
         "field" : "options.maxTokens",
-        "message" : "1~128000 정수여야 해요."
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 1,
+          "max" : 128000
+        }
       }, {
         "field" : "options.nope",
-        "message" : "이 공급자 종류에 없는 옵션이에요."
-      } ]
+        "code" : "NOT_ALLOWED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.providers.patch" : {
@@ -7837,26 +7996,39 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "enabled",
-        "message" : "true 또는 false여야 해요."
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "boolean"
+        }
       }, {
         "field" : "model",
-        "message" : "사용하려면 모델이 필요해요."
+        "code" : "REQUIRED"
       }, {
         "field" : "options",
-        "message" : "JSON 객체여야 해요."
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "object"
+        }
       }, {
         "field" : "priority",
-        "message" : "0~10000 정수여야 해요."
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 0,
+          "max" : 10000
+        }
       }, {
         "field" : "providerId",
-        "message" : "공급자 ID는 바꿀 수 없어요."
+        "code" : "IMMUTABLE"
       }, {
         "field" : "type",
-        "message" : "CLAUDE, OPENAI, GEMINI 중 하나여야 해요."
-      } ]
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "CLAUDE", "OPENAI", "GEMINI" ]
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.providers.patch.enableNoModel" : {
@@ -7864,11 +8036,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "model",
-        "message" : "사용하려면 모델이 필요해요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.providers.patch.notFound" : {
@@ -7876,8 +8048,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.providers.patch.notObject" : {
@@ -7885,11 +8057,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "body",
-        "message" : "JSON 객체를 보내 주세요."
-      } ]
+        "code" : "INVALID_TYPE",
+        "params" : {
+          "expected" : "object"
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.models.live" : {
@@ -7950,8 +8125,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.test" : {
@@ -8008,8 +8183,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.test.noImage" : {
@@ -8017,11 +8192,11 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "image",
-        "message" : "사진을 올려 주세요."
-      } ]
+        "code" : "REQUIRED"
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.key.put" : {
@@ -8056,8 +8231,8 @@
     "body" : {
       "status" : 403,
       "code" : "REAUTH_FAILED",
-      "message" : "비밀번호가 맞지 않아요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.key.put.badKey" : {
@@ -8065,11 +8240,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "apiKey",
-        "message" : "20~300자로 입력해 주세요."
-      } ]
+        "code" : "TOO_SHORT",
+        "params" : {
+          "min" : 20
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.key.put.rejected" : {
@@ -8077,8 +8255,11 @@
     "body" : {
       "status" : 400,
       "code" : "API_KEY_INVALID",
-      "message" : "API 키를 확인하지 못했어요: OpenAI가 키를 받아들이지 않았어요 (HTTP 401).",
-      "fieldErrors" : [ ]
+      "params" : {
+        "reason" : "API_401"
+      },
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.key.put.noVerify" : {
@@ -8113,8 +8294,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.providers.afterKey" : {
@@ -8265,8 +8446,8 @@
     "body" : {
       "status" : 403,
       "code" : "REAUTH_FAILED",
-      "message" : "비밀번호가 맞지 않아요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.providers.delete" : {
@@ -8278,8 +8459,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.logs" : {
@@ -8455,11 +8636,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "status",
-        "message" : "SUCCESS 또는 FAILED여야 해요."
-      } ]
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "SUCCESS", "FAILED" ]
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.logs.badTo" : {
@@ -8467,11 +8651,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "to",
-        "message" : "YYYY-MM-DD 또는 ISO-8601 시각이어야 해요."
-      } ]
+        "code" : "INVALID_FORMAT",
+        "params" : {
+          "format" : "date-time"
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.ai.log.8" : {
@@ -8861,8 +9048,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.audit" : {
@@ -9335,11 +9522,14 @@
     "body" : {
       "status" : 400,
       "code" : "VALIDATION_FAILED",
-      "message" : "입력값을 확인해 주세요.",
       "fieldErrors" : [ {
         "field" : "targetType",
-        "message" : "CODE, AI_PROVIDER, USER, APP_SETTING, SESSION, WEATHER_SETTING, WEATHER_PROVIDER, WEATHER_REFRESH 중 하나여야 해요."
-      } ]
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "CODE", "AI_PROVIDER", "USER", "APP_SETTING", "SESSION", "WEATHER_SETTING", "WEATHER_PROVIDER", "WEATHER_REFRESH" ]
+        }
+      } ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.dashboard.after" : {
@@ -9377,8 +9567,8 @@
     "body" : {
       "status" : 401,
       "code" : "UNAUTHORIZED",
-      "message" : "로그인이 필요해요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "error.badToken" : {
@@ -9386,8 +9576,8 @@
     "body" : {
       "status" : 401,
       "code" : "TOKEN_INVALID",
-      "message" : "로그인 정보가 올바르지 않아요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "error.methodNotAllowed" : {
@@ -9395,8 +9585,8 @@
     "body" : {
       "status" : 401,
       "code" : "UNAUTHORIZED",
-      "message" : "로그인이 필요해요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "error.noResource" : {
@@ -9404,8 +9594,8 @@
     "body" : {
       "status" : 404,
       "code" : "NOT_FOUND",
-      "message" : "찾을 수 없어요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "error.unsupportedMedia" : {
@@ -9413,8 +9603,8 @@
     "body" : {
       "status" : 415,
       "code" : "UNSUPPORTED_MEDIA_TYPE",
-      "message" : "지원하지 않는 형식이에요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "users.delete" : {
@@ -9426,8 +9616,8 @@
     "body" : {
       "status" : 401,
       "code" : "TOKEN_INVALID",
-      "message" : "로그인 정보가 올바르지 않아요.",
-      "fieldErrors" : [ ]
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   }
 }

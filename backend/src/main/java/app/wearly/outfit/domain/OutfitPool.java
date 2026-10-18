@@ -7,6 +7,7 @@ import static app.wearly.outfit.domain.OutfitCodes.SLOTS;
 import static app.wearly.outfit.domain.OutfitCodes.TOP;
 
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -27,7 +28,7 @@ import java.util.Set;
  */
 public final class OutfitPool {
 
-  static final String RETIRED = "사용하지 않는 옷이에요.";
+  static final FieldErrorCode RETIRED = FieldErrorCode.ITEM_RETIRED;
 
   private final OutfitRequest request;
   private final Map<String, OutfitItem> owned;
@@ -86,7 +87,7 @@ public final class OutfitPool {
   }
 
   /**
-   * checkPins와 같고, 사용 중지한 옷(items에는 없음)을 고정·중심으로 주면 "사용하지 않는 옷이에요."로 알려 준다 (13 문서 3장).
+   * checkPins와 같고, 사용 중지한 옷(items에는 없음)을 고정·중심으로 주면 ITEM_RETIRED로 알려 준다 (13 문서 3장).
    *
    * @param retiredIds 회원의 사용 중지한 옷 id
    */
@@ -105,9 +106,10 @@ public final class OutfitPool {
               if (item == null && retiredIds.contains(id)) {
                 errors.add(new FieldError(field, RETIRED));
               } else if (item == null) {
-                errors.add(new FieldError(field, "내 옷장에 없는 아이템이에요."));
+                errors.add(new FieldError(field, FieldErrorCode.NOT_OWNED));
               } else if (!slot.equals(item.slot())) {
-                errors.add(new FieldError(field, slot + " 칸에 넣을 수 없는 아이템이에요."));
+                errors.add(
+                    new FieldError(field, FieldErrorCode.SLOT_MISMATCH, Map.of("slot", slot)));
               } else {
                 slotOf.put(slot, id);
               }
@@ -118,17 +120,20 @@ public final class OutfitPool {
       if (item == null && retiredIds.contains(anchor)) {
         errors.add(new FieldError("context.anchorItemId", RETIRED));
       } else if (item == null) {
-        errors.add(new FieldError("context.anchorItemId", "내 옷장에 없는 아이템이에요."));
+        errors.add(new FieldError("context.anchorItemId", FieldErrorCode.NOT_OWNED));
       } else if (item.slot() == null) {
-        errors.add(new FieldError("context.anchorItemId", "코디에 넣을 수 없는 종류예요."));
+        // 코디 칸이 없는 종류
+        errors.add(new FieldError("context.anchorItemId", FieldErrorCode.SLOT_MISMATCH));
       } else if (slotOf.containsKey(item.slot()) && !slotOf.get(item.slot()).equals(anchor)) {
-        errors.add(new FieldError("context.anchorItemId", "같은 칸에 고정한 아이템과 달라요."));
+        // 같은 칸에 고정한 아이템과 다르다
+        errors.add(new FieldError("context.anchorItemId", FieldErrorCode.CONFLICT));
       } else {
         slotOf.put(item.slot(), anchor);
       }
     }
     if (slotOf.containsKey(DRESS) && (slotOf.containsKey(TOP) || slotOf.containsKey(BOTTOM))) {
-      errors.add(new FieldError("context.fixed", "원피스와 상의·하의를 함께 고정할 수 없어요."));
+      // 원피스와 상의·하의를 함께 고정할 수 없다
+      errors.add(new FieldError("context.fixed", FieldErrorCode.CONFLICT));
     }
     return errors;
   }
@@ -188,6 +193,30 @@ public final class OutfitPool {
    *
    * @return 코디를 만들 수 있으면 빈 목록
    */
+  /** 옷이 모자란 칸 코드 (TOP·BOTTOM·SHOES). 오류 응답 params.missing */
+  public List<String> missingSlots() {
+    List<String> out = new ArrayList<>();
+    if (!separatesAvailable() && !dressAvailable() && !wantsDress) {
+      if (eligible(TOP).isEmpty()) {
+        out.add(TOP);
+      }
+      if (eligible(BOTTOM).isEmpty()) {
+        out.add(BOTTOM);
+      }
+    }
+    if (eligible(SHOES).isEmpty()) {
+      out.add(SHOES);
+    }
+    return out;
+  }
+
+  /** 모자란 상의·하의를 대신할 수 있는 칸 (원피스). 오류 응답 params.alternatives, 없으면 빈 목록 */
+  public List<String> missingAlternatives() {
+    boolean topOrBottomMissing = !separatesAvailable() && !dressAvailable() && !wantsDress;
+    return topOrBottomMissing && !wantsSeparates ? List.of(DRESS) : List.of();
+  }
+
+  /** 모자란 칸 요약 (예: "TOP·BOTTOM 또는 DRESS", "SHOES"). 응답은 missingSlots·missingAlternatives를 쓴다 */
   public List<String> missing() {
     List<String> out = new ArrayList<>();
     if (!separatesAvailable() && !dressAvailable() && !wantsDress) {

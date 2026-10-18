@@ -28,10 +28,11 @@ class AiProviderModulesTest {
   }
 
   @Test
-  void 종류_오류_문구는_종류_목록에서_만든다() {
+  void 종류_오류의_허용_목록은_종류_상수에서_만든다() {
     List<FieldError> errors = new ArrayList<>();
     assertThat(AiProviderRules.type("MISTRAL", errors)).isNull();
-    assertThat(errors).containsExactly(new FieldError("type", "CLAUDE, OPENAI, GEMINI 중 하나여야 해요."));
+    assertThat(errors)
+        .containsExactly(FieldError.notAllowed("type", List.of("CLAUDE", "OPENAI", "GEMINI")));
     assertThat(AiProviderRules.type(" GEMINI ", errors)).isEqualTo(AiProviderType.GEMINI);
   }
 }

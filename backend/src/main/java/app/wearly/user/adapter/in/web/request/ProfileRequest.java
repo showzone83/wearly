@@ -5,12 +5,11 @@ import app.wearly.user.application.port.in.dto.ProfileDto.NotifyDto;
 import app.wearly.user.application.port.in.dto.UpdateProfileDto;
 import app.wearly.user.domain.WorkType;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import org.hibernate.validator.constraints.Range;
 
 /**
  * PUT /users/me/profile 본문: 앱 Profile과 같은 모양 + onboarded (05 문서 6장). moods는 STYLE 코드, colors는 COLOR
@@ -18,37 +17,25 @@ import java.util.List;
  */
 public class ProfileRequest {
 
-  @NotBlank(message = "이름을 입력해 주세요.")
-  @Size(max = 20, message = "이름은 20자까지 쓸 수 있어요.")
+  @NotBlank
+  @Size(max = 20)
   private String name;
 
-  @NotNull(message = "필수 값이에요.")
-  private List<@NotNull(message = "허용되지 않는 값이에요.") DressCode> dressCodes;
+  @NotNull private List<@NotNull DressCode> dressCodes;
 
-  @NotNull(message = "필수 값이에요.")
-  private List<@NotNull(message = "허용되지 않는 값이에요.") String> moods;
+  @NotNull private List<@NotNull String> moods;
 
-  @NotNull(message = "필수 값이에요.")
-  private List<@NotNull(message = "허용되지 않는 값이에요.") String> colors;
+  @NotNull private List<@NotNull String> colors;
 
-  @NotNull(message = "필수 값이에요.")
-  private WorkType workType;
+  @NotNull private WorkType workType;
 
-  @NotNull(message = "필수 값이에요.")
-  private List<
-          @NotNull(message = "필수 값이에요.") @Min(value = 0, message = "0(일)~6(토)이어야 해요.")
-          @Max(value = 6, message = "0(일)~6(토)이어야 해요.") Integer>
-      workDays;
+  @NotNull private List<@NotNull @Range(min = 0, max = 6) Integer> workDays;
 
-  @NotNull(message = "필수 값이에요.")
-  private Boolean workRule;
+  @NotNull private Boolean workRule;
 
-  @NotNull(message = "필수 값이에요.")
-  private Boolean offRule;
+  @NotNull private Boolean offRule;
 
-  @NotNull(message = "필수 값이에요.")
-  @Valid
-  private Notify notify;
+  @NotNull @Valid private Notify notify;
 
   /** PUT에서 빠지면 저장과 함께 온보딩을 마친 것으로 본다 */
   private Boolean onboarded;
@@ -58,9 +45,7 @@ public class ProfileRequest {
   /** dMinus1은 앱과 맞춘 JSON 필드 이름이라 그대로 쓴다 (Checkstyle 이름 규칙 예외) */
   @SuppressWarnings("checkstyle:RecordComponentName")
   public record Notify(
-      @NotNull(message = "필수 값이에요.") Boolean morning,
-      @NotNull(message = "필수 값이에요.") Boolean evening,
-      @NotNull(message = "필수 값이에요.") Boolean dMinus1) {}
+      @NotNull Boolean morning, @NotNull Boolean evening, @NotNull Boolean dMinus1) {}
 
   /** PUT 요청 → 유스케이스 입력. onboarded가 빠지면 저장과 함께 온보딩을 마친 것으로 본다 */
   public UpdateProfileDto toDto() {

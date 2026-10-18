@@ -13,7 +13,7 @@ import app.wearly.auth.domain.LoginSession;
 import app.wearly.auth.domain.RefreshToken;
 import app.wearly.auth.domain.RefreshTokens;
 import app.wearly.auth.domain.TokenPolicy;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
@@ -64,13 +64,13 @@ public class SessionService implements SessionUseCase {
   }
 
   /**
-   * 회전. 실패하면 ApiException을 던지지만 재사용 감지 기록(REFRESH_REUSED)은 커밋해야 하므로 ApiException에서는 롤백하지 않는다. 같은
-   * 토큰으로 동시에 갱신하면 저장소가 한 요청만 회전시키고, 나머지는 다시 읽어 ROTATED를 보고 재사용으로 처리한다(이전 DB 행 잠금과 같은 결과).
+   * 회전. 실패하면 BusinessException을 던지지만 재사용 감지 기록(REFRESH_REUSED)은 커밋해야 하므로 BusinessException에서는 롤백하지
+   * 않는다. 같은 토큰으로 동시에 갱신하면 저장소가 한 요청만 회전시키고, 나머지는 다시 읽어 ROTATED를 보고 재사용으로 처리한다(이전 DB 행 잠금과 같은 결과).
    */
-  @Transactional(noRollbackFor = ApiException.class)
+  @Transactional(noRollbackFor = BusinessException.class)
   public Rotated rotate(String rawToken, ClientInfo by) {
     if (rawToken == null || rawToken.isBlank()) {
-      throw new ApiException(ErrorCode.REFRESH_INVALID);
+      throw new BusinessException(ErrorCode.REFRESH_INVALID);
     }
     String hash = RefreshTokens.hash(rawToken);
     Instant now = clock.instant();
@@ -82,7 +82,7 @@ public class SessionService implements SessionUseCase {
     if (!store.rotate(hash, next, now, policy.refreshTtl())) {
       // 다른 요청이 먼저 회전했거나 그사이 세션이 끊겼다
       rejectUnlessOk(findOrInvalid(hash), by, now);
-      throw new ApiException(ErrorCode.REFRESH_INVALID);
+      throw new BusinessException(ErrorCode.REFRESH_INVALID);
     }
     return new Rotated(nextRaw, current.userId(), current.sessionId());
   }
@@ -179,7 +179,9 @@ public class SessionService implements SessionUseCase {
   }
 
   private RefreshToken findOrInvalid(String hash) {
-    return store.findToken(hash).orElseThrow(() -> new ApiException(ErrorCode.REFRESH_INVALID));
+    return store
+        .findToken(hash)
+        .orElseThrow(() -> new BusinessException(ErrorCode.REFRESH_INVALID));
   }
 
   /** OK가 아니면 던진다. 재사용이면 그 세션을 끊고 REFRESH_REUSED를 남긴다 */
@@ -188,13 +190,13 @@ public class SessionService implements SessionUseCase {
       case OK -> {
         // 회전해도 된다
       }
-      case INVALID -> throw new ApiException(ErrorCode.REFRESH_INVALID);
+      case INVALID -> throw new BusinessException(ErrorCode.REFRESH_INVALID);
       case REUSED -> {
         store.delete(token.sessionId());
         events.record(
             AuthEvent.of(
                 token.userId(), AuthEvent.Type.REFRESH_REUSED, token.sessionId(), by, now));
-        throw new ApiException(ErrorCode.REFRESH_REUSED);
+        throw new BusinessException(ErrorCode.REFRESH_REUSED);
       }
       default -> throw new IllegalStateException("모르는 토큰 상태: " + token.check());
     }

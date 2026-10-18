@@ -16,7 +16,7 @@ import app.wearly.ai.application.port.in.dto.PatchProviderDto;
 import app.wearly.ai.application.port.in.dto.ProviderCatalogDto;
 import app.wearly.ai.application.port.in.dto.VerifiedKeyDto;
 import app.wearly.auth.application.port.in.AccountUseCase;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
@@ -47,7 +47,7 @@ class AdminAiServiceTest {
         public AiProviderDto get(String providerId) {
           steps.add("get " + providerId);
           if (!providerId.equals("openai")) {
-            throw ApiException.notFound();
+            throw BusinessException.notFound();
           }
           return provider();
         }
@@ -84,7 +84,7 @@ class AdminAiServiceTest {
         public VerifiedKeyDto checkKey(String providerId, String apiKey, boolean verify) {
           steps.add("check verify=" + verify);
           if (!keyValid) {
-            throw new ApiException(ErrorCode.API_KEY_INVALID);
+            throw new BusinessException(ErrorCode.API_KEY_INVALID);
           }
           return new VerifiedKeyDto(providerId, apiKey);
         }
@@ -173,7 +173,7 @@ class AdminAiServiceTest {
   void 없는_공급자는_재인증_전에_404() {
     assertThatThrownBy(() -> service.setKey(ADMIN, "none", "sk-1234", "wrong", false))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
     assertThat(steps).containsExactly("get none");
   }
 
@@ -183,7 +183,8 @@ class AdminAiServiceTest {
 
     assertThatThrownBy(() -> service.setKey(ADMIN, "openai", "sk-1234", "wrong", false))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.SECRET_KEY_MISSING));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.SECRET_KEY_MISSING));
     assertThat(steps).containsExactly("get openai");
   }
 
@@ -191,7 +192,7 @@ class AdminAiServiceTest {
   void 비밀번호가_틀리면_키를_검증하지_않는다() {
     assertThatThrownBy(() -> service.setKey(ADMIN, "openai", "sk-1234", "wrong", true))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.REAUTH_FAILED));
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.REAUTH_FAILED));
     assertThat(steps).containsExactly("get openai", "reauth 1");
   }
 
@@ -201,7 +202,8 @@ class AdminAiServiceTest {
 
     assertThatThrownBy(() -> service.setKey(ADMIN, "openai", "sk-1234", "admin1234", false))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.API_KEY_INVALID));
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.API_KEY_INVALID));
     assertThat(steps).containsExactly("get openai", "reauth 1", "check verify=false");
     assertThat(audits).isEmpty();
   }

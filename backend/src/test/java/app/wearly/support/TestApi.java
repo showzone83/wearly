@@ -49,8 +49,18 @@ public class TestApi {
       expect(expectedStatus);
       assertThat(code()).isEqualTo(expectedCode);
       assertThat(body.path("status").asInt()).isEqualTo(expectedStatus);
-      assertThat(body.path("message").asString()).isNotBlank();
+      // 오류 응답에는 문장(message)을 넣지 않는다. 코드·params·traceId만
+      assertThat(body.has("message")).as("오류 응답에 message가 없다 (본문: %s)", body).isFalse();
+      assertThat(body.path("traceId").asString()).isNotBlank();
+      assertThat(headers.getFirst("X-Request-Id")).isEqualTo(body.path("traceId").asString());
       assertThat(body.path("fieldErrors").isArray()).isTrue();
+      body.path("fieldErrors")
+          .forEach(
+              f -> {
+                assertThat(f.path("field").asString()).isNotBlank();
+                assertThat(f.path("code").asString()).isNotBlank();
+                assertThat(f.has("message")).isFalse();
+              });
       return this;
     }
   }

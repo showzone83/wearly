@@ -12,7 +12,7 @@ import java.util.List;
  */
 public interface CodeUsageSource {
 
-  /** 사용처 종류. 삭제 거부 문구의 이름과 순서 (아이템 → 프로필) */
+  /** 사용처 종류. 삭제 거부(CODE_IN_USE) params.usages의 kind 이름과 순서 (아이템 → 프로필) */
   enum Kind {
     ITEM("아이템"),
     PROFILE("프로필");

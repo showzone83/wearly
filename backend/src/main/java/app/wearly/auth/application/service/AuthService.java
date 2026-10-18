@@ -13,7 +13,7 @@ import app.wearly.auth.application.port.out.PasswordHasher;
 import app.wearly.auth.domain.ClientInfo;
 import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
@@ -56,7 +56,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
   public AuthResultDto signup(SignupDto req, ClientDto client) {
     String email = LocalCredential.normalizeEmail(req.email());
     if (credentials.existsByEmail(email)) {
-      throw new ApiException(ErrorCode.EMAIL_TAKEN);
+      throw new BusinessException(ErrorCode.EMAIL_TAKEN);
     }
     UserAccountDto user = users.create(email, req.name().strip(), UserAccountDto.ROLE_USER);
     saveCredential(new LocalCredential(null, user.id(), email, passwords.encode(req.password())));
@@ -70,30 +70,30 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
         credentials.findByEmail(LocalCredential.normalizeEmail(req.email()));
     if (found.isEmpty()) {
       passwords.matches(req.password(), dummyHash);
-      throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
+      throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
     }
     LocalCredential credential = found.get();
     if (!passwords.matches(req.password(), credential.passwordHash())) {
-      throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
+      throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
     }
     UserAccountDto user = users.get(credential.userId());
     // 비밀번호가 맞을 때만 정지 여부를 알린다 (07 문서 2장)
     if (!user.isActive()) {
-      throw new ApiException(ErrorCode.ACCOUNT_SUSPENDED);
+      throw new BusinessException(ErrorCode.ACCOUNT_SUSPENDED);
     }
     credentials.markLogin(credential.id(), clock.instant());
     return issueTokens(user, client);
   }
 
   @Override
-  @Transactional(noRollbackFor = ApiException.class)
+  @Transactional(noRollbackFor = BusinessException.class)
   public AuthResultDto refresh(String rawRefreshToken, ClientDto client) {
     SessionService.Rotated next = sessions.rotate(rawRefreshToken, info(client));
     UserAccountDto user =
         users
             .find(next.userId())
             .filter(UserAccountDto::isActive)
-            .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_INVALID));
+            .orElseThrow(() -> new BusinessException(ErrorCode.REFRESH_INVALID));
     return toResult(user, next.rawToken(), next.sessionId());
   }
 
@@ -130,7 +130,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
     try {
       credentials.create(credential);
     } catch (EmailTakenException e) {
-      throw new ApiException(ErrorCode.EMAIL_TAKEN);
+      throw new BusinessException(ErrorCode.EMAIL_TAKEN);
     }
   }
 

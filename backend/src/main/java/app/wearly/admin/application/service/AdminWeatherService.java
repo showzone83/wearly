@@ -7,7 +7,8 @@ import app.wearly.admin.application.port.in.dto.WeatherCallFilterDto;
 import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.domain.AuditTargets;
 import app.wearly.admin.domain.SearchText;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.domain.FieldError;
+import app.wearly.common.error.BusinessException;
 import app.wearly.weather.application.port.in.WeatherAdminUseCase;
 import app.wearly.weather.application.port.in.dto.CallSearchDto;
 import app.wearly.weather.application.port.in.dto.PageResultDto;
@@ -183,7 +184,7 @@ public class AdminWeatherService implements AdminWeatherUseCase {
     return switch (v.toLowerCase(Locale.ROOT)) {
       case "true" -> true;
       case "false" -> false;
-      default -> throw ApiException.validation(field, "true 또는 false여야 해요.");
+      default -> throw BusinessException.validation(FieldError.invalidType(field, "boolean"));
     };
   }
 }

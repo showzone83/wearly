@@ -62,14 +62,14 @@ public record WeatherProvider(
   public static List<FieldError> validate(int priority, Integer monthlyQuota, int maxForecastDays) {
     List<FieldError> errors = new ArrayList<>();
     if (priority < 0 || priority > MAX_PRIORITY) {
-      errors.add(new FieldError("priority", "0~" + MAX_PRIORITY + " 정수여야 해요."));
+      errors.add(FieldError.outOfRange("priority", 0, MAX_PRIORITY));
     }
     if (monthlyQuota != null && monthlyQuota < 0) {
-      errors.add(new FieldError("monthlyQuota", "0 이상이거나 비워야 해요."));
+      // 0 이상이거나 비운다(null)
+      errors.add(FieldError.outOfRange("monthlyQuota", 0, null));
     }
     if (maxForecastDays < 1 || maxForecastDays > WeatherSetting.MAX_FORECAST_DAYS) {
-      errors.add(
-          new FieldError("maxForecastDays", "1~" + WeatherSetting.MAX_FORECAST_DAYS + " 사이여야 해요."));
+      errors.add(FieldError.outOfRange("maxForecastDays", 1, WeatherSetting.MAX_FORECAST_DAYS));
     }
     return errors;
   }

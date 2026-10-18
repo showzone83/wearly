@@ -6,6 +6,7 @@ import static app.wearly.outfit.domain.OutfitFixtures.request;
 import static app.wearly.outfit.domain.OutfitFixtures.wardrobe;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.wearly.common.domain.FieldErrorCode;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -166,7 +167,11 @@ class OutfitPromptTest {
             OutfitPool.checkPins(
                 request(Map.of("TOP", "3"), null, Set.of(), List.of(), 5), wardrobe()))
         .singleElement()
-        .satisfies(e -> assertThat(e.message()).contains("넣을 수 없는"));
+        .satisfies(
+            e -> {
+              assertThat(e.code()).isEqualTo(FieldErrorCode.SLOT_MISMATCH);
+              assertThat(e.params()).containsEntry("slot", "TOP");
+            });
     assertThat(OutfitPool.checkPins(request(Map.of(), "11", Set.of(), List.of(), 5), wardrobe()))
         .singleElement()
         .satisfies(e -> assertThat(e.field()).isEqualTo("context.anchorItemId"));
@@ -189,8 +194,8 @@ class OutfitPromptTest {
                 request(Map.of("TOP", "99"), "98", Set.of(), List.of(), 5),
                 wardrobe(),
                 Set.of("99", "98")))
-        .extracting(e -> e.field() + "=" + e.message())
-        .containsExactly("context.fixed.TOP=사용하지 않는 옷이에요.", "context.anchorItemId=사용하지 않는 옷이에요.");
+        .extracting(e -> e.field() + "=" + e.code())
+        .containsExactly("context.fixed.TOP=ITEM_RETIRED", "context.anchorItemId=ITEM_RETIRED");
     // 내 옷이 아닌 id는 그대로 "없는 아이템"
     assertThat(
             OutfitPool.checkPins(
@@ -198,7 +203,7 @@ class OutfitPromptTest {
                 wardrobe(),
                 Set.of("99")))
         .singleElement()
-        .satisfies(e -> assertThat(e.message()).contains("없는"));
+        .satisfies(e -> assertThat(e.code()).isEqualTo(FieldErrorCode.NOT_OWNED));
   }
 
   @Test
