@@ -71,7 +71,10 @@ export interface ProfileDto {
 
 // ── 옷장 ──
 
-/** 앱 WardrobeItem에서 imageUri를 뺀 모양. 사진은 앱이 아이템 id별로 기기에 따로 보관한다. */
+/**
+ * 앱 WardrobeItem에서 imageUri(기기 사진)를 뺀 모양. 서버에 올린 사진은 image로 온다.
+ * 서버에 사진 기능이 없거나 아직 안 올린 사진은 앱이 아이템 id별로 기기에 따로 보관한다.
+ */
 export interface ItemDto {
   id: string;
   name: string;
@@ -94,14 +97,21 @@ export interface ItemDto {
   retireReason?: RetireReason | null;
   /** 사용 중지 메모 (200자 이하) */
   retireMemo?: string | null;
+  /** 대표 사진 (서버 저장). 없으면 null. 사진 기능이 없는 예전 서버는 보내지 않는다 */
+  image?: ImageRef | null;
 }
 
 export type ItemInput = Omit<
   ItemDto,
-  'id' | 'createdAt' | 'wornCount' | 'lastWornAt' | 'retiredAt' | 'retireReason' | 'retireMemo'
+  'id' | 'createdAt' | 'wornCount' | 'lastWornAt' | 'retiredAt' | 'retireReason' | 'retireMemo' | 'image'
 > & {
   wornCount?: number;
   lastWornAt?: string | null;
+  /**
+   * 붙일 사진: complete까지 끝난(READY) 내 이미지 id. null이면 사진을 뺀다.
+   * 보내지 않으면(undefined) 사진은 그대로다
+   */
+  imageId?: string | null;
 };
 
 export interface ItemListResponse {
@@ -144,6 +154,54 @@ export interface WardrobeStats {
   /** 이유별 사용 중지한 옷 수 */
   retiredByReason?: { reason: RetireReason; count: number }[];
 }
+
+// ── 사진 (서버 저장) ──
+
+/** 아이템에 붙은 사진. url·thumbUrl은 expiresAt까지 유효한 서명 GET 주소라 받을 때마다 바뀐다 */
+export interface ImageRef {
+  /** 이미지 id (UUID). 주소가 바뀌어도 그대로라 화면 캐시 키로 쓴다 */
+  imageId: string;
+  /** 원본(긴 변 2048 이하) 주소 */
+  url: string;
+  /** 썸네일(긴 변 400) 주소 */
+  thumbUrl: string;
+  /** 주소 만료 시각(ISO) */
+  expiresAt: string;
+}
+
+export type ImagePurpose = 'ITEM';
+export type ImageContentType = 'image/jpeg' | 'image/png';
+
+/** POST /images/upload-url 요청 */
+export interface UploadUrlRequest {
+  purpose: ImagePurpose;
+  contentType: ImageContentType;
+  /** 올릴 파일 크기(바이트) */
+  size: number;
+}
+
+/** POST /images/upload-url 응답: 오브젝트 스토리지에 직접 올릴 서명 주소 */
+export interface UploadUrlResponse {
+  imageId: string;
+  uploadUrl: string;
+  method: 'PUT';
+  /** PUT 때 그대로 붙여야 하는 헤더 (서명에 들어간 Content-Type 등) */
+  headers: Record<string, string>;
+  /** 업로드 주소 만료 시각(ISO) */
+  expiresAt: string;
+}
+
+/** POST /images/{imageId}/complete 응답 (이미 READY여도 같은 응답) */
+export interface ImageCompleteResponse extends ImageRef {
+  width: number;
+  height: number;
+}
+
+/**
+ * 서명 주소로 올릴 본문. Blob(Node·웹), 바이트, 또는 arrayBuffer()만 있는 파일 객체
+ * (React Native의 expo-file-system File처럼 Blob을 상속하지 않고 인터페이스만 구현한 것)
+ */
+export type UploadBody = Blob | ArrayBuffer | Uint8Array | { arrayBuffer(): Promise<ArrayBuffer> };
 
 // ── AI 분석 ──
 
@@ -325,6 +383,11 @@ export interface RNFile {
 }
 
 export type AnalyzeFile = Blob | RNFile;
+
+/** POST /wardrobe/items/analyze JSON 요청: 이미 올린(READY) 내 이미지로 분석 */
+export interface AnalyzeImageRequest {
+  imageId: string;
+}
 
 // ── 오류 ──
 

@@ -8,8 +8,17 @@ import { ApiError, isApiError } from '@/api/errors';
 import { useStore, type AccountUser } from '@/store/useStore';
 import { api, setAuthLostHandler, tokenStore } from './api';
 import { newId } from './context';
+import { keepPhotoLocally } from './photoUpload';
 import { RETIRE_MEMO_MAX } from './retire';
-import { inputFromDraft, inputFromItem, itemFromDto, profileFromDto, profileToDto, retireFromDto } from './serverItems';
+import {
+  imageFromDto,
+  inputFromDraft,
+  inputFromItem,
+  itemFromDto,
+  profileFromDto,
+  profileToDto,
+  retireFromDto,
+} from './serverItems';
 
 /** 옷장 동기화 목록: 사용하지 않는 옷도 받아 과거 기록에 보이게 한다 (doc/13 3장) */
 const ALL_ITEMS = { retired: 'all' } as const;
@@ -36,9 +45,13 @@ setAuthLostHandler((reason) => {
 
 // ── 서버 아이템 합치기 ──
 
+/** 마지막으로 서버 옷장 목록을 받은 시각(ms). 사진 주소(서명 URL) 갱신 간격을 정할 때 쓴다 */
+let wardrobeSyncedAtMs = 0;
+export const wardrobeSyncedAt = (): number => wardrobeSyncedAtMs;
+
 /**
  * 서버 목록을 기기 상태와 합친다.
- * - 사진은 기기에만 있으므로 id별 사진을 붙인다.
+ * - 서버 사진(image)은 응답에 있고, 기기에만 있는 사진(photos[id])도 id별로 붙인다.
  * - 착용 기록은 이번 단계에서 기기에만 저장하므로, 착용 횟수·마지막 착용일은 더 큰 쪽을 쓰고
  *   기기 쪽이 앞서 있으면 서버에 다시 올린다.
  */
@@ -57,6 +70,7 @@ function applyServerItems(dtos: ItemDto[]) {
     return merged;
   });
   s.syncItems(items);
+  wardrobeSyncedAtMs = Date.now();
   if (behind.length) void pushWorn(behind.map((i) => i.id));
 }
 
@@ -91,8 +105,23 @@ export async function enterAccount(user: UserDto): Promise<'home' | 'onboarding'
   return profileDto.onboarded ? 'home' : 'onboarding';
 }
 
+/** 진행 중인 refreshAccount. 사진 옮기기가 옷장 동기화가 끝난 뒤 시작하도록 기다린다 */
+let refreshing: Promise<void> | null = null;
+
+/** 진행 중인 계정 동기화가 있으면 끝날 때까지 기다린다 (실패해도 resolve) */
+export const waitForAccountRefresh = (): Promise<void> => refreshing ?? Promise.resolve();
+
 /** 앱 시작·복귀 때 서버 기준으로 프로필·옷장을 다시 맞춘다. 오프라인이면 기기 데이터로 계속한다 */
-export async function refreshAccount(): Promise<void> {
+export function refreshAccount(): Promise<void> {
+  if (!refreshing) {
+    refreshing = doRefreshAccount().finally(() => {
+      refreshing = null;
+    });
+  }
+  return refreshing;
+}
+
+async function doRefreshAccount(): Promise<void> {
   try {
     const [user, profileDto, list] = await Promise.all([api.users.me(), api.profile.get(), api.wardrobe.list(ALL_ITEMS)]);
     const s = useStore.getState();
@@ -214,31 +243,70 @@ export async function saveProfile(next: Profile): Promise<void> {
 
 // ── 옷장 ──
 
+/** 올려 둔 사진을 붙이지 못한 오류 (정리 작업으로 지워졌거나 다른 아이템에 붙음 등) */
+const isImageAttachError = (e: unknown): boolean =>
+  isApiError(e) && (e.code.startsWith('IMAGE_') || e.code === 'NOT_FOUND');
+
+/**
+ * 옷 등록. 계정 모드에서 draft.image(올려 둔 서버 사진)가 있으면 imageId를 함께 보낸다.
+ * 서버 사진이 붙지 않으면 고른 사진을 기기에 두고(앱 문서 폴더), 나중에 사진 옮기기가 다시 올린다.
+ */
 export async function createItem(draft: ItemDraft): Promise<WardrobeItem> {
   const s = useStore.getState();
+  const { image, ...form } = draft;
   if (s.authMode !== 'account') {
-    const item: WardrobeItem = { ...draft, id: newId('item'), wornCount: 0, createdAt: new Date().toISOString() };
+    const id = newId('item');
+    const imageUri = await keepPhotoLocally(form.imageUri, id);
+    const item: WardrobeItem = { ...form, imageUri, id, wornCount: 0, createdAt: new Date().toISOString() };
     s.addItem(item);
     return item;
   }
-  const dto = await api.wardrobe.create(inputFromDraft(draft));
-  if (draft.imageUri) s.setPhoto(dto.id, draft.imageUri);
-  const item = itemFromDto(dto, draft.imageUri);
-  s.addItem(item);
+  let dto: ItemDto;
+  if (image) {
+    try {
+      dto = await api.wardrobe.create({ ...inputFromDraft(form), imageId: image.imageId });
+    } catch (e) {
+      if (!isImageAttachError(e)) throw e;
+      console.warn('[account] 올린 사진을 붙이지 못해 사진 없이 등록하고 기기에 둬요', e);
+      dto = await api.wardrobe.create(inputFromDraft(form));
+    }
+  } else {
+    dto = await api.wardrobe.create(inputFromDraft(form));
+  }
+  // 서버 사진이 붙었으면 기기에는 두지 않는다 (화면 캐시는 올릴 때 채웠다)
+  const local = imageFromDto(dto.image) ? undefined : await keepPhotoLocally(form.imageUri, dto.id);
+  if (local) useStore.getState().setPhoto(dto.id, local);
+  const item = itemFromDto(dto, local);
+  useStore.getState().addItem(item);
   return item;
 }
 
 /** @returns false면 서버에 이미 없는 아이템이라 기기에서도 지웠다 */
 export async function saveItem(id: string, draft: ItemDraft): Promise<boolean> {
   const s = useStore.getState();
+  const current = s.items.find((i) => i.id === id);
+  const { image, ...form } = draft;
+  const photoChanged = form.imageUri !== current?.imageUri;
   if (s.authMode !== 'account') {
-    s.updateItem(id, draft);
+    const imageUri = photoChanged ? await keepPhotoLocally(form.imageUri, id) : form.imageUri;
+    useStore.getState().updateItem(id, { ...form, imageUri });
     return true;
   }
   try {
-    const dto = await api.wardrobe.update(id, inputFromDraft(draft));
-    s.setPhoto(id, draft.imageUri);
-    s.updateItem(id, itemFromDto(dto, draft.imageUri));
+    const input = inputFromDraft(form);
+    // 새로 올린 사진일 때만 imageId를 보낸다. 보내지 않으면 서버 사진은 그대로다
+    // (폼을 연 뒤 사진 옮기기로 서버 사진이 생겼어도 지우지 않도록 null은 보내지 않는다)
+    if (image && image.imageId !== current?.image?.imageId) input.imageId = image.imageId;
+    const dto = await api.wardrobe.update(id, input);
+    let local: string | undefined = useStore.getState().photos[id];
+    if (input.imageId && imageFromDto(dto.image)) {
+      local = undefined;
+      useStore.getState().setPhoto(id, undefined);
+    } else if (photoChanged) {
+      local = await keepPhotoLocally(form.imageUri, id);
+      useStore.getState().setPhoto(id, local);
+    }
+    useStore.getState().updateItem(id, itemFromDto(dto, local));
     return true;
   } catch (e) {
     if (isApiError(e) && e.code === 'NOT_FOUND') {

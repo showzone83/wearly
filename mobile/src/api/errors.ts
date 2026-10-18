@@ -16,6 +16,16 @@ export type ApiErrorCode =
   | 'AI_UNAVAILABLE'
   /** 추천 가능한 옷이 모자라 코디를 만들 수 없음. message에 모자란 칸 (doc/09 3장) */
   | 'WARDROBE_INSUFFICIENT'
+  /** 사진 형식·크기·디코딩 오류 (complete) */
+  | 'IMAGE_INVALID'
+  /** complete인데 저장소에 올린 파일이 없음 */
+  | 'IMAGE_NOT_UPLOADED'
+  /** 다른 아이템에 이미 붙은 이미지 */
+  | 'IMAGE_IN_USE'
+  /** 하루 사진 업로드 한도 초과 */
+  | 'IMAGE_UPLOAD_LIMIT'
+  /** 서명 주소로 올리기(PUT) 실패. 오브젝트 스토리지 응답이라 서버 오류 형식이 아니다 (앱이 만든다) */
+  | 'UPLOAD_FAILED'
   /** 서버에 닿지 못함 (연결 실패·시간 초과) */
   | 'NETWORK'
   /** 응답이 계약 형식이 아님 (JSON이 아닌 오류 본문 등) */

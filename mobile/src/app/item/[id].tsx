@@ -45,8 +45,10 @@ const ItemDetail = () => {
   const retired = isRetired(item);
   const since = item.lastWornAt ? diffDays(todayKey(), item.lastWornAt) : null;
   const sleeping = since === null || since >= 30;
-  // 폼 값끼리만 비교한다 (draftOf가 키 순서를 맞춘다)
-  const dirty = JSON.stringify(draftOf(draft)) !== JSON.stringify(draftOf(item));
+  // 폼 값끼리만 비교한다 (draftOf가 키 순서를 맞춘다). 사진은 이 화면에서 바꾸지 않으므로 비교하지 않는다
+  // (화면을 연 뒤 사진 옮기기·주소 갱신으로 사진 필드가 바뀌어도 '수정됨'이 되지 않게)
+  const formKey = (d: ItemDraft) => JSON.stringify({ ...draftOf(d), imageUri: undefined });
+  const dirty = formKey(draft) !== formKey(item);
 
   /** 다른 기기에서 지운 옷이라 기기에서도 지웠을 때 */
   const gone = () => {
@@ -97,7 +99,8 @@ const ItemDetail = () => {
   const onSave = async () => {
     setBusy(true);
     try {
-      const exists = await saveItem(item.id, draft);
+      // 사진은 지금 아이템 값 그대로 (폼을 연 뒤 바뀌었을 수 있다)
+      const exists = await saveItem(item.id, { ...draft, imageUri: item.imageUri, image: item.image });
       if (!exists) notify('이미 삭제된 옷이에요', '다른 기기에서 지운 옷이라 이 기기에서도 지웠어요.');
       router.back();
     } catch (e) {
@@ -138,7 +141,13 @@ const ItemDetail = () => {
       )}
 
       <View style={{ alignItems: 'center' }}>
-        <ItemThumb item={{ ...item, ...draft }} size={200} radius={28} dim={retired} />
+        <ItemThumb
+          item={{ ...item, ...draft, imageUri: item.imageUri, image: item.image }}
+          size={200}
+          radius={28}
+          dim={retired}
+          variant="full"
+        />
       </View>
       <Row style={s.stats}>
         <View style={s.stat}>

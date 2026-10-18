@@ -17,6 +17,14 @@ export type ItemStatus = string;
 /** RETIRE_REASON 코드 (예: DONATED). 사용하지 않는 옷으로 옮긴 이유 (doc/13) */
 export type RetireReason = string;
 
+/** 서버 사진 참조 (@/api/types의 ImageRef와 같은 모양) */
+export interface IItemImage {
+  imageId: string;
+  url: string;
+  thumbUrl: string;
+  expiresAt: string;
+}
+
 export interface WardrobeItem {
   id: string;
   name: string;
@@ -29,7 +37,13 @@ export interface WardrobeItem {
   /** 1 = 편한 데일리, 2 = 비즈니스 캐주얼, 3 = 포멀 */
   formality: 1 | 2 | 3;
   status: ItemStatus;
+  /**
+   * 기기 사진 주소: 게스트 사진(앱 문서 폴더 photos/), 샘플 사진(wearly-sample://), 계정 모드에서 아직 서버에 못 올린 사진.
+   * 서버 사진(image)이 있으면 그것을 먼저 쓴다
+   */
   imageUri?: string;
+  /** 서버에 올린 사진 (계정 모드). url·thumbUrl은 서명 주소라 expiresAt 뒤에는 아이템을 다시 받아야 한다 */
+  image?: IItemImage;
   brand?: string;
   wornCount: number;
   lastWornAt?: string;

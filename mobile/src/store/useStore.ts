@@ -16,6 +16,7 @@ import type {
 import type { RecommendSource } from '@/lib/aiOutfits';
 import { addDays, diffDays, todayKey } from '@/lib/date';
 import type { EngineInput } from '@/lib/recommend';
+import type { IPhotoSyncEntry } from '@/lib/photoRules';
 import { buildSampleHistory } from '@/lib/sample';
 
 /** 추천 결과 화면으로 넘기는 임시 데이터 (저장하지 않음) */
@@ -48,8 +49,13 @@ interface State {
   authLost: boolean;
   /** authLost일 때 로그인 화면 안내 문구를 고르는 이유 */
   authLostReason: AuthLostReason | null;
-  /** 계정 모드: 서버 아이템 id → 기기에만 있는 사진 uri (서버는 사진을 저장하지 않는다) */
+  /**
+   * 계정 모드: 서버 아이템 id → 기기에만 있는 사진 uri.
+   * 샘플 사진, 서버에 사진 기능이 없을 때 고른 사진, 아직 서버로 옮기지 못한 사진이다 (서버 사진은 item.image)
+   */
   photos: Record<string, string>;
+  /** 계정 모드: 기기 사진을 서버로 옮기기 실패 기록 (아이템 id별, 계약 4장) */
+  photoSync: Record<string, IPhotoSyncEntry>;
   onboarded: boolean;
   profile: Profile;
   items: WardrobeItem[];
@@ -64,6 +70,7 @@ interface State {
   /** 서버 목록으로 옷장을 맞춘다. 사라진 아이템은 저장 코디·예정일에서도 뺀다 */
   syncItems: (items: WardrobeItem[]) => void;
   setPhoto: (id: string, uri: string | undefined) => void;
+  setPhotoSync: (id: string, entry: IPhotoSyncEntry | undefined) => void;
   updateProfile: (patch: Partial<Profile>) => void;
   addItem: (item: WardrobeItem) => void;
   updateItem: (id: string, patch: Partial<WardrobeItem>) => void;
@@ -85,6 +92,7 @@ const EMPTY = {
   authLost: false,
   authLostReason: null as AuthLostReason | null,
   photos: {} as Record<string, string>,
+  photoSync: {} as Record<string, IPhotoSyncEntry>,
   onboarded: false,
   profile: DEFAULT_PROFILE,
   items: [] as WardrobeItem[],
@@ -129,8 +137,12 @@ export const useStore = create<State>()(
           plans = plans.map((p) => (p.outfit ? { ...p, outfit: { ...p.outfit, items: removeItemRefs(p.outfit.items, id) } } : p));
         }
         const photos = { ...s.photos };
-        for (const id of removed) delete photos[id];
-        set({ items, dayOutfits, plans, photos });
+        const photoSync = { ...s.photoSync };
+        for (const id of removed) {
+          delete photos[id];
+          delete photoSync[id];
+        }
+        set({ items, dayOutfits, plans, photos, photoSync });
       },
 
       setPhoto: (id, uri) => {
@@ -138,6 +150,13 @@ export const useStore = create<State>()(
         if (uri) photos[id] = uri;
         else delete photos[id];
         set({ photos });
+      },
+
+      setPhotoSync: (id, entry) => {
+        const photoSync = { ...get().photoSync };
+        if (entry) photoSync[id] = entry;
+        else delete photoSync[id];
+        set({ photoSync });
       },
 
       updateProfile: (patch) => set({ profile: { ...get().profile, ...patch } }),
@@ -151,6 +170,8 @@ export const useStore = create<State>()(
         const s = get();
         const photos = { ...s.photos };
         delete photos[id];
+        const photoSync = { ...s.photoSync };
+        delete photoSync[id];
         const dayOutfits: Record<string, SavedOutfit> = {};
         for (const [k, v] of Object.entries(s.dayOutfits)) {
           dayOutfits[k] = { ...v, outfit: { ...v.outfit, items: removeItemRefs(v.outfit.items, id) } };
@@ -158,6 +179,7 @@ export const useStore = create<State>()(
         set({
           items: s.items.filter((i) => i.id !== id),
           photos,
+          photoSync,
           dayOutfits,
           plans: s.plans.map((p) =>
             p.outfit ? { ...p, outfit: { ...p.outfit, items: removeItemRefs(p.outfit.items, id) } } : p,

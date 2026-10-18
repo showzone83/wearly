@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { bootstrapSession } from '@/lib/account';
 import { API_BASE_URL } from '@/lib/api';
 import { syncAppConfig } from '@/lib/appConfig';
+import { onAppActive, startPhotoMaintenance } from '@/lib/photoSync';
 import { bootstrapCodes, useCodes } from '@/store/useCodes';
 import { useStore } from '@/store/useStore';
 import { useThemeStore } from '@/store/useThemeStore';
@@ -90,6 +91,21 @@ const useAppConfigSync = (themeHydrated: boolean) => {
   }, [themeHydrated]);
 };
 
+/**
+ * 옷 사진 관리 (계약 4장): 세션 확인이 끝나면 한 번(기기 사진을 앱 폴더로·정리·서버로 옮기기),
+ * 앱이 다시 활성이 될 때마다 계정 모드면 사진 주소 갱신과 남은 기기 사진 옮기기. 화면을 막지 않는다.
+ */
+const usePhotoMaintenance = (sessionChecked: boolean) => {
+  useEffect(() => {
+    if (!sessionChecked) return;
+    void startPhotoMaintenance();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void onAppActive();
+    });
+    return () => sub.remove();
+  }, [sessionChecked]);
+};
+
 /** 계정 모드에서 로그인이 풀리면(Refresh 실패) 로그인 화면으로 보낸다 */
 function AuthWatcher() {
   const lost = useStore((s) => s.authMode === 'account' && s.authLost);
@@ -110,6 +126,7 @@ export default function RootLayout() {
   const sessionChecked = useSession(hydrated);
   const codes = useCodesReady(codesHydrated);
   useAppConfigSync(themeHydrated);
+  usePhotoMaintenance(sessionChecked);
   // 저장된 테마로 첫 화면을 그리도록 테마 복원을 기다린다 (제목은 시스템 산세리프라 글꼴 로딩은 없다)
   const ready = themeHydrated && hydrated && sessionChecked && codes.phase === 'ready';
   const codesFailed = codes.phase === 'failed';

@@ -6,12 +6,14 @@ import { ApiError, errorFromResponse, networkError } from './errors';
 import type { Tokens, TokenStore } from './tokenStore';
 import type {
   AnalyzeFile,
+  AnalyzeImageRequest,
   AppConfigDto,
   AppConfigResult,
   AnalyzeResponse,
   AuthResponse,
   CodesResponse,
   CodesResult,
+  ImageCompleteResponse,
   ItemDto,
   ItemFilter,
   ItemInput,
@@ -23,6 +25,9 @@ import type {
   RetireRequest,
   RNFile,
   SignupRequest,
+  UploadBody,
+  UploadUrlRequest,
+  UploadUrlResponse,
   UserDto,
   WardrobeStats,
 } from './types';
@@ -42,6 +47,8 @@ export interface ApiClientOptions {
   analyzeTimeoutMs?: number;
   /** AI 코디 추천 요청 시간 제한(ms). 기본 60초 */
   recommendTimeoutMs?: number;
+  /** 사진 올리기(서명 주소 PUT)·complete 시간 제한(ms). 기본 60초 */
+  uploadTimeoutMs?: number;
   /** 테스트용 fetch 교체 */
   fetch?: typeof fetch;
 }
@@ -125,6 +132,16 @@ function analyzeForm(file: AnalyzeFile): FormData {
   return form;
 }
 
+/** 업로드 본문을 바이트로 읽는다. Blob의 type이 Content-Type을 덮어쓰지 않도록(서명 불일치) 바이트로 보낸다 */
+async function uploadBytes(body: UploadBody): Promise<Uint8Array<ArrayBuffer>> {
+  if (body instanceof Uint8Array) return new Uint8Array(body);
+  if (body instanceof ArrayBuffer) return new Uint8Array(body);
+  if (typeof (body as { arrayBuffer?: unknown }).arrayBuffer === 'function') {
+    return new Uint8Array(await (body as { arrayBuffer(): Promise<ArrayBuffer> }).arrayBuffer());
+  }
+  throw new ApiError(0, 'VALIDATION_FAILED', '올릴 사진이 없어요.');
+}
+
 export function createApiClient(options: ApiClientOptions) {
   const base = joinBase(options.baseUrl);
   const { tokenStore, onAuthLost } = options;
@@ -132,6 +149,7 @@ export function createApiClient(options: ApiClientOptions) {
   const defaultTimeout = options.timeoutMs ?? 15_000;
   const analyzeTimeout = options.analyzeTimeoutMs ?? 60_000;
   const recommendTimeout = options.recommendTimeoutMs ?? 60_000;
+  const uploadTimeout = options.uploadTimeoutMs ?? 60_000;
 
   /** 진행 중인 갱신. 동시에 여러 요청이 만료돼도 /auth/refresh는 한 번만 보낸다 (single-flight) */
   let refreshing: Promise<Tokens> | null = null;
@@ -254,6 +272,46 @@ export function createApiClient(options: ApiClientOptions) {
       }
     }
     return readBody<T>(await send(method, path, opts, fresh)); // 재시도는 한 번만
+  }
+
+  /**
+   * 서명 주소로 직접 올린다 (오브젝트 스토리지). 우리 서버가 아니므로 토큰·X-Wearly-Client를 붙이지 않고,
+   * 응답에 준 헤더(서명에 들어간 Content-Type 등)만 그대로 붙인다.
+   */
+  async function putSigned(target: Pick<UploadUrlResponse, 'uploadUrl' | 'method' | 'headers'>, body: UploadBody): Promise<void> {
+    const bytes = await uploadBytes(body);
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+    let timedOut = false;
+    const timer =
+      controller && uploadTimeout > 0
+        ? setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+          }, uploadTimeout)
+        : undefined;
+    let res: Response;
+    try {
+      res = await doFetch(target.uploadUrl, {
+        method: target.method || 'PUT',
+        headers: { ...target.headers },
+        body: bytes,
+        signal: controller?.signal,
+      });
+    } catch (e) {
+      throw networkError(e, timedOut);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+    if (res.ok) {
+      await res.text().catch(() => undefined); // 연결을 비운다
+      return;
+    }
+    // S3 계열 오류는 XML이다. 서버 오류 형식이 아니므로 상태만 담는다
+    const text = await res.text().catch(() => '');
+    const code = /<Code>([^<]+)<\/Code>/.exec(text)?.[1];
+    const err = new ApiError(res.status, 'UPLOAD_FAILED', `사진을 올리지 못했어요. (HTTP ${res.status}${code ? ` ${code}` : ''})`);
+    (err as { cause?: unknown }).cause = text.slice(0, 500);
+    throw err;
   }
 
   async function saveAuth(auth: AuthResponse): Promise<AuthResponse> {
@@ -383,12 +441,41 @@ export function createApiClient(options: ApiClientOptions) {
       stats(): Promise<WardrobeStats> {
         return request<WardrobeStats>('GET', '/wardrobe/stats', { auth: true });
       },
+      /**
+       * 이미 올린 사진(complete까지 끝난 내 이미지)으로 AI 분석. 응답은 multipart 분석과 같다.
+       * 오류: 404 NOT_FOUND(남의·없는 이미지) · 400 IMAGE_INVALID · 429 AI_LIMIT_EXCEEDED · 502 AI_UNAVAILABLE
+       */
+      analyzeImage: (req: AnalyzeImageRequest): Promise<AnalyzeResponse> =>
+        request<AnalyzeResponse>('POST', '/wardrobe/items/analyze', { auth: true, json: req, timeoutMs: analyzeTimeout }),
       /** AI 사진 분석. file은 Blob(Node·웹) 또는 { uri, name, type }(React Native) */
       async analyze(file: AnalyzeFile): Promise<AnalyzeResponse> {
         const form = () => analyzeForm(file);
         form(); // 잘못된 입력은 요청 전에 바로 알린다
         return request<AnalyzeResponse>('POST', '/wardrobe/items/analyze', { auth: true, form, timeoutMs: analyzeTimeout });
       },
+    },
+    images: {
+      /**
+       * 사진 올릴 서명 주소 받기 (1단계). 사진 기능이 없는 예전 서버는 404를 준다.
+       * 오류: 400 VALIDATION_FAILED(형식·크기) · 429 IMAGE_UPLOAD_LIMIT(하루 한도)
+       */
+      uploadUrl: (req: UploadUrlRequest): Promise<UploadUrlResponse> =>
+        request<UploadUrlResponse>('POST', '/images/upload-url', { auth: true, json: req }),
+      /**
+       * 서명 주소로 파일 올리기 (2단계). body는 Blob·바이트·arrayBuffer()가 있는 파일 객체.
+       * 오류: code UPLOAD_FAILED(저장소가 거절, 주소 만료 등) · NETWORK
+       */
+      put: (target: Pick<UploadUrlResponse, 'uploadUrl' | 'method' | 'headers'>, body: UploadBody): Promise<void> =>
+        putSigned(target, body),
+      /**
+       * 올리기 끝 (3단계). 서버가 검증·메타데이터 제거·축소·썸네일을 만들고 READY로 바꾼다. 이미 READY면 같은 응답.
+       * 오류: 400 IMAGE_INVALID · 400 IMAGE_NOT_UPLOADED · 404 NOT_FOUND(남의·없는 이미지)
+       */
+      complete: (imageId: string): Promise<ImageCompleteResponse> =>
+        request<ImageCompleteResponse>('POST', `/images/${encodeURIComponent(imageId)}/complete`, {
+          auth: true,
+          timeoutMs: uploadTimeout,
+        }),
     },
     outfits: {
       /**
