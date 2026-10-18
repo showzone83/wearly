@@ -9,6 +9,7 @@ import { useStore, type AccountUser } from '@/store/useStore';
 import { api, setAuthLostHandler, tokenStore } from './api';
 import { newId } from './context';
 import { keepPhotoLocally } from './photoUpload';
+import { unregisterPushToken } from './planNotify';
 import { syncPlans } from './planSync';
 import { RETIRE_MEMO_MAX } from './retire';
 import {
@@ -190,12 +191,14 @@ export function continueAsGuest() {
 }
 
 export async function logout(): Promise<void> {
+  await unregisterPushToken(); // 이 기기로 D-1 푸시가 더 오지 않게 (실패해도 계속)
   await api.auth.logout(); // 서버 호출이 실패해도 토큰은 지운다
   useStore.getState().resetAll();
 }
 
 export async function deleteAccount(): Promise<void> {
-  await api.users.deleteMe();
+  await api.users.deleteMe(); // 서버의 푸시 토큰도 함께 지워진다
+  await unregisterPushToken(false);
   useStore.getState().resetAll();
 }
 

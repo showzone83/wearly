@@ -46,6 +46,12 @@
           "locationAlwaysPermission": false,
           "motionUsagePermission": false
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "plan-d1"
+        }
       ]
     ],
     "scheme": "wearly"

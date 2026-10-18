@@ -3,6 +3,7 @@ package app.wearly.plan.adapter.out.persistence.mybatis.mapper;
 import app.wearly.plan.adapter.out.persistence.mybatis.dto.PlanRowDto;
 import app.wearly.plan.application.port.out.PlanFilter;
 import app.wearly.plan.application.port.out.dto.PlanCodeCountRowDto;
+import java.time.LocalDate;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -12,6 +13,9 @@ import org.apache.ibatis.annotations.Param;
 public interface PlanMapper {
 
   List<PlanRowDto> findPlans(PlanFilter filter);
+
+  /** 이 날짜의 모든 회원 예정 (알림용) */
+  List<PlanRowDto> findOnDate(@Param("date") LocalDate date);
 
   long count(@Param("userId") long userId);
 

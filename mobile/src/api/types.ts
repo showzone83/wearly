@@ -585,6 +585,29 @@ export interface AnalyzeImageRequest {
   imageId: string;
 }
 
+// ── 푸시 토큰 (예정 D-1 알림 서버 푸시) ──
+
+export type PushPlatform = 'ios' | 'android';
+
+/** PUT /me/push-token 본문 */
+export interface PushTokenRequest {
+  /** Expo 푸시 토큰 (ExponentPushToken[…]) */
+  token: string;
+  platform: PushPlatform;
+  /** 앱이 처음 실행할 때 만든 기기 ID (1~64자, 영문·숫자·. _ : -) */
+  deviceId: string;
+}
+
+/** PUT /me/push-token 응답 */
+export interface PushTokenResponse {
+  deviceId: string;
+  platform: PushPlatform;
+  /** 서버가 이 기기에 D-1 알림을 보낸다 (서버 푸시 켜짐 + Expo). true면 앱은 로컬 D-1 알림을 끈다 */
+  serverPush: boolean;
+  /** 서버 D-1 작업 시각 "HH:mm" (한국 시간) */
+  dayBeforeTime: string;
+}
+
 // ── 오류 ──
 
 /** 필드 오류. 서버는 문장 없이 { field, code, params? }만 보낸다 (backend error-codes.json의 fieldErrorCodes) */

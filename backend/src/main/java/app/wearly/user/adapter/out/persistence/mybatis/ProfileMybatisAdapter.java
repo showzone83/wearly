@@ -3,6 +3,7 @@ package app.wearly.user.adapter.out.persistence.mybatis;
 import app.wearly.user.adapter.out.persistence.mybatis.mapper.ProfileMapper;
 import app.wearly.user.application.port.out.ProfileQueryPort;
 import app.wearly.user.application.port.out.dto.CodeCountDto;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -24,5 +25,10 @@ class ProfileMybatisAdapter implements ProfileQueryPort {
   @Override
   public long countUsing(String group, String code) {
     return mapper.countUsing(group, code);
+  }
+
+  @Override
+  public List<Long> findDayBeforeEnabled(Collection<Long> userIds) {
+    return userIds.isEmpty() ? List.of() : mapper.findDayBeforeEnabled(userIds);
   }
 }
