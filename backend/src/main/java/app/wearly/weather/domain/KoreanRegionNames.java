@@ -54,14 +54,38 @@ public final class KoreanRegionNames {
     return out;
   }
 
+  /**
+   * 검색어 한 낱말이 이 시·도를 가리키는지 (시·군·구 검색의 앞 낱말, 예: "부산 중구"의 부산). 같은 이름이거나 두 글자 이상 앞부분.
+   *
+   * @param code REGION 코드
+   * @param label REGION label (코드 행에 없으면 null)
+   */
+  public static boolean matchesRegion(String code, String label, String word) {
+    return word != null
+        && !word.isBlank()
+        && names(code, label).stream().anyMatch(n -> matches(n, word));
+  }
+
+  /** 검색어가 활성 시·도의 label·정식 이름·별칭과 글자까지 같은지 (부산 → true, 부산진 → false) */
+  public static boolean exact(List<WeatherRegion> regions, String query) {
+    return query != null
+        && regions.stream().anyMatch(r -> names(r.code(), r.label()).contains(query));
+  }
+
   private static boolean matches(String name, String query) {
     return name.equals(query) || (query.length() >= MIN_PREFIX && name.startsWith(query));
   }
 
   private static List<String> names(WeatherRegion r) {
+    return names(r.code(), r.label());
+  }
+
+  private static List<String> names(String code, String label) {
     List<String> out = new ArrayList<>();
-    out.add(r.label());
-    out.addAll(NAMES.getOrDefault(r.code(), List.of()));
+    if (label != null) {
+      out.add(label);
+    }
+    out.addAll(NAMES.getOrDefault(code, List.of()));
     return out;
   }
 

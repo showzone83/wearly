@@ -13,6 +13,7 @@ import app.wearly.weather.application.port.in.dto.PlaceCandidateDto;
 import app.wearly.weather.application.port.in.dto.PlaceDto;
 import app.wearly.weather.application.port.in.dto.WeatherDayDto;
 import app.wearly.weather.application.port.in.dto.WeatherDayQueryDto;
+import app.wearly.weather.application.port.out.DistrictCatalogPort;
 import app.wearly.weather.application.port.out.GeocodingPort;
 import app.wearly.weather.application.port.out.PlaceSearchCachePort;
 import app.wearly.weather.application.port.out.PlaceSnapshotPort;
@@ -28,6 +29,7 @@ import app.wearly.weather.domain.FetchResult;
 import app.wearly.weather.domain.GeoPlace;
 import app.wearly.weather.domain.GeocodeResult;
 import app.wearly.weather.domain.GridKey;
+import app.wearly.weather.domain.KoreanDistricts;
 import app.wearly.weather.domain.KoreanRegionNames;
 import app.wearly.weather.domain.MonthlyClimate;
 import app.wearly.weather.domain.PlaceCandidate;
@@ -66,8 +68,9 @@ import org.springframework.stereotype.Service;
  *   <li>예보에 그 날짜가 없으면 그 격자·그 달의 평년값(CLIMATE).
  * </ul>
  *
- * <p>장소 검색은 Open-Meteo 지오코딩(한글 검색어·한글 이름)으로 하고, 꺼져 있거나 실패하면 날씨 공급자(WeatherAPI) 검색으로 대신한다 (그때 이름은
- * 영어). 한글 국내 지명은 "&lt;검색어&gt;시"·"&lt;검색어&gt;군"으로 더 찾아 보정한다 (PlaceSearchRules).
+ * <p>장소 검색은 시·도 이름(KoreanRegionNames) → 시·군·구 자료(KoreanDistricts) → Open-Meteo 지오코딩(한글 검색어·한글 이름)
+ * 차례로 맞춘다. 지오코딩이 꺼져 있거나 실패하면 날씨 공급자(WeatherAPI) 검색으로 대신한다 (그때 이름은 영어). 한글 국내 지명은
+ * "&lt;검색어&gt;시"·"&lt;검색어&gt;군"으로 더 찾아 보정한다 (PlaceSearchRules).
  *
  * <p>외부 HTTP를 부를 수 있어서 트랜잭션 없이 돈다 (읽기·쓰기는 포트마다 짧은 트랜잭션).
  */
@@ -92,6 +95,7 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
   private final UsageLimitPort limits;
   private final PlaceSearchCachePort searchCache;
   private final GeocodingPort geocoding;
+  private final DistrictCatalogPort districts;
   private final WeatherRunPort runs;
   private final PlaceWeatherOptions options;
   private final Clock clock;
@@ -107,6 +111,7 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
       UsageLimitPort limits,
       PlaceSearchCachePort searchCache,
       GeocodingPort geocoding,
+      DistrictCatalogPort districts,
       WeatherRunPort runs,
       PlaceWeatherOptions options,
       Clock clock) {
@@ -120,6 +125,7 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
     this.limits = limits;
     this.searchCache = searchCache;
     this.geocoding = geocoding;
+    this.districts = districts;
     this.runs = runs;
     this.options = options;
     this.clock = clock;
@@ -334,15 +340,28 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
     List<WeatherRegion> regions = WeatherRegion.active(catalog.current());
     // 시·도 이름(서울·부산광역시·충청…)은 지오코딩이 잘 찾지 못해 REGION 코드로 먼저 맞춘다
     List<WeatherRegion> matched = KoreanRegionNames.match(regions, q);
+    // 그다음 시·군·구 자료 (해운대·분당·부산 중구). 맞춘 시·도와 같은 격자인 곳(제주 → 제주시)은 뺀다
+    List<KoreanDistricts.Match> districtMatches =
+        districts.districts().match(WeatherRegion.all(catalog.current()), q).stream()
+            .filter(m -> !sameGridAsRegion(matched, m.district().lat(), m.district().lon()))
+            .toList();
+    // 시·군·구 이름(그대로·시군구를 뗀 이름)으로 맞았으면 지오코딩을 부르지 않는다: 지오코딩은 구 이름에 공원·시설·다른 지역의 같은 이름 마을만
+    // 주고, 부르면 회원 하루 검색 한도만 줄어든다. 앞부분만 맞은 검색어(일산·해운)는 지오코딩도 부른다
+    boolean districtNamed = districtMatches.stream().anyMatch(KoreanDistricts.Match::named);
+    boolean known = !matched.isEmpty() || !districtMatches.isEmpty();
     List<PlaceCandidate> items;
-    try {
-      items = searchCache.find(q).orElseGet(() -> fetchPlaces(userId, q, !matched.isEmpty()));
-    } catch (BusinessException e) {
-      // 시·도와 맞았으면 공급자가 안 되거나 한도를 넘어도 그 지역은 준다
-      if (matched.isEmpty()) {
-        throw e;
-      }
+    if (districtNamed) {
       items = List.of();
+    } else {
+      try {
+        items = searchCache.find(q).orElseGet(() -> fetchPlaces(userId, q, known));
+      } catch (BusinessException e) {
+        // 시·도·시·군·구와 맞았으면 공급자가 안 되거나 한도를 넘어도 그 결과는 준다
+        if (!known) {
+          throw e;
+        }
+        items = List.of();
+      }
     }
     List<PlaceCandidateDto> out = new ArrayList<>();
     for (WeatherRegion r : matched) {
@@ -350,8 +369,21 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
       out.add(
           new PlaceCandidateDto(c.label(), c.region(), c.country(), c.lat(), c.lon(), r.code()));
     }
+    for (KoreanDistricts.Match m : districtMatches) {
+      // 시·군·구는 regionCode 없이 좌표로 (앱이 좌표 방식으로 그 시·군·구의 날씨를 받는다). 상위 시·도는 parentRegionCode
+      PlaceCandidate c = m.candidate();
+      out.add(
+          new PlaceCandidateDto(
+              c.label(),
+              c.region(),
+              c.country(),
+              c.lat(),
+              c.lon(),
+              null,
+              m.district().regionCode()));
+    }
     for (PlaceCandidate c : items) {
-      if (duplicatesRegion(matched, c)) {
+      if (duplicatesRegion(matched, c) || duplicatesDistrict(districtMatches, c)) {
         continue;
       }
       // 30km 안의 REGION 코드는 행정 중심·인구 있는 곳에만 (작은 마을에는 붙이지 않는다)
@@ -362,6 +394,19 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
       out.add(new PlaceCandidateDto(c.label(), c.region(), c.country(), c.lat(), c.lon(), code));
     }
     return out.stream().limit(PlaceWeatherOptions.MAX_SEARCH_RESULTS).toList();
+  }
+
+  /** 맞춘 시·도 중 같은 격자인 곳이 있는지 (시·군·구 결과 거르기) */
+  static boolean sameGridAsRegion(List<WeatherRegion> matched, double lat, double lon) {
+    GridKey grid = GridKey.of(lat, lon);
+    return matched.stream().anyMatch(r -> GridKey.of(r.lat(), r.lon()).equals(grid));
+  }
+
+  /** 지오코딩 결과가 맞춘 시·군·구와 같은 격자인지 */
+  static boolean duplicatesDistrict(List<KoreanDistricts.Match> matched, PlaceCandidate c) {
+    GridKey grid = GridKey.of(c.lat(), c.lon());
+    return matched.stream()
+        .anyMatch(m -> GridKey.of(m.district().lat(), m.district().lon()).equals(grid));
   }
 
   /** 맞춘 시·도와 같은 곳인지: 같은 격자이거나, 30km 안의 행정 중심·인구 있는 곳 (예: 부산광 → 부산광역시) */
@@ -378,7 +423,7 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
   /**
    * 캐시에 없는 검색어를 공급자에게 찾는다 (회원 하루 한도 1, 보정 검색까지 한 요청). 지오코딩 → 실패하거나 꺼져 있으면 날씨 공급자 검색.
    *
-   * @param regionMatched 시·도와 맞은 검색어 (국내 보정 검색을 하지 않는다)
+   * @param regionMatched 시·도나 시·군·구와 맞은 검색어 (국내 보정 검색을 하지 않는다)
    */
   private List<PlaceCandidate> fetchPlaces(long userId, String q, boolean regionMatched) {
     Predicate<WeatherProvider> supports = p -> sources.supportsSearch(p.code());
