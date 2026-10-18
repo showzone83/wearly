@@ -11,9 +11,11 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { traceLabelOf } from '@/lib/errorText';
 import { cardBase, makeStyles, space, useColors } from '@/theme';
 import { Icon, type IconName } from './Icon';
 
@@ -384,6 +386,37 @@ export const notify = (title: string, message?: string) => {
   Alert.alert(title, message);
 };
 
+/**
+ * 시스템 오류의 오류 번호 ("오류 번호 ab12cd34", traceId 앞 8자). 오류 문구 아래에 작게 둔다.
+ * 길게 누르면 전체 traceId를 복사한다 (문의할 때 서버 로그에서 찾는 값). traceId가 없으면 그리지 않는다.
+ */
+export const TraceLabel = ({ traceId, style }: { traceId?: string | null; style?: StyleProp<TextStyle> }) => {
+  const s = useStyles();
+
+  if (!traceId) return null;
+
+  const copy = async () => {
+    try {
+      await Clipboard.setStringAsync(traceId);
+      notify('오류 번호를 복사했어요', `문의할 때 붙여 넣어 주세요.\n${traceId}`);
+    } catch (e) {
+      console.warn('[ui] 오류 번호 복사 실패', e);
+      notify('오류 번호', traceId);
+    }
+  };
+
+  return (
+    <Text
+      style={[s.trace, style]}
+      onLongPress={() => void copy()}
+      selectable={Platform.OS === 'web'}
+      accessibilityHint="길게 누르면 오류 번호 전체를 복사해요"
+    >
+      {traceLabelOf(traceId)}
+    </Text>
+  );
+};
+
 const useStyles = makeStyles((t) => ({
   title: { color: t.colors.text, fontWeight: '800', letterSpacing: -0.4 },
   screen: { flex: 1, backgroundColor: t.colors.bg },
@@ -452,4 +485,5 @@ const useStyles = makeStyles((t) => ({
   badgeText: { fontSize: 11, fontWeight: '700' },
   retiredTag: { fontSize: 11, fontWeight: '600', color: t.colors.textMuted },
   notice: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: t.radius.md, alignItems: 'flex-start' },
+  trace: { fontSize: 11, color: t.colors.textMuted, marginTop: 6, letterSpacing: 0.2 },
 }));

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.wearly.common.domain.DomainValidationException;
 import app.wearly.common.domain.FieldError;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** H2: 회원 이름·상태·역할 규칙은 도메인이 최종 보증한다 (Spring 없이) */
@@ -21,13 +22,13 @@ class UserTest {
         .satisfies(
             e ->
                 assertThat(((DomainValidationException) e).errors())
-                    .containsExactly(new FieldError("name", "이름은 20자까지 쓸 수 있어요.")));
+                    .containsExactly(FieldError.tooLong("name", 20)));
     assertThatThrownBy(() -> u.rename("  "))
         .isInstanceOf(DomainValidationException.class)
         .satisfies(
             e ->
                 assertThat(((DomainValidationException) e).errors())
-                    .containsExactly(new FieldError("name", "이름을 입력해 주세요.")));
+                    .containsExactly(FieldError.required("name")));
   }
 
   @Test
@@ -42,8 +43,8 @@ class UserTest {
             e ->
                 assertThat(((DomainValidationException) e).errors())
                     .containsExactly(
-                        new FieldError("status", "ACTIVE 또는 SUSPENDED여야 해요."),
-                        new FieldError("role", "USER 또는 ADMIN이어야 해요.")));
+                        FieldError.notAllowed("status", List.of("ACTIVE", "SUSPENDED")),
+                        FieldError.notAllowed("role", List.of("USER", "ADMIN"))));
     // 틀리면 아무것도 바꾸지 않는다
     assertThat(u.status()).isEqualTo(UserStatus.SUSPENDED);
     assertThat(u.role()).isEqualTo(UserRole.ADMIN);

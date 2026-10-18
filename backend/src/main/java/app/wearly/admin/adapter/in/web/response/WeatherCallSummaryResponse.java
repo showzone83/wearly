@@ -3,8 +3,12 @@ package app.wearly.admin.adapter.in.web.response;
 import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto;
 import java.util.List;
 
-/** GET /admin/weather/calls/summary: 오늘(한국 시간) 호출 요약 + 공급자별 이번 달 사용량 (17 문서 6장) */
-public record WeatherCallSummaryResponse(Today today, List<Month> months) {
+/**
+ * GET /admin/weather/calls/summary: 오늘(한국 시간) 호출 요약 + 공급자별 이번 달 사용량 (17 문서 6장) + 공급자 표 밖 보조
+ * 공급자(OPEN_METEO·OPEN_METEO_GEO 등)의 이번 달 호출 수
+ */
+public record WeatherCallSummaryResponse(
+    Today today, List<Month> months, List<AuxiliaryMonth> auxiliaryMonths) {
 
   /**
    * 오늘 호출 집계.
@@ -20,6 +24,9 @@ public record WeatherCallSummaryResponse(Today today, List<Month> months) {
    */
   public record Month(String providerCode, String displayName, long used, Integer quota) {}
 
+  /** 보조 공급자 한 곳의 이번 달 호출 수 (실패 포함, 한도 없음) */
+  public record AuxiliaryMonth(String providerCode, String displayName, long used) {}
+
   public static WeatherCallSummaryResponse from(WeatherCallSummaryDto d) {
     return new WeatherCallSummaryResponse(
         new Today(
@@ -29,6 +36,9 @@ public record WeatherCallSummaryResponse(Today today, List<Month> months) {
             d.avgDurationMs() == null ? null : Math.round(d.avgDurationMs())),
         d.months().stream()
             .map(m -> new Month(m.providerCode(), m.displayName(), m.used(), m.quota()))
+            .toList(),
+        d.auxiliaryMonths().stream()
+            .map(m -> new AuxiliaryMonth(m.providerCode(), m.displayName(), m.used()))
             .toList());
   }
 }

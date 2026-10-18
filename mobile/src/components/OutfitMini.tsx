@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { OutfitItems, Slot, WardrobeItem } from '@/data/types';
 import { useStore } from '@/store/useStore';
@@ -12,9 +12,61 @@ const COLLAGE_ORDER: Slot[] = ['OUTER', 'TOP', 'DRESS', 'BOTTOM', 'SHOES', 'BAG'
 const pickItems = (all: WardrobeItem[], items: OutfitItems, order: Slot[]) =>
   order.map((k) => all.find((i) => i.id === items[k])).filter((i): i is WardrobeItem => !!i);
 
+/** 예정 코디의 지운 옷 칸: 기기에 아직 있으면 흐린 사진, 없으면 빈 칸 + "지운 옷" */
+const GoneThumb = ({ item, size }: { item?: WardrobeItem; size: number }) => {
+  const s = useStyles();
+
+  const radius = size < 70 ? 12 : 16;
+
+  return (
+    <View style={{ width: size, height: size }} accessibilityLabel="지운 옷">
+      {item ? (
+        <ItemThumb item={item} size={size} dim />
+      ) : (
+        <View style={[s.goneTile, { width: size, height: size, borderRadius: radius }]} />
+      )}
+      <View style={[StyleSheet.absoluteFill, s.goneCenter]}>
+        <Text style={[s.goneText, { fontSize: size < 44 ? 9 : 10 }]}>지운 옷</Text>
+      </View>
+    </View>
+  );
+};
+
+interface IOutfitMiniProps {
+  items: OutfitItems;
+  size?: number;
+  max?: number;
+  /**
+   * 지운 옷 id (계정 모드 예정 코디, lib/planSyncRules goneItemIds). 주면 그 칸을 빼지 않고 "지운 옷"으로 흐리게 보여 준다.
+   * 주지 않으면 옷장에 없는 아이템은 그리지 않는다
+   */
+  gone?: string[];
+}
+
 /** 캘린더·기록 카드용 작은 코디 미리보기 */
-export function OutfitMini({ items, size = 44, max = 3 }: { items: OutfitItems; size?: number; max?: number }) {
+export const OutfitMini = ({ items, size = 44, max = 3, gone }: IOutfitMiniProps) => {
   const all = useStore((s) => s.items);
+
+  if (gone?.length) {
+    const goneSet = new Set(gone);
+    const cells = ORDER.map((k) => items[k])
+      .filter((id): id is string => !!id)
+      .map((id) => ({ id, item: all.find((i) => i.id === id) }))
+      .filter((c) => goneSet.has(c.id) || !!c.item)
+      .slice(0, max);
+    return (
+      <View style={{ flexDirection: 'row', gap: 4 }}>
+        {cells.map((c) =>
+          goneSet.has(c.id) || !c.item ? (
+            <GoneThumb key={c.id} item={c.item} size={size} />
+          ) : (
+            <ItemThumb key={c.id} item={c.item} size={size} />
+          ),
+        )}
+      </View>
+    );
+  }
+
   const list = pickItems(all, items, ORDER).slice(0, max);
   return (
     <View style={{ flexDirection: 'row', gap: 4 }}>
@@ -23,7 +75,7 @@ export function OutfitMini({ items, size = 44, max = 3 }: { items: OutfitItems; 
       ))}
     </View>
   );
-}
+};
 
 interface IOutfitCardProps {
   items: OutfitItems;
@@ -105,4 +157,13 @@ const useStyles = makeStyles((t) => ({
   caption: { paddingHorizontal: 12, paddingBottom: 12, paddingTop: 2 },
   title: { fontSize: 14, fontWeight: '800', color: t.colors.text },
   sub: { fontSize: 12, color: t.colors.textSub, marginTop: 2 },
+  goneTile: {
+    backgroundColor: t.colors.surfaceAlt,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: t.colors.border,
+    opacity: 0.7,
+  },
+  goneCenter: { alignItems: 'center', justifyContent: 'center' },
+  goneText: { color: t.colors.textMuted, fontWeight: '700' },
 }));

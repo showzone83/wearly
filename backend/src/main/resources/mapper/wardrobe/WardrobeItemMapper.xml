@@ -63,6 +63,15 @@
         </choose>
     </select>
 
+    <!-- 예정 코디의 아이템이 아직 옷장에 있는지 (plan 컨텍스트가 ItemExistenceUseCase로 묻는다). 사용 중지한 옷도 있는 것으로 본다 -->
+    <select id="findExistingIds" resultType="long">
+        SELECT item_id
+          FROM tb_wardrobe_item
+         WHERE user_id = #{userId}
+           AND item_id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
     <select id="countAll" resultType="long">
         SELECT count(*) FROM tb_wardrobe_item WHERE user_id = #{userId} AND retired_at IS NULL
     </select>

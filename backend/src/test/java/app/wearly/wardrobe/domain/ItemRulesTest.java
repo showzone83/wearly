@@ -52,14 +52,14 @@ class ItemRulesTest {
             LocalDate.of(2026, 1, 1));
     assertThat(ItemRules.validate(in, "items[2]."))
         .containsExactly(
-            new FieldError("items[2].brand", "브랜드는 40자까지 쓸 수 있어요."),
-            new FieldError("items[2].category", "필수 값이에요."),
-            new FieldError("items[2].color", "필수 값이에요."),
-            new FieldError("items[2].formality", "1~3이어야 해요."),
-            new FieldError("items[2].name", "이름을 입력해 주세요."),
-            new FieldError("items[2].seasons[1]", "허용되지 않는 값이에요."),
-            new FieldError("items[2].styles", "필수 값이에요."),
-            new FieldError("items[2].wornCount", "0 이상이어야 해요."));
+            FieldError.tooLong("items[2].brand", 40),
+            FieldError.required("items[2].category"),
+            FieldError.required("items[2].color"),
+            FieldError.outOfRange("items[2].formality", 1, 3),
+            FieldError.required("items[2].name"),
+            FieldError.required("items[2].seasons[1]"),
+            FieldError.required("items[2].styles"),
+            FieldError.outOfRange("items[2].wornCount", 0, null));
   }
 
   @Test
@@ -80,8 +80,7 @@ class ItemRulesTest {
             0,
             null);
     assertThat(ItemRules.validate(longName, ""))
-        .containsExactly(
-            new FieldError("formality", "필수 값이에요."), new FieldError("name", "이름은 40자까지 쓸 수 있어요."));
+        .containsExactly(FieldError.required("formality"), FieldError.tooLong("name", 40));
   }
 
   @Test
@@ -107,7 +106,7 @@ class ItemRulesTest {
         .satisfies(
             e ->
                 assertThat(((DomainValidationException) e).errors())
-                    .containsExactly(new FieldError("name", "이름을 입력해 주세요.")));
+                    .containsExactly(FieldError.required("name")));
     WardrobeItem item = WardrobeItem.create(1L, v);
     assertThat(item.name()).isEqualTo("네이비 니트");
     assertThat(item.wornCount()).isZero();

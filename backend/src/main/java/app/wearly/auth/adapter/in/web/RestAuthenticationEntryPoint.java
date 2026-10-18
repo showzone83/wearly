@@ -31,7 +31,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
       AuthenticationException authException)
       throws IOException {
     response.setHeader("WWW-Authenticate", "Bearer");
-    writer.write(response, classify(authException));
+    writer.write(request, response, classify(authException));
   }
 
   static ErrorCode classify(AuthenticationException e) {

@@ -115,6 +115,7 @@ public class AdminWeatherController {
   @GetMapping("/calls")
   public PageResponse<WeatherCallResponse> calls(
       @RequestParam(required = false) String providerCode,
+      @RequestParam(required = false) String callKind,
       @RequestParam(required = false) String regionCode,
       @RequestParam(required = false) String success,
       @RequestParam(required = false) String fallback,
@@ -126,7 +127,7 @@ public class AdminWeatherController {
     return PageResponse.from(
         weather.calls(
             new WeatherCallFilterDto(
-                providerCode, regionCode, success, fallback, errorCode, from, to),
+                providerCode, callKind, regionCode, success, fallback, errorCode, from, to),
             PagingDto.of(page, size)),
         WeatherCallResponse::from);
   }
@@ -159,17 +160,17 @@ public class AdminWeatherController {
         WeatherHistoryResponse::from);
   }
 
-  /** JSON → 공급자 부분 수정. 형식(JSON 타입) 판단과 그 오류 문구는 여기서 정한다 (M4) */
+  /** JSON → 공급자 부분 수정. 형식(JSON 타입) 판단은 여기서 한다 (오류는 INVALID_TYPE + params.expected) (M4) */
   private static PatchWeatherProviderDto toPatch(JsonNode body) {
     if (!JsonPatches.isObject(body)) {
       return null;
     }
     return new PatchWeatherProviderDto(
-        JsonPatches.bool(body, "enabled", "true 또는 false여야 해요."),
-        JsonPatches.integer(body, "priority", "0~10000 정수여야 해요."),
+        JsonPatches.bool(body, "enabled"),
+        JsonPatches.integer(body, "priority"),
         body.has("monthlyQuota") && body.get("monthlyQuota").isNull()
             ? Patch.<Integer>of(null)
-            : JsonPatches.integer(body, "monthlyQuota", "0 이상 정수이거나 null이어야 해요."),
-        JsonPatches.integer(body, "maxForecastDays", "1~14 정수여야 해요."));
+            : JsonPatches.integer(body, "monthlyQuota"),
+        JsonPatches.integer(body, "maxForecastDays"));
   }
 }

@@ -7,7 +7,8 @@ import java.util.List;
  * (호출 이력·월 사용량에 남긴다).
  */
 public record FetchResult(
-    WeatherReport report, List<CallRecord> calls, String errorCode, String errorMessage) {
+    WeatherReport report, List<CallRecord> calls, String errorCode, String errorMessage)
+    implements ProviderResult {
 
   public FetchResult {
     calls = List.copyOf(calls);
@@ -21,6 +22,7 @@ public record FetchResult(
     return new FetchResult(null, calls, errorCode, errorMessage);
   }
 
+  @Override
   public boolean ok() {
     return report != null;
   }

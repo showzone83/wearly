@@ -9,10 +9,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * 실제 PostgreSQL·Valkey(TestValkey, 로그인 세션)로 띄우는 통합 테스트의 기반. - 기본: Testcontainers로
- * pgvector/pgvector:pg17 컨테이너를 한 번 띄워 모든 테스트 클래스가 함께 쓴다. - 환경변수 WEARLY_TEST_DB_URL이 있으면 컨테이너 대신 그
- * DB를 쓴다 (WEARLY_TEST_DB_USERNAME / WEARLY_TEST_DB_PASSWORD, 기본 wearly/wearly). 테스트 데이터는 매번 새 이메일로
- * 만든다. 서버는 무작위 포트로 띄우고 실제 HTTP로 부른다 (Security 필터·multipart 한도까지 확인).
+ * 실제 PostgreSQL·Valkey(TestValkey, 로그인 세션)·MinIO(TestMinio, 옷 사진)로 띄우는 통합 테스트의 기반. - 기본:
+ * Testcontainers로 pgvector/pgvector:pg17 컨테이너를 한 번 띄워 모든 테스트 클래스가 함께 쓴다. - 환경변수 WEARLY_TEST_DB_URL이
+ * 있으면 컨테이너 대신 그 DB를 쓴다 (WEARLY_TEST_DB_USERNAME / WEARLY_TEST_DB_PASSWORD, 기본 wearly/wearly). 테스트
+ * 데이터는 매번 새 이메일로 만든다. 서버는 무작위 포트로 띄우고 실제 HTTP로 부른다 (Security 필터·multipart 한도까지 확인).
  */
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -36,6 +36,8 @@ import org.testcontainers.utility.DockerImageName;
       "wearly.weather.provider=mock",
       "wearly.weather.scheduler-enabled=false",
       "wearly.weather.keys.WEATHERAPI_KEY=",
+      // 장소별 날씨(19 문서): 좌표 요청 한도를 작게 둬서 한도 초과를 확인한다 (평년값도 목업 자료)
+      "wearly.weather.on-demand-daily-limit=3",
     })
 public abstract class IntegrationTestBase {
 
@@ -64,6 +66,7 @@ public abstract class IntegrationTestBase {
   @DynamicPropertySource
   static void datasource(DynamicPropertyRegistry registry) {
     TestValkey.register(registry, 0);
+    TestMinio.register(registry);
     if (POSTGRES != null) {
       registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
       registry.add("spring.datasource.username", POSTGRES::getUsername);

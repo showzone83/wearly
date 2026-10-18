@@ -2,7 +2,7 @@
 // 상세에서 앱 응답 미리보기(GET /weather 모양)와 공급자 원본을 비교하고, 그 지역만 새로 받을 수 있다.
 import { useState } from 'react';
 
-import { api, isApiError } from '@/api';
+import { api } from '@/api';
 import type { IWeatherSnapshot } from '@/api';
 
 import { Badge, Button, Card, Drawer, Empty, ErrorBox, JsonView, Loading, PageHeader } from '@/components/ui';
@@ -33,6 +33,7 @@ const SnapshotDrawer = ({ region, onClose }: { region: string; onClose: () => vo
   });
   const refresh = useWeatherRefresh();
   const toast = useToastStore((s) => s.show);
+  const toastError = useToastStore((s) => s.showError);
 
   const reload = () => {
     refresh.mutate(region, {
@@ -40,7 +41,7 @@ const SnapshotDrawer = ({ region, onClose }: { region: string; onClose: () => vo
         r.status === 'SUCCESS'
           ? toast('새로 받았어요.')
           : toast('받지 못했어요. 호출 이력을 확인하세요.', 'error'),
-      onError: (e) => toast(isApiError(e) ? e.message : '실행하지 못했어요.', 'error'),
+      onError: (e) => toastError(e, '실행하지 못했어요'),
     });
   };
 

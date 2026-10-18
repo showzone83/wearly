@@ -1,8 +1,9 @@
 package app.wearly.weather.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
+import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.common.domain.Zones;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.weather.application.port.in.WeatherQueryUseCase;
 import app.wearly.weather.application.port.in.dto.CurrentWeatherDto;
@@ -48,12 +49,12 @@ public class WeatherQueryService implements WeatherQueryUseCase {
             : regionCode.strip();
     WeatherRegion region =
         WeatherRegion.find(catalog.current(), code)
-            .orElseThrow(() -> ApiException.validation("region", "없는 지역이에요."));
+            .orElseThrow(() -> BusinessException.validation("region", FieldErrorCode.NOT_FOUND));
     WeatherSnapshot snapshot =
         snapshots
             .find(code)
             .filter(WeatherSnapshot::hasData)
-            .orElseThrow(() -> new ApiException(ErrorCode.WEATHER_UNAVAILABLE));
+            .orElseThrow(() -> new BusinessException(ErrorCode.WEATHER_UNAVAILABLE));
     Instant now = clock.instant();
     // 지역이 모두 한국이라 오늘은 한국 날짜로 본다
     LocalDate today = Zones.today(clock);

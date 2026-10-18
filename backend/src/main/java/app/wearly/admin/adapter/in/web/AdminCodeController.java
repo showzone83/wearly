@@ -77,7 +77,7 @@ public class AdminCodeController {
     service.delete(adminId, group, code);
   }
 
-  /** JSON → 코드 부분 수정. 형식(JSON 타입) 판단과 그 오류 문구는 여기서 정한다 (M4) */
+  /** JSON → 코드 부분 수정. 형식(JSON 타입) 판단은 여기서 한다 (오류는 INVALID_TYPE + params.expected) (M4) */
   private PatchCodeDto toPatch(JsonNode body) {
     if (!JsonPatches.isObject(body)) {
       return null;
@@ -92,8 +92,8 @@ public class AdminCodeController {
         JsonPatches.scalar(body, "code"),
         JsonPatches.string(body, "label"),
         parent,
-        JsonPatches.integer(body, "sortOrder", "정수여야 해요."),
-        JsonPatches.bool(body, "active", "true 또는 false여야 해요."),
-        JsonPatches.object(body, "attrs", jsonMapper, "JSON 객체여야 해요."));
+        JsonPatches.integer(body, "sortOrder"),
+        JsonPatches.bool(body, "active"),
+        JsonPatches.object(body, "attrs", jsonMapper));
   }
 }

@@ -6,6 +6,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import { createApiClient, isApiError, type AnalyzeFile, type ApiError, type Tokens, type TokenStore } from '@/api';
+import { errorAlertText, errorText } from './errorText';
 
 const API_PORT = 8080;
 
@@ -130,14 +131,14 @@ export function isNetworkError(e: unknown): boolean {
   return isApiError(e) && e.code === 'NETWORK';
 }
 
-/** 사용자에게 보여 줄 오류 문구 */
+/** 사용자에게 보여 줄 오류 문구 (코드별 문구 표: src/lib/errorText.ts). 오류 번호는 넣지 않는다 */
 export function errorMessage(e: unknown, fallback = '잠시 후 다시 시도해 주세요.'): string {
-  if (!isApiError(e)) return fallback;
-  if (e.code === 'NETWORK') {
-    return `서버(${API_BASE_URL})에 연결할 수 없어요. 백엔드가 켜져 있는지, 휴대폰과 Mac이 같은 Wi-Fi인지 확인해 주세요.`;
-  }
-  if (e.code === 'VALIDATION_FAILED' && e.fieldErrors[0]) return e.fieldErrors[0].message;
-  return e.message || fallback;
+  return errorText(e, { fallback, baseUrl: API_BASE_URL });
+}
+
+/** 알림(notify) 본문용 오류 문구: 시스템 오류면 끝에 "오류 번호 ab12cd34" 한 줄 */
+export function errorAlertMessage(e: unknown, fallback = '잠시 후 다시 시도해 주세요.'): string {
+  return errorAlertText(e, { fallback, baseUrl: API_BASE_URL });
 }
 
 /**

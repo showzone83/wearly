@@ -8,13 +8,16 @@ import { GarmentArt } from '@/components/GarmentArt';
 import { Icon } from '@/components/Icon';
 import { defaultName, ItemForm, type ItemDraft } from '@/components/ItemForm';
 import { Mascot } from '@/components/Mascot';
-import { Badge, Button, Header, Kicker, notify, Row, Screen, StepDots, Title } from '@/components/ui';
-import type { Category, ColorKey, SubType } from '@/data/types';
+import { Badge, Button, Header, Kicker, notify, Row, Screen, StepDots, Title, TraceLabel } from '@/components/ui';
+import type { Category, ColorKey, IItemImage, SubType } from '@/data/types';
 import { isApiError } from '@/api/errors';
 import { createItem, isAccountMode } from '@/lib/account';
-import { api, errorMessage, isNetworkError, photoFile } from '@/lib/api';
+import { api, errorAlertMessage, errorMessage, isNetworkError, photoFile } from '@/lib/api';
+import { systemTraceId, traceLabelOf } from '@/lib/errorText';
 import { activeCodes, defaultStatus, isActiveCode, subTypeMeta, subTypesOf } from '@/lib/codes';
 import { MOCK_MODE } from '@/lib/mode';
+import { isImagesUnsupported } from '@/lib/photoRules';
+import { preparePhoto, uploadPrepared } from '@/lib/photoUpload';
 import { canRecommend } from '@/lib/recommend';
 import { activeItems } from '@/lib/retire';
 import { draftFromSuggestion } from '@/lib/serverItems';
@@ -54,10 +57,18 @@ function providerNote(src: AiSource): string | null {
 
 type PickedAsset = { uri: string; fileName?: string | null; mimeType?: string | null };
 
+/** 등록할 사진: 기기 주소(미리보기·기기 저장용)와, 서버에 올렸으면 그 참조 */
+type TPhoto = { uri: string; image?: IItemImage };
+
+/** 2단계 진행: 사진 올리기(계정 모드) → AI 분석 */
+type TStage = 'upload' | 'analyze';
+
 type Outcome =
   | { kind: 'ai'; source: AiSource; draft: ItemDraft; remaining?: number }
-  | { kind: 'limit' }
-  | { kind: 'error'; message: string };
+  | { kind: 'limit'; photo: TPhoto }
+  | { kind: 'error'; message: string; photo: TPhoto; traceId?: string }
+  /** 사진을 서버에 올리지 못함 → 2단계에서 오류와 '다시 시도' */
+  | { kind: 'uploadError'; message: string; traceId?: string };
 
 function hash(str: string): number {
   let h = 0;
@@ -99,36 +110,67 @@ function pick(options: string[], preferred: string): string {
   return options.includes(preferred) ? preferred : (options[0] ?? preferred);
 }
 
+/** 개발 실행에서만: 기기 쪽 원인(연결 실패 등)을 문구 뒤에 붙인다. 배포 화면에는 정해진 문구만 */
+const causeDetail = (e: unknown): string => {
+  if (!__DEV__) return '';
+  const cause = (e as { cause?: unknown }).cause;
+  return cause instanceof Error ? ` (${cause.message})` : '';
+};
+
 /**
- * 서버 AI 분석(POST /wardrobe/items/analyze).
+ * 계정 모드: 사진을 서버에 올리고(upload-url → PUT → complete) 그 이미지로 AI 분석(POST /wardrobe/items/analyze { imageId }).
+ * 서버에 사진 기능이 없으면(404) 예전 방식(사진 파일 multipart 분석, 사진은 기기에 저장)으로 되돌아간다.
  * 기기 목업(mockAnalyze)은 목업 실행(npm run start:mock)에서만 쓴다. 기본 실행에서 실패하면 목업으로 가리지 않고
  * 원인을 보여 준 뒤 직접 입력으로 넘긴다.
  */
-async function runAnalysis(asset: PickedAsset): Promise<Outcome> {
+async function runAnalysis(asset: PickedAsset, onStage: (stage: TStage) => void): Promise<Outcome> {
+  const original: TPhoto = { uri: asset.uri };
   if (!isAccountMode()) {
     if (MOCK_MODE) return { kind: 'ai', source: { kind: 'guest' }, draft: mockAnalyze(asset.uri) };
-    return { kind: 'error', message: '로그인해야 AI 분석을 쓸 수 있어요.' };
+    return { kind: 'error', message: '로그인해야 AI 분석을 쓸 수 있어요.', photo: original };
   }
+
+  onStage('upload');
+  let photo: TPhoto;
   try {
-    const res = await api.wardrobe.analyze(await photoFile(asset));
+    // 긴 변 1600 이하 JPEG로 바꾼 파일을 올린다. 예전 서버로 되돌아가도 이 파일로 분석·기기 저장한다
+    const prepared = await preparePhoto(asset.uri);
+    photo = { uri: prepared.uri };
+    try {
+      const uploaded = await uploadPrepared(prepared);
+      photo = { uri: uploaded.localUri, image: uploaded.image };
+    } catch (e) {
+      if (!isImagesUnsupported(e)) throw e; // 예전 서버면 사진은 기기에만 둔다
+    }
+  } catch (e) {
+    console.warn('[item/new] 사진 올리기 실패', e, (e as { cause?: unknown }).cause, asset);
+    if (isNetworkError(e) && MOCK_MODE) return { kind: 'ai', source: { kind: 'fallback' }, draft: mockAnalyze(asset.uri) };
+    return { kind: 'uploadError', message: errorMessage(e, '사진을 올리지 못했어요.') + causeDetail(e), traceId: systemTraceId(e) };
+  }
+
+  onStage('analyze');
+  try {
+    const res = photo.image
+      ? await api.wardrobe.analyzeImage({ imageId: photo.image.imageId })
+      : await api.wardrobe.analyze(await photoFile({ uri: photo.uri }));
     return {
       kind: 'ai',
       source: { kind: 'server', provider: String(res.provider ?? '') },
-      draft: draftFromSuggestion(res.suggestion, asset.uri),
+      draft: draftFromSuggestion(res.suggestion, photo.uri, photo.image),
       remaining: res.remainingToday,
     };
   } catch (e) {
-    const cause = (e as { cause?: unknown }).cause;
-    console.warn('[item/new] AI 분석 실패', e, cause, asset);
-    if (isApiError(e) && e.code === 'AI_LIMIT_EXCEEDED') return { kind: 'limit' };
-    if (isNetworkError(e) && MOCK_MODE) return { kind: 'ai', source: { kind: 'fallback' }, draft: mockAnalyze(asset.uri) };
-    const detail = cause instanceof Error ? ` (${cause.message})` : '';
-    return { kind: 'error', message: errorMessage(e, 'AI 분석에 실패했어요.') + detail };
+    console.warn('[item/new] AI 분석 실패', e, (e as { cause?: unknown }).cause, asset);
+    if (isApiError(e) && e.code === 'AI_LIMIT_EXCEEDED') return { kind: 'limit', photo };
+    if (isNetworkError(e) && MOCK_MODE) {
+      return { kind: 'ai', source: { kind: 'fallback' }, draft: { ...mockAnalyze(photo.uri), image: photo.image } };
+    }
+    return { kind: 'error', message: errorMessage(e, 'AI 분석에 실패했어요.') + causeDetail(e), photo, traceId: systemTraceId(e) };
   }
 }
 
 /** 직접 입력의 첫 값: 네이비 니트. 코드가 비활성이면 각 그룹의 첫 활성 값으로 */
-function manualDraft(imageUri?: string): ItemDraft {
+function manualDraft(photo?: TPhoto): ItemDraft {
   const category = isActiveCode('CATEGORY', 'TOP') ? 'TOP' : pick(activeCodes('CATEGORY'), 'TOP');
   const subType = pick(subTypesOf(category), 'KNIT');
   const color = pick(activeCodes('COLOR'), 'navy');
@@ -142,7 +184,8 @@ function manualDraft(imageUri?: string): ItemDraft {
     styles: ['NEAT'].filter((x) => isActiveCode('STYLE', x)),
     formality: 2,
     status: defaultStatus(),
-    imageUri,
+    imageUri: photo?.uri,
+    image: photo?.image,
   };
 }
 
@@ -154,35 +197,55 @@ export default function NewItem() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [phase, setPhase] = useState(0);
+  const [stage, setStage] = useState<TStage>('analyze');
+  /** 사진 올리기 실패 문구. 있으면 2단계에 오류와 '다시 시도'를 보여 준다 */
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  /** 사진 올리기 실패가 시스템 오류면 그 traceId (오류 번호) */
+  const [uploadTrace, setUploadTrace] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   /** 분석 중 '직접 입력'으로 넘어가면 늦게 온 분석 결과를 버린다 */
   const runRef = useRef(0);
+  /** '다시 시도'에 쓸 마지막으로 고른 사진 */
+  const assetRef = useRef<PickedAsset | null>(null);
   const s = useStyles();
   const colors = useColors();
   const fromAi = aiSource !== null;
 
-  // 2단계: 분석 진행 표시 (결과가 오면 analyze()가 3단계로 넘긴다)
+  // 2단계: 분석 진행 표시 (결과가 오면 analyze()가 3단계로 넘긴다). 사진을 올리는 동안은 멈춰 둔다
   useEffect(() => {
-    if (step !== 2) return;
+    if (step !== 2 || stage !== 'analyze' || uploadError) return;
     setPhase(0);
     const timers = ANALYSIS_STEPS.map((_, i) => setTimeout(() => setPhase(i + 1), 550 * (i + 1)));
     return () => timers.forEach(clearTimeout);
-  }, [step]);
+  }, [step, stage, uploadError]);
 
-  const manual = (uri?: string) => {
+  const manual = (photo?: TPhoto) => {
     runRef.current++;
     setAiSource(null);
-    setDraft(manualDraft(uri));
+    setUploadError(null);
+    setDraft(manualDraft(photo));
     setStep(3);
   };
 
   const analyze = async (asset: PickedAsset) => {
     const run = ++runRef.current;
+    assetRef.current = asset;
     setPhotoUri(asset.uri);
     setDraft(null);
+    setUploadError(null);
+    setStage('analyze');
+    setPhase(0);
     setStep(2);
     const started = Date.now();
-    const outcome = await runAnalysis(asset);
+    const outcome = await runAnalysis(asset, (next) => {
+      if (run === runRef.current) setStage(next);
+    });
+    if (run !== runRef.current) return;
+    if (outcome.kind === 'uploadError') {
+      setUploadError(outcome.message);
+      setUploadTrace(outcome.traceId);
+      return;
+    }
     const wait = MIN_ANALYZE_MS - (Date.now() - started);
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     if (run !== runRef.current) return;
@@ -198,9 +261,14 @@ export default function NewItem() {
       setRemaining(0);
       notify('오늘 AI 분석을 모두 썼어요', '내일 다시 쓸 수 있어요. 이번 옷은 직접 입력으로 등록해 주세요.');
     } else {
-      notify('AI 분석을 하지 못했어요', `${outcome.message}\n직접 입력으로 등록해 주세요.`);
+      const trace = outcome.traceId ? `\n${traceLabelOf(outcome.traceId)}` : '';
+      notify('AI 분석을 하지 못했어요', `${outcome.message}\n직접 입력으로 등록해 주세요.${trace}`);
     }
-    manual(asset.uri);
+    manual(outcome.photo);
+  };
+
+  const retryUpload = () => {
+    if (assetRef.current) void analyze(assetRef.current);
   };
 
   const pick = async (source: 'camera' | 'library') => {
@@ -212,7 +280,9 @@ export default function NewItem() {
           return;
         }
       }
-      const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6, exif: false };
+      // 계정 모드는 올리기 전에 긴 변 1600·JPEG 0.8로 다시 저장하므로 여기서는 압축하지 않는다 (두 번 압축 방지)
+      const quality = isAccountMode() ? 1 : 0.6;
+      const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality, exif: false };
       const res = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
       if (res.canceled || !res.assets[0]) return;
       void analyze(res.assets[0]);
@@ -229,7 +299,7 @@ export default function NewItem() {
       await createItem({ ...draft, name: draft.name.trim() || defaultName(draft) });
       setStep(4);
     } catch (e) {
-      notify('옷을 저장하지 못했어요', errorMessage(e));
+      notify('옷을 저장하지 못했어요', errorAlertMessage(e));
     } finally {
       setSaving(false);
     }
@@ -244,7 +314,7 @@ export default function NewItem() {
         header={header}
         footer={
           <View style={{ gap: 10 }}>
-            <Button title="계속 등록하기" variant="outline" onPress={() => { setDraft(null); setAiSource(null); setPhotoUri(undefined); setStep(1); }} />
+            <Button title="계속 등록하기" variant="outline" onPress={() => { setDraft(null); setAiSource(null); setPhotoUri(undefined); setUploadError(null); setStep(1); }} />
             <Button title={after.ok ? '오늘 코디 보러 가기' : '옷장으로'} onPress={() => router.replace(after.ok ? '/home' : '/closet')} />
           </View>
         }
@@ -320,17 +390,29 @@ export default function NewItem() {
       <Screen header={header} scroll={false}>
                 <View style={s.center}>
           {photoUri && <Image source={{ uri: photoUri }} style={s.analyzing} contentFit="cover" />}
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 28 }} />
-          <Title style={s.doneTitle}>AI가 분석하고 있어요</Title>
-          <View style={{ gap: 8, marginTop: 16 }}>
-            {ANALYSIS_STEPS.map((t, i) => (
-              <Row key={t} style={{ gap: 8 }}>
-                <Icon name="check" size={16} color={i < phase ? colors.primary : colors.border} />
-                <Text style={{ color: i < phase ? colors.text : colors.textMuted }}>{t}</Text>
-              </Row>
-            ))}
-          </View>
-          <Pressable onPress={() => manual(photoUri)} style={{ marginTop: 28 }}>
+          {uploadError ? (
+            <>
+              <Title style={s.doneTitle}>사진을 올리지 못했어요</Title>
+              <Text style={s.uploadError}>{uploadError}</Text>
+              <TraceLabel traceId={uploadTrace} style={{ textAlign: 'center' }} />
+              <Button title="다시 시도" onPress={retryUpload} style={s.retry} />
+            </>
+          ) : (
+            <>
+              <ActivityIndicator color={colors.primary} style={{ marginTop: 28 }} />
+              <Title style={s.doneTitle}>{stage === 'upload' ? '사진을 올리고 있어요' : 'AI가 분석하고 있어요'}</Title>
+              <View style={{ gap: 8, marginTop: 16 }}>
+                {ANALYSIS_STEPS.map((t, i) => (
+                  <Row key={t} style={{ gap: 8 }}>
+                    <Icon name="check" size={16} color={i < phase ? colors.primary : colors.border} />
+                    <Text style={{ color: i < phase ? colors.text : colors.textMuted }}>{t}</Text>
+                  </Row>
+                ))}
+              </View>
+            </>
+          )}
+          {/* 올리기 전이거나 실패했으면 사진은 기기에 두고, 서버에 올릴 수 있을 때 옮긴다 */}
+          <Pressable onPress={() => manual(photoUri ? { uri: photoUri } : undefined)} style={{ marginTop: 28 }}>
             <Text style={s.manual}>직접 입력할게요</Text>
           </Pressable>
         </View>
@@ -459,6 +541,8 @@ const useStyles = makeStyles((t) => ({
   doneTitle: { fontSize: 22, marginTop: 14, textAlign: 'center' },
   doneSub: { color: t.colors.textSub, marginTop: 10, textAlign: 'center', lineHeight: 20 },
   manual: { color: t.colors.primary, fontWeight: '700', textDecorationLine: 'underline' },
+  uploadError: { color: t.colors.textSub, marginTop: 10, textAlign: 'center', lineHeight: 20, paddingHorizontal: 12 },
+  retry: { alignSelf: 'stretch', marginTop: 22 },
   preview: {
     width: 110,
     height: 110,

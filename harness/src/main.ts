@@ -11,11 +11,14 @@ import { adminScenarios } from './scenarios/admin';
 import { appSettingScenarios } from './scenarios/appSettings';
 import { authScenarios } from './scenarios/auth';
 import { codeScenarios } from './scenarios/codes';
+import { imageScenarios } from './scenarios/images';
+import { planScenarios } from './scenarios/plans';
 import { profileScenarios } from './scenarios/profile';
 import { retireScenarios } from './scenarios/retire';
 import { sessionScenarios } from './scenarios/sessions';
 import { tokenScenarios } from './scenarios/tokens';
 import { wardrobeScenarios } from './scenarios/wardrobe';
+import { weatherScenarios } from './scenarios/weather';
 
 const ALL: Scenario[] = [
   ...authScenarios,
@@ -29,6 +32,9 @@ const ALL: Scenario[] = [
   ...appSettingScenarios,
   ...retireScenarios,
   ...sessionScenarios,
+  ...imageScenarios,
+  ...weatherScenarios,
+  ...planScenarios,
 ];
 
 type Status = 'PASS' | 'FAIL' | 'SKIP';

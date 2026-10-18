@@ -19,12 +19,21 @@ public final class ApiKeyRules {
   /** 앞뒤 공백을 지운 뒤 20~300자, 공백·줄바꿈 없음. @return 정리한 키 (틀리면 오류를 더하고 null) */
   public static String normalize(String raw, List<FieldError> errors) {
     String key = raw == null ? null : raw.strip();
-    if (key == null || key.length() < MIN_LENGTH || key.length() > MAX_LENGTH) {
-      errors.add(new FieldError("apiKey", MIN_LENGTH + "~" + MAX_LENGTH + "자로 입력해 주세요."));
+    if (key == null || key.isEmpty()) {
+      errors.add(FieldError.required("apiKey"));
+      return null;
+    }
+    if (key.length() < MIN_LENGTH) {
+      errors.add(FieldError.tooShort("apiKey", MIN_LENGTH));
+      return null;
+    }
+    if (key.length() > MAX_LENGTH) {
+      errors.add(FieldError.tooLong("apiKey", MAX_LENGTH));
       return null;
     }
     if (key.chars().anyMatch(Character::isWhitespace)) {
-      errors.add(new FieldError("apiKey", "공백이나 줄바꿈이 들어 있어요."));
+      // 공백·줄바꿈이 들어 있음
+      errors.add(FieldError.invalidFormat("apiKey"));
       return null;
     }
     return key;

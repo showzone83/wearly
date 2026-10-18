@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import app.wearly.common.domain.DomainValidationException;
 import app.wearly.common.domain.FieldError;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** 테마 값 규칙과 version (12 문서 3장, Spring 없이) */
@@ -16,8 +17,8 @@ class ThemeSettingTest {
     assertThat(AppThemes.validate("nyang")).isEmpty();
     assertThat(AppThemes.validate("closeta")).isEmpty();
     assertThat(AppThemes.validate("NYANG"))
-        .containsExactly(new FieldError("themeId", "nyang, closeta 중 하나여야 해요."));
-    assertThat(AppThemes.validate(" ")).containsExactly(new FieldError("themeId", "필수 값이에요."));
+        .containsExactly(FieldError.notAllowed("themeId", List.of("nyang", "closeta")));
+    assertThat(AppThemes.validate(" ")).containsExactly(FieldError.required("themeId"));
     assertThat(AppThemes.validate(null)).extracting(FieldError::field).containsExactly("themeId");
   }
 

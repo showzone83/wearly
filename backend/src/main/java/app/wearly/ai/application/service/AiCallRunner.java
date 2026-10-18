@@ -77,6 +77,17 @@ public class AiCallRunner {
       JsonOutputHandler.Accepted<T> accepted = handler.accept(received.json());
       int ms = elapsedMs(started);
       logs.save(success(call, provider.name(), received, ms, accepted));
+      // 토큰 한 줄 (입력은 캐시 읽기·쓰기 포함 전체). 공급자가 주지 않은 값은 null
+      log.info(
+          "AI {} 성공 provider={} model={} ms={} input={} output={} cacheRead={} cacheWrite={}",
+          call.feature(),
+          provider.name(),
+          received.model(),
+          ms,
+          received.inputTokens(),
+          received.outputTokens(),
+          received.cacheReadTokens(),
+          received.cacheWriteTokens());
       return new Attempt<>(
           provider.name(),
           accepted.value(),

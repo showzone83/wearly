@@ -42,11 +42,11 @@ public class User {
     List<FieldError> errors = new ArrayList<>();
     UserStatus s = UserStatus.parse(status).orElse(null);
     if (s == null) {
-      errors.add(new FieldError("status", UserStatus.MESSAGE));
+      errors.add(FieldError.notAllowed("status", names(UserStatus.values())));
     }
     UserRole r = UserRole.parse(role).orElse(null);
     if (r == null) {
-      errors.add(new FieldError("role", UserRole.MESSAGE));
+      errors.add(FieldError.notAllowed("role", names(UserRole.values())));
     }
     DomainValidationException.throwIfAny(errors);
     this.status = s;
@@ -68,11 +68,15 @@ public class User {
 
   private static void checkName(String name) {
     if (name == null || name.isBlank()) {
-      throw new DomainValidationException(List.of(new FieldError("name", "이름을 입력해 주세요.")));
+      throw new DomainValidationException(List.of(FieldError.required("name")));
     }
     if (name.length() > NAME_MAX) {
-      throw new DomainValidationException(List.of(new FieldError("name", "이름은 20자까지 쓸 수 있어요.")));
+      throw new DomainValidationException(List.of(FieldError.tooLong("name", NAME_MAX)));
     }
+  }
+
+  private static List<String> names(Enum<?>[] values) {
+    return java.util.Arrays.stream(values).map(Enum::name).toList();
   }
 
   public Long id() {

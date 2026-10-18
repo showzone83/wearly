@@ -4,7 +4,7 @@ import app.wearly.wardrobe.domain.ItemInput;
 import java.time.LocalDate;
 import java.util.List;
 
-/** 아이템 등록 입력 (05 문서 6장 ItemInput). wornCount·lastWornAt은 선택 */
+/** 아이템 등록 입력 (05 문서 6장 ItemInput). wornCount·lastWornAt은 선택, imageId는 붙일 사진(18 문서, 선택) */
 public record CreateItemDto(
     String name,
     String category,
@@ -17,7 +17,8 @@ public record CreateItemDto(
     String status,
     String brand,
     Integer wornCount,
-    LocalDate lastWornAt) {
+    LocalDate lastWornAt,
+    String imageId) {
 
   public ItemInput toInput() {
     return new ItemInput(

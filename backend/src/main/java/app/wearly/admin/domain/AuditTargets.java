@@ -1,6 +1,6 @@
 package app.wearly.admin.domain;
 
-import java.util.Set;
+import java.util.List;
 
 /** 변경 이력(tb_admin_audit_log)의 targetType (07 문서 4장) */
 public final class AuditTargets {
@@ -24,8 +24,9 @@ public final class AuditTargets {
   /** 날씨 지금 실행. targetId는 실행 ID */
   public static final String WEATHER_REFRESH = "WEATHER_REFRESH";
 
-  public static final Set<String> ALL =
-      Set.of(
+  /** 허용 값 (오류 응답 params.allowed에도 이 순서로 쓴다) */
+  public static final List<String> ALL =
+      List.of(
           CODE,
           AI_PROVIDER,
           USER,
@@ -34,11 +35,6 @@ public final class AuditTargets {
           WEATHER_SETTING,
           WEATHER_PROVIDER,
           WEATHER_REFRESH);
-
-  /** 허용 값 오류 문구 */
-  public static final String NAMES =
-      "CODE, AI_PROVIDER, USER, APP_SETTING, SESSION, WEATHER_SETTING, WEATHER_PROVIDER,"
-          + " WEATHER_REFRESH";
 
   private AuditTargets() {}
 }

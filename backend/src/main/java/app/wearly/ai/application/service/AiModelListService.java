@@ -10,7 +10,7 @@ import app.wearly.ai.domain.AiProviderSetting;
 import app.wearly.ai.domain.ApiKeyRules;
 import app.wearly.ai.domain.BuiltInModels;
 import app.wearly.ai.domain.ModelListRules;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -66,7 +66,7 @@ public class AiModelListService implements AiModelListUseCase {
 
   @Override
   public AiModelListDto models(String providerId, boolean refresh) {
-    AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
+    AiProviderSetting s = settings.findById(providerId).orElseThrow(BusinessException::notFound);
     List<AiModelEntry> fallback = builtIn.of(s.type());
     Optional<String> key = keys.find(s);
     if (key.isEmpty()) {

@@ -5,6 +5,7 @@ import type { ApiError, IUserDto } from '@/api';
 
 import { create } from 'zustand';
 
+import { errorText } from '@/lib/errorText';
 import { queryClient } from '@/lib/queryClient';
 
 /**
@@ -32,6 +33,7 @@ const lostReasonText = (reason: ApiError): string => {
   // 정지·탈퇴, 또는 다른 관리자가 이 세션을 강제 로그아웃함 (doc/16 4장)
   if (reason.code === 'TOKEN_INVALID')
     return '다른 곳에서 로그아웃되었거나 계정 상태가 바뀌었습니다. 다시 로그인해 주세요.';
+  if (reason.code === 'REFRESH_REUSED') return errorText(reason);
   return '로그인이 만료됐습니다. 다시 로그인해 주세요.';
 };
 

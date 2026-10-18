@@ -908,6 +908,35 @@ input[type='checkbox'] {
   background: var(--danger);
 }
 
+/* 시스템 오류 번호 (traceId 앞 8자, 누르면 전체 복사) */
+.trace-id {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  opacity: 0.75;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.trace-id:hover {
+  opacity: 1;
+}
+
+.toast-trace {
+  display: block;
+  margin-top: 2px;
+}
+
+.alert-trace {
+  margin-left: 8px;
+}
+
 /* ───────── 패널(Drawer) ───────── */
 
 .drawer-backdrop {

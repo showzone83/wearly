@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -55,6 +56,61 @@ public final class MockWeather {
         rainProb,
         cond,
         text);
+  }
+
+  /** 목업 과거 관측값 (평년값 계산용). 같은 식(서울 월평균 + 위도 보정 + 날짜별 고정 난수)으로 from~to의 하루하루를 만든다. 넷 중 하루쯤 비가 온다. */
+  public static List<DailyObservation> climateDays(double lat, LocalDate from, LocalDate to) {
+    List<DailyObservation> out = new ArrayList<>();
+    for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
+      String key = String.format(Locale.ROOT, "%.1f:%s", lat, d);
+      double avg = SEOUL_MONTHLY_AVG[d.getMonthValue() - 1] + (SEOUL_LAT - lat) * 0.8;
+      double mid = avg + (seeded(key, 1) - 0.5) * 6;
+      double rain = seeded(key, 3) > 0.75 ? 4.0 : 0.0;
+      out.add(new DailyObservation(d, mid + 4, mid - 4, rain));
+    }
+    return out;
+  }
+
+  /** 목업 장소 검색 대상 (한국어 이름, 영어 이름, 시·도, 나라, 나라 코드, 지형 코드, 위도, 경도) */
+  static final List<String[]> PLACES =
+      List.of(
+          new String[] {"서울", "Seoul", "서울특별시", "대한민국", "KR", "PPLC", "37.57", "126.98"},
+          new String[] {"부산", "Busan", "부산광역시", "대한민국", "KR", "PPLA", "35.1", "129.04"},
+          new String[] {"제주", "Jeju", "제주특별자치도", "대한민국", "KR", "PPLA", "33.51", "126.52"},
+          new String[] {"강릉", "Gangneung", "강원도", "대한민국", "KR", "PPLA3", "37.75", "128.9"},
+          new String[] {"도쿄", "Tokyo", "도쿄 도", "일본", "JP", "PPLC", "35.69", "139.69"},
+          new String[] {"오사카", "Osaka", "오사카 부", "일본", "JP", "PPLA", "34.67", "135.5"},
+          new String[] {"상하이", "Shanghai", "상하이 시", "중국", "CN", "PPLA", "31.23", "121.47"},
+          new String[] {"싱가포르", "Singapore", "", "싱가포르", "SG", "PPLC", "1.29", "103.86"},
+          new String[] {"파리", "Paris", "일드프랑스", "프랑스", "FR", "PPLC", "48.87", "2.33"},
+          new String[] {"런던", "London", "잉글랜드", "영국", "GB", "PPLC", "51.52", "-0.11"},
+          new String[] {"뉴욕", "New York", "뉴욕주", "미국", "US", "PPL", "40.71", "-74.01"});
+
+  /** 목업 지오코딩: 한국어·영어 이름에 검색어가 들어간 곳 (대소문자 무시). 이름은 한국어다 */
+  public static List<GeoPlace> geocode(String query) {
+    String q = query == null ? "" : query.strip().toLowerCase(Locale.ROOT);
+    if (q.isEmpty()) {
+      return List.of();
+    }
+    return PLACES.stream()
+        .filter(p -> p[0].contains(q) || p[1].toLowerCase(Locale.ROOT).contains(q))
+        .map(
+            p ->
+                new GeoPlace(
+                    p[0],
+                    p[2].isEmpty() ? null : p[2],
+                    p[3],
+                    p[4],
+                    p[5],
+                    null,
+                    Double.parseDouble(p[6]),
+                    Double.parseDouble(p[7])))
+        .toList();
+  }
+
+  /** 목업 장소 검색 (날씨 공급자 검색 대신): 목업 지오코딩과 같은 곳, 같은 한국어 이름 */
+  public static List<PlaceCandidate> search(String query) {
+    return geocode(query).stream().map(GeoPlace::toCandidate).toList();
   }
 
   /** FNV-1a 해시로 만든 0~1 값 (앱 목업의 seeded와 같은 식) */

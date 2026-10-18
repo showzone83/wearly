@@ -1,8 +1,9 @@
 package app.wearly.admin.application.service;
 
 import app.wearly.admin.domain.SearchText;
+import app.wearly.common.domain.FieldError;
 import app.wearly.common.domain.Zones;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -28,7 +29,8 @@ final class SearchTimes {
       }
       return Instant.parse(v);
     } catch (DateTimeParseException e) {
-      throw ApiException.validation(field, "YYYY-MM-DD 또는 ISO-8601 시각이어야 해요.");
+      // YYYY-MM-DD 또는 ISO-8601 시각
+      throw BusinessException.validation(FieldError.invalidFormat(field, "date-time"));
     }
   }
 
@@ -45,7 +47,7 @@ final class SearchTimes {
     try {
       return LocalDate.parse(v);
     } catch (DateTimeParseException e) {
-      throw ApiException.validation(field, "YYYY-MM-DD 형식이어야 해요.");
+      throw BusinessException.validation(FieldError.invalidFormat(field, "YYYY-MM-DD"));
     }
   }
 }

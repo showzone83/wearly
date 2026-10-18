@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """웨어리 백엔드 실시간 로그 (로컬 개발용).
 
-DB에 새로 쌓이는 AI 분석·로그인·옷 등록 기록과 서버 로그의 경고·오류를 한 화면에 보여 준다.
+DB에 새로 쌓이는 AI 분석·로그인·옷 등록·사진 저장·날씨 수집 기록과 서버 로그의 경고·오류를 한 화면에 보여 준다.
 백엔드는 AI 분석 성공을 로그로 남기지 않고 tb_ai_analysis_log에만 기록하므로 DB를 1초마다 확인한다.
 
 실행: python3 backend/scripts/live-log.py [서버 로그 파일 경로]
@@ -78,6 +78,12 @@ def main():
         # 7차(doc/16): Refresh 토큰은 Valkey로 옮겼다. 로그인·로그아웃·강제 로그아웃은 tb_auth_event에 남는다
         last_auth = max_id('tb_auth_event', 'auth_event_id')
         last_item = max_id('tb_wardrobe_item', 'item_id')
+        # 날씨 수집 실행(doc/17)은 끝난 것만 한 줄로, 실패한 공급자 호출은 따로 보여 준다
+        # 시작할 때 도는 중인 실행은 끝나면 보여 주도록, 끝난 실행까지만 건너뛴다
+        last_run = psql('select coalesce(max(run_id), 0) from tb_weather_refresh_run where finished_at is not null') or 0
+        last_call = max_id('tb_weather_call_log', 'call_id')
+        # 사진 저장(doc/18): complete로 READY가 된 사진
+        last_image_at = psql("select to_json(coalesce(max(ready_at), now())) from tb_item_image")
     except Exception as e:  # noqa: BLE001
         print(f'DB에 연결하지 못했습니다: {e}\n먼저 docker compose up -d 를 실행하세요.')
         sys.exit(1)
@@ -121,6 +127,39 @@ def main():
             ):
                 last_item = r['id']
                 line('c', '옷 등록', f"{r['email']} · {r['name']} ({r['category']} · {r['color']})")
+
+            for r in rows(
+                'select i.ready_at, u.email, i.width, i.height, i.size_bytes, i.item_id from tb_item_image i '
+                f"left join tb_user u using (user_id) where i.ready_at > '{last_image_at}' order by i.ready_at"
+            ):
+                last_image_at = r['ready_at']
+                target = f"옷 {r['item_id']}" if r['item_id'] else '아직 옷에 안 붙음'
+                line('c', '사진', f"{r['email']} · {r['width']}×{r['height']} · "
+                                  f"{(r['size_bytes'] or 0) / 1024:.0f}KB · {target}")
+
+            for r in rows(
+                'select run_id id, trigger_type, region_code, status, skip_reason, success_count, '
+                'fail_count, fallback_count, finished_at, '
+                'round(extract(epoch from finished_at - started_at)::numeric, 1) sec '
+                f'from tb_weather_refresh_run where run_id > {last_run} order by 1'
+            ):
+                if r['finished_at'] is None:
+                    break  # 아직 도는 중이면 끝난 뒤에 보여 준다
+                last_run = r['id']
+                where = f" · 지역 {r['region_code']}" if r['region_code'] else ''
+                skip = f" · 건너뜀 {r['skip_reason']}" if r['skip_reason'] else ''
+                color = 'g' if r['status'] == 'SUCCESS' else 'y' if r['status'] == 'SKIPPED' else 'r'
+                line(color, '날씨', f"수집 {r['trigger_type']}{where} · {r['status']} · 성공 {r['success_count']} · "
+                                    f"실패 {r['fail_count']} · 예비 공급자 {r['fallback_count']} · {r['sec']}초{skip}")
+
+            for r in rows(
+                'select call_id id, region_code, provider_code, http_status, error_code, success '
+                f'from tb_weather_call_log where call_id > {last_call} order by 1'
+            ):
+                last_call = r['id']
+                if not r['success']:
+                    line('r', '날씨 실패', f"{r['provider_code']} · {r['region_code']} · "
+                                          f"HTTP {r['http_status'] or '-'} · {r['error_code'] or '-'}")
         except Exception as e:  # noqa: BLE001
             line('r', 'DB 오류', str(e)[:200])
 

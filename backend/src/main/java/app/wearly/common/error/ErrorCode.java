@@ -1,6 +1,15 @@
 package app.wearly.common.error;
 
-/** 05 문서 4장 + 07 문서의 오류 코드. HTTP 상태 번호와 기본 메시지를 함께 둔다 (유스케이스가 쓰므로 Spring Web 타입은 쓰지 않는다). */
+import java.util.List;
+
+/**
+ * 05 문서 4장 + 07 문서 + 17·19 문서(날씨) + 18 문서(사진 저장)의 오류 코드. HTTP 상태 번호와 설명을 함께 둔다 (유스케이스가 쓰므로 Spring
+ * Web 타입은 쓰지 않는다).
+ *
+ * <p>응답에는 code(상수 이름)·params만 나가고 설명 문장은 나가지 않는다. 설명은 로그·문서용이며 앱·관리자의 권장 문구와 같다
+ * (resources/error-codes.json의 message, 테스트가 맞춰 본다). 상수 이름은 앱·관리자가 쓰므로 바꾸지 말고 추가만 한다. 셋째 인자부터는 이
+ * 코드의 params 이름이다 (없는 이름을 넣으면 BusinessException이 거부한다).
+ */
 public enum ErrorCode {
   VALIDATION_FAILED(400, "입력값을 확인해 주세요."),
   UNAUTHORIZED(401, "로그인이 필요해요."),
@@ -16,33 +25,51 @@ public enum ErrorCode {
   METHOD_NOT_ALLOWED(405, "지원하지 않는 요청이에요."),
   EMAIL_TAKEN(409, "이미 가입된 이메일이에요."),
   CODE_EXISTS(409, "이미 있는 코드예요."),
-  CODE_IN_USE(409, "사용 중인 코드라 삭제할 수 없어요. 대신 비활성화해 주세요."),
+  CODE_IN_USE(409, "사용 중인 코드라 삭제할 수 없어요. 대신 비활성화해 주세요.", "usages"),
   PROVIDER_EXISTS(409, "이미 있는 공급자 ID예요."),
   SECRET_KEY_MISSING(409, "서버에 WEARLY_SECRET_KEY가 없어 웹에서 API 키를 넣을 수 없어요."),
-  API_KEY_INVALID(400, "API 키를 확인하지 못했어요."),
-  WARDROBE_INSUFFICIENT(400, "코디를 만들 옷이 모자라요."),
+  API_KEY_INVALID(400, "API 키를 확인하지 못했어요.", "reason"),
+  WARDROBE_INSUFFICIENT(400, "코디를 만들 옷이 모자라요.", "missing", "alternatives"),
+  IMAGE_INVALID(400, "사진을 처리할 수 없어요. JPEG·PNG 사진만 올릴 수 있어요.", "reason"),
+  IMAGE_NOT_UPLOADED(400, "사진 올리기가 끝나지 않았어요. 다시 올려 주세요."),
+  IMAGE_IN_USE(409, "다른 옷에 쓰고 있는 사진이에요."),
+  IMAGE_UPLOAD_LIMIT(429, "오늘 올릴 수 있는 사진 수를 모두 썼어요."),
   IMAGE_TOO_LARGE(413, "사진은 10MB까지 올릴 수 있어요."),
   UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 형식이에요."),
-  AI_LIMIT_EXCEEDED(429, "오늘 AI 분석 횟수를 모두 썼어요."),
-  AI_UNAVAILABLE(502, "AI 분석을 지금 할 수 없어요. 잠시 후 다시 시도해 주세요."),
-  WEATHER_UNAVAILABLE(503, "날씨 정보를 아직 받지 못했어요. 잠시 후 다시 시도해 주세요."),
+  AI_LIMIT_EXCEEDED(429, "오늘 AI 분석 횟수를 모두 썼어요.", "feature"),
+  AI_UNAVAILABLE(502, "AI 분석을 지금 할 수 없어요. 잠시 후 다시 시도해 주세요.", "feature"),
+  WEATHER_UNAVAILABLE(503, "날씨 정보를 아직 받지 못했어요. 잠시 후 다시 시도해 주세요.", "kind"),
   WEATHER_REFRESH_RUNNING(409, "날씨를 이미 받고 있어요. 끝난 뒤 다시 시도해 주세요."),
-  WEATHER_NO_PROVIDER(409, "쓸 수 있는 날씨 공급자가 없어요. 공급자 사용 여부·키·차단 상태·월 한도를 확인해 주세요."),
-  INTERNAL_ERROR(500, "일시적인 오류가 발생했어요.");
+  WEATHER_LIMIT(429, "오늘 다른 장소 날씨를 볼 수 있는 횟수를 모두 썼어요. 내일 다시 시도해 주세요.", "kind"),
+  WEATHER_NO_PROVIDER(
+      409, "쓸 수 있는 날씨 공급자가 없어요. 공급자 사용 여부·키·차단 상태·월 한도를 확인해 주세요.", "reason", "keyName"),
+  PLAN_LIMIT(409, "예정은 {max}개까지 저장할 수 있어요. 지난 예정을 지워 주세요.", "max"),
+  INTERNAL_ERROR(500, "일시적인 오류가 발생했어요."),
+  NOT_ACCEPTABLE(406, "지원하지 않는 응답 형식이에요."),
+  CONFLICT(409, "다른 요청과 겹쳐 처리하지 못했어요. 다시 시도해 주세요."),
+  SERVICE_UNAVAILABLE(503, "서비스를 잠시 쓸 수 없어요. 잠시 후 다시 시도해 주세요.");
 
   private final int status;
-  private final String defaultMessage;
+  private final String description;
+  private final List<String> params;
 
-  ErrorCode(int status, String defaultMessage) {
+  ErrorCode(int status, String description, String... params) {
     this.status = status;
-    this.defaultMessage = defaultMessage;
+    this.description = description;
+    this.params = List.of(params);
   }
 
   public int status() {
     return status;
   }
 
-  public String defaultMessage() {
-    return defaultMessage;
+  /** 로그·문서용 설명 (응답에는 쓰지 않는다) */
+  public String description() {
+    return description;
+  }
+
+  /** 이 코드가 쓸 수 있는 params 이름 */
+  public List<String> params() {
+    return params;
   }
 }

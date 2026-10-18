@@ -9,8 +9,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { bootstrapSession } from '@/lib/account';
 import { API_BASE_URL } from '@/lib/api';
 import { syncAppConfig } from '@/lib/appConfig';
+import { onAppActive, startPhotoMaintenance } from '@/lib/photoSync';
+import { recheckPlans } from '@/lib/placeWeather';
+import { syncPlans } from '@/lib/planSync';
 import { syncWeather } from '@/lib/weatherSync';
 import { bootstrapCodes, useCodes } from '@/store/useCodes';
+import { usePlaceStore } from '@/store/usePlaceStore';
 import { useStore } from '@/store/useStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { useWeatherStore } from '@/store/useWeatherStore';
@@ -93,6 +97,21 @@ const useAppConfigSync = (themeHydrated: boolean) => {
 };
 
 /**
+ * 옷 사진 관리 (계약 4장): 세션 확인이 끝나면 한 번(기기 사진을 앱 폴더로·정리·서버로 옮기기),
+ * 앱이 다시 활성이 될 때마다 계정 모드면 사진 주소 갱신과 남은 기기 사진 옮기기. 화면을 막지 않는다.
+ */
+const usePhotoMaintenance = (sessionChecked: boolean) => {
+  useEffect(() => {
+    if (!sessionChecked) return;
+    void startPhotoMaintenance();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void onAppActive();
+    });
+    return () => sub.remove();
+  }, [sessionChecked]);
+};
+
+/**
  * 서버 날씨 동기화 (doc/17 5장): 저장한 지역·날씨를 복원한 뒤 한 번, 앱이 다시 활성이 될 때마다 한 번.
  * 서버는 저장된 값만 주므로 자주 불러도 공급자 호출은 늘지 않는다. 실패하면 저장값·목업 날씨로 계속한다.
  */
@@ -105,6 +124,36 @@ const useWeatherSync = (weatherHydrated: boolean) => {
     });
     return () => sub.remove();
   }, [weatherHydrated]);
+};
+
+/**
+ * 예정일 날씨 다시 확인 (doc/19): 세션 확인(좌표 장소는 로그인 필요)과 장소·날씨 저장값 복원이 끝나면 한 번,
+ * 앱이 다시 활성이 될 때마다 한 번. 같은 예정은 하루 한 번만 서버에 묻고, 서버에 API가 없으면 아무것도 하지 않는다.
+ */
+const usePlanWeatherRecheck = (ready: boolean) => {
+  useEffect(() => {
+    if (!ready) return;
+    void recheckPlans();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void recheckPlans();
+    });
+    return () => sub.remove();
+  }, [ready]);
+};
+
+/**
+ * 예정 코디 서버 동기화 (계정 모드): 세션 확인이 끝나면 한 번, 앱이 다시 활성이 될 때마다(30초 간격 이상) 한 번.
+ * 게스트·목업 실행·서버에 API가 없으면 아무것도 하지 않는다. 화면을 막지 않는다.
+ */
+const usePlanSync = (sessionChecked: boolean) => {
+  useEffect(() => {
+    if (!sessionChecked) return;
+    void syncPlans();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void syncPlans();
+    });
+    return () => sub.remove();
+  }, [sessionChecked]);
 };
 
 /** 계정 모드에서 로그인이 풀리면(Refresh 실패) 로그인 화면으로 보낸다 */
@@ -125,10 +174,14 @@ export default function RootLayout() {
   const codesHydrated = useHydrated(useCodes.persist);
   const themeHydrated = useHydrated(useThemeStore.persist);
   const weatherHydrated = useHydrated(useWeatherStore.persist);
+  const placeHydrated = useHydrated(usePlaceStore.persist);
   const sessionChecked = useSession(hydrated);
   const codes = useCodesReady(codesHydrated);
   useAppConfigSync(themeHydrated);
+  usePhotoMaintenance(sessionChecked);
+  usePlanSync(sessionChecked);
   useWeatherSync(weatherHydrated);
+  usePlanWeatherRecheck(sessionChecked && weatherHydrated && placeHydrated && codes.phase === 'ready');
   // 저장된 테마로 첫 화면을 그리도록 테마 복원을 기다린다 (제목은 시스템 산세리프라 글꼴 로딩은 없다)
   const ready = themeHydrated && hydrated && sessionChecked && codes.phase === 'ready';
   const codesFailed = codes.phase === 'failed';

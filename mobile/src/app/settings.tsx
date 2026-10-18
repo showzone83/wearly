@@ -5,7 +5,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { StylePrefs, WorkPattern } from '@/components/StyleForm';
 import { Button, Header, notify, Screen } from '@/components/ui';
 import { saveProfile } from '@/lib/account';
-import { errorMessage } from '@/lib/api';
+import { errorAlertMessage } from '@/lib/api';
 import { useStore } from '@/store/useStore';
 
 export default function Settings() {
@@ -20,7 +20,7 @@ export default function Settings() {
       await saveProfile(draft);
       router.back();
     } catch (e) {
-      notify('설정을 저장하지 못했어요', errorMessage(e));
+      notify('설정을 저장하지 못했어요', errorAlertMessage(e));
       setBusy(false);
     }
   };

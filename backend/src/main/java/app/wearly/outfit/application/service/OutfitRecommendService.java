@@ -8,7 +8,7 @@ import app.wearly.ai.application.port.in.RejectedOutputException;
 import app.wearly.ai.application.port.in.dto.GenerateJsonDto;
 import app.wearly.ai.application.port.in.dto.GeneratedJsonDto;
 import app.wearly.code.application.port.in.CodeCatalog;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.outfit.application.port.in.OutfitFeatures;
 import app.wearly.outfit.application.port.in.RecommendOutfitUseCase;
@@ -30,6 +30,7 @@ import app.wearly.user.application.port.in.dto.ProfileTasteDto;
 import app.wearly.wardrobe.application.port.in.WardrobeUseCase;
 import app.wearly.wardrobe.application.port.in.dto.ItemDto;
 import app.wearly.wardrobe.application.port.in.dto.ItemSearchDto;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +48,10 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class OutfitRecommendService implements RecommendOutfitUseCase {
+
+  /** 한도·장애 응답의 params: 어느 기능인지 (사진 분석과 문구를 나눌 수 있게) */
+  private static final Map<String, Object> FEATURE_PARAMS =
+      Map.of("feature", OutfitFeatures.OUTFIT_RECOMMEND);
 
   private final WardrobeUseCase wardrobe;
   private final ProfileUseCase profiles;
@@ -100,12 +105,17 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
                         v.lastWornAt(),
                         codes))
             .toList();
-    ApiException.throwIfAny(OutfitPool.checkPins(request, items, retiredIds));
+    BusinessException.throwIfAny(OutfitPool.checkPins(request, items, retiredIds));
     OutfitPool pool = OutfitPool.of(request, items);
-    List<String> missing = pool.missing();
+    List<String> missing = pool.missingSlots();
     if (!missing.isEmpty()) {
-      throw new ApiException(
-          ErrorCode.WARDROBE_INSUFFICIENT, "추천할 수 있는 옷이 모자라요: " + String.join(", ", missing));
+      Map<String, Object> params = new LinkedHashMap<>();
+      params.put("missing", missing);
+      List<String> alternatives = pool.missingAlternatives();
+      if (!alternatives.isEmpty()) {
+        params.put("alternatives", alternatives);
+      }
+      throw new BusinessException(ErrorCode.WARDROBE_INSUFFICIENT, params);
     }
 
     ProfileTasteDto taste = profiles.taste(userId);
@@ -126,9 +136,9 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
     try {
       result = generation.generate(generate, json -> accept(json, pool));
     } catch (AiLimitExceededException e) {
-      throw new ApiException(ErrorCode.AI_LIMIT_EXCEEDED, "오늘 AI 코디 추천 횟수를 모두 썼어요.");
+      throw new BusinessException(ErrorCode.AI_LIMIT_EXCEEDED, FEATURE_PARAMS);
     } catch (AiUnavailableException e) {
-      throw new ApiException(ErrorCode.AI_UNAVAILABLE, "AI 코디 추천을 지금 받을 수 없어요. 잠시 후 다시 시도해 주세요.");
+      throw new BusinessException(ErrorCode.AI_UNAVAILABLE, FEATURE_PARAMS);
     }
     int remaining = (int) Math.max(0, limit - result.usedToday());
     return new OutfitRecommendationDto(

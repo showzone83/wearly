@@ -6,6 +6,7 @@ import { DEFAULT_PROFILE, seedItems } from '@/data/seed';
 import type {
   DailyLook,
   FeedbackType,
+  IPlanTombstone,
   Outfit,
   OutfitItems,
   PlannedEvent,
@@ -16,6 +17,7 @@ import type {
 import type { RecommendSource } from '@/lib/aiOutfits';
 import { addDays, diffDays, todayKey } from '@/lib/date';
 import type { EngineInput } from '@/lib/recommend';
+import type { IPhotoSyncEntry } from '@/lib/photoRules';
 import { buildSampleHistory } from '@/lib/sample';
 
 /** 추천 결과 화면으로 넘기는 임시 데이터 (저장하지 않음) */
@@ -23,6 +25,8 @@ export interface Draft {
   mode: 'TODAY' | 'PLAN';
   outfits: Outfit[];
   plan?: Omit<PlannedEvent, 'id' | 'outfit'>;
+  /** 이미 있는 예정을 다시 추천할 때 그 id (저장하면 그 예정을 바꾼다) */
+  planId?: string;
   /** 추천 방식(AI·규칙)과 AI 공급자·모델·남은 횟수. 없으면 규칙 추천 */
   source?: RecommendSource;
 }
@@ -48,13 +52,20 @@ interface State {
   authLost: boolean;
   /** authLost일 때 로그인 화면 안내 문구를 고르는 이유 */
   authLostReason: AuthLostReason | null;
-  /** 계정 모드: 서버 아이템 id → 기기에만 있는 사진 uri (서버는 사진을 저장하지 않는다) */
+  /**
+   * 계정 모드: 서버 아이템 id → 기기에만 있는 사진 uri.
+   * 샘플 사진, 서버에 사진 기능이 없을 때 고른 사진, 아직 서버로 옮기지 못한 사진이다 (서버 사진은 item.image)
+   */
   photos: Record<string, string>;
+  /** 계정 모드: 기기 사진을 서버로 옮기기 실패 기록 (아이템 id별, 계약 4장) */
+  photoSync: Record<string, IPhotoSyncEntry>;
   onboarded: boolean;
   profile: Profile;
   items: WardrobeItem[];
   dayOutfits: Record<string, SavedOutfit>;
   plans: PlannedEvent[];
+  /** 계정 모드: 기기에서 지웠지만 아직 서버에서 지우지 못한 예정 (lib/planSync.ts). 예전 데이터에는 없다 */
+  planDeletes: IPlanTombstone[];
   looks: DailyLook[];
   affinity: Record<string, number>;
   draft: Draft | null;
@@ -64,6 +75,7 @@ interface State {
   /** 서버 목록으로 옷장을 맞춘다. 사라진 아이템은 저장 코디·예정일에서도 뺀다 */
   syncItems: (items: WardrobeItem[]) => void;
   setPhoto: (id: string, uri: string | undefined) => void;
+  setPhotoSync: (id: string, entry: IPhotoSyncEntry | undefined) => void;
   updateProfile: (patch: Partial<Profile>) => void;
   addItem: (item: WardrobeItem) => void;
   updateItem: (id: string, patch: Partial<WardrobeItem>) => void;
@@ -71,8 +83,11 @@ interface State {
   saveDayOutfit: (date: string, outfit: Outfit) => void;
   setFeedback: (date: string, type: FeedbackType, reasons?: string[]) => void;
   bumpAffinity: (ids: (string | undefined)[], delta: number) => void;
+  /** 예정 저장(같은 id면 바꿈). 서버 id는 이어받고, 서버에 보낼 변경으로 표시한다. 서버 전송은 lib/planSync.ts savePlan */
   addPlan: (plan: PlannedEvent) => void;
   deletePlan: (id: string) => void;
+  /** 예정의 날씨 칸만 바꾼다 (다시 확인, doc/19). 그사이 지워진 예정이면 아무것도 안 한다 */
+  updatePlanWeather: (id: string, patch: Pick<PlannedEvent, 'weather' | 'weatherSource' | 'weatherCheckedAt' | 'forecastReady'>) => void;
   addLook: (look: DailyLook) => void;
   setDraft: (draft: Draft | null) => void;
   loadSample: () => void;
@@ -85,15 +100,27 @@ const EMPTY = {
   authLost: false,
   authLostReason: null as AuthLostReason | null,
   photos: {} as Record<string, string>,
+  photoSync: {} as Record<string, IPhotoSyncEntry>,
   onboarded: false,
   profile: DEFAULT_PROFILE,
   items: [] as WardrobeItem[],
   dayOutfits: {} as Record<string, SavedOutfit>,
   plans: [] as PlannedEvent[],
+  planDeletes: [] as IPlanTombstone[],
   looks: [] as DailyLook[],
   affinity: {} as Record<string, number>,
   draft: null as Draft | null,
 };
+
+/** 계정 모드는 옷을 지워도 예정 코디에서 빼지 않는다: 서버가 예정을 그대로 두고 missingItemIds로 알려 주므로 "지운 옷"으로 보여 준다 */
+const keepPlanRefs = (s: { authMode: AuthMode }): boolean => s.authMode === 'account';
+
+/** 기기에서 예정을 고쳤다는 표시 (서버 동기화 대상) */
+const touched = (): Pick<PlannedEvent, 'updatedAt' | 'pending' | 'syncBlocked'> => ({
+  updatedAt: new Date().toISOString(),
+  pending: true,
+  syncBlocked: undefined,
+});
 
 function removeItemRefs(items: OutfitItems, id: string): OutfitItems {
   const next = { ...items };
@@ -126,11 +153,16 @@ export const useStore = create<State>()(
             next[k] = { ...v, outfit: { ...v.outfit, items: removeItemRefs(v.outfit.items, id) } };
           }
           dayOutfits = next;
+          if (keepPlanRefs(s)) continue;
           plans = plans.map((p) => (p.outfit ? { ...p, outfit: { ...p.outfit, items: removeItemRefs(p.outfit.items, id) } } : p));
         }
         const photos = { ...s.photos };
-        for (const id of removed) delete photos[id];
-        set({ items, dayOutfits, plans, photos });
+        const photoSync = { ...s.photoSync };
+        for (const id of removed) {
+          delete photos[id];
+          delete photoSync[id];
+        }
+        set({ items, dayOutfits, plans, photos, photoSync });
       },
 
       setPhoto: (id, uri) => {
@@ -138,6 +170,13 @@ export const useStore = create<State>()(
         if (uri) photos[id] = uri;
         else delete photos[id];
         set({ photos });
+      },
+
+      setPhotoSync: (id, entry) => {
+        const photoSync = { ...get().photoSync };
+        if (entry) photoSync[id] = entry;
+        else delete photoSync[id];
+        set({ photoSync });
       },
 
       updateProfile: (patch) => set({ profile: { ...get().profile, ...patch } }),
@@ -151,6 +190,8 @@ export const useStore = create<State>()(
         const s = get();
         const photos = { ...s.photos };
         delete photos[id];
+        const photoSync = { ...s.photoSync };
+        delete photoSync[id];
         const dayOutfits: Record<string, SavedOutfit> = {};
         for (const [k, v] of Object.entries(s.dayOutfits)) {
           dayOutfits[k] = { ...v, outfit: { ...v.outfit, items: removeItemRefs(v.outfit.items, id) } };
@@ -158,10 +199,13 @@ export const useStore = create<State>()(
         set({
           items: s.items.filter((i) => i.id !== id),
           photos,
+          photoSync,
           dayOutfits,
-          plans: s.plans.map((p) =>
-            p.outfit ? { ...p, outfit: { ...p.outfit, items: removeItemRefs(p.outfit.items, id) } } : p,
-          ),
+          plans: keepPlanRefs(s)
+            ? s.plans
+            : s.plans.map((p) =>
+                p.outfit ? { ...p, outfit: { ...p.outfit, items: removeItemRefs(p.outfit.items, id) } } : p,
+              ),
         });
       },
 
@@ -181,10 +225,20 @@ export const useStore = create<State>()(
         set({ affinity });
       },
 
-      addPlan: (plan) =>
-        set({ plans: [...get().plans.filter((p) => p.id !== plan.id), plan].sort((a, b) => a.date.localeCompare(b.date)) }),
+      addPlan: (plan) => {
+        const prev = get().plans.find((p) => p.id === plan.id);
+        // 새 코디는 지금 옷장으로 고른 것이라 예전 missingItemIds는 버린다 (서버가 다시 알려 준다)
+        const next: PlannedEvent = { ...plan, serverId: plan.serverId ?? prev?.serverId, missingItemIds: undefined, ...touched() };
+        set({ plans: [...get().plans.filter((p) => p.id !== plan.id), next].sort((a, b) => a.date.localeCompare(b.date)) });
+      },
 
       deletePlan: (id) => set({ plans: get().plans.filter((p) => p.id !== id) }),
+
+      updatePlanWeather: (id, patch) => {
+        const plans = get().plans;
+        if (!plans.some((p) => p.id === id)) return;
+        set({ plans: plans.map((p) => (p.id === id ? { ...p, ...patch, ...touched() } : p)) });
+      },
 
       addLook: (look) => {
         const s = get();

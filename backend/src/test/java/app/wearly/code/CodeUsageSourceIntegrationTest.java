@@ -21,10 +21,11 @@ class CodeUsageSourceIntegrationTest extends IntegrationTestBase {
   @Autowired List<CodeUsageSource> sources;
 
   @Test
-  void 아이템과_프로필_사용처가_하나씩_등록되어_있다() {
+  void 아이템_프로필_예정_코디_사용처가_하나씩_등록되어_있다() {
     assertThat(sources)
         .extracting(CodeUsageSource::kind)
-        .containsExactlyInAnyOrder(CodeUsageSource.Kind.ITEM, CodeUsageSource.Kind.PROFILE);
+        .containsExactlyInAnyOrder(
+            CodeUsageSource.Kind.ITEM, CodeUsageSource.Kind.PROFILE, CodeUsageSource.Kind.PLAN);
   }
 
   @Test

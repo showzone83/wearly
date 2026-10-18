@@ -5,11 +5,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.wearly.ai.application.service.AiAnalysisService;
 import app.wearly.support.FakeHttpServer;
 import app.wearly.support.IntegrationTestBase;
+import app.wearly.support.TestApi;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
+import app.wearly.support.TestImages;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -312,6 +318,52 @@ class AiProviderFallbackIntegrationTest extends IntegrationTestBase {
     JsonNode openai = byId(providers, "t-openai");
     assertThat(openai.get("today").get("success").asLong()).isGreaterThanOrEqualTo(5);
     assertThat(providers.toString()).doesNotContain(OPENAI_KEY).doesNotContain(GEMINI_KEY);
+  }
+
+  @Test
+  void 큰_사진은_긴_변_1024_JPEG로_줄여_공급자에_보내고_보낸_바이트를_기록한다() throws Exception {
+    create("t-gemini", "GEMINI", GEMINI.url(), "TEST_GEMINI_API_KEY", 1);
+    GEMINI.respond(200, geminiOk());
+    Session s = signup();
+    long userId = Long.parseLong(s.userId());
+
+    // 3000x2000 PNG → 1024x683 JPEG
+    byte[] big = TestImages.png(3000, 2000);
+    api().upload(PATH, s.accessToken(), "image", big, "big.png", "image/png").expect(200);
+    JsonNode inline = inlineData(GEMINI.last());
+    assertThat(inline.get("mimeType").asString()).isEqualTo("image/jpeg");
+    byte[] sent = Base64.getDecoder().decode(inline.get("data").asString());
+    BufferedImage image = ImageIO.read(new ByteArrayInputStream(sent));
+    assertThat(image.getWidth()).isEqualTo(1024);
+    assertThat(image.getHeight()).isEqualTo(683);
+    Map<String, Object> log = lastLog(userId);
+    assertThat(((Number) log.get("image_bytes")).intValue()).isEqualTo(sent.length);
+    assertThat(log.get("image_sha256")).isEqualTo(AiAnalysisService.sha256(sent));
+
+    // 긴 변이 1024 이하면 올린 바이트·형식 그대로 보낸다
+    byte[] small = TestImages.png(800, 600);
+    api().upload(PATH, s.accessToken(), "image", small, "small.png", "image/png").expect(200);
+    JsonNode same = inlineData(GEMINI.last());
+    assertThat(same.get("mimeType").asString()).isEqualTo("image/png");
+    assertThat(Base64.getDecoder().decode(same.get("data").asString())).isEqualTo(small);
+    assertThat(((Number) lastLog(userId).get("image_bytes")).intValue()).isEqualTo(small.length);
+  }
+
+  private static JsonNode inlineData(FakeHttpServer.Request request) {
+    return TestApi.JSON
+        .readTree(request.body())
+        .get("contents")
+        .get(0)
+        .get("parts")
+        .get(0)
+        .get("inlineData");
+  }
+
+  private Map<String, Object> lastLog(long userId) {
+    return jdbc.queryForMap(
+        "select image_bytes, image_sha256 from tb_ai_analysis_log where user_id = ?"
+            + " order by ai_analysis_log_id desc limit 1",
+        userId);
   }
 
   private void create(String id, String type, String baseUrl, String env, int priority) {

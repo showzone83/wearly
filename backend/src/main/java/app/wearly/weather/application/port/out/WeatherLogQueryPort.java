@@ -19,6 +19,7 @@ public interface WeatherLogQueryPort {
   record CallFilter(
       Long runId,
       String providerCode,
+      String callKind,
       String regionCode,
       Boolean success,
       Boolean fallback,

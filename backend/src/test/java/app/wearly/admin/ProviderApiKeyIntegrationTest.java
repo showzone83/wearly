@@ -266,9 +266,11 @@ class ProviderApiKeyIntegrationTest extends IntegrationTestBase {
             + "\"}}");
     Resp invalid =
         put(openai, keyBody(bad, ADMIN_PASSWORD, null)).expectError(400, "API_KEY_INVALID");
-    assertThat(invalid.body().get("message").asString())
-        .contains("HTTP 401")
-        .doesNotContain(bad.substring(0, 12));
+    // 응답에는 사유 코드만 (공급자 응답 원문·키 조각은 로그에만)
+    assertThat(invalid.body().get("params").get("reason").asString()).isEqualTo("API_401");
+    assertThat(invalid.body().toString())
+        .doesNotContain(bad.substring(0, 12))
+        .doesNotContain("Incorrect API key");
     assertThat(SERVER.last().method()).isEqualTo("GET");
     assertThat(SERVER.last().path()).isEqualTo("/v1/models");
     assertThat(SERVER.last().header("Authorization")).isEqualTo("Bearer " + bad);

@@ -70,7 +70,8 @@ class AdminCodeIntegrationTest extends IntegrationTestBase {
           api()
               .delete("/api/v1/admin/codes/PATTERN/" + pattern, admin.accessToken())
               .expectError(409, "CODE_IN_USE");
-      assertThat(del.body().get("message").asString()).contains("아이템 2개");
+      assertThat(del.body().get("params").get("usages").toString())
+          .isEqualTo("[{\"kind\":\"ITEM\",\"count\":2}]");
       api()
           .delete("/api/v1/admin/codes/COLOR/navy", admin.accessToken())
           .expectError(409, "CODE_IN_USE");

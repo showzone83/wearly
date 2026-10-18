@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Wearly 앱↔백엔드 연동 하네스 실행기 (doc/05_백엔드_API.md 9장)
 #
-#   ./run.sh                      DB·Valkey(DB 1) 리셋 → 백엔드(18080) 기동 → 시나리오 → 백엔드 종료
+#   ./run.sh                      DB·Valkey(DB 1)·사진 버킷(wearly-images-harness) 리셋 → 백엔드(18080) 기동 → 시나리오 → 백엔드 종료
 #   ./run.sh --keep               끝나도 백엔드를 남긴다
 #   ./run.sh --external <url>     DB 리셋·기동 없이 그 서버로 시나리오만 (TTL 의존 시나리오는 건너뜀)
-#   ./run.sh --db-only            하네스 DB(wearly_harness)·Valkey DB 1만 비우고 끝낸다
+#   ./run.sh --db-only            하네스 DB(wearly_harness)·Valkey DB 1·사진 버킷만 비우고 끝낸다
 #   ./run.sh --only 토큰,AI       이름·분류에 키워드가 들어간 시나리오만 (러너로 그대로 넘김)
 #   ./run.sh --list               시나리오 목록만 보기
 set -euo pipefail
@@ -22,6 +22,13 @@ DB_NAME=wearly_harness
 VALKEY_CONTAINER=wearly-valkey
 VALKEY_PORT=6380
 VALKEY_DB=1
+# 옷 사진 저장소 (doc/18). compose의 wearly-minio(호스트 9000)를 같이 쓰되, 개발 서버의 wearly-images와 섞이지 않게
+# 하네스 전용 버킷을 쓰고 시작 때 비운다. 계정은 compose의 로컬 전용 값
+MINIO_CONTAINER=wearly-minio
+MINIO_ENDPOINT=http://localhost:9000
+MINIO_USER=wearly
+MINIO_PASSWORD=wearly-minio-local
+MINIO_BUCKET=wearly-images-harness
 BOOT_TIMEOUT="${HARNESS_BOOT_TIMEOUT:-180}"
 DEFAULT_JAVA_HOME=/Users/showzone/Library/Java/JavaVirtualMachines/openjdk-21.0.2/Contents/Home
 
@@ -145,6 +152,40 @@ reset_valkey() {
   info "${C_GRN}DB $VALKEY_DB 비움${C_0}"
 }
 
+ensure_minio() {
+  step "MinIO 컨테이너 확인 ($MINIO_CONTAINER, 포트 9000)"
+  local state
+  state="$(container_state "$MINIO_CONTAINER")"
+  if [[ "$state" != "running/healthy" ]]; then
+    info "현재 상태: $state → docker compose up -d minio minio-init"
+    (cd "$ROOT_DIR" && docker compose up -d minio minio-init) >/dev/null
+    local waited=0
+    while :; do
+      state="$(container_state "$MINIO_CONTAINER")"
+      [[ "$state" == "running/healthy" ]] && break
+      if (( waited >= 60 )); then
+        docker logs --tail 30 "$MINIO_CONTAINER" 2>&1 || true
+        die "MinIO가 60초 안에 healthy가 되지 않았습니다 (상태: $state)."
+      fi
+      sleep 1; waited=$((waited + 1))
+    done
+  fi
+  info "${C_GRN}healthy${C_0}"
+}
+
+reset_minio() {
+  step "하네스 사진 버킷 비우기 ($MINIO_BUCKET — 개발 서버의 wearly-images는 건드리지 않음)"
+  local out
+  # MinIO 이미지 안의 mc로 버킷을 지우고 다시 만든다 (비공개)
+  out="$(docker exec "$MINIO_CONTAINER" sh -c "
+    mc alias set harness http://localhost:9000 '$MINIO_USER' '$MINIO_PASSWORD' >/dev/null &&
+    mc rb --force harness/$MINIO_BUCKET >/dev/null 2>&1;
+    mc mb harness/$MINIO_BUCKET >/dev/null && mc anonymous set none harness/$MINIO_BUCKET >/dev/null && echo OK" 2>&1)" \
+    || die "사진 버킷 $MINIO_BUCKET 초기화 실패: $out"
+  [[ "$out" == *OK ]] || die "사진 버킷 $MINIO_BUCKET 초기화 응답이 OK가 아닙니다: $out"
+  info "${C_GRN}$MINIO_BUCKET 새로 만듦${C_0}"
+}
+
 reset_db() {
   step "하네스 DB 초기화 ($DB_NAME — 개발용 'wearly' DB는 건드리지 않음)"
   docker exec -e PGOPTIONS="-c client_min_messages=warning" "$DB_CONTAINER" psql -U wearly -d postgres -v ON_ERROR_STOP=1 -q \
@@ -236,6 +277,7 @@ start_backend() {
     cd "$BACKEND_DIR"
     unset ANTHROPIC_API_KEY
     # 개발용 backend/config/application-local.yml(실제 AI 키·관리자 계정·마스터 키)을 읽지 않게 없는 경로를 준다
+    # 날씨는 목업 공급자·목업 평년값(WEARLY_WEATHER_PROVIDER=mock)으로 돌아 외부 API(WeatherAPI·Open-Meteo)를 부르지 않는다 (doc/17·19)
     exec env \
       WEARLY_LOCAL_CONFIG="$HARNESS_DIR/.logs/no-local-config.yml" \
       JAVA_HOME="$java_home" \
@@ -246,9 +288,17 @@ start_backend() {
       SPRING_DATA_REDIS_HOST=localhost \
       SPRING_DATA_REDIS_PORT="$VALKEY_PORT" \
       SPRING_DATA_REDIS_DATABASE="$VALKEY_DB" \
+      WEARLY_STORAGE_ENDPOINT="$MINIO_ENDPOINT" \
+      WEARLY_STORAGE_ACCESS_KEY="$MINIO_USER" \
+      WEARLY_STORAGE_SECRET_KEY="$MINIO_PASSWORD" \
+      WEARLY_STORAGE_BUCKET="$MINIO_BUCKET" \
+      WEARLY_STORAGE_PUBLIC_ENDPOINT= \
+      WEARLY_STORAGE_AUTO_CREATE_BUCKET=true \
+      WEARLY_STORAGE_CLEANUP_ENABLED=false \
       WEARLY_ACCESS_TTL=PT3S \
       WEARLY_AI_DAILY_LIMIT=3 \
       WEARLY_AI_PROVIDER=mock \
+      WEARLY_WEATHER_PROVIDER=mock \
       WEARLY_ADMIN_EMAIL=admin@harness.wearly.test \
       WEARLY_ADMIN_PASSWORD=HarnessAdmin1234 \
       WEARLY_ADMIN_NAME=하네스관리자 \
@@ -297,6 +347,8 @@ if (( DB_ONLY )); then
   reset_db
   ensure_valkey
   reset_valkey
+  ensure_minio
+  reset_minio
   exit 0
 fi
 
@@ -329,6 +381,8 @@ ensure_db
 reset_db
 ensure_valkey
 reset_valkey
+ensure_minio
+reset_minio
 start_backend
 
 step "시나리오 실행"

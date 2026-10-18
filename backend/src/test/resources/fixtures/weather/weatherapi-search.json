@@ -1,0 +1,20 @@
+[
+  {
+    "id": 2595213,
+    "name": "Tokyo",
+    "region": "Tokyo",
+    "country": "Japan",
+    "lat": 35.69,
+    "lon": 139.69,
+    "url": "tokyo-tokyo-japan"
+  },
+  {
+    "id": 2595266,
+    "name": "Tokyo Station",
+    "region": "Tokyo",
+    "country": "Japan",
+    "lat": 35.68,
+    "lon": 139.77,
+    "url": "tokyo-station-tokyo-japan"
+  }
+]

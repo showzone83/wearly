@@ -49,7 +49,7 @@ class WeatherRunJpaAdapter implements WeatherRunPort {
 
   @Override
   @Transactional
-  public void saveCalls(long runId, List<CallRecord> records) {
+  public void saveCalls(Long runId, List<CallRecord> records) {
     calls.saveAllAndFlush(
         records.stream()
             .map(
@@ -91,6 +91,7 @@ class WeatherRunJpaAdapter implements WeatherRunPort {
   @Override
   @Transactional
   public int purgeBefore(Instant startedBefore) {
+    calls.deleteWithoutRunBefore(startedBefore);
     return runs.deleteStartedBefore(startedBefore);
   }
 

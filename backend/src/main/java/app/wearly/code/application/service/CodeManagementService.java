@@ -13,7 +13,8 @@ import app.wearly.code.domain.Code;
 import app.wearly.code.domain.CodeAttrs;
 import app.wearly.code.domain.CodeRules;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.domain.FieldErrorCode;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.sharedkernel.code.CodeGroups;
 import app.wearly.sharedkernel.code.CodeSnapshot;
@@ -63,16 +64,16 @@ public class CodeManagementService implements CodeManagementUseCase {
   public CodeDto create(String group, CreateCodeDto req) {
     CodeSnapshot snapshot = requireGroup(group);
     if (req == null) {
-      throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
+      throw BusinessException.validation(FieldError.invalidType("body", "object"));
     }
     List<FieldError> errors = new ArrayList<>();
     String code = CodeRules.code(group, req.code(), errors);
     String label = CodeRules.label(req.label(), errors);
     String parent = CodeRules.parent(group, req.parent(), snapshot, errors);
     Map<String, Object> attrs = CodeAttrs.validate(group, req.attrs(), code, snapshot, errors);
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     if (codes.exists(group, code)) {
-      throw new ApiException(ErrorCode.CODE_EXISTS);
+      throw new BusinessException(ErrorCode.CODE_EXISTS);
     }
     int sortOrder = req.sortOrder() == null ? codes.maxSortOrder(group) + 10 : req.sortOrder();
     final Code saved =
@@ -96,14 +97,14 @@ public class CodeManagementService implements CodeManagementUseCase {
   @Transactional
   public CodeChangeDto patch(String group, String code, PatchCodeDto patch) {
     final CodeSnapshot snapshot = requireGroup(group);
-    Code entity = codes.find(group, code).orElseThrow(ApiException::notFound);
+    Code entity = codes.find(group, code).orElseThrow(BusinessException::notFound);
     if (patch == null) {
-      throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
+      throw BusinessException.validation(FieldError.invalidType("body", "object"));
     }
     final CodeDto before = info(entity);
     List<FieldError> errors = new ArrayList<>();
     if (patch.code().present() && !code.equals(patch.code().value())) {
-      errors.add(new FieldError("code", "코드는 바꿀 수 없어요."));
+      errors.add(new FieldError("code", FieldErrorCode.IMMUTABLE));
     }
     String label =
         patch.label().present() ? CodeRules.label(patch.label().value(), errors) : entity.label();
@@ -115,11 +116,11 @@ public class CodeManagementService implements CodeManagementUseCase {
     boolean active = patch.active().apply("active", entity.active(), errors);
     Map<String, Object> attrs = entity.attrs();
     if (patch.attrs().invalid()) {
-      errors.add(new FieldError("attrs", patch.attrs().error()));
+      errors.add(patch.attrs().error("attrs"));
     } else if (patch.attrs().present()) {
       attrs = CodeAttrs.validate(group, patch.attrs().value(), code, snapshot, errors);
     }
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     List<String> oldPairs = CodeAttrs.pairsOf(entity.attrs());
     entity.update(label, parent, sortOrder, active, attrs);
     final Code saved = codes.save(entity);
@@ -137,7 +138,9 @@ public class CodeManagementService implements CodeManagementUseCase {
     List<Code> all = codes.findByGroup(group);
     List<String> before = all.stream().map(Code::code).toList();
     if (!CodeRules.isCompleteOrder(before, order)) {
-      throw ApiException.validation("codes", "그룹의 코드 " + all.size() + "개를 빠짐없이 한 번씩 보내 주세요.");
+      // 그룹의 코드를 빠짐없이 한 번씩
+      throw BusinessException.validation(
+          new FieldError("codes", FieldErrorCode.INCOMPLETE, Map.of("expected", all.size())));
     }
     Map<String, Code> byCode = new HashMap<>();
     all.forEach(c -> byCode.put(c.code(), c));
@@ -153,22 +156,22 @@ public class CodeManagementService implements CodeManagementUseCase {
   @Transactional
   public CodeDto delete(String group, String code) {
     requireGroup(group);
-    final Code entity = codes.find(group, code).orElseThrow(ApiException::notFound);
-    List<String> reasons = new ArrayList<>();
+    final Code entity = codes.find(group, code).orElseThrow(BusinessException::notFound);
+    // 사용처별 개수 (응답 params.usages: [{ kind: ITEM|PROFILE|SUB_TYPE, count }])
+    List<Map<String, Object>> usages = new ArrayList<>();
     for (CodeUsageSource s : sources) {
       long n = s.countUsing(group, code);
       if (n > 0) {
-        reasons.add(s.kind().label() + " " + n + "개");
+        usages.add(usage(s.kind().name(), n));
       }
     }
     long children =
         CodeGroups.CATEGORY.equals(group) ? codes.countChildren(CodeGroups.SUB_TYPE, code) : 0;
     if (children > 0) {
-      reasons.add("하위 세부 종류 " + children + "개");
+      usages.add(usage(CodeGroups.SUB_TYPE, children));
     }
-    if (!reasons.isEmpty()) {
-      throw new ApiException(
-          ErrorCode.CODE_IN_USE, String.join(", ", reasons) + "에서 쓰고 있어 삭제할 수 없어요. 대신 비활성화해 주세요.");
+    if (!usages.isEmpty()) {
+      throw new BusinessException(ErrorCode.CODE_IN_USE, Map.of("usages", usages));
     }
     final CodeDto before = info(entity);
     if (CodeGroups.COLOR.equals(group)) {
@@ -205,7 +208,7 @@ public class CodeManagementService implements CodeManagementUseCase {
   private CodeSnapshot requireGroup(String group) {
     CodeSnapshot s = snapshots.current();
     if (!s.hasGroup(group)) {
-      throw ApiException.notFound();
+      throw BusinessException.notFound();
     }
     return s;
   }
@@ -231,5 +234,13 @@ public class CodeManagementService implements CodeManagementUseCase {
 
   private List<CodeUsageSource> sources(CodeUsageSource.Kind kind) {
     return sources.stream().filter(s -> s.kind() == kind).toList();
+  }
+
+  /** CODE_IN_USE params.usages 항목 { kind, count } (필드 순서 고정) */
+  private static Map<String, Object> usage(String kind, long count) {
+    Map<String, Object> m = new LinkedHashMap<>();
+    m.put("kind", kind);
+    m.put("count", count);
+    return m;
   }
 }

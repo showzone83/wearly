@@ -29,8 +29,8 @@ class WardrobePatchIntegrationTest extends IntegrationTestBase {
             .get("fieldErrors");
     assertThat(errors.toString())
         .isEqualTo(
-            "[{\"field\":\"name\",\"message\":\"이름을 입력해 주세요.\"},"
-                + "{\"field\":\"seasons[1].<list element>\",\"message\":\"허용되지 않는 값이에요.\"}]");
+            "[{\"field\":\"name\",\"code\":\"REQUIRED\"},"
+                + "{\"field\":\"seasons[1]\",\"code\":\"REQUIRED\"}]");
     JsonNode typeError =
         api()
             .patch(path, s.accessToken(), "{\"wornCount\":\"x\",\"name\":null,\"formality\":[]}")
@@ -38,7 +38,7 @@ class WardrobePatchIntegrationTest extends IntegrationTestBase {
             .body()
             .get("fieldErrors");
     assertThat(typeError.toString())
-        .isEqualTo("[{\"field\":\"formality\",\"message\":\"허용되지 않는 값이에요.\"}]");
+        .isEqualTo("[{\"field\":\"formality\",\"code\":\"INVALID_FORMAT\"}]");
     api()
         .patch("/api/v1/wardrobe/items/999999999", s.accessToken(), "[]")
         .expectError(404, "NOT_FOUND");

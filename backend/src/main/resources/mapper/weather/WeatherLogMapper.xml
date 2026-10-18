@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!-- 날씨 실행·호출 이력 조회 (17 문서 6장). 최신순. 날짜 경계는 서비스에서 계산해 넘긴다 -->
+<!-- 날씨 실행·호출 이력 조회 (17 문서 6장). 최신순. 날짜 경계는 서비스에서 계산해 넘긴다.
+     실행 밖 호출(ON_DEMAND·SEARCH·CLIMATE, 19 문서)은 run_id가 NULL이라 트리거도 NULL이다 -->
 <mapper namespace="app.wearly.weather.adapter.out.persistence.mybatis.mapper.WeatherLogMapper">
 
     <sql id="runWhere">
@@ -30,6 +31,7 @@
         <where>
             <if test="f.runId != null">c.run_id = #{f.runId}</if>
             <if test="f.providerCode != null">AND c.provider_code = #{f.providerCode}</if>
+            <if test="f.callKind != null">AND c.call_kind = #{f.callKind}</if>
             <if test="f.regionCode != null">AND c.region_code = #{f.regionCode}</if>
             <if test="f.success != null">AND c.success = #{f.success}</if>
             <if test="f.fallback != null">AND c.fallback = #{f.fallback}</if>
@@ -43,7 +45,7 @@
         SELECT c.call_id, c.run_id, r.trigger_type, c.region_code, c.provider_code, c.call_kind, c.fallback,
                c.http_status, c.success, c.error_code, c.error_message, c.duration_ms, c.response_bytes, c.called_at
           FROM tb_weather_call_log c
-          JOIN tb_weather_refresh_run r ON r.run_id = c.run_id
+          LEFT JOIN tb_weather_refresh_run r ON r.run_id = c.run_id
         <include refid="callWhere"/>
          ORDER BY c.called_at DESC, c.call_id DESC
          LIMIT #{limit} OFFSET #{offset}

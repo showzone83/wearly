@@ -21,9 +21,11 @@ cd harness && npm install     # 처음 한 번
 1. DB 컨테이너(`wearly-postgres`)가 꺼져 있으면 `docker compose up -d`로 켜고 healthy가 될 때까지 기다린다.
 2. 하네스 전용 DB `wearly_harness`를 지우고 새로 만든다. 개발용 `wearly` DB는 건드리지 않는다.
    - 로그인 세션 저장소 Valkey(`wearly-valkey`, 호스트 6380, doc/16)가 꺼져 있으면 `docker compose up -d valkey`로 켜고, 하네스용 **DB 1만** `FLUSHDB`로 비운다. 개발 서버가 쓰는 DB 0은 건드리지 않는다.
+   - 옷 사진 저장소 MinIO(`wearly-minio`, 호스트 9000, doc/18)가 꺼져 있으면 `docker compose up -d minio minio-init`으로 켜고, **하네스 전용 버킷 `wearly-images-harness`**를 지우고 비공개로 다시 만든다(`docker exec wearly-minio`의 `mc`). 개발 서버가 쓰는 `wearly-images`는 건드리지 않는다.
 3. `../backend`를 `./gradlew bootRun`으로 포트 **18080**에 띄운다. 로그는 `harness/.logs/backend.log`.
    - `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5433/wearly_harness`, `SERVER_PORT=18080`
    - `SPRING_DATA_REDIS_HOST=localhost`, `SPRING_DATA_REDIS_PORT=6380`, `SPRING_DATA_REDIS_DATABASE=1`
+   - `WEARLY_STORAGE_ENDPOINT=http://localhost:9000`, `WEARLY_STORAGE_BUCKET=wearly-images-harness`, 계정은 compose의 로컬 전용 값, `WEARLY_STORAGE_PUBLIC_ENDPOINT=`(비움: 서명 URL이 요청 Host 이름 + 9000), `WEARLY_STORAGE_AUTO_CREATE_BUCKET=true`, `WEARLY_STORAGE_CLEANUP_ENABLED=false`(정리 작업 끔)
    - `WEARLY_ACCESS_TTL=PT3S`, `WEARLY_AI_DAILY_LIMIT=3`, `WEARLY_AI_PROVIDER=mock`
    - `JAVA_HOME`은 JDK 21. `WEARLY_JWT_SECRET`이 없으면 하네스용 값을 넣고, `ANTHROPIC_API_KEY`는 비운다.
 4. `/actuator/health`가 UP이 될 때까지 최대 180초 기다린다. 그 안에 뜨지 않거나 프로세스가 죽으면 로그 끝부분을 보여 주고 실패로 끝난다.
@@ -40,7 +42,7 @@ cd harness && npm install     # 처음 한 번
 | `--external <url>` | DB 리셋·백엔드 기동 없이 이미 떠 있는 서버로 시나리오만 돌린다. Access 수명 3초에 기대는 시나리오 3개는 건너뛴다(SKIP). AI 한도 시나리오는 응답의 `remainingToday`를 따라가므로 그대로 돈다. |
 | `--only <키워드,...>` | 분류나 이름에 키워드가 들어간 시나리오만 실행한다. 예: `--only 토큰,AI` |
 | `--list` | 시나리오 목록만 출력한다. |
-| `--db-only` | `wearly_harness` DB를 새로 만들고 Valkey DB 1을 비우고 끝낸다. |
+| `--db-only` | `wearly_harness` DB를 새로 만들고 Valkey DB 1과 하네스 사진 버킷을 비우고 끝낸다. |
 
 | 환경변수 | 기본값 |
 |---|---|
@@ -64,11 +66,11 @@ npm run typecheck                             # 하네스 + mobile/src/api 타�
 | # | 분류 | 확인하는 것 |
 |---|---|---|
 | 1 | 기본 | `/actuator/health` → `UP` |
-| 2 | 기본 | 토큰 없이 보호 API → 401 `UNAUTHORIZED`, 오류 JSON 형식(`status`·`code`·`message`·`fieldErrors[]`), 형식이 틀린 토큰 → `TOKEN_INVALID` |
+| 2 | 기본 | 토큰 없이 보호 API → 401 `UNAUTHORIZED`, 오류 JSON 형식(`status`·`code`·`params?`·`fieldErrors[]`·`traceId`, `message` 없음, 본문 `traceId` = 응답 헤더 `X-Request-Id`), 형식이 틀린 토큰 → `TOKEN_INVALID`, 앱 모듈의 `ApiError.traceId`와 `message`(= `code`) |
 | 3 | 기본 | CORS: Expo 웹 출처 3곳은 허용, 다른 출처는 거부 |
 | 4 | 인증 | 회원가입 → 저장소에 토큰 저장, `users.me()` 일치, 이메일 소문자 저장, `AuthResponse` 모양(만료 초, Refresh는 base64url 43자) |
 | 5 | 인증 | 같은 이메일을 대소문자만 바꿔 재가입 → 409 `EMAIL_TAKEN`, 저장소 비어 있음 |
-| 6 | 인증 | 비밀번호(숫자 없음·영문 없음·8자 미만·64자 초과), 이름(빈 값·20자 초과), 이메일 형식 → 400 `VALIDATION_FAILED` + 해당 `fieldErrors` |
+| 6 | 인증 | 비밀번호(숫자 없음·영문 없음·8자 미만·64자 초과), 이름(빈 값·20자 초과), 이메일 형식 → 400 `VALIDATION_FAILED` + 해당 `fieldErrors`(`field`·`code`), 앱 모듈 `ApiError.fieldErrors`에도 코드가 담김 |
 | 7 | 인증 | 로그인 성공(이메일 대소문자 무관), 틀린 비밀번호·없는 이메일 → 401 `INVALID_CREDENTIALS` |
 | 8 | 프로필 | 처음 GET → 앱 `DEFAULT_PROFILE`과 같은 기본값 + `onboarded: false`, PUT 응답·GET 일치, `name`이 `users.me()`에 반영, 빈 이름 → 400 |
 | 9 | 옷장 | create → get → PATCH 일부 필드(나머지 유지, `brand: null`로 지우기) → remove → get 404 |
@@ -125,6 +127,38 @@ Refresh 토큰·세션이 Valkey로 옮겨 가면서 Access 토큰에 `sid`가 �
 
 refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 요청을 기록해 센다. `tokenStore`도 감싸서 `set`·`clear` 횟수를 센다.
 
+### 옷 사진 저장 (doc/18, 원시 HTTP)
+
+계약 18 문서. 앱 API 모듈을 거치지 않고 `raw()`와 `src/lib/rawUser.ts`로 확인하고, 서명 URL로 저장소(MinIO)에 **실제로 PUT·GET**한다. 하네스 백엔드는 버킷 `wearly-images-harness`를 쓴다. 번호는 `--list` 기준(코드: `src/scenarios/images.ts`).
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 43 | 사진 저장 | upload-url 응답 키 5개·UUID `imageId`·`method` PUT·`headers` = `Content-Type`·서명 URL 호스트가 요청 Host 이름 → 올리기 전 complete는 400 `IMAGE_NOT_UPLOADED` → 서명 URL로 PUT 200 → complete(키 6개, 가로·세로) → `url`은 JPEG로 다시 인코딩·`thumbUrl` GET 200·서명 없는 URL 403 → `imageId`로 아이템 등록 201(`image` 키 4개)·목록에도 `image`·사진 없는 아이템 `image: null` → PATCH `imageId: null`로 빼면 `image: null`이고 예전 객체는 404 |
+| 44 | 사진 저장 | 글자 파일·가짜 JPEG는 PUT은 되지만 complete에서 400 `IMAGE_INVALID`(`params.reason` 글자 파일 `FORMAT`·가짜 JPEG `DECODE`, 실패한 이미지를 다시 complete하면 404), GIF·10MB 초과 upload-url은 400 `VALIDATION_FAILED`(`contentType` `NOT_ALLOWED{allowed}`·`size` `OUT_OF_RANGE{min, max}`) |
+| 45 | 사진 저장 | 남의 이미지는 complete·아이템 등록·AI 분석 모두 404, 내 `imageId`로 AI 분석 200(`provider` mock), PENDING 이미지로 등록하면 400 `IMAGE_NOT_UPLOADED` |
+| 46 | 사진 저장 | 다른 아이템에 붙은 이미지로 등록하면 409 `IMAGE_IN_USE`, PATCH로 사진을 바꾸면 새 사진이 붙고 예전 사진 객체는 404 |
+
+### 장소별 날씨 (doc/19, 원시 HTTP)
+
+계약 17·19 문서. 앱 API 모듈을 거치지 않고 `raw()`와 `src/lib/rawUser.ts`로 확인한다(코드: `src/scenarios/weather.ts`). 하네스 백엔드는 `WEARLY_WEATHER_PROVIDER=mock`이라 예보·평년값·장소 검색이 모두 키 없이 목업으로 돈다(실제 Open-Meteo는 부르지 않는다). 번호는 `--list` 기준.
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 47 | 장소 날씨 | (관리자) `GET /weather/day` region 방식: 서울을 지금 실행으로 받은 뒤 토큰 없이 200, 응답 키 7개, 오늘은 `FORECAST`(`place`·`day` 키·`cond`·`forecastUntil`·`fetchedAt` ISO·`climate` null), 40일 뒤는 `CLIMATE`(`cond`·`condText` null, 최저 < 최고, `climate.years`, `rainProb` = `rainDayRatio` × 100), `forecastUntil` 같음, 틀린 토큰도 200 |
+| 48 | 장소 날씨 | 좌표 방식은 토큰 없이 401 `UNAUTHORIZED`(좌표가 틀려도 로그인이 먼저), `/weather/places`도 401. 로그인하면 격자 좌표(소수 첫째 자리)로 오늘 `FORECAST`·60일 뒤 `CLIMATE`(`place.regionCode` null), 검색 응답 키(`items`, 항목 키 6개), 목업 검색 도쿄는 `regionCode` null·부산은 `BUSAN`, 빈 검색어 400(`q`). `--external`이면 401만 확인 |
+| 49 | 장소 날씨 | 날짜 검증: 없음(`REQUIRED`)·없는 달·형식(`INVALID_FORMAT`)·어제·1년 넘음(`OUT_OF_RANGE`) 모두 400 `VALIDATION_FAILED`(`date`), 없는 지역 400(`region` `NOT_FOUND`), 빈 검색어는 `q` `REQUIRED` |
+| 50 | 장소 날씨 | (관리자) `GET /admin/weather/calls?callKind=` 필터(대소문자 무관), 틀린 값 400 `NOT_ALLOWED`(`params.allowed` = `FORECAST`·`ON_DEMAND`·`SEARCH`·`CLIMATE`), `calls/summary`의 `auxiliaryMonths`(`OPEN_METEO`·`OPEN_METEO_GEO`) (필요: admin) |
+
+### 예정 코디 (doc/21, 원시 HTTP)
+
+계약 21 문서. 앱 API 모듈을 거치지 않고 `raw()`와 `src/lib/rawUser.ts`로 `/plans`를 확인한다(코드: `src/scenarios/plans.ts`). 번호는 `--list` 기준. 앱 API 모듈의 `api.plans`는 이 시나리오에서 쓰지 않는다.
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 51 | 예정 코디 | 토큰 없이 목록 401 → 등록 201(응답 키 17개, 숫자 문자열 `id`, 메모 공백 제거, `weatherCheckedAt` UTC, 보낸 코디 그대로, 기기 아이템 id는 `missingItemIds`) → 목록(날짜 → 시간대 순, `from`/`to` 양 끝 포함) → PATCH(`null`은 비우고 안 보낸 필드는 그대로) → DELETE 204 → 다시 삭제·PATCH는 404 |
+| 52 | 예정 코디 | bulk: 같은 `clientId`의 POST는 200·같은 id, bulk는 요청 순서대로 만들거나 고침(`created`/`updated`), 다시 올려도 늘지 않음, `clientId` 중복(`items[1].clientId` `DUPLICATE`)·없음(`REQUIRED`)·101개(`items` `TOO_MANY`)·틀린 항목(`items[1].occasion` `NOT_ALLOWED`)은 400이고 하나도 저장하지 않음 |
+| 53 | 예정 코디 | 입력 검증의 필드 오류 코드 한꺼번에(`clientId` `INVALID_FORMAT`, `date` `OUT_OF_RANGE{min, max}` = 오늘 앞뒤 1년, `timeOfDay`·`concepts[1]`·`place.regionCode`·`outfit.items.HAT` `NOT_ALLOWED`, `place.lat` `OUT_OF_RANGE`), `weather` 필수, 1년 안 지난 날짜는 저장, 지운 옷은 `missingItemIds`에 나오고 코디는 그대로, 남의 예정 PATCH·DELETE는 입력이 틀려도 404 |
+
 ### 계약에 정해지지 않아 하네스가 고른 기대값
 
 계약 문서에 명시되지 않은 부분은 다음처럼 기대한다. 백엔드와 다르면 둘 중 하나를 고치고 계약 문서에도 적는다.
@@ -164,11 +198,11 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 
 | 파일 | 내용 |
 |---|---|
-| `run.sh` | DB·Valkey 준비 → 백엔드 기동·종료 → 러너 실행 |
+| `run.sh` | DB·Valkey·MinIO(하네스 버킷) 준비 → 백엔드 기동·종료 → 러너 실행 |
 | `src/main.ts` | 러너. 인자 해석, 시나리오 실행, 결과 표 |
-| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`) |
+| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`·`images`·`weather`·`plans`). 전체 53개(`./run.sh --list`) |
 | `src/lib/session.ts` | 앱 모듈로 클라이언트 만들기, 요청·토큰 저장·`onAuthLost` 기록 |
-| `src/lib/http.ts` | 원시 요청과 오류 본문 형식 검사 |
+| `src/lib/http.ts` | 원시 요청과 오류 본문 형식 검사(`checkErrorBody`: `message` 없음, `traceId` = `X-Request-Id`, `fieldErrors` 항목은 `{ field, code, params? }`) |
 | `src/lib/rawUser.ts` | 앱 모듈 없이 가입·관리자 로그인한 세션 (`TOKEN_EXPIRED`면 다시 로그인) |
 | `src/lib/assert.ts` | 검사 함수, 기대값·실제값을 담는 실패 |
 | `src/lib/fixtures.ts` | 아이템 입력, 기본 프로필 사본, 서울 기준 날짜 |

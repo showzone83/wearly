@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 예정 코디 읽기 전용 조회: 목록(날짜 범위), 개수(회원당 상한), 쓰기 잠금, 코드 사용 수 (code 컨텍스트가 CodeUsageSource로 묻는다) -->
+<mapper namespace="app.wearly.plan.adapter.out.persistence.mybatis.mapper.PlanMapper">
+
+    <resultMap id="planRow" type="app.wearly.plan.adapter.out.persistence.mybatis.dto.PlanRowDto">
+        <id property="id" column="planned_outfit_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="clientId" column="client_id"/>
+        <result property="plannedDate" column="planned_date"/>
+        <result property="timeOfDay" column="time_of_day"/>
+        <result property="title" column="title"/>
+        <result property="occasion" column="occasion"/>
+        <result property="concepts" column="concepts" typeHandler="app.wearly.common.mybatis.StringListArrayTypeHandler"/>
+        <result property="memo" column="memo"/>
+        <result property="placeRegionCode" column="place_region_code"/>
+        <result property="placeLabel" column="place_label"/>
+        <result property="placeLat" column="place_lat"/>
+        <result property="placeLon" column="place_lon"/>
+        <result property="weather" column="weather" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+        <result property="forecastReady" column="forecast_ready"/>
+        <result property="outfit" column="outfit" typeHandler="app.wearly.common.mybatis.JsonbMapTypeHandler"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 날짜 → 시간대(AM·PM·EVENING) → ID 순 -->
+    <select id="findPlans" parameterType="app.wearly.plan.application.port.out.PlanFilter" resultMap="planRow">
+        SELECT planned_outfit_id, user_id, client_id, planned_date, time_of_day, title, occasion, concepts, memo,
+               place_region_code, place_label, place_lat, place_lon, weather, forecast_ready, outfit,
+               created_at, updated_at
+          FROM tb_planned_outfit
+         WHERE user_id = #{userId}
+        <if test="from != null">
+           AND planned_date &gt;= #{from}
+        </if>
+        <if test="to != null">
+           AND planned_date &lt;= #{to}
+        </if>
+         ORDER BY planned_date ASC,
+                  CASE time_of_day WHEN 'AM' THEN 0 WHEN 'PM' THEN 1 ELSE 2 END ASC,
+                  planned_outfit_id ASC
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT count(*) FROM tb_planned_outfit WHERE user_id = #{userId}
+    </select>
+
+    <!-- 같은 회원의 예정 쓰기를 한 줄로 세워 개수 상한·clientId 중복을 지킨다. 트랜잭션이 끝나면 풀린다 -->
+    <select id="lockUser" resultType="int">
+        SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended('plan:' || #{userId}, 0))) l
+    </select>
+
+    <select id="countByCode" resultType="app.wearly.plan.application.port.out.dto.PlanCodeCountRowDto">
+        SELECT 'STYLE' AS group_code, c.v AS code, count(*) AS count
+          FROM tb_planned_outfit p CROSS JOIN LATERAL unnest(p.concepts) AS c(v)
+         GROUP BY c.v
+        UNION ALL
+        SELECT 'REGION', place_region_code, count(*)
+          FROM tb_planned_outfit
+         WHERE place_region_code IS NOT NULL
+         GROUP BY place_region_code
+    </select>
+
+    <select id="countUsing" resultType="long">
+        SELECT count(*)
+          FROM tb_planned_outfit
+        <choose>
+            <when test="group == 'STYLE'">WHERE #{code} = ANY (concepts)</when>
+            <when test="group == 'REGION'">WHERE place_region_code = #{code}</when>
+            <otherwise>WHERE FALSE</otherwise>
+        </choose>
+    </select>
+</mapper>

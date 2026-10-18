@@ -2,6 +2,7 @@ package app.wearly.wardrobe.adapter.out.persistence.mybatis;
 
 import app.wearly.wardrobe.adapter.out.persistence.mybatis.dto.ItemRowDto;
 import app.wearly.wardrobe.adapter.out.persistence.mybatis.mapper.WardrobeItemMapper;
+import app.wearly.wardrobe.application.port.out.ItemExistencePort;
 import app.wearly.wardrobe.application.port.out.ItemFilter;
 import app.wearly.wardrobe.application.port.out.ItemQueryPort;
 import app.wearly.wardrobe.application.port.out.dto.CodeCountDto;
@@ -9,12 +10,15 @@ import app.wearly.wardrobe.application.port.out.dto.KeyCountDto;
 import app.wearly.wardrobe.domain.Retirement;
 import app.wearly.wardrobe.domain.WardrobeItem;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.stereotype.Component;
 
-/** ItemQueryPort 구현 (MyBatis). 목록 행 → 도메인 모델 변환, 집계는 매퍼가 port.out.dto로 바로 돌려준다 */
+/** ItemQueryPort·ItemExistencePort 구현 (MyBatis). 목록 행 → 도메인 모델 변환, 집계는 매퍼가 port.out.dto로 바로 돌려준다 */
 @Component
-class WardrobeItemMybatisAdapter implements ItemQueryPort {
+class WardrobeItemMybatisAdapter implements ItemQueryPort, ItemExistencePort {
 
   private final WardrobeItemMapper mapper;
 
@@ -25,6 +29,11 @@ class WardrobeItemMybatisAdapter implements ItemQueryPort {
   @Override
   public List<WardrobeItem> findItems(ItemFilter filter) {
     return mapper.findItems(filter).stream().map(r -> toDomain(r, filter.userId())).toList();
+  }
+
+  @Override
+  public Set<Long> findExistingIds(long userId, Collection<Long> ids) {
+    return new HashSet<>(mapper.findExistingIds(userId, ids));
   }
 
   @Override

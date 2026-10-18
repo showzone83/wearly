@@ -63,7 +63,7 @@ class RetirementTest {
     assertThat(RetireRules.validate(null, "x".repeat(201)))
         .containsExactly(
             new FieldError("reason", RetireRules.REQUIRED),
-            new FieldError("memo", RetireRules.MEMO_TOO_LONG));
+            FieldError.tooLong("memo", RetireRules.MEMO_MAX));
     // 앞뒤 공백을 지운 뒤 센다, 이모지는 한 글자
     assertThat(RetireRules.validate("ETC", "  " + "😀".repeat(200) + "  ")).isEmpty();
     assertThatThrownBy(() -> item().retire(" ", null, T1))

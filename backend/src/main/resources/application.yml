@@ -45,9 +45,24 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  # 오류 응답에 서버 내부 정보(예외 메시지·스택·검증 원문·예외 클래스)를 넣지 않는다.
+  # /error도 우리 형식 { status, code, fieldErrors, traceId }으로 쓴다 (common.error.ErrorPageController)
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+    whitelabel:
+      enabled: false
   tomcat:
     # 한도를 넘긴 업로드에도 JSON 오류 응답을 끝까지 보내기 위해 본문을 받아 버린다
     max-swallow-size: 20MB
+
+logging:
+  pattern:
+    # 모든 로그 줄에 요청 추적 ID(traceId, 응답 헤더 X-Request-Id·오류 본문 traceId와 같다)와 회원 ID를 찍는다.
+    # 값은 common.web.TraceIdFilter와 auth.adapter.in.web.UserIdMdcFilter가 MDC에 넣는다 (요청 밖이면 비어 있다)
+    level: "%5p [traceId=%X{traceId:-} userId=%X{userId:-}]"
 
 mybatis:
   mapper-locations: classpath:mapper/**/*.xml
@@ -83,6 +98,15 @@ wearly:
     outfit-daily-limit: ${WEARLY_AI_OUTFIT_DAILY_LIMIT:20}
     timeout: ${WEARLY_AI_TIMEOUT:PT60S}
     allow-base-url: ${WEARLY_AI_ALLOW_BASE_URL:false}
+    # 사진 분석: 공급자에 보내기 전에 긴 변을 이 픽셀 이하 JPEG로 줄인다 (multipart 업로드·{imageId} 모두).
+    # 이미 작으면(긴 변이 이 값 이하) 다시 인코딩하지 않고 그대로 보낸다. JPEG·PNG만 줄이고 webp·heic는 그대로 보낸다
+    image-max-side: ${WEARLY_AI_IMAGE_MAX_SIDE:1024}
+    image-quality: ${WEARLY_AI_IMAGE_QUALITY:0.8}
+    # 프롬프트 캐싱: true(기본)면 Claude 요청의 고정 지시문(system: 지시·허용 값 목록·점수 기준) 끝에
+    # cache_control(ephemeral, 5분)을 붙인다. 같은 지시문을 5분 안에 다시 보내면 캐시 읽기(입력 단가의 0.1배 안팎)로 계산된다.
+    # OpenAI·Gemini는 같은 앞부분을 공급자가 자동으로 캐시하므로 이 값과 상관없다
+    prompt-cache:
+      enabled: ${WEARLY_AI_PROMPT_CACHE_ENABLED:true}
     # 공급자 종류별 내장 모델 목록 (관리자 화면 모델 드롭다운, doc/07 4장).
     # 키가 없거나 제공사 모델 목록을 받지 못했을 때 이 목록을 보여 주고(source: CATALOG),
     # 제공사 목록(source: LIVE)에서도 여기 있는 ID에는 recommended를 그대로 붙인다.
@@ -111,12 +135,60 @@ wearly:
     # 공급자 행의 키 이름(key_name) → 키 값. 실제 값은 config/application-local.yml에 적는다 (없으면 같은 이름의 OS 환경변수)
     keys:
       WEATHERAPI_KEY: ${WEATHERAPI_KEY:}
+    # 장소별 날씨 (doc/19). REGION 밖 좌표는 요청 때 공급자를 부르고 격자(소수 첫째 자리)별로 캐시한다
+    place-cache-ttl: ${WEARLY_WEATHER_PLACE_CACHE_TTL:PT3H}
+    # 회원마다 하루(한국 날짜)에 공급자를 실제로 부르게 할 수 있는 좌표 요청 수. 넘으면 예전 캐시·평년값, 둘 다 없으면 429 WEATHER_LIMIT
+    on-demand-daily-limit: ${WEARLY_WEATHER_ON_DEMAND_DAILY_LIMIT:30}
+    # 장소 검색 결과 캐시 (같은 검색어, 소문자·공백 정리)
+    search-cache-ttl: ${WEARLY_WEATHER_SEARCH_CACHE_TTL:P1D}
+    # 회원마다 하루에 공급자를 실제로 부르게 할 수 있는 장소 검색 수 (캐시에서 준 검색은 세지 않는다)
+    search-daily-limit: ${WEARLY_WEATHER_SEARCH_DAILY_LIMIT:100}
+    # 예보 밖 날짜의 평년값: Open-Meteo 과거 기상 API (키 없음). 무료 API는 비상업용이다.
+    # 상업 서비스로 바꿀 때는 유료 플랜 주소(customer-archive-api.open-meteo.com)와 api-key(config/application-local.yml)를 넣거나 끈다
+    climate:
+      enabled: ${WEARLY_WEATHER_CLIMATE_ENABLED:true}
+      base-url: ${WEARLY_WEATHER_CLIMATE_BASE_URL:https://archive-api.open-meteo.com}
+      api-key: ${WEARLY_WEATHER_CLIMATE_API_KEY:}
+      # 지난 완결 연도 몇 해로 계산할지 (2026년이면 2016~2025)
+      years: ${WEARLY_WEATHER_CLIMATE_YEARS:10}
+    # 장소 검색: Open-Meteo 지오코딩 API (키 없음, language=ko로 한글 검색어·한글 이름). 무료 API는 비상업용이다(평년값과 같은 조건).
+    # 끄거나 실패하면 날씨 공급자(WeatherAPI) 검색으로 대신한다 (그때 이름은 영어). 상업 서비스는 유료 주소(customer-geocoding-api.open-meteo.com)·api-key
+    geocoding:
+      enabled: ${WEARLY_WEATHER_GEOCODING_ENABLED:true}
+      base-url: ${WEARLY_WEATHER_GEOCODING_BASE_URL:https://geocoding-api.open-meteo.com}
+      api-key: ${WEARLY_WEATHER_GEOCODING_API_KEY:}
   # 웹에서 넣은 AI 키를 암호화하는 마스터 키 (base64 32바이트, openssl rand -base64 32). 없으면 웹 키 입력이 꺼진다
   secret-key: ${WEARLY_SECRET_KEY:}
   admin:
     email: ${WEARLY_ADMIN_EMAIL:}
     password: ${WEARLY_ADMIN_PASSWORD:}
     name: ${WEARLY_ADMIN_NAME:관리자}
+  # 옷 사진 저장소 (S3 호환, 18 문서). 로컬 기본은 compose의 MinIO(wearly-minio, 호스트 9000).
+  # 계정 wearly / wearly-minio-local은 로컬 전용 값이다 (DB 비밀번호와 같은 취급). 운영 예시: backend/config/application-cloud.example.yml
+  storage:
+    endpoint: ${WEARLY_STORAGE_ENDPOINT:http://localhost:9000}
+    region: ${WEARLY_STORAGE_REGION:us-east-1}
+    bucket: ${WEARLY_STORAGE_BUCKET:wearly-images}
+    access-key: ${WEARLY_STORAGE_ACCESS_KEY:wearly}
+    secret-key: ${WEARLY_STORAGE_SECRET_KEY:wearly-minio-local}
+    path-style: ${WEARLY_STORAGE_PATH_STYLE:true}
+    # 서명 URL 주소. 비우면 요청 Host 이름 + endpoint 포트(시뮬레이터 localhost:9000, 실제 휴대폰 <Mac LAN IP>:9000)
+    public-endpoint: ${WEARLY_STORAGE_PUBLIC_ENDPOINT:}
+    auto-create-bucket: ${WEARLY_STORAGE_AUTO_CREATE_BUCKET:false}
+    upload-url-ttl: ${WEARLY_STORAGE_UPLOAD_URL_TTL:PT10M}
+    download-url-ttl: ${WEARLY_STORAGE_DOWNLOAD_URL_TTL:PT1H}
+    max-upload-bytes: ${WEARLY_STORAGE_MAX_UPLOAD_BYTES:10MB}
+    daily-upload-limit: ${WEARLY_STORAGE_DAILY_UPLOAD_LIMIT:200}
+    max-pixels: ${WEARLY_STORAGE_MAX_PIXELS:40000000}
+    processing-concurrency: ${WEARLY_STORAGE_PROCESSING_CONCURRENCY:2}
+    stale-after: ${WEARLY_STORAGE_STALE_AFTER:P1D}
+    cleanup-enabled: ${WEARLY_STORAGE_CLEANUP_ENABLED:true}
+    cleanup-interval: ${WEARLY_STORAGE_CLEANUP_INTERVAL:PT1H}
+    # 저장하는 사진 크기 (긴 변 픽셀)와 JPEG 품질. 바꿔도 이미 저장된 사진은 그대로 둔다
+    original-max-side: ${WEARLY_STORAGE_ORIGINAL_MAX_SIDE:1600}
+    original-quality: ${WEARLY_STORAGE_ORIGINAL_QUALITY:0.8}
+    thumb-max-side: ${WEARLY_STORAGE_THUMB_MAX_SIDE:400}
+    thumb-quality: ${WEARLY_STORAGE_THUMB_QUALITY:0.8}
   cors:
     allowed-origins:
       - http://localhost:8081

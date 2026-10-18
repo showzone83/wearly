@@ -6,6 +6,7 @@ import { engineInput, useStore } from '@/store/useStore';
 import { isAccountMode, syncWardrobe } from './account';
 import { buildRecommendRequest, missingSlotsText, rankCandidates, SHOW_COUNT, type DatedOutfit, type RecommendSource } from './aiOutfits';
 import { api, errorMessage } from './api';
+import { systemTraceId } from './errorText';
 import { MOCK_MODE } from './mode';
 import { recommend } from './recommend';
 
@@ -18,7 +19,7 @@ export type AiOutcome =
   /** 400 WARDROBE_INSUFFICIENT. missing은 모자란 칸 안내 */
   | { kind: 'insufficient'; missing: string }
   /** 502·네트워크·그 밖의 실패. 규칙 엔진으로 추천 받기를 권한다 */
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string; traceId?: string };
 
 /** 규칙 엔진 추천 (홈 탭과 같은 방식). 조건에 맞는 옷이 없으면 빈 배열 */
 export function ruleOutfits(ctx: RecommendContext): Outfit[] {
@@ -68,7 +69,7 @@ export async function requestAiOutfits(
       return { kind: 'limit', message: '오늘 AI 코디 추천을 모두 썼어요. 내일 다시 쓸 수 있어요.' };
     }
     if (isApiError(e) && e.code === 'WARDROBE_INSUFFICIENT') {
-      return { kind: 'insufficient', missing: missingSlotsText(e.message) };
+      return { kind: 'insufficient', missing: missingSlotsText(e.params) || '추천에 쓸 수 있는 옷이 모자라요.' };
     }
     if (isApiError(e) && e.code === 'NETWORK' && MOCK_MODE) {
       return ruleOutcome(ctx, '서버에 연결하지 못해 규칙 엔진으로 추천했어요');
@@ -77,7 +78,7 @@ export async function requestAiOutfits(
       // 이 API가 없는 예전 서버 (경로 없음)
       return { kind: 'error', message: '서버에 AI 코디 추천 기능이 아직 없어요. 서버를 최신으로 올린 뒤 다시 시도해 주세요.' };
     }
-    return { kind: 'error', message: errorMessage(e, '잠시 후 다시 시도해 주세요.') };
+    return { kind: 'error', message: errorMessage(e, '잠시 후 다시 시도해 주세요.'), traceId: systemTraceId(e) };
   }
 
   onPhase?.('score');

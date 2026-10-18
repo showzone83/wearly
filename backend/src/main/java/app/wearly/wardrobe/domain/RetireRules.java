@@ -1,6 +1,7 @@
 package app.wearly.wardrobe.domain;
 
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.sharedkernel.code.CodeChecks;
 import app.wearly.sharedkernel.code.CodeGroups;
 import app.wearly.sharedkernel.code.CodeSnapshot;
@@ -12,8 +13,7 @@ public final class RetireRules {
 
   public static final int MEMO_MAX = 200;
 
-  static final String REQUIRED = "필수 값이에요.";
-  static final String MEMO_TOO_LONG = "메모는 200자까지 쓸 수 있어요.";
+  static final FieldErrorCode REQUIRED = FieldErrorCode.REQUIRED;
 
   private RetireRules() {}
 
@@ -25,7 +25,7 @@ public final class RetireRules {
     }
     String m = memo(memo);
     if (m != null && m.codePointCount(0, m.length()) > MEMO_MAX) {
-      errors.add(new FieldError("memo", MEMO_TOO_LONG));
+      errors.add(FieldError.tooLong("memo", MEMO_MAX));
     }
     return errors;
   }

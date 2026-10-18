@@ -28,8 +28,11 @@ import tools.jackson.databind.json.JsonMapper;
  * { mimeType: APPLICATION_JSON, schema } (기본). options.schemaField=responseJsonSchema면
  * generationConfig.responseMimeType + responseJsonSchema로 보낸다. - 결과:
  * candidates[0].content.parts[].text (thought=true 제외), finishReason·promptFeedback.blockReason으로
- * 거절 판단 - 토큰: usageMetadata.promptTokenCount / candidatesTokenCount + thoughtsTokenCount - 키:
- * x-goog-api-key 헤더 (URL 쿼리 key=는 로그·오류 메시지에 남을 수 있어 쓰지 않는다)
+ * 거절 판단 - 토큰: usageMetadata.promptTokenCount / candidatesTokenCount + thoughtsTokenCount, 캐시 읽기는
+ * cachedContentTokenCount - 키: x-goog-api-key 헤더 (URL 쿼리 key=는 로그·오류 메시지에 남을 수 있어 쓰지 않는다)
+ *
+ * <p>프롬프트 캐싱: Gemini 암시적 캐싱(같은 앞부분을 공급자가 자동으로 캐시)만 쓴다. 고정 지시문은 systemInstruction으로 contents(사진· 사용자
+ * 메시지)보다 앞에 온다. 명시적 캐시(cachedContents) API는 쓰지 않는다.
  */
 public class GeminiAiProvider implements AiModelPort {
 
@@ -107,7 +110,9 @@ public class GeminiAiProvider implements AiModelPort {
         parser.parseObject(outputText(root)),
         root.path("modelVersion").asString(model),
         usage.input(),
-        usage.output());
+        usage.output(),
+        usage.cached(),
+        null);
   }
 
   private JsonNode send(Map<String, Object> requestBody) {
@@ -160,9 +165,10 @@ public class GeminiAiProvider implements AiModelPort {
       config.put("responseMimeType", "application/json");
       config.put("responseJsonSchema", schema);
     } else {
-      config.put(
-          "responseFormat",
-          Map.of("text", Map.of("mimeType", "APPLICATION_JSON", "schema", schema)));
+      Map<String, Object> text = new LinkedHashMap<>();
+      text.put("mimeType", "APPLICATION_JSON");
+      text.put("schema", schema);
+      config.put("responseFormat", Map.of("text", text));
     }
     config.put("maxOutputTokens", maxOutputTokens);
     if (temperature != null) {
@@ -202,9 +208,12 @@ public class GeminiAiProvider implements AiModelPort {
     return text.toString();
   }
 
-  private record Usage(Long input, Long output) {}
+  private record Usage(Long input, Long output, Long cached) {}
 
-  /** 입력 = promptTokenCount, 출력 = candidatesTokenCount + thoughtsTokenCount */
+  /**
+   * 입력 = promptTokenCount (캐시 읽기 포함), 출력 = candidatesTokenCount + thoughtsTokenCount, 캐시 읽기 =
+   * cachedContentTokenCount
+   */
   private static Usage usage(JsonNode root) {
     JsonNode usage = root.path("usageMetadata");
     Long input = HttpCall.longOrNull(usage, "promptTokenCount");
@@ -214,7 +223,7 @@ public class GeminiAiProvider implements AiModelPort {
         candidates == null && thoughts == null
             ? null
             : (candidates == null ? 0 : candidates) + (thoughts == null ? 0 : thoughts);
-    return new Usage(input, output);
+    return new Usage(input, output, HttpCall.longOrNull(usage, "cachedContentTokenCount"));
   }
 
   private JsonNode readJson(String body) {

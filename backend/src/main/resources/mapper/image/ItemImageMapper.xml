@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 옷 사진 (18 문서): 하루 업로드 한도 집계와 정리 작업 대상. 날짜 경계(Asia/Seoul 자정)는 서비스에서 계산해 넘긴다 -->
+<mapper namespace="app.wearly.image.adapter.out.persistence.mybatis.mapper.ItemImageMapper">
+
+    <!-- 같은 회원의 업로드 URL 발급을 한 줄로 세워 한도를 넘지 않게 한다. 트랜잭션이 끝나면 풀린다 -->
+    <select id="lockUploads" resultType="int">
+        SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended('image-upload:' || #{userId}, 0))) l
+    </select>
+
+    <!-- 상태와 상관없이 센다 (지운 것·실패한 것도 발급 횟수다) -->
+    <select id="countCreatedSince" resultType="long">
+        SELECT count(*)
+          FROM tb_item_image
+         WHERE user_id = #{userId}
+           AND created_at &gt;= #{since}
+    </select>
+
+    <!-- 오래된 PENDING · 아이템에 안 붙은 READY · DELETED. 아이템에 붙은 이미지는 item_id가 있으므로 빠진다 -->
+    <select id="findStale" resultType="app.wearly.image.application.port.out.dto.StaleImageDto">
+        SELECT image_id::text AS image_id, user_id, status
+          FROM tb_item_image
+         WHERE item_id IS NULL
+           AND ((status IN ('PENDING', 'DELETED') AND created_at &lt; #{before})
+                OR (status = 'READY' AND ready_at &lt; #{before}))
+         ORDER BY created_at
+         LIMIT #{limit}
+    </select>
+
+</mapper>

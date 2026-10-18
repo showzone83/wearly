@@ -6,10 +6,13 @@ import static app.wearly.outfit.domain.OutfitFixtures.request;
 import static app.wearly.outfit.domain.OutfitFixtures.wardrobe;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.wearly.common.domain.FieldErrorCode;
+import app.wearly.support.OrderedMaps;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 /** 프롬프트·스키마 (공급자와 무관, Spring 없음) */
 class OutfitPromptTest {
@@ -133,6 +136,24 @@ class OutfitPromptTest {
   }
 
   @Test
+  void 시스템_지시는_회원_요청과_상관없이_같고_스키마는_순서가_고정된_맵이다() {
+    // 시스템 지시(Claude 캐시 앞부분)는 상수: 요청·옷장 값이 들어가지 않는다
+    String instructions = OutfitPrompt.instructions();
+    assertThat(instructions).isSameAs(OutfitPrompt.instructions()).doesNotContain("%s");
+
+    Map<String, Object> schema = OutfitPrompt.schema(pinnedPool());
+    OrderedMaps.assertOrdered(schema, "schema");
+    // 같은 입력이면 같은 바이트 (같은 회원이 5분 안에 다시 받을 때 캐시를 읽는 조건)
+    JsonMapper json = JsonMapper.builder().build();
+    assertThat(json.writeValueAsString(OutfitPrompt.schema(pinnedPool())))
+        .isEqualTo(json.writeValueAsString(schema));
+  }
+
+  private static OutfitPool pinnedPool() {
+    return OutfitPool.of(request(Map.of("TOP", "2"), null, Set.of(), List.of(), 3), wardrobe());
+  }
+
+  @Test
   void 옷이_모자란_칸을_칸_코드로_알려_준다() {
     assertThat(OutfitPool.of(request(), wardrobe()).missing()).isEmpty();
     List<OutfitItem> topsOnly =
@@ -166,7 +187,11 @@ class OutfitPromptTest {
             OutfitPool.checkPins(
                 request(Map.of("TOP", "3"), null, Set.of(), List.of(), 5), wardrobe()))
         .singleElement()
-        .satisfies(e -> assertThat(e.message()).contains("넣을 수 없는"));
+        .satisfies(
+            e -> {
+              assertThat(e.code()).isEqualTo(FieldErrorCode.SLOT_MISMATCH);
+              assertThat(e.params()).containsEntry("slot", "TOP");
+            });
     assertThat(OutfitPool.checkPins(request(Map.of(), "11", Set.of(), List.of(), 5), wardrobe()))
         .singleElement()
         .satisfies(e -> assertThat(e.field()).isEqualTo("context.anchorItemId"));
@@ -189,8 +214,8 @@ class OutfitPromptTest {
                 request(Map.of("TOP", "99"), "98", Set.of(), List.of(), 5),
                 wardrobe(),
                 Set.of("99", "98")))
-        .extracting(e -> e.field() + "=" + e.message())
-        .containsExactly("context.fixed.TOP=사용하지 않는 옷이에요.", "context.anchorItemId=사용하지 않는 옷이에요.");
+        .extracting(e -> e.field() + "=" + e.code())
+        .containsExactly("context.fixed.TOP=ITEM_RETIRED", "context.anchorItemId=ITEM_RETIRED");
     // 내 옷이 아닌 id는 그대로 "없는 아이템"
     assertThat(
             OutfitPool.checkPins(
@@ -198,7 +223,7 @@ class OutfitPromptTest {
                 wardrobe(),
                 Set.of("99")))
         .singleElement()
-        .satisfies(e -> assertThat(e.message()).contains("없는"));
+        .satisfies(e -> assertThat(e.code()).isEqualTo(FieldErrorCode.NOT_OWNED));
   }
 
   @Test

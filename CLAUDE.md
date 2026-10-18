@@ -23,6 +23,11 @@
   - `15_터미널_명령.md` — 서버·앱·관리자·하네스 실행 명령과 포트
   - `16_세션_Valkey.md` — Refresh 토큰·세션을 Valkey로, 관리자 강제 로그아웃
   - `17_날씨.md` — 날씨: 서버가 WeatherAPI.com에서 지역별로 주기적으로 받아 저장, 앱은 저장값만 조회, 관리자 날씨 메뉴, 지역·날짜별 날씨 이력(`tb_weather_daily_history`)
+  - `18_사진_저장.md` — 옷 사진 서버 저장: S3 호환 저장소(로컬 MinIO), 서명 URL로 올리고 받기, EXIF 제거·축소(1600·400·AI 전송 1024), 앱 흐름, AWS S3·R2·NCP 전환
+  - `19_장소별_날씨.md` — 장소별 날씨(구현함): 예정일 코디에 장소 선택, 예보 밖 날짜는 평년값, 17개 시·도 밖 장소의 요청 시점 조회·격자 캐시·회원 한도, 한글 장소 검색, 예보가 나오면 다시 확인
+  - `20_오류_응답.md` — 오류 응답(코드값만, traceId), error-codes.json과 앱·관리자 문구 표, 새 코드 추가 순서
+  - `21_예정_코디_저장.md` — 예정 코디 서버 저장(`/plans`), 앱 동기화 규칙
+  - `22_관리자_계정_관리.md` — 관리자 계정 관리 결정: 현재 문제, IdP·SSO 방식, 1~3단계 계획
 - `mobile/` — React Native(Expo SDK 57) 목업 앱. 백엔드 없이 기기 안에 데이터 저장. Expo 작업 규칙은 `mobile/AGENTS.md`를 따른다.
 
 git 저장소는 `wearly/` 루트 하나다 (원격: `github.com/showzone83/wearly`). `mobile/`은 별도 저장소가 아니다.
@@ -55,7 +60,7 @@ cd mobile && npx expo start
 검사:
 
 ```bash
-cd mobile && npm run typecheck && npx expo-doctor
+cd mobile && npm run typecheck && npx expo-doctor && npm run check:errors
 ```
 
 - `CI=1`로 실행하지 않는다. Metro가 파일 감시를 끄므로 코드 수정이 반영되지 않는다.
@@ -65,18 +70,20 @@ cd mobile && npm run typecheck && npx expo-doctor
 
 ## 백엔드·관리자 사이트 실행 (docker compose)
 
-DB·Valkey(로그인 세션)·백엔드·관리자 사이트는 저장소 루트의 `docker-compose.yml`로 한 번에 띄운다. 앱(Expo)은 넣지 않는다 — 시뮬레이터·휴대폰이 Mac의 Metro에 붙어야 하므로 `cd mobile && npx expo start`를 따로 띄운다.
+DB·Valkey(로그인 세션)·MinIO(옷 사진)·백엔드·관리자 사이트는 저장소 루트의 `docker-compose.yml`로 한 번에 띄운다. 앱(Expo)은 넣지 않는다 — 시뮬레이터·휴대폰이 Mac의 Metro에 붙어야 하므로 `cd mobile && npx expo start`를 따로 띄운다.
 
 ```bash
-docker compose up -d --build              # 전체 빌드·실행: db(5433) · valkey(6380) · backend(8080) · admin(5173)
-docker compose logs -f backend            # 로그 보기 (admin, db, valkey도 같은 방식)
+./dev.sh                                  # compose 실행 + 백엔드 로그·DB 실시간 로그·Expo 창을 한 번에 (--no-build · --no-expo · --ios · logs · stop, doc/15)
+docker compose up -d --build              # 전체 빌드·실행: db(5433) · valkey(6380) · minio(9000·9001) · backend(8080) · admin(5173)
+docker compose logs -f backend            # 로그 보기 (admin, db, valkey, minio도 같은 방식)
 docker compose up -d --build backend      # 백엔드만 다시 빌드·재시작 (코드 수정 후)
-docker compose down                       # 중지 (DB 데이터는 wearly-pgdata, 세션은 wearly-valkeydata 볼륨에 남음)
+docker compose down                       # 중지 (DB 데이터는 wearly-pgdata, 세션은 wearly-valkeydata, 사진은 wearly-miniodata 볼륨에 남음)
 ```
 
 - 백엔드 비밀 값(AI 키·관리자 계정·마스터 키)은 `backend/config/application-local.yml`(git 제외)에 둔다. 견본은 `backend/config/application-local.example.yml`. `.env`는 쓰지 않는다 (`doc/08_백엔드_구조.md` 6장). compose는 `backend/config`를 컨테이너에 읽기 전용으로 마운트하고, 이미지에는 비밀 값을 넣지 않는다.
-- 관리자 사이트를 `npm run dev`(vite, 5173)로 띄울 때는 `admin` 서비스를 빼고 `docker compose up -d --build db valkey backend`.
-- 백엔드를 Mac에서 직접 돌릴 때는 `docker compose up -d db valkey` 후 `cd backend && ./gradlew bootRun` (자세한 내용은 `backend/README.md`).
+- 옷 사진은 MinIO(`pgsty/minio` 포크, 콘솔 http://localhost:9001, 로컬 전용 계정 `wearly` / `wearly-minio-local`)에 두고 앱은 서명 URL로 올리고 받는다 (`doc/18_사진_저장.md`).
+- 관리자 사이트를 `npm run dev`(vite, 5173)로 띄울 때는 `admin` 서비스를 빼고 `docker compose up -d --build db valkey minio minio-init backend`.
+- 백엔드를 Mac에서 직접 돌릴 때는 `docker compose up -d db valkey minio minio-init` 후 `cd backend && ./gradlew bootRun` (자세한 내용은 `backend/README.md`).
 
 ## 목업 앱 핵심 코드
 

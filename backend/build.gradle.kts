@@ -25,6 +25,10 @@ repositories {
 val mybatisStarterVersion = "4.1.0"
 val anthropicJavaVersion = "2.73.0"
 val archunitVersion = "1.5.1"
+// 옷 사진 저장소 (S3 호환 오브젝트 스토리지: 로컬 MinIO, 운영 AWS S3·Cloudflare R2·NCP Object Storage)
+val awsSdkVersion = "2.55.16"
+// 사진 EXIF 방향(Orientation) 읽기. 다시 인코딩은 자바 ImageIO
+val metadataExtractorVersion = "2.21.0"
 // 08 문서 5장 코드 스타일 도구
 val googleJavaFormatVersion = "1.36.1"
 val checkstyleVersion = "14.3.0"
@@ -42,6 +46,12 @@ dependencies {
     implementation("org.mybatis.spring.boot:mybatis-spring-boot-starter:$mybatisStarterVersion")
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("com.anthropic:anthropic-java:$anthropicJavaVersion")
+    implementation(platform("software.amazon.awssdk:bom:$awsSdkVersion"))
+    // S3Client(동기, Apache HTTP 클라이언트) + S3Presigner. 비동기용 Netty 클라이언트는 쓰지 않는다
+    implementation("software.amazon.awssdk:s3") {
+        exclude(group = "software.amazon.awssdk", module = "netty-nio-client")
+    }
+    implementation("com.drewnoakes:metadata-extractor:$metadataExtractorVersion")
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")

@@ -2,8 +2,9 @@ package app.wearly.weather.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.common.domain.Zones;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.weather.application.port.in.WeatherAdminUseCase;
 import app.wearly.weather.application.port.in.dto.CallSearchDto;
@@ -19,6 +20,7 @@ import app.wearly.weather.application.port.in.dto.RunSearchDto;
 import app.wearly.weather.application.port.in.dto.UpdateWeatherSettingDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto;
+import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto.AuxiliaryUsageDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto.MonthUsageDto;
 import app.wearly.weather.application.port.in.dto.WeatherHistoryDto;
 import app.wearly.weather.application.port.in.dto.WeatherHistoryDto.ObservedDto;
@@ -28,6 +30,8 @@ import app.wearly.weather.application.port.in.dto.WeatherScheduleDto;
 import app.wearly.weather.application.port.in.dto.WeatherSettingChangeDto;
 import app.wearly.weather.application.port.in.dto.WeatherSettingDto;
 import app.wearly.weather.application.port.in.dto.WeatherSnapshotDto;
+import app.wearly.weather.application.port.out.ClimateSourcePort;
+import app.wearly.weather.application.port.out.GeocodingPort;
 import app.wearly.weather.application.port.out.RefreshExecutorPort;
 import app.wearly.weather.application.port.out.RefreshLockPort;
 import app.wearly.weather.application.port.out.WeatherLogQueryPort;
@@ -43,6 +47,7 @@ import app.wearly.weather.application.port.out.dto.CallRowDto;
 import app.wearly.weather.application.port.out.dto.CallSummaryRowDto;
 import app.wearly.weather.application.port.out.dto.HistoryRowDto;
 import app.wearly.weather.application.port.out.dto.RunRowDto;
+import app.wearly.weather.domain.CallRecord;
 import app.wearly.weather.domain.FetchResult;
 import app.wearly.weather.domain.KeyState;
 import app.wearly.weather.domain.RefreshRun;
@@ -59,11 +64,13 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -79,6 +86,13 @@ public class WeatherAdminService implements WeatherAdminUseCase {
 
   /** 날씨 이력 기간을 주지 않았을 때 오늘까지 며칠을 보여 줄지 */
   static final int HISTORY_DEFAULT_DAYS = 30;
+
+  /** 호출 이력 callKind 필터에 쓸 수 있는 값 (19 문서 7장) */
+  static final List<String> CALL_KINDS =
+      List.of(CallRecord.FORECAST, CallRecord.ON_DEMAND, CallRecord.SEARCH, CallRecord.CLIMATE);
+
+  /** 공급자 표 밖 보조 공급자 (코드 → 관리자 화면 이름). 호출 요약 auxiliaryMonths에 늘 나온다 */
+  static final Map<String, String> AUXILIARY_PROVIDERS = auxiliaryProviders();
 
   private final WeatherRefreshRunner runner;
   private final WeatherSettingPort settings;
@@ -146,15 +160,15 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   public WeatherSettingChangeDto updateSetting(long adminId, UpdateWeatherSettingDto in) {
     List<FieldError> errors = new ArrayList<>();
     if (in == null) {
-      throw ApiException.validation("body", "JSON 객체여야 해요.");
+      throw BusinessException.validation(FieldError.invalidType("body", "object"));
     }
     required(errors, "enabled", in.enabled());
     required(errors, "intervalMinutes", in.intervalMinutes());
     required(errors, "forecastDays", in.forecastDays());
     required(errors, "failureThreshold", in.failureThreshold());
     required(errors, "cooldownMinutes", in.cooldownMinutes());
-    ApiException.throwIfAny(errors);
-    ApiException.throwIfAny(
+    BusinessException.throwIfAny(errors);
+    BusinessException.throwIfAny(
         WeatherSetting.validate(
             in.intervalMinutes(), in.forecastDays(), in.failureThreshold(), in.cooldownMinutes()));
     WeatherSetting before = runner.setting();
@@ -195,7 +209,7 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   public WeatherProviderChangeDto patchProvider(
       long adminId, String providerCode, PatchWeatherProviderDto patch) {
     if (patch == null) {
-      throw ApiException.validation("body", "JSON 객체여야 해요.");
+      throw BusinessException.validation(FieldError.invalidType("body", "object"));
     }
     WeatherProvider current = provider(providerCode);
     List<FieldError> errors = new ArrayList<>();
@@ -206,16 +220,16 @@ public class WeatherAdminService implements WeatherAdminUseCase {
     final Integer days =
         patch.maxForecastDays().apply("maxForecastDays", current.maxForecastDays(), errors);
     if (enabled == null) {
-      errors.add(new FieldError("enabled", "true 또는 false여야 해요."));
+      errors.add(FieldError.required("enabled"));
     }
     if (priority == null) {
-      errors.add(new FieldError("priority", "0~" + WeatherProvider.MAX_PRIORITY + " 정수여야 해요."));
+      errors.add(FieldError.required("priority"));
     }
     if (days == null) {
-      errors.add(new FieldError("maxForecastDays", "1~14 정수여야 해요."));
+      errors.add(FieldError.required("maxForecastDays"));
     }
-    ApiException.throwIfAny(errors);
-    ApiException.throwIfAny(WeatherProvider.validate(priority, quota, days));
+    BusinessException.throwIfAny(errors);
+    BusinessException.throwIfAny(WeatherProvider.validate(priority, quota, days));
     Map<String, Long> used = runner.monthUsage();
     Instant now = clock.instant();
     WeatherProviderDto before = view(current, used, now);
@@ -245,11 +259,13 @@ public class WeatherAdminService implements WeatherAdminUseCase {
     WeatherRegion region = region(regionCode);
     KeyState key = sources.keyState(p);
     if (!key.callable()) {
-      throw new ApiException(
+      // 관리자 API라 키 이름(서버 설정 이름)은 알려 준다. reason: KEY_MISSING(키 없음) ·
+      // NOT_IMPLEMENTED(서버에 구현 없음)
+      throw new BusinessException(
           ErrorCode.WEATHER_NO_PROVIDER,
           key == KeyState.MISSING
-              ? "이 공급자의 키가 서버 설정에 없어요 (" + p.keyName() + ")."
-              : "서버에 이 공급자 구현이 없어요.");
+              ? Map.of("reason", "KEY_MISSING", "keyName", p.keyName())
+              : Map.of("reason", "NOT_IMPLEMENTED"));
     }
     Instant now = clock.instant();
     RefreshRun run = runs.create(RefreshRun.start(RunTrigger.TEST, adminId, region.code(), now));
@@ -279,11 +295,11 @@ public class WeatherAdminService implements WeatherAdminUseCase {
             ? runner.activeRegions()
             : List.of(region(regionCode));
     if (!runner.anyUsable()) {
-      throw new ApiException(ErrorCode.WEATHER_NO_PROVIDER);
+      throw new BusinessException(ErrorCode.WEATHER_NO_PROVIDER);
     }
     String owner = UUID.randomUUID().toString();
     if (!lock.tryAcquire(owner, WeatherOptions.LOCK_TTL)) {
-      throw new ApiException(ErrorCode.WEATHER_REFRESH_RUNNING);
+      throw new BusinessException(ErrorCode.WEATHER_REFRESH_RUNNING);
     }
     RefreshRun run;
     try {
@@ -324,12 +340,12 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   @Override
   @Transactional(readOnly = true)
   public RefreshRunDetailDto run(long runId) {
-    RefreshRunDto run = runRow(runId).orElseThrow(ApiException::notFound);
+    RefreshRunDto run = runRow(runId).orElseThrow(BusinessException::notFound);
     List<WeatherCallDto> calls =
         new ArrayList<>(
             logs
                 .findCalls(
-                    new CallFilter(runId, null, null, null, null, null, null, null),
+                    new CallFilter(runId, null, null, null, null, null, null, null, null),
                     RUN_CALLS_LIMIT,
                     0)
                 .stream()
@@ -343,10 +359,14 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   @Override
   @Transactional(readOnly = true)
   public PageResultDto<WeatherCallDto> calls(CallSearchDto s, int limit, long offset) {
+    if (s.callKind() != null && !CALL_KINDS.contains(s.callKind())) {
+      throw BusinessException.validation(FieldError.notAllowed("callKind", CALL_KINDS));
+    }
     CallFilter filter =
         new CallFilter(
             null,
             s.providerCode(),
+            s.callKind(),
             s.regionCode(),
             s.success(),
             s.fallback(),
@@ -375,7 +395,28 @@ public class WeatherAdminService implements WeatherAdminUseCase {
                         p.monthlyQuota()))
             .toList();
     return new WeatherCallSummaryDto(
-        t.calls(), t.failures(), t.fallbacks(), t.avgDurationMs(), months);
+        t.calls(), t.failures(), t.fallbacks(), t.avgDurationMs(), months, auxiliary(used));
+  }
+
+  private static Map<String, String> auxiliaryProviders() {
+    Map<String, String> m = new LinkedHashMap<>();
+    m.put(ClimateSourcePort.PROVIDER_CODE, "Open-Meteo 평년값");
+    m.put(GeocodingPort.PROVIDER_CODE, "Open-Meteo 장소 검색");
+    return Collections.unmodifiableMap(m);
+  }
+
+  /** 공급자 표 밖 호출 수: 평년값(OPEN_METEO)·장소 검색(OPEN_METEO_GEO)은 늘, 그 밖에 이력에만 있는 코드는 이름순으로 뒤에 */
+  private List<AuxiliaryUsageDto> auxiliary(Map<String, Long> used) {
+    Set<String> table =
+        providers.findAll().stream().map(WeatherProvider::code).collect(Collectors.toSet());
+    List<AuxiliaryUsageDto> out = new ArrayList<>();
+    AUXILIARY_PROVIDERS.forEach(
+        (code, name) -> out.add(new AuxiliaryUsageDto(code, name, used.getOrDefault(code, 0L))));
+    used.keySet().stream()
+        .filter(code -> !table.contains(code) && !AUXILIARY_PROVIDERS.containsKey(code))
+        .sorted()
+        .forEach(code -> out.add(new AuxiliaryUsageDto(code, code, used.get(code))));
+    return out;
   }
 
   @Override
@@ -395,7 +436,7 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   @Transactional(readOnly = true)
   public WeatherSnapshotDto snapshot(String regionCode) {
     WeatherRegion region =
-        WeatherRegion.find(catalog.current(), regionCode).orElseThrow(ApiException::notFound);
+        WeatherRegion.find(catalog.current(), regionCode).orElseThrow(BusinessException::notFound);
     return toSnapshotDto(
         region,
         snapshots.find(region.code()).orElse(null),
@@ -410,7 +451,9 @@ public class WeatherAdminService implements WeatherAdminUseCase {
     LocalDate to = s.to() == null ? Zones.today(clock) : s.to();
     LocalDate from = s.from() == null ? to.minusDays(HISTORY_DEFAULT_DAYS - 1) : s.from();
     if (from.isAfter(to)) {
-      throw ApiException.validation("from", "시작 날짜가 끝 날짜보다 늦어요.");
+      // 끝 날짜가 시작보다 이르면 to 범위 오류 (GET /plans와 같은 규칙, doc/20)
+      throw BusinessException.validation(
+          new FieldError("to", FieldErrorCode.OUT_OF_RANGE, Map.of("min", from.toString())));
     }
     HistoryFilter filter = new HistoryFilter(s.regionCode(), from, to);
     Map<String, String> labels =
@@ -424,15 +467,15 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   }
 
   private WeatherProvider provider(String code) {
-    return providers.find(code).orElseThrow(ApiException::notFound);
+    return providers.find(code).orElseThrow(BusinessException::notFound);
   }
 
   private WeatherRegion region(String code) {
     if (code == null || code.isBlank()) {
-      throw ApiException.validation("regionCode", "지역을 골라 주세요.");
+      throw BusinessException.validation(FieldError.required("regionCode"));
     }
     return WeatherRegion.find(catalog.current(), code.strip())
-        .orElseThrow(() -> ApiException.validation("regionCode", "없는 지역이에요."));
+        .orElseThrow(() -> BusinessException.validation("regionCode", FieldErrorCode.NOT_FOUND));
   }
 
   private WeatherProviderDto view(WeatherProvider p, Map<String, Long> used, Instant now) {
@@ -484,9 +527,9 @@ public class WeatherAdminService implements WeatherAdminUseCase {
         return v;
       }
     }
-    String names =
-        String.join(", ", Arrays.stream(type.getEnumConstants()).map(Enum::name).toList());
-    throw ApiException.validation(field, names + " 중 하나여야 해요.");
+    throw BusinessException.validation(
+        FieldError.notAllowed(
+            field, Arrays.stream(type.getEnumConstants()).map(Enum::name).toList()));
   }
 
   private static WeatherSnapshotDto toSnapshotDto(
@@ -590,7 +633,7 @@ public class WeatherAdminService implements WeatherAdminUseCase {
 
   private static void required(List<FieldError> errors, String field, Object value) {
     if (Objects.isNull(value)) {
-      errors.add(new FieldError(field, "필수 값이에요."));
+      errors.add(FieldError.required(field));
     }
   }
 }

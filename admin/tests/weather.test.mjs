@@ -4,8 +4,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  callKindOf,
+  callKindText,
+  callRegionText,
   estimateMonthlyCalls,
   fmtTemp,
+  gridKeyText,
+  parseGridKey,
   runDurationMs,
   statusDetail,
   usageLevel,
@@ -53,4 +58,31 @@ test('기온·소요 시간 표시', () => {
   assert.equal(fmtTemp(null), '—');
   assert.equal(runDurationMs('2026-10-17T00:00:00.000Z', '2026-10-17T00:00:02.500Z'), 2500);
   assert.equal(runDurationMs('2026-10-17T00:00:00.000Z', null), null);
+});
+
+test('호출 종류: callKind가 없으면 실행이 있을 때만 FORECAST, 이름은 표에서', () => {
+  assert.equal(callKindOf({ callKind: 'SEARCH', runId: null }), 'SEARCH');
+  assert.equal(callKindOf({ callKind: null, runId: '12' }), 'FORECAST');
+  assert.equal(callKindOf({ callKind: '', runId: null }), '');
+  assert.equal(callKindText('FORECAST'), '정기·수동 실행');
+  assert.equal(callKindText('ON_DEMAND'), '다른 장소 날씨');
+  assert.equal(callKindText('SEARCH'), '장소 검색');
+  assert.equal(callKindText('CLIMATE'), '평년값');
+  assert.equal(callKindText('NEW_KIND'), 'NEW_KIND');
+  assert.equal(callKindText(''), '—');
+});
+
+test('격자 키 → 좌표 표시, 지역 칸', () => {
+  assert.deepEqual(parseGridKey('35.7,139.7'), { lat: 35.7, lon: 139.7 });
+  assert.deepEqual(parseGridKey('-33.9, 151.2'), { lat: -33.9, lon: 151.2 });
+  assert.equal(parseGridKey('SEOUL'), null);
+  assert.equal(parseGridKey('91,0'), null);
+  assert.equal(gridKeyText('37.6,127.0'), '좌표 37.6, 127.0');
+  assert.equal(gridKeyText('SEOUL'), null);
+  const label = (code) => (code === 'SEOUL' ? '서울' : code);
+  assert.equal(callRegionText({ callKind: 'FORECAST', regionCode: 'SEOUL' }, label), '서울');
+  assert.equal(callRegionText({ callKind: 'ON_DEMAND', regionCode: '35.7,139.7' }, label), '좌표 35.7, 139.7');
+  assert.equal(callRegionText({ callKind: 'CLIMATE', regionCode: '37.6,127.0' }, label), '좌표 37.6, 127.0');
+  assert.equal(callRegionText({ callKind: 'SEARCH', regionCode: null }, label), '—');
+  assert.equal(callRegionText({ callKind: 'SEARCH', regionCode: 'SEOUL' }, label), '—');
 });

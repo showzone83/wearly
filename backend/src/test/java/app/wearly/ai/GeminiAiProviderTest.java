@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import app.wearly.ai.adapter.out.ai.JsonObjectParser;
 import app.wearly.ai.adapter.out.ai.gemini.GeminiAiProvider;
 import app.wearly.ai.domain.AiImage;
+import app.wearly.ai.domain.AiJsonResult;
 import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiResult;
 import app.wearly.ai.domain.AnalysisPrompt;
@@ -75,7 +76,12 @@ class GeminiAiProviderTest {
     assertThat(parts.get(0).get("inlineData").get("mimeType").asString()).isEqualTo("image/png");
     assertThat(Base64.getDecoder().decode(parts.get(0).get("inlineData").get("data").asString()))
         .isEqualTo(PHOTO);
-    assertThat(parts.get(1).get("text").asString()).contains("BOTTOM(하의): SLACKS(슬랙스)");
+    assertThat(parts.get(1).get("text").asString()).isEqualTo(AnalysisPrompt.REQUEST);
+    // 고정 지시문(허용 값 목록)은 systemInstruction으로 contents보다 앞에 둔다 (암시적 캐시)
+    assertThat(body.propertyNames().iterator().next()).isEqualTo("systemInstruction");
+    assertThat(body.get("systemInstruction").get("parts").get(0).get("text").asString())
+        .isEqualTo(AnalysisPrompt.instructions(codes))
+        .contains("BOTTOM(하의): SLACKS(슬랙스)");
 
     JsonNode config = body.get("generationConfig");
     assertThat(config.get("maxOutputTokens").asInt()).isEqualTo(8192);
@@ -117,6 +123,19 @@ class GeminiAiProviderTest {
     assertThat(result.model()).isEqualTo("gemini-test-001");
     assertThat(result.inputTokens()).isEqualTo(900);
     assertThat(result.outputTokens()).isEqualTo(70 + 30); // candidates + thoughts
+  }
+
+  @Test
+  void 암시적_캐시에서_읽은_입력_토큰을_읽는다() {
+    ObjectNode r =
+        JSON.readValue(response(ClaudeAiProviderTest.validSuggestion(), "STOP"), ObjectNode.class);
+    ((ObjectNode) r.get("usageMetadata")).put("cachedContentTokenCount", 600);
+    server.respond(200, JSON.writeValueAsString(r));
+    AiJsonResult result =
+        provider("gemini-test", null).generateJson(AnalysisPrompt.request(image(), codes), image());
+    assertThat(result.inputTokens()).isEqualTo(900);
+    assertThat(result.cacheReadTokens()).isEqualTo(600);
+    assertThat(result.cacheWriteTokens()).isNull();
   }
 
   @Test

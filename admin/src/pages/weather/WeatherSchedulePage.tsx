@@ -24,6 +24,7 @@ import { useToastStore } from '@/stores/useToastStore';
 
 import { useQuery } from '@tanstack/react-query';
 
+import { fieldErrorOf } from '@/lib/errorText';
 import { fmtDateTime, fmtMs, fmtNum } from '@/lib/format';
 import {
   qk,
@@ -76,6 +77,7 @@ export const WeatherSchedulePage = () => {
   const save = useUpdateWeatherSetting();
   const refresh = useWeatherRefresh();
   const toast = useToastStore((s) => s.show);
+  const toastError = useToastStore((s) => s.showError);
 
   const data = schedule.data;
   const form = draft ?? (data ? toDraft(data.setting) : null);
@@ -89,7 +91,7 @@ export const WeatherSchedulePage = () => {
   const runningNow = !!data?.running || refresh.isPending;
 
   const fieldError = (name: string) =>
-    isApiError(save.error) ? save.error.fieldErrors.find((f) => f.field === name)?.message : undefined;
+    isApiError(save.error) ? fieldErrorOf(save.error.fieldErrors, name) : undefined;
   const set = (key: keyof TDraft, value: string | boolean) => {
     if (form) setDraft({ ...form, [key]: value });
   };
@@ -113,7 +115,7 @@ export const WeatherSchedulePage = () => {
             : `날씨 받기 끝: 성공 ${r.successCount} · 실패 ${r.failCount}`,
           r.status === 'SUCCESS' || r.status === 'RUNNING' ? 'success' : 'error',
         ),
-      onError: (e) => toast(isApiError(e) ? e.message : '실행하지 못했어요.', 'error'),
+      onError: (e) => toastError(e, '실행하지 못했어요'),
     });
   };
 
@@ -121,7 +123,7 @@ export const WeatherSchedulePage = () => {
     <>
       <PageHeader
         title="날씨"
-        desc="서버가 정해진 주기로 날씨를 받아 저장하고, 앱은 저장된 값만 읽습니다. 사용자 요청마다 외부 API를 부르지 않습니다."
+        desc="서버가 정해진 주기로 지역(REGION)별 날씨를 받아 저장하고, 앱은 저장된 값을 읽습니다. 지역 목록 밖 장소(좌표)·장소 검색·평년값만 앱 요청 때 공급자를 부르고 결과를 캐시합니다 (호출 이력의 '종류')."
       />
       <WeatherTabs />
       <ErrorBox error={schedule.error} onRetry={() => void schedule.refetch()} />
@@ -222,6 +224,10 @@ export const WeatherSchedulePage = () => {
                   ? ` · ${primary.displayName} 월 한도 ${fmtNum(primary.monthlyQuota)}회`
                   : ''}
                 {overQuota ? ' — 한도를 넘습니다. 주기를 늘리거나 한도를 확인하세요.' : ''}
+              </div>
+              <div className="small">
+                정기 실행만 센 값이에요. 앱의 다른 장소 날씨·장소 검색 호출은 사용자 수에 따라 더 들어요 (회원당 하루
+                한도 있음).
               </div>
             </Notice>
             {save.error && !fieldError('intervalMinutes') ? <ErrorBox error={save.error} /> : null}

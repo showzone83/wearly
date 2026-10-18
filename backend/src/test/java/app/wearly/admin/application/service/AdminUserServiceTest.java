@@ -10,7 +10,8 @@ import app.wearly.admin.application.port.out.RecordAuditPort;
 import app.wearly.admin.application.port.out.dto.UserListRowDto;
 import app.wearly.common.application.Patch;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.domain.FieldErrorCode;
+import app.wearly.common.error.BusinessException;
 import app.wearly.support.FakeSessions;
 import app.wearly.support.FakeUsers;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
@@ -110,12 +111,12 @@ class AdminUserServiceTest {
   void 자기_자신은_정지하거나_관리자_역할을_내릴_수_없다() {
     assertThatThrownBy(() -> service.patch(admin.id(), admin.id(), patch("SUSPENDED", "USER")))
         .isInstanceOfSatisfying(
-            ApiException.class,
+            BusinessException.class,
             e ->
                 assertThat(e.fieldErrors())
                     .containsExactly(
-                        new FieldError("status", "자기 자신은 정지할 수 없어요."),
-                        new FieldError("role", "자기 자신의 관리자 역할은 내릴 수 없어요.")));
+                        new FieldError("status", FieldErrorCode.SELF_NOT_ALLOWED),
+                        new FieldError("role", FieldErrorCode.SELF_NOT_ALLOWED)));
     assertThat(users.get(admin.id()).status()).isEqualTo("ACTIVE");
     assertThat(audits).isEmpty();
     assertThat(sessions.endedUsers).isEmpty();
@@ -125,7 +126,7 @@ class AdminUserServiceTest {
   void 모르는_값은_필드별로_거부하고_아무것도_바꾸지_않는다() {
     assertThatThrownBy(() -> service.patch(admin.id(), member.id(), patch("BANNED", "ROOT")))
         .isInstanceOfSatisfying(
-            ApiException.class,
+            BusinessException.class,
             e ->
                 assertThat(e.fieldErrors())
                     .extracting(FieldError::field)

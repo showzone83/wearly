@@ -13,6 +13,7 @@ import app.wearly.weather.domain.CallRecord;
 import app.wearly.weather.domain.FetchErrors;
 import app.wearly.weather.domain.FetchResult;
 import app.wearly.weather.domain.ProviderHealth;
+import app.wearly.weather.domain.ProviderResult;
 import app.wearly.weather.domain.RefreshRun;
 import app.wearly.weather.domain.WeatherProvider;
 import app.wearly.weather.domain.WeatherRegion;
@@ -25,7 +26,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,8 @@ import org.springframework.stereotype.Service;
  *
  * <p>지역마다 부를 수 있는 공급자를 priority 순으로 시도하고, 실패하면 같은 지역을 다음 공급자로 시도한다. 지금은 공급자가 WEATHERAPI 하나라 실패하면 그
  * 지역은 이전 값을 그대로 둔다. 예비 공급자는 행과 어댑터만 더하면 이 순서에 들어온다.
+ *
+ * <p>장소별 날씨(19 문서)의 좌표 예보·장소 검색도 같은 순서·차단·월 한도로 부른다 (callOnDemand).
  */
 @Service
 public class WeatherRefreshRunner {
@@ -83,9 +87,14 @@ public class WeatherRefreshRunner {
 
   /** 지금 부를 수 있는 공급자가 하나라도 있는지 */
   boolean anyUsable() {
+    return anyUsable(p -> true);
+  }
+
+  /** 지금 부를 수 있는 공급자 중 supports를 만족하는 것이 있는지 */
+  boolean anyUsable(Predicate<WeatherProvider> supports) {
     Instant now = clock.instant();
     Map<String, Long> used = monthUsage();
-    return providers.findAll().stream().anyMatch(p -> usable(p, now, used));
+    return providers.findAll().stream().anyMatch(p -> supports.test(p) && usable(p, now, used));
   }
 
   /** 이번 달(한국 시간) 공급자별 호출 수 (실패 포함). 호출 이력을 세므로 이력 보관 일수가 한 달(31일)보다 짧으면 이번 달 이력이 지워져 한도를 적게 센다. */
@@ -138,57 +147,35 @@ public class WeatherRefreshRunner {
     List<WeatherProvider> list = new ArrayList<>(providers.findAll());
     // DB에서 한 번만 세고 호출할 때마다 더한다 (지역마다 한도를 다시 본다)
     Map<String, Long> used = monthUsage();
-    // 1순위 = priority가 가장 작은 "켜진" 공급자. 그 밖의 공급자로 받으면 fallback으로 센다
-    String primary =
-        list.stream()
-            .filter(WeatherProvider::enabled)
-            .map(WeatherProvider::code)
-            .findFirst()
-            .orElse(null);
+    String primary = primary(list);
     int ok = 0;
     int fail = 0;
     int fallbacks = 0;
     for (WeatherRegion region : regions) {
-      Optional<String> error = Optional.of("부를 수 있는 공급자가 없어요.");
-      boolean done = false;
-      for (int i = 0; i < list.size() && !done; i++) {
-        WeatherProvider p = list.get(i);
-        if (!usable(p, clock.instant(), used)) {
-          continue;
-        }
-        boolean fallback = !p.code().equals(primary);
-        FetchResult r = fetch(p, region, setting.daysFor(p));
-        runs.saveCalls(run.runId(), r.calls().stream().map(c -> c.asFallback(fallback)).toList());
-        used.merge(p.code(), (long) r.calls().size(), Long::sum);
+      Attempt<FetchResult> a =
+          attempt(
+              run.runId(),
+              CallRecord.FORECAST,
+              setting,
+              list,
+              used,
+              primary,
+              p -> true,
+              p -> sources.fetch(p, region, setting.daysFor(p)),
+              region.code());
+      if (a.ok()) {
         Instant now = clock.instant();
-        ProviderHealth health =
-            r.ok()
-                ? p.health().succeeded(now)
-                : p.health()
-                    .failed(
-                        now,
-                        r.errorCode(),
-                        r.errorMessage(),
-                        setting.failureThreshold(),
-                        setting.cooldown());
-        providers.saveHealth(p.code(), health);
-        list.set(i, p.withHealth(health));
-        if (r.ok()) {
-          snapshots.save(WeatherSnapshot.of(region.code(), p.code(), r.report(), now));
-          // 지난 날씨 이력 (실패해도 실행은 계속된다)
-          history.record(region.code(), p.code(), r.report(), now);
-          done = true;
-          ok++;
-          if (fallback) {
-            fallbacks++;
-          }
-        } else {
-          error = Optional.of(p.displayName() + ": " + r.errorMessage());
+        snapshots.save(
+            WeatherSnapshot.of(region.code(), a.providerCode(), a.result().report(), now));
+        // 지난 날씨 이력 (실패해도 실행은 계속된다)
+        history.record(region.code(), a.providerCode(), a.result().report(), now);
+        ok++;
+        if (a.fallback()) {
+          fallbacks++;
         }
-      }
-      if (!done) {
+      } else {
         fail++;
-        snapshots.recordError(region.code(), error.get(), clock.instant());
+        snapshots.recordError(region.code(), a.error(), clock.instant());
       }
     }
     RefreshRun finished = run.finish(ok, fail, fallbacks, clock.instant());
@@ -198,30 +185,136 @@ public class WeatherRefreshRunner {
     return finished;
   }
 
-  /** 어댑터가 예외를 던져도 실패 결과로 바꾼다 (실행 전체가 멈추지 않게) */
+  /**
+   * 공급자를 한 번 부른 결과.
+   *
+   * @param result 성공한 공급자의 결과 (실패면 null)
+   * @param error 실패 문구 (마지막으로 실패한 공급자, 부를 공급자가 없었으면 그 안내)
+   * @param called HTTP 호출을 한 번이라도 했는지
+   */
+  record Attempt<R extends ProviderResult>(
+      R result, String providerCode, boolean fallback, String error, boolean called) {
+
+    boolean ok() {
+      return result != null;
+    }
+  }
+
+  /**
+   * 실행 밖에서 공급자를 부른다 (좌표 예보 ON_DEMAND·장소 검색 SEARCH, 19 문서). 실행과 같은 순서·차단·월 한도를 따르고, 호출 기록은 run_id 없이
+   * 남긴다.
+   *
+   * @param target 호출 기록의 regionCode (격자 키, 검색이면 null)
+   * @param supports 이 일을 할 수 있는 공급자만 (검색 지원 등)
+   */
+  <R extends ProviderResult> Attempt<R> callOnDemand(
+      String callKind,
+      String target,
+      Predicate<WeatherProvider> supports,
+      Function<WeatherProvider, R> call) {
+    WeatherSetting setting = setting();
+    List<WeatherProvider> list = new ArrayList<>(providers.findAll());
+    return attempt(
+        null, callKind, setting, list, monthUsage(), primary(list), supports, call, target);
+  }
+
+  /**
+   * 공급자 순서대로 부를 수 있는 곳을 시도하고, 실패하면 다음 공급자로 시도한다 (17 문서 4장). 호출마다 기록·월 사용량·차단 상태를 바로 남긴다. list와
+   * used는 여러 번 부를 때(실행의 지역들) 이어서 쓰도록 이 안에서 고친다.
+   */
+  @SuppressWarnings("unchecked")
+  <R extends ProviderResult> Attempt<R> attempt(
+      Long runId,
+      String callKind,
+      WeatherSetting setting,
+      List<WeatherProvider> list,
+      Map<String, Long> used,
+      String primary,
+      Predicate<WeatherProvider> supports,
+      Function<WeatherProvider, R> call,
+      String target) {
+    String error = "부를 수 있는 공급자가 없어요.";
+    boolean called = false;
+    for (int i = 0; i < list.size(); i++) {
+      WeatherProvider p = list.get(i);
+      if (!supports.test(p) || !usable(p, clock.instant(), used)) {
+        continue;
+      }
+      boolean fallback = !p.code().equals(primary);
+      ProviderResult r = safely(p, target, callKind, call);
+      List<CallRecord> calls =
+          r.calls().stream().map(c -> c.withKind(callKind).asFallback(fallback)).toList();
+      runs.saveCalls(runId, calls);
+      called |= !calls.isEmpty();
+      used.merge(p.code(), (long) calls.size(), Long::sum);
+      Instant now = clock.instant();
+      ProviderHealth health =
+          r.ok()
+              ? p.health().succeeded(now)
+              : p.health()
+                  .failed(
+                      now,
+                      r.errorCode(),
+                      r.errorMessage(),
+                      setting.failureThreshold(),
+                      setting.cooldown());
+      providers.saveHealth(p.code(), health);
+      list.set(i, p.withHealth(health));
+      if (r.ok()) {
+        return new Attempt<>((R) r, p.code(), fallback, null, true);
+      }
+      error = p.displayName() + ": " + r.errorMessage();
+    }
+    return new Attempt<>(null, null, false, error, called);
+  }
+
+  private static String primary(List<WeatherProvider> list) {
+    return list.stream()
+        .filter(WeatherProvider::enabled)
+        .map(WeatherProvider::code)
+        .findFirst()
+        .orElse(null);
+  }
+
+  /** 어댑터가 예외를 던져도 실패 결과(호출 한 번)로 바꾼다 (실행·요청 전체가 멈추지 않게) */
+  private <R extends ProviderResult> ProviderResult safely(
+      WeatherProvider p, String target, String callKind, Function<WeatherProvider, R> call) {
+    try {
+      return call.apply(p);
+    } catch (RuntimeException e) {
+      log.warn("날씨 공급자 {} 호출 중 예외 ({})", p.code(), e.getClass().getSimpleName());
+      return failedCall(p, target, callKind, e);
+    }
+  }
+
+  private FetchResult failedCall(
+      WeatherProvider p, String target, String callKind, RuntimeException e) {
+    String message = "호출 중 오류: " + e.getClass().getSimpleName();
+    return FetchResult.failed(
+        FetchErrors.CLIENT,
+        message,
+        List.of(
+            new CallRecord(
+                target,
+                p.code(),
+                callKind,
+                false,
+                null,
+                false,
+                FetchErrors.CLIENT,
+                message,
+                0,
+                null,
+                clock.instant())));
+  }
+
+  /** 관리자 시험 호출: 어댑터가 예외를 던져도 실패 결과로 바꾼다 */
   FetchResult fetch(WeatherProvider p, WeatherRegion region, int days) {
     try {
       return sources.fetch(p, region, days);
     } catch (RuntimeException e) {
       log.warn("날씨 공급자 {} 호출 중 예외 ({})", p.code(), e.getClass().getSimpleName());
-      Instant now = clock.instant();
-      String message = "호출 중 오류: " + e.getClass().getSimpleName();
-      return FetchResult.failed(
-          FetchErrors.CLIENT,
-          message,
-          List.of(
-              new CallRecord(
-                  region.code(),
-                  p.code(),
-                  CallRecord.FORECAST,
-                  false,
-                  null,
-                  false,
-                  FetchErrors.CLIENT,
-                  message,
-                  0,
-                  null,
-                  now)));
+      return failedCall(p, region.code(), CallRecord.FORECAST, e);
     }
   }
 }

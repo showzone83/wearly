@@ -24,7 +24,8 @@ import app.wearly.ai.domain.BuiltInModels;
 import app.wearly.ai.domain.ModelListRules;
 import app.wearly.ai.domain.ProviderSecret;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.domain.FieldErrorCode;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
@@ -33,12 +34,18 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** 관리자 AI 공급자 관리 (07 문서 3·4장)와 웹 입력 키 (6장). 쓰기는 JPA, 키는 AES-GCM으로 암호화해 저장한다 */
 @Service
 public class AiProviderAdminService implements AiProviderAdminUseCase, AiProviderKeyUseCase {
+
+  private static final Logger log = LoggerFactory.getLogger(AiProviderAdminService.class);
+
+  static final int MAX_PRIORITY = 10000;
 
   private final AiProviderPort settings;
   private final AiProviderRegistry registry;
@@ -83,7 +90,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
   @Override
   @Transactional(readOnly = true)
   public AiProviderDto get(String providerId) {
-    return info(settings.findById(providerId).orElseThrow(ApiException::notFound));
+    return info(settings.findById(providerId).orElseThrow(BusinessException::notFound));
   }
 
   @Override
@@ -122,7 +129,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
   @Transactional
   public AiProviderDto create(CreateProviderDto req) {
     if (req == null) {
-      throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
+      throw BusinessException.validation(FieldError.invalidType("body", "object"));
     }
     List<FieldError> errors = new ArrayList<>();
     final String id = AiProviderRules.providerId(req.providerId(), errors);
@@ -133,18 +140,19 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
     boolean enabled = req.enabled() != null && req.enabled();
     Integer priority = req.priority();
     if (priority != null && (priority < 0 || priority > 10000)) {
-      errors.add(new FieldError("priority", "0~10000이어야 해요."));
+      errors.add(FieldError.outOfRange("priority", 0, MAX_PRIORITY));
     }
     Map<String, Object> options = req.options() == null ? Map.of() : req.options();
     if (type != null) {
       errors.addAll(type.validate(options, aiSettings.allowBaseUrl()));
     }
     if (enabled && model == null) {
-      errors.add(new FieldError("model", "사용하려면 모델이 필요해요."));
+      // 사용하려면 모델이 필요하다
+      errors.add(FieldError.required("model"));
     }
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     if (settings.exists(id)) {
-      throw new ApiException(ErrorCode.PROVIDER_EXISTS);
+      throw new BusinessException(ErrorCode.PROVIDER_EXISTS);
     }
     AiProviderSetting s =
         new AiProviderSetting(
@@ -163,13 +171,13 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
   @Override
   @Transactional
   public AiProviderDto patch(String providerId, PatchProviderDto patch) {
-    AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
+    AiProviderSetting s = settings.findById(providerId).orElseThrow(BusinessException::notFound);
     if (patch == null) {
-      throw ApiException.validation("body", "JSON 객체를 보내 주세요.");
+      throw BusinessException.validation(FieldError.invalidType("body", "object"));
     }
     List<FieldError> errors = new ArrayList<>();
     if (patch.providerId().present() && !providerId.equals(patch.providerId().value())) {
-      errors.add(new FieldError("providerId", "공급자 ID는 바꿀 수 없어요."));
+      errors.add(new FieldError("providerId", FieldErrorCode.IMMUTABLE));
     }
     final AiProviderType type =
         patch.type().present() ? AiProviderRules.type(patch.type().value(), errors) : s.type();
@@ -186,7 +194,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
     boolean enabled = patch.enabled().apply("enabled", s.enabled(), errors);
     int priority = patch.priority().apply("priority", s.priority(), errors);
     if (patch.priority().present() && !patch.priority().invalid() && !validPriority(priority)) {
-      errors.add(new FieldError("priority", "0~10000 정수여야 해요."));
+      errors.add(FieldError.outOfRange("priority", 0, MAX_PRIORITY));
       priority = s.priority();
     }
     Map<String, Object> options = patch.options().apply("options", s.options(), errors);
@@ -194,9 +202,9 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
       errors.addAll(type.validate(options, aiSettings.allowBaseUrl()));
     }
     if (enabled && (model == null || model.isBlank())) {
-      errors.add(new FieldError("model", "사용하려면 모델이 필요해요."));
+      errors.add(FieldError.required("model"));
     }
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     s.update(
         type,
         displayName,
@@ -213,7 +221,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
   @Override
   @Transactional
   public AiProviderDto delete(String providerId) {
-    AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
+    AiProviderSetting s = settings.findById(providerId).orElseThrow(BusinessException::notFound);
     final AiProviderDto before = info(s);
     settings.delete(providerId);
     // 웹 키 행은 FK ON DELETE CASCADE로 함께 지워진다
@@ -225,25 +233,25 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
   /** 마스터 키(WEARLY_SECRET_KEY)가 없으면 409 SECRET_KEY_MISSING */
   private void requireSecretStore() {
     if (!keys.storeEnabled()) {
-      throw new ApiException(ErrorCode.SECRET_KEY_MISSING);
+      throw new BusinessException(ErrorCode.SECRET_KEY_MISSING);
     }
   }
 
   /** 트랜잭션 없이: 공급자 HTTP 호출 동안 DB 연결을 잡지 않는다 (M6) */
   @Override
   public VerifiedKeyDto checkKey(String providerId, String apiKey, boolean verify) {
-    AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
+    AiProviderSetting s = settings.findById(providerId).orElseThrow(BusinessException::notFound);
     requireSecretStore();
     List<FieldError> errors = new ArrayList<>();
     String key = ApiKeyRules.normalize(apiKey, errors);
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     if (verify) {
       try {
         verifier.verify(s, key);
       } catch (AiProviderException e) {
-        // 어댑터가 키 조각을 지운 메시지에서 한 번 더 지운다
-        String reason = e.getMessage() == null ? e.reason() : e.getMessage().replace(key, "***");
-        throw new ApiException(ErrorCode.API_KEY_INVALID, "API 키를 확인하지 못했어요: " + reason);
+        logRejectedKey(providerId, key, e);
+        // 응답에는 사유 코드만 (공급자 응답 원문은 로그에만)
+        throw new BusinessException(ErrorCode.API_KEY_INVALID, Map.of("reason", e.reason()));
       }
     }
     return new VerifiedKeyDto(providerId, key);
@@ -253,7 +261,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
   @Transactional
   public KeyChangeDto saveKey(VerifiedKeyDto verified, long adminUserId) {
     String providerId = verified.providerId();
-    AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
+    AiProviderSetting s = settings.findById(providerId).orElseThrow(BusinessException::notFound);
     requireSecretStore();
     final AiProviderDto before = info(s);
     secrets.save(
@@ -271,7 +279,7 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
   @Override
   @Transactional
   public Optional<KeyChangeDto> deleteKey(String providerId) {
-    AiProviderSetting s = settings.findById(providerId).orElseThrow(ApiException::notFound);
+    AiProviderSetting s = settings.findById(providerId).orElseThrow(BusinessException::notFound);
     final AiProviderDto before = info(s);
     if (!secrets.delete(providerId)) {
       return Optional.empty();
@@ -281,8 +289,14 @@ public class AiProviderAdminService implements AiProviderAdminUseCase, AiProvide
     return Optional.of(new KeyChangeDto(before, info(s)));
   }
 
+  /** 키 확인 실패의 자세한 내용(공급자 응답, 키 조각은 지운다)은 로그로만 */
+  private static void logRejectedKey(String providerId, String key, AiProviderException e) {
+    String detail = e.getMessage() == null ? null : e.getMessage().replace(key, "***");
+    log.warn("API 키 확인 실패 provider={} reason={} detail={}", providerId, e.reason(), detail);
+  }
+
   private static boolean validPriority(int priority) {
-    return priority >= 0 && priority <= 10000;
+    return priority >= 0 && priority <= MAX_PRIORITY;
   }
 
   private AiProviderDto info(AiProviderSetting s) {

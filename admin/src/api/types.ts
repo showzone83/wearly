@@ -3,16 +3,28 @@
 
 // ───────── 공통 ─────────
 
+/** 오류 응답의 params (코드마다 다름, backend/src/main/resources/error-codes.json) */
+export type TErrorParams = Record<string, unknown>;
+
+/** 필드 오류 한 줄. 문장은 없다 — 화면 문구는 lib/errorText.ts의 fieldErrorText(code·params) */
 export interface IFieldError {
+  /** 입력 경로 (`attrs.hex`, `attrs.pairs[1]`, `body` …) */
   field: string;
-  message: string;
+  /** 필드 오류 코드 (REQUIRED, TOO_LONG, OUT_OF_RANGE …) */
+  code: string;
+  params: TErrorParams;
 }
 
+/**
+ * 오류 응답 본문 `{ status, code, params?, fieldErrors: [{ field, code, params? }], traceId }` (2026-10-18부터 message 없음).
+ * traceId는 응답 헤더 X-Request-Id와 같다.
+ */
 export interface IApiErrorBody {
   status: number;
   code: string;
-  message: string;
-  fieldErrors?: IFieldError[];
+  params?: TErrorParams;
+  fieldErrors?: { field: string; code: string; params?: TErrorParams }[];
+  traceId?: string;
 }
 
 /** 목록 응답 `{ items, page, size, total }` (07 4장). page는 0부터 */
@@ -532,12 +544,21 @@ export interface IWeatherTestResult {
   raw: Record<string, unknown>;
 }
 
+/**
+ * 날씨 공급자 HTTP 호출 한 번 (tb_weather_call_log). 실행 밖 호출(callKind ON_DEMAND·SEARCH·CLIMATE, doc/19)은
+ * runId·trigger가 null이다.
+ */
 export interface IWeatherCall {
   id: string;
-  runId: string;
-  trigger: TWeatherTrigger;
-  regionCode: string;
+  /** 실행 밖 호출이면 null */
+  runId: string | null;
+  /** 실행 밖 호출이면 null */
+  trigger: TWeatherTrigger | null;
+  /** FORECAST는 REGION 코드, ON_DEMAND·CLIMATE는 격자 키("35.7,139.7"), SEARCH는 null */
+  regionCode: string | null;
+  /** WEATHERAPI 등 공급자 표의 코드, 또는 보조 공급자 OPEN_METEO(평년값)·OPEN_METEO_GEO(장소 검색) */
   providerCode: string;
+  /** FORECAST · ON_DEMAND · SEARCH · CLIMATE (lib/weather.ts의 TCallKind) */
   callKind: string;
   fallback: boolean;
   httpStatus: number | null;
@@ -559,8 +580,11 @@ export interface IWeatherRunQuery extends IPageQuery {
   status?: string;
 }
 
+/** GET /admin/weather/calls 필터. callKind는 서버가 거른다 */
 export interface IWeatherCallQuery extends IPageQuery {
   providerCode?: string;
+  /** FORECAST · ON_DEMAND · SEARCH · CLIMATE */
+  callKind?: string;
   regionCode?: string;
   /** 'true' | 'false' */
   success?: string;
@@ -574,6 +598,8 @@ export interface IWeatherCallQuery extends IPageQuery {
 export interface IWeatherCallSummary {
   today: { calls: number; failures: number; fallbacks: number; avgDurationMs: number | null };
   months: { providerCode: string; displayName: string; used: number; quota: number | null }[];
+  /** 공급자 표 밖 보조 공급자(OPEN_METEO·OPEN_METEO_GEO)의 이번 달 호출 수. 0이어도 항상 온다 */
+  auxiliaryMonths?: { providerCode: string; displayName: string; used: number }[];
 }
 
 export interface IWeatherSnapshot {

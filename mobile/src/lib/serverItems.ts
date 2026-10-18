@@ -20,6 +20,7 @@ const _sameEnums: [
 ] = [true, true, true, true, true, true, true, true, true, true];
 void _sameEnums;
 
+/** @param imageUri 기기 사진 (photos[id]). 서버 사진은 dto.image에서 온다 */
 export function itemFromDto(dto: Api.ItemDto, imageUri?: string): App.WardrobeItem {
   return {
     id: dto.id,
@@ -37,9 +38,16 @@ export function itemFromDto(dto: Api.ItemDto, imageUri?: string): App.WardrobeIt
     lastWornAt: dto.lastWornAt ?? undefined,
     createdAt: dto.createdAt,
     imageUri,
+    image: imageFromDto(dto.image),
     ...retireFromDto(dto),
   };
 }
+
+/** 서버 사진 참조. 예전 서버(필드 없음)·사진 없음(null)·주소가 빈 응답은 undefined */
+export const imageFromDto = (image: Api.ImageRef | null | undefined): App.IItemImage | undefined =>
+  image?.imageId && (image.url || image.thumbUrl)
+    ? { imageId: image.imageId, url: image.url, thumbUrl: image.thumbUrl, expiresAt: image.expiresAt }
+    : undefined;
 
 /** 사용 중지 필드만 (예전 서버 응답에는 없다 → 사용 중) */
 export const retireFromDto = (
@@ -50,7 +58,10 @@ export const retireFromDto = (
   retireMemo: dto.retiredAt ? dto.retireMemo || undefined : undefined,
 });
 
-/** 등록·수정 폼 값 → 서버 입력. 사진(imageUri)은 서버에 보내지 않는다 */
+/**
+ * 등록·수정 폼 값 → 서버 입력. 사진은 넣지 않는다: 기기 사진(imageUri)은 서버로 가지 않고,
+ * 서버 사진(imageId)은 바꿀 때만 부르는 쪽(account.createItem·saveItem)이 따로 넣는다
+ */
 export function inputFromDraft(d: ItemDraft): Api.ItemInput {
   return {
     name: d.name,
@@ -115,7 +126,7 @@ export function fixCategoryPair(category: string, subType: string): { category: 
 }
 
 /** AI 분석 제안 → 등록 폼 값. 종류·세부 종류 짝은 코드 기준으로 맞춘다 */
-export function draftFromSuggestion(s: Api.AnalyzeSuggestion, imageUri: string): ItemDraft {
+export function draftFromSuggestion(s: Api.AnalyzeSuggestion, imageUri: string, image?: App.IItemImage): ItemDraft {
   const { category, subType } = fixCategoryPair(s.category, s.subType);
   return {
     name: s.name,
@@ -128,5 +139,6 @@ export function draftFromSuggestion(s: Api.AnalyzeSuggestion, imageUri: string):
     formality: s.formality,
     status: defaultStatus(),
     imageUri,
+    image,
   };
 }

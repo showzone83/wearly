@@ -1,6 +1,7 @@
 package app.wearly.ai.domain;
 
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -95,7 +96,7 @@ public enum AiProviderType {
       OptionSpec spec =
           options.stream().filter(o -> o.name().equals(e.getKey())).findFirst().orElse(null);
       if (spec == null) {
-        errors.add(new FieldError(field, "이 공급자 종류에 없는 옵션이에요."));
+        errors.add(FieldError.notAllowed(field));
         continue;
       }
       Object v = e.getValue();
@@ -106,30 +107,36 @@ public enum AiProviderType {
         case OptionSpec.INTEGER -> {
           if (!(v instanceof Integer || v instanceof Long)
               || outOfRange(((Number) v).doubleValue(), spec)) {
-            errors.add(new FieldError(field, spec.min() + "~" + spec.max() + " 정수여야 해요."));
+            errors.add(
+                v instanceof Integer || v instanceof Long
+                    ? FieldError.outOfRange(field, spec.min(), spec.max())
+                    : FieldError.invalidType(field, "integer"));
           }
         }
         case OptionSpec.NUMBER -> {
           if (!(v instanceof Number n) || outOfRange(n.doubleValue(), spec)) {
-            errors.add(new FieldError(field, spec.min() + "~" + spec.max() + " 숫자여야 해요."));
+            errors.add(
+                v instanceof Number
+                    ? FieldError.outOfRange(field, spec.min(), spec.max())
+                    : FieldError.invalidType(field, "number"));
           }
         }
         case OptionSpec.ENUM -> {
           if (!(v instanceof String s) || !spec.values().contains(s)) {
-            errors.add(new FieldError(field, String.join(", ", spec.values()) + " 중 하나여야 해요."));
+            errors.add(FieldError.notAllowed(field, spec.values()));
           }
         }
         case OptionSpec.URL -> {
           if (!allowBaseUrl) {
-            errors.add(
-                new FieldError(field, "API 주소 변경은 서버 설정(WEARLY_AI_ALLOW_BASE_URL=true)에서만 허용돼요."));
+            // API 주소 변경은 서버 설정(wearly.ai.allow-base-url)을 켰을 때만
+            errors.add(new FieldError(field, FieldErrorCode.DISABLED_BY_SERVER));
           } else if (!(v instanceof String s) || !isHttpUrl(s)) {
-            errors.add(new FieldError(field, "http(s) 주소여야 해요."));
+            errors.add(FieldError.invalidFormat(field, "url"));
           }
         }
         default -> {
           if (!(v instanceof String)) {
-            errors.add(new FieldError(field, "문자열이어야 해요."));
+            errors.add(FieldError.invalidType(field, "string"));
           }
         }
       }

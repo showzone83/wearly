@@ -15,7 +15,12 @@ public interface WeatherRunPort {
   /** 상태·개수·끝난 시각을 바꾼다 */
   void update(RefreshRun run);
 
-  void saveCalls(long runId, List<CallRecord> calls);
+  /**
+   * 호출 기록을 남긴다.
+   *
+   * @param runId 실행 밖 호출(ON_DEMAND·SEARCH·CLIMATE)이면 null
+   */
+  void saveCalls(Long runId, List<CallRecord> calls);
 
   Optional<RefreshRun> find(long runId);
 
@@ -30,7 +35,7 @@ public interface WeatherRunPort {
   int closeAbandoned(Instant startedBefore, Instant now);
 
   /**
-   * startedBefore보다 먼저 시작한 실행과 그 호출 이력을 지운다.
+   * startedBefore보다 먼저 시작한 실행과 그 호출 이력, 그 전에 부른 실행 밖 호출 이력을 지운다.
    *
    * @return 지운 실행 수
    */

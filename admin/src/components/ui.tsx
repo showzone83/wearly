@@ -1,9 +1,11 @@
 // 관리 화면 공통 부품. UI 라이브러리 없이 styles.css의 클래스만 쓴다.
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 import { errorMessage, isApiError } from '@/api';
+
+import { shortTraceId, systemTraceId } from '@/lib/errorText';
 
 type TButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -83,14 +85,64 @@ export const Loading = ({ label = '불러오는 중…' }: { label?: string }) =
   );
 };
 
+/** 클립보드에 쓴다. 안 되는 환경(http 원격 주소 등)이면 false */
+const copyText = async (text: string): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * 시스템 오류의 오류 번호 "오류 번호 ab12cd34" (traceId 앞 8자). 누르면 전체 traceId를 복사한다 —
+ * 문의를 받으면 서버 로그에서 이 값으로 찾는다.
+ */
+export const TraceId = ({ traceId, className }: { traceId: string; className?: string }) => {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const handleCopy = async () => {
+    const ok = await copyText(traceId);
+    setState(ok ? 'copied' : 'failed');
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setState('idle'), 1800);
+  };
+
+  return (
+    <button
+      type="button"
+      className={`trace-id ${className ?? ''}`}
+      title={`눌러서 전체 오류 번호 복사: ${traceId}`}
+      onClick={() => void handleCopy()}
+    >
+      {state === 'copied'
+        ? '오류 번호를 복사했어요'
+        : state === 'failed'
+          ? `복사하지 못했어요: ${traceId}`
+          : `오류 번호 ${shortTraceId(traceId)}`}
+    </button>
+  );
+};
+
 export const ErrorBox = ({ error, onRetry }: { error: unknown; onRetry?: () => void }) => {
   if (!error) return null;
   const code = isApiError(error) ? error.code : null;
+  const traceId = isApiError(error) ? systemTraceId(error) : null;
   return (
     <div className="alert alert-error" role="alert">
       <div>
         <strong>{errorMessage(error)}</strong>
         {code ? <span className="alert-code">{code}</span> : null}
+        {traceId ? <TraceId traceId={traceId} className="alert-trace" /> : null}
       </div>
       {onRetry ? (
         <Button size="sm" onClick={onRetry}>

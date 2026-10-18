@@ -67,7 +67,8 @@ public class ClaudeModule implements AiProviderModule {
         Objects.toString(o.raw().get("effort"), ProviderDefaults.CLAUDE_EFFORT),
         maxTokens == null ? ClaudeAiProvider.DEFAULT_MAX_TOKENS : maxTokens,
         parser,
-        key);
+        key,
+        o.promptCache());
   }
 
   @Override

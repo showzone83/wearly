@@ -5,6 +5,7 @@ import app.wearly.wardrobe.application.port.out.ItemFilter;
 import app.wearly.wardrobe.application.port.out.dto.CodeCountDto;
 import app.wearly.wardrobe.application.port.out.dto.KeyCountDto;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -14,6 +15,9 @@ import org.apache.ibatis.annotations.Param;
 public interface WardrobeItemMapper {
 
   List<ItemRowDto> findItems(ItemFilter filter);
+
+  /** ids 중 이 회원의 아이템 ID (사용 중지 포함). ids는 비어 있지 않아야 한다 */
+  List<Long> findExistingIds(@Param("userId") long userId, @Param("ids") Collection<Long> ids);
 
   long countAll(@Param("userId") long userId);
 

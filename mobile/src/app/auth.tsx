@@ -4,10 +4,11 @@ import { ActivityIndicator, Pressable, Text, TextInput, View, type TextInputProp
 
 import { isApiError } from '@/api/errors';
 import { Mascot } from '@/components/Mascot';
-import { Button, Header, Kicker, Screen, Title } from '@/components/ui';
+import { Button, Header, Kicker, Screen, Title, TraceLabel } from '@/components/ui';
 import { continueAsGuest, enterAccount } from '@/lib/account';
 import { MOCK_MODE } from '@/lib/mode';
 import { api, errorMessage } from '@/lib/api';
+import { fieldErrorText, systemTraceId } from '@/lib/errorText';
 import { useStore } from '@/store/useStore';
 import { inputBase, makeStyles, useColors } from '@/theme';
 
@@ -52,6 +53,8 @@ export default function Auth() {
   const [name, setName] = useState('');
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [banner, setBanner] = useState<string | null>(null);
+  /** 배너 오류가 시스템 오류면 그 traceId (오류 번호) */
+  const [bannerTrace, setBannerTrace] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
   const s = useStyles();
   const colors = useColors();
@@ -60,6 +63,7 @@ export default function Auth() {
     setMode(m);
     setErrors({});
     setBanner(null);
+    setBannerTrace(undefined);
   };
 
   const submit = async () => {
@@ -67,6 +71,7 @@ export default function Auth() {
     const errs = validate(mode, mail, password, name);
     setErrors(errs);
     setBanner(null);
+    setBannerTrace(undefined);
     if (Object.keys(errs).length) return;
     setBusy(true);
     try {
@@ -83,13 +88,14 @@ export default function Auth() {
         setErrors({ email: '이미 가입된 이메일이에요. 로그인해 주세요.' });
       } else if (isApiError(e) && e.code === 'VALIDATION_FAILED' && e.fieldErrors.length) {
         const next: Partial<Record<Field, string>> = {};
-        for (const f of e.fieldErrors) if (f.field === 'email' || f.field === 'password' || f.field === 'name') next[f.field] ??= f.message;
+        for (const f of e.fieldErrors) if (f.field === 'email' || f.field === 'password' || f.field === 'name') next[f.field] ??= fieldErrorText(f);
         setErrors(next);
         if (!Object.keys(next).length) setBanner(errorMessage(e));
       } else if (isApiError(e) && e.code === 'INVALID_CREDENTIALS') {
         setBanner('이메일 또는 비밀번호가 맞지 않아요.');
       } else {
         setBanner(errorMessage(e, '로그인하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+        setBannerTrace(systemTraceId(e));
       }
     } finally {
       setBusy(false);
@@ -179,6 +185,7 @@ export default function Auth() {
       {banner && (
         <View style={[s.notice, s.noticeWarn, { marginTop: 18 }]}>
           <Text style={s.noticeText}>{banner}</Text>
+          <TraceLabel traceId={bannerTrace} />
         </View>
       )}
 

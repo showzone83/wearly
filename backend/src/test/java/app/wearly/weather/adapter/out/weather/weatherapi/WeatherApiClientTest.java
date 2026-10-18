@@ -7,6 +7,8 @@ import app.wearly.weather.domain.CallRecord;
 import app.wearly.weather.domain.DailyForecast;
 import app.wearly.weather.domain.FetchErrors;
 import app.wearly.weather.domain.FetchResult;
+import app.wearly.weather.domain.PlaceCandidate;
+import app.wearly.weather.domain.SearchResult;
 import app.wearly.weather.domain.WeatherCondition;
 import app.wearly.weather.domain.WeatherRegion;
 import java.io.IOException;
@@ -52,9 +54,11 @@ class WeatherApiClientTest {
   }
 
   static String fixture() throws IOException {
-    try (InputStream in =
-        WeatherApiClientTest.class.getResourceAsStream(
-            "/fixtures/weather/weatherapi-forecast.json")) {
+    return fixture("/fixtures/weather/weatherapi-forecast.json");
+  }
+
+  static String fixture(String path) throws IOException {
+    try (InputStream in = WeatherApiClientTest.class.getResourceAsStream(path)) {
       return new String(in.readAllBytes(), StandardCharsets.UTF_8);
     }
   }
@@ -190,5 +194,74 @@ class WeatherApiClientTest {
           .as("code %d", code)
           .isEqualTo(WeatherCondition.RAIN);
     }
+  }
+
+  // ---------------------------------------------------------------- 장소 검색 (19 문서)
+
+  @Test
+  void search_json을_불러_검색_결과로_바꾼다() throws IOException {
+    server.respond(200, fixture("/fixtures/weather/weatherapi-search.json"));
+
+    SearchResult r = client.search(KEY, "tokyo");
+
+    assertThat(r.ok()).isTrue();
+    FakeHttpServer.Request req = server.last();
+    assertThat(req.path()).isEqualTo("/v1/search.json");
+    assertThat(URLDecoder.decode(req.query(), StandardCharsets.UTF_8))
+        .contains("key=" + KEY)
+        .contains("q=tokyo");
+    assertThat(r.items())
+        .containsExactly(
+            new PlaceCandidate("Tokyo", "Tokyo", "Japan", 35.69, 139.69),
+            new PlaceCandidate("Tokyo Station", "Tokyo", "Japan", 35.68, 139.77));
+    CallRecord call = r.calls().getFirst();
+    assertThat(call.callKind()).isEqualTo(CallRecord.SEARCH);
+    assertThat(call.regionCode()).isNull();
+    assertThat(call.success()).isTrue();
+    assertThat(call.providerCode()).isEqualTo("WEATHERAPI");
+  }
+
+  @Test
+  void 한국어_검색어도_그대로_보내고_결과가_없으면_빈_목록이다() {
+    server.respond(200, "[]");
+
+    SearchResult r = client.search(KEY, "도쿄 시부야");
+
+    assertThat(r.ok()).isTrue();
+    assertThat(r.items()).isEmpty();
+    assertThat(URLDecoder.decode(server.last().query(), StandardCharsets.UTF_8))
+        .contains("q=도쿄 시부야");
+  }
+
+  @Test
+  void 검색_결과에서_좌표가_없는_항목은_빼고_배열이_아니면_PARSE다() {
+    server.respond(
+        200,
+        "[{\"name\":\"X\"},"
+            + "{\"name\":\"Y\",\"region\":\"\",\"country\":\"K\",\"lat\":1,\"lon\":2}]");
+    assertThat(client.search(KEY, "x").items())
+        .containsExactly(new PlaceCandidate("Y", "", "K", 1, 2));
+
+    server.respond(200, "{\"error\":{}}");
+    SearchResult bad = client.search(KEY, "x");
+    assertThat(bad.ok()).isFalse();
+    assertThat(bad.errorCode()).isEqualTo(FetchErrors.PARSE);
+  }
+
+  @Test
+  void 검색_오류도_키를_남기지_않고_분류한다() {
+    server.respond(
+        401,
+        "{\"error\":{\"code\":2006,\"message\":\"API key provided is invalid: " + KEY + "\"}}");
+    SearchResult r = client.search(KEY, "tokyo");
+    assertThat(r.errorCode()).isEqualTo(FetchErrors.AUTH);
+    assertThat(r.errorMessage()).doesNotContain(KEY);
+    assertThat(r.calls().getFirst().errorMessage()).doesNotContain(KEY);
+    assertThat(r.calls().getFirst().callKind()).isEqualTo(CallRecord.SEARCH);
+
+    server.respond(400, "{\"error\":{\"code\":1003,\"message\":\"Parameter q is missing.\"}}");
+    SearchResult missing = client.search(KEY, "");
+    assertThat(missing.errorCode()).isEqualTo(FetchErrors.HTTP_4XX);
+    assertThat(missing.errorMessage()).contains("Parameter q is missing.");
   }
 }

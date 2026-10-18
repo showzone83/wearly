@@ -27,6 +27,7 @@ import app.wearly.weather.domain.FetchResult;
 import app.wearly.weather.domain.KeyState;
 import app.wearly.weather.domain.ProviderHealth;
 import app.wearly.weather.domain.RefreshRun;
+import app.wearly.weather.domain.SearchResult;
 import app.wearly.weather.domain.WeatherCondition;
 import app.wearly.weather.domain.WeatherHistory;
 import app.wearly.weather.domain.WeatherOptions;
@@ -54,18 +55,30 @@ final class WeatherFakes {
 
   final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
   WeatherSetting setting = new WeatherSetting(true, 30, 3, 3, 15, null, null);
-  final Map<String, WeatherProvider> providerRows = new LinkedHashMap<>();
+  final Map<String, WeatherProvider> providerRows =
+      java.util.Collections.synchronizedMap(new LinkedHashMap<>());
   final Map<String, WeatherSnapshot> snapshotRows = new HashMap<>();
   final List<RefreshRun> runRows = new ArrayList<>();
-  final List<CallRecord> callRows = new ArrayList<>();
-  final List<String> fetched = new ArrayList<>();
+  final List<CallRecord> callRows = java.util.Collections.synchronizedList(new ArrayList<>());
+
+  /** callRows와 같은 순서의 run_id (실행 밖 호출이면 null) */
+  final List<Long> callRunIds = java.util.Collections.synchronizedList(new ArrayList<>());
+
+  final List<String> fetched = java.util.Collections.synchronizedList(new ArrayList<>());
+  final List<String> searched = java.util.Collections.synchronizedList(new ArrayList<>());
+
+  /** 검색 답 (공급자 코드 → 검색어 → 결과). 없으면 빈 목록 성공 */
+  final Map<String, BiFunction<WeatherProvider, String, SearchResult>> searchAnswers =
+      new HashMap<>();
+
   final Map<String, KeyState> keys = new HashMap<>();
   final Map<String, BiFunction<WeatherProvider, WeatherRegion, FetchResult>> answers =
       new HashMap<>();
   boolean lockHeld;
   int releases;
 
-  final List<WeatherRegion> regions =
+  /** 활성 REGION (장소 검색 테스트는 시·도 17개로 바꿔 쓴다. catalog가 부를 때마다 읽는다) */
+  List<WeatherRegion> regions =
       List.of(
           new WeatherRegion("SEOUL", "서울", 37.5665, 126.978, true),
           new WeatherRegion("BUSAN", "부산", 35.1796, 129.0756, true),
@@ -237,8 +250,11 @@ final class WeatherFakes {
         }
 
         @Override
-        public void saveCalls(long runId, List<CallRecord> calls) {
-          callRows.addAll(calls);
+        public void saveCalls(Long runId, List<CallRecord> calls) {
+          synchronized (callRows) {
+            callRows.addAll(calls);
+            calls.forEach(c -> callRunIds.add(runId));
+          }
         }
 
         @Override
@@ -288,7 +304,9 @@ final class WeatherFakes {
         @Override
         public List<ProviderUsageRowDto> usage(Instant from, Instant to) {
           Map<String, Long> m = new LinkedHashMap<>();
-          callRows.forEach(c -> m.merge(c.providerCode(), 1L, Long::sum));
+          synchronized (callRows) {
+            callRows.forEach(c -> m.merge(c.providerCode(), 1L, Long::sum));
+          }
           return m.entrySet().stream()
               .map(e -> new ProviderUsageRowDto(e.getKey(), e.getValue()))
               .toList();
@@ -351,6 +369,35 @@ final class WeatherFakes {
         public FetchResult fetch(WeatherProvider provider, WeatherRegion region, int days) {
           fetched.add(provider.code() + ":" + region.code());
           return answers.get(provider.code()).apply(provider, region);
+        }
+
+        @Override
+        public boolean supportsSearch(String providerCode) {
+          return !providerCode.startsWith("NOSEARCH");
+        }
+
+        @Override
+        public SearchResult search(WeatherProvider provider, String query) {
+          searched.add(provider.code() + ":" + query);
+          BiFunction<WeatherProvider, String, SearchResult> a = searchAnswers.get(provider.code());
+          if (a != null) {
+            return a.apply(provider, query);
+          }
+          return SearchResult.success(
+              List.of(),
+              List.of(
+                  new CallRecord(
+                      null,
+                      provider.code(),
+                      CallRecord.SEARCH,
+                      false,
+                      200,
+                      true,
+                      null,
+                      null,
+                      50,
+                      2,
+                      NOW)));
         }
       };
 

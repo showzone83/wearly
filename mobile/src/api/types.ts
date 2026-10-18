@@ -71,7 +71,10 @@ export interface ProfileDto {
 
 // ── 옷장 ──
 
-/** 앱 WardrobeItem에서 imageUri를 뺀 모양. 사진은 앱이 아이템 id별로 기기에 따로 보관한다. */
+/**
+ * 앱 WardrobeItem에서 imageUri(기기 사진)를 뺀 모양. 서버에 올린 사진은 image로 온다.
+ * 서버에 사진 기능이 없거나 아직 안 올린 사진은 앱이 아이템 id별로 기기에 따로 보관한다.
+ */
 export interface ItemDto {
   id: string;
   name: string;
@@ -94,14 +97,21 @@ export interface ItemDto {
   retireReason?: RetireReason | null;
   /** 사용 중지 메모 (200자 이하) */
   retireMemo?: string | null;
+  /** 대표 사진 (서버 저장). 없으면 null. 사진 기능이 없는 예전 서버는 보내지 않는다 */
+  image?: ImageRef | null;
 }
 
 export type ItemInput = Omit<
   ItemDto,
-  'id' | 'createdAt' | 'wornCount' | 'lastWornAt' | 'retiredAt' | 'retireReason' | 'retireMemo'
+  'id' | 'createdAt' | 'wornCount' | 'lastWornAt' | 'retiredAt' | 'retireReason' | 'retireMemo' | 'image'
 > & {
   wornCount?: number;
   lastWornAt?: string | null;
+  /**
+   * 붙일 사진: complete까지 끝난(READY) 내 이미지 id. null이면 사진을 뺀다.
+   * 보내지 않으면(undefined) 사진은 그대로다
+   */
+  imageId?: string | null;
 };
 
 export interface ItemListResponse {
@@ -144,6 +154,54 @@ export interface WardrobeStats {
   /** 이유별 사용 중지한 옷 수 */
   retiredByReason?: { reason: RetireReason; count: number }[];
 }
+
+// ── 사진 (서버 저장) ──
+
+/** 아이템에 붙은 사진. url·thumbUrl은 expiresAt까지 유효한 서명 GET 주소라 받을 때마다 바뀐다 */
+export interface ImageRef {
+  /** 이미지 id (UUID). 주소가 바뀌어도 그대로라 화면 캐시 키로 쓴다 */
+  imageId: string;
+  /** 원본(긴 변 1600 이하) 주소 */
+  url: string;
+  /** 썸네일(긴 변 400) 주소 */
+  thumbUrl: string;
+  /** 주소 만료 시각(ISO) */
+  expiresAt: string;
+}
+
+export type ImagePurpose = 'ITEM';
+export type ImageContentType = 'image/jpeg' | 'image/png';
+
+/** POST /images/upload-url 요청 */
+export interface UploadUrlRequest {
+  purpose: ImagePurpose;
+  contentType: ImageContentType;
+  /** 올릴 파일 크기(바이트) */
+  size: number;
+}
+
+/** POST /images/upload-url 응답: 오브젝트 스토리지에 직접 올릴 서명 주소 */
+export interface UploadUrlResponse {
+  imageId: string;
+  uploadUrl: string;
+  method: 'PUT';
+  /** PUT 때 그대로 붙여야 하는 헤더 (서명에 들어간 Content-Type 등) */
+  headers: Record<string, string>;
+  /** 업로드 주소 만료 시각(ISO) */
+  expiresAt: string;
+}
+
+/** POST /images/{imageId}/complete 응답 (이미 READY여도 같은 응답) */
+export interface ImageCompleteResponse extends ImageRef {
+  width: number;
+  height: number;
+}
+
+/**
+ * 서명 주소로 올릴 본문. Blob(Node·웹), 바이트, 또는 arrayBuffer()만 있는 파일 객체
+ * (React Native의 expo-file-system File처럼 Blob을 상속하지 않고 인터페이스만 구현한 것)
+ */
+export type UploadBody = Blob | ArrayBuffer | Uint8Array | { arrayBuffer(): Promise<ArrayBuffer> };
 
 // ── AI 분석 ──
 
@@ -350,6 +408,165 @@ export type WeatherResult =
   | { changed: true; weather: WeatherDto; /** 다음 요청의 If-None-Match */ etag: string | null }
   | { changed: false };
 
+// ── 장소별 날씨 (doc/19) ──
+
+/**
+ * 날씨 장소. REGION 코드(시·도)에 있는 곳은 regionCode(좌표는 코드 attrs), 그 밖(해외 등)은 검색 결과의 이름·좌표.
+ * 서버 응답에서는 regionCode가 null일 수 있다
+ */
+export interface Place {
+  regionCode?: string | null;
+  label: string;
+  lat: number;
+  lon: number;
+}
+
+/** 날씨 출처: 예보 · 평년값. MANUAL(체감 온도 직접 고르기)은 앱만 쓴다 */
+export type WeatherDaySource = 'FORECAST' | 'CLIMATE';
+
+/** GET /weather/day 요청 장소: 지역 코드(인증 불필요) 또는 좌표(로그인 필요) */
+export type WeatherDayWhere = { region: string } | { lat: number; lon: number };
+
+/** GET /weather/day (doc/19). 한 장소·한 날짜의 날씨 */
+export interface WeatherDayResponse {
+  place: Place;
+  /** YYYY-MM-DD (한국 날짜) */
+  date: string;
+  source: WeatherDaySource;
+  day: {
+    /** CLIMATE면 평년 평균 */
+    temp: number;
+    /** CLIMATE면 평년 평균 최저 */
+    min: number;
+    /** CLIMATE면 평년 평균 최고 */
+    max: number;
+    /** 0~100. CLIMATE면 비 온 날 비율×100 */
+    rainProb: number;
+    /** CLIMATE면 null */
+    cond: WeatherCondDto | null;
+    condText: string | null;
+  };
+  /** 이 장소의 예보가 있는 마지막 날짜 (없으면 null) */
+  forecastUntil: string | null;
+  /** FORECAST면 예보를 받은 시각, CLIMATE면 평년값 계산 시각 (ISO) */
+  fetchedAt: string;
+  /** CLIMATE일 때만 */
+  climate: { years: string; rainDayRatio: number } | null;
+}
+
+/** GET /weather/places 결과 한 줄 */
+export interface PlaceSearchItem {
+  label: string;
+  /** 시·도·주 이름 (공급자 값) */
+  region: string | null;
+  country: string | null;
+  lat: number;
+  lon: number;
+  /** 국내 결과가 REGION 좌표 30km 안이면 그 코드 */
+  regionCode?: string | null;
+}
+
+export interface PlaceSearchResponse {
+  items: PlaceSearchItem[];
+}
+
+// ── 예정 코디 (서버 저장) ──
+
+/** 예정일 날씨 출처: 예보 · 평년값 · 체감 온도 직접 고르기 (앱 TWeatherSource와 같다) */
+export type PlanWeatherSource = 'FORECAST' | 'CLIMATE' | 'MANUAL';
+
+/** 예정일 날씨 (앱 Weather 모양). 기온 -60~60, rainProb 0~100. 응답 숫자는 20.0처럼 올 수 있다 */
+export interface PlanWeatherDto {
+  temp: number;
+  min: number;
+  max: number;
+  rainProb: number;
+  cond: WeatherCondDto;
+  /** 응답은 항상 true·false */
+  manual?: boolean;
+}
+
+/**
+ * 예정에 붙은 코디. 서버는 앱 Outfit 모양을 그대로 저장하고(JSON 16384자 이하) items만 본다.
+ * items 칸은 TOP·BOTTOM·DRESS·OUTER·SHOES·BAG, 값은 1~64자 아이템 id
+ */
+export interface PlanOutfitDto {
+  items: OutfitSlotItems;
+  [key: string]: unknown;
+}
+
+/**
+ * POST /plans 본문과 bulk 항목 (앱 PlannedEvent에서 id 대신 clientId).
+ * 규칙: date 오늘 앞뒤 1년, title 1~50자, memo 500자, concepts STYLE 코드 10개까지, weather 필수
+ */
+export interface PlanInput {
+  /** 앱이 정한 id (1~64자 영문·숫자·._:-). bulk는 필수. 같은 clientId로 다시 보내면 그 예정을 고친다 */
+  clientId?: string;
+  /** YYYY-MM-DD */
+  date: string;
+  timeOfDay: OutfitTimeOfDay;
+  title: string;
+  occasion: OutfitOccasion;
+  concepts: StyleTag[];
+  /** 앞뒤 공백은 서버가 지우고, 빈 메모는 null로 저장한다 */
+  memo?: string | null;
+  /** 없으면 내 지역 */
+  place?: Place | null;
+  weather: PlanWeatherDto;
+  weatherSource?: PlanWeatherSource | null;
+  /** ISO-8601 시각 */
+  weatherCheckedAt?: string | null;
+  forecastReady?: boolean;
+  outfit?: PlanOutfitDto | null;
+}
+
+/** PATCH /plans/{id}: 보낸 필드만 바꾼다. memo·place·outfit·weatherSource·weatherCheckedAt은 null이면 비운다. clientId는 바꿀 수 없다 */
+export type PlanPatch = Partial<Omit<PlanInput, 'clientId'>>;
+
+/** 예정 응답. 키 17개를 항상 보낸다 (없는 값은 null) */
+export interface PlanDto {
+  /** 서버 id (숫자 문자열) */
+  id: string;
+  /** 앱이 보낸 clientId. 없이 만들었으면 null */
+  clientId: string | null;
+  date: string;
+  timeOfDay: OutfitTimeOfDay;
+  title: string;
+  occasion: OutfitOccasion;
+  concepts: StyleTag[];
+  memo: string | null;
+  /** regionCode는 null일 수 있다 */
+  place: Place | null;
+  weather: PlanWeatherDto & { manual: boolean };
+  weatherSource: PlanWeatherSource | null;
+  /** ISO 시각 (UTC, 예: 2026-10-18T00:00:00Z) */
+  weatherCheckedAt: string | null;
+  forecastReady: boolean;
+  outfit: PlanOutfitDto | null;
+  /** outfit.items 중 지금 옷장에 없는 아이템 id (지운 옷·기기에서 만든 id). 코디는 그대로 둔다 */
+  missingItemIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** GET /plans 조건 (YYYY-MM-DD, 양 끝 포함) */
+export interface PlanFilter {
+  from?: string;
+  to?: string;
+}
+
+/** GET /plans 응답: 날짜 → 시간대(AM·PM·EVENING) → id 순 */
+export interface PlanListResponse {
+  items: PlanDto[];
+}
+
+/** POST /plans/bulk 응답: items는 요청 순서 */
+export interface PlanBulkResponse {
+  items: PlanDto[];
+  created: number;
+  updated: number;
+}
+
 export type AppConfigResult =
   | { changed: true; config: AppConfigDto; /** 다음 요청의 If-None-Match에 그대로 넣을 값 */ etag: string }
   | { changed: false };
@@ -363,16 +580,33 @@ export interface RNFile {
 
 export type AnalyzeFile = Blob | RNFile;
 
+/** POST /wardrobe/items/analyze JSON 요청: 이미 올린(READY) 내 이미지로 분석 */
+export interface AnalyzeImageRequest {
+  imageId: string;
+}
+
 // ── 오류 ──
 
+/** 필드 오류. 서버는 문장 없이 { field, code, params? }만 보낸다 (backend error-codes.json의 fieldErrorCodes) */
 export interface FieldError {
   field: string;
+  /** 필드 오류 코드 (REQUIRED·TOO_LONG·OUT_OF_RANGE·NOT_ALLOWED …) */
+  code: string;
+  /** 코드의 기준 값 (max·min·allowed·format …). 값이 있을 때만 */
+  params?: Record<string, unknown>;
+  /** 화면 문구 자리. 서버가 보내지 않으면 code를 담아 둔다 (코드별 문구 표는 따로 정한다) */
   message: string;
 }
 
+/** 오류 응답 본문: { status, code, params?, fieldErrors: [{ field, code, params? }], traceId } */
 export interface ApiErrorBody {
   status: number;
   code: string;
-  message: string;
-  fieldErrors?: FieldError[];
+  /** 코드의 상세 값 (예: WARDROBE_INSUFFICIENT의 missing·alternatives). 값이 있을 때만 */
+  params?: Record<string, unknown>;
+  fieldErrors?: { field: string; code?: string; params?: Record<string, unknown>; message?: string }[];
+  /** 요청 추적 ID (응답 헤더 X-Request-Id와 같다) */
+  traceId?: string;
+  /** 예전 서버만 보낸다 */
+  message?: string;
 }

@@ -6,6 +6,7 @@ import app.wearly.ai.application.port.in.ProviderTestUseCase;
 import app.wearly.ai.application.port.in.dto.AiSuggestionDto;
 import app.wearly.ai.application.port.in.dto.AnalyzeResultDto;
 import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
+import app.wearly.ai.application.port.out.AiImageResizePort;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.application.port.out.AiProviderPort;
 import app.wearly.ai.domain.AiCallRecord;
@@ -18,21 +19,27 @@ import app.wearly.ai.domain.AiSuggestion;
 import app.wearly.ai.domain.AiSuggestionValidator;
 import app.wearly.ai.domain.AnalysisPrompt;
 import app.wearly.ai.domain.ImageTypes;
+import app.wearly.ai.domain.ResizedImage;
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.application.ImageUpload;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.domain.FieldError;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
+import app.wearly.image.application.port.in.ImageContentUseCase;
+import app.wearly.image.application.port.in.dto.ImageContentDto;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * 사진 분석: 형식·크기 검사 → 일일 한도 확인(MyBatis 집계) → 공급자를 우선순위 순으로 시도 → 기록(JPA). 앞 공급자가 실패하면 다음 공급자로 넘어가고,
- * 실패도 각각 기록한다. 성공한 ITEM_ANALYZE만 한도에 센다 (Asia/Seoul 날짜).
+ * 사진 분석: 형식·크기 검사 → 보낼 사진 줄이기(긴 변 wearly.ai.image-max-side) → 일일 한도 확인(MyBatis 집계) → 공급자를 우선순위 순으로
+ * 시도 → 기록(JPA). 앞 공급자가 실패하면 다음 공급자로 넘어가고, 실패도 각각 기록한다. 성공한 ITEM_ANALYZE만 한도에 센다 (Asia/Seoul 날짜).
+ * 기록의 image_bytes·image_sha256은 실제로 보낸(줄인) 사진 기준이다.
  */
 @Service
 public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCase {
@@ -41,12 +48,18 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
 
   private static final Logger log = LoggerFactory.getLogger(AiAnalysisService.class);
 
+  /** 한도·장애 응답의 params: 어느 기능인지 (코디 추천과 문구를 나눌 수 있게) */
+  private static final Map<String, Object> FEATURE_PARAMS =
+      Map.of("feature", AiCallRecord.FEATURE_ITEM_ANALYZE);
+
   private final AiProviderRegistry registry;
   private final AiProviderPort providers;
   private final CodeCatalog catalog;
   private final AiQuotaService quota;
   private final AiCallRunner runner;
   private final AiSettings settings;
+  private final ImageContentUseCase storedImages;
+  private final AiImageResizePort resizer;
 
   public AiAnalysisService(
       AiProviderRegistry registry,
@@ -54,13 +67,17 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
       CodeCatalog catalog,
       AiQuotaService quota,
       AiCallRunner runner,
-      AiSettings settings) {
+      AiSettings settings,
+      ImageContentUseCase storedImages,
+      AiImageResizePort resizer) {
     this.registry = registry;
     this.providers = providers;
     this.catalog = catalog;
     this.quota = quota;
     this.runner = runner;
     this.settings = settings;
+    this.storedImages = storedImages;
+    this.resizer = resizer;
   }
 
   @Override
@@ -71,12 +88,12 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
     AiQuotaService.Reservation reservation =
         quota
             .reserve(userId, AiCallRecord.FEATURE_ITEM_ANALYZE, limit)
-            .orElseThrow(() -> new ApiException(ErrorCode.AI_LIMIT_EXCEEDED));
+            .orElseThrow(() -> new BusinessException(ErrorCode.AI_LIMIT_EXCEEDED, FEATURE_PARAMS));
     try {
       List<AiModelPort> candidates = registry.candidates();
       if (candidates.isEmpty()) {
         log.warn("AI 분석 불가: 쓸 수 있는 AI 공급자가 없음 (관리자 화면에서 공급자·모델·키 환경변수를 확인)");
-        throw new ApiException(ErrorCode.AI_UNAVAILABLE);
+        throw new BusinessException(ErrorCode.AI_UNAVAILABLE, FEATURE_PARAMS);
       }
       CodeSnapshot codes = catalog.current();
       AiCallRunner.Call call =
@@ -88,7 +105,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
       AiCallRunner.Attempt<AiSuggestion> ok =
           runner
               .first(candidates, call, json -> suggestion(json, codes))
-              .orElseThrow(() -> new ApiException(ErrorCode.AI_UNAVAILABLE));
+              .orElseThrow(() -> new BusinessException(ErrorCode.AI_UNAVAILABLE, FEATURE_PARAMS));
       int remaining = (int) Math.max(0, limit - reservation.used());
       return new AnalyzeResultDto(
           AiSuggestionDto.from(ok.value()), ok.provider(), ok.model(), remaining);
@@ -98,8 +115,17 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   }
 
   @Override
+  public AnalyzeResultDto analyzeStored(long userId, String imageId) {
+    ImageContentDto stored = storedImages.readOriginal(userId, imageId);
+    return analyze(
+        userId,
+        new ImageUpload(stored.bytes(), stored.contentType(), stored.bytes().length, true, false));
+  }
+
+  @Override
   public ProviderTestResultDto test(long adminUserId, String providerId, ImageUpload upload) {
-    AiProviderSetting setting = providers.findById(providerId).orElseThrow(ApiException::notFound);
+    AiProviderSetting setting =
+        providers.findById(providerId).orElseThrow(BusinessException::notFound);
     AiImage image = readImage(upload);
     AiModelPort provider;
     try {
@@ -157,22 +183,31 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
     return quota.successToday(userId, AiCallRecord.FEATURE_ITEM_ANALYZE);
   }
 
-  /** 검사 순서: 파트 없음·빈 파일 → 10MB 초과 → 읽기 실패 → 형식 */
-  private static AiImage readImage(ImageUpload file) {
+  /**
+   * 검사 순서: 파트 없음·빈 파일 → 10MB 초과 → 읽기 실패 → 형식. 통과하면 공급자에 보낼 크기로 줄인다 (이미 작거나 줄일 수 없으면 그대로). 검사는 올린
+   * 원본으로 한다
+   */
+  private AiImage readImage(ImageUpload file) {
     if (file == null || file.isEmpty()) {
-      throw ApiException.validation("image", "사진을 올려 주세요.");
+      throw BusinessException.validation(FieldError.required("image"));
     }
     if (file.size() > MAX_IMAGE_BYTES) {
-      throw new ApiException(ErrorCode.IMAGE_TOO_LARGE);
+      throw new BusinessException(ErrorCode.IMAGE_TOO_LARGE);
     }
     if (file.unreadable()) {
-      throw ApiException.validation("image", "사진을 읽을 수 없어요.");
+      throw BusinessException.validation(FieldError.invalidFormat("image"));
     }
     byte[] bytes = file.bytes();
     String mediaType =
         ImageTypes.resolve(file.contentType(), bytes)
             .orElseThrow(
-                () -> ApiException.validation("image", "jpeg, png, webp, heic 사진만 올릴 수 있어요."));
+                () ->
+                    BusinessException.validation(FieldError.notAllowed("image", ImageTypes.NAMES)));
+    Optional<ResizedImage> resized = resizer.shrink(bytes);
+    if (resized.isPresent()) {
+      byte[] sent = resized.get().bytes();
+      return new AiImage(sent, ResizedImage.MEDIA_TYPE, sha256(sent));
+    }
     return new AiImage(bytes, mediaType, sha256(bytes));
   }
 

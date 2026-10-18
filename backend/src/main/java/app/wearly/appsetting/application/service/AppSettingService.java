@@ -7,7 +7,7 @@ import app.wearly.appsetting.application.port.in.dto.ThemeSettingDto;
 import app.wearly.appsetting.application.port.out.AppSettingPort;
 import app.wearly.appsetting.domain.AppThemes;
 import app.wearly.appsetting.domain.ThemeSetting;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import java.time.Clock;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +40,7 @@ public class AppSettingService implements AppSettingUseCase {
   @Override
   @Transactional
   public ThemeChangeDto changeTheme(long adminId, String themeId) {
-    ApiException.throwIfAny(AppThemes.validate(themeId));
+    BusinessException.throwIfAny(AppThemes.validate(themeId));
     ThemeSetting before = current();
     if (before.themeId().equals(themeId)) {
       ThemeSettingDto same = ThemeSettingDto.from(before);

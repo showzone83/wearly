@@ -18,10 +18,12 @@ public class WeatherCallLogEntity {
   @Column(name = "call_id")
   private Long callId;
 
-  @Column(name = "run_id", nullable = false)
+  /** 실행 밖 호출(ON_DEMAND·SEARCH·CLIMATE)이면 null */
+  @Column(name = "run_id")
   private Long runId;
 
-  @Column(name = "region_code", nullable = false, length = 30)
+  /** REGION 코드, 격자 키, 검색이면 null */
+  @Column(name = "region_code", length = 30)
   private String regionCode;
 
   @Column(name = "provider_code", nullable = false, length = 20)
@@ -57,7 +59,7 @@ public class WeatherCallLogEntity {
   protected WeatherCallLogEntity() {}
 
   public WeatherCallLogEntity(
-      long runId,
+      Long runId,
       String regionCode,
       String providerCode,
       String callKind,

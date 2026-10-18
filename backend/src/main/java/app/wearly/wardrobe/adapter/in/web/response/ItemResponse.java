@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * 05 문서 6장 ItemDto (앱 WardrobeItem에서 imageUri를 뺀 모양). ID는 문자열, createdAt·retiredAt은 ISO-8601 UTC.
- * 사용 중이면 retiredAt·retireReason·retireMemo가 null (13 문서 3장)
+ * 사용 중이면 retiredAt·retireReason·retireMemo가 null (13 문서 3장). image는 서버에 저장한 대표 사진, 없으면 null (18 문서)
  */
 public record ItemResponse(
     String id,
@@ -27,7 +27,8 @@ public record ItemResponse(
     String createdAt,
     String retiredAt,
     String retireReason,
-    String retireMemo) {
+    String retireMemo,
+    ItemImageResponse image) {
 
   public static ItemResponse from(ItemDto d) {
     return new ItemResponse(
@@ -47,6 +48,7 @@ public record ItemResponse(
         Times.iso(d.createdAt()),
         Times.iso(d.retiredAt()),
         d.retireReason(),
-        d.retireMemo());
+        d.retireMemo(),
+        ItemImageResponse.from(d.image()));
   }
 }

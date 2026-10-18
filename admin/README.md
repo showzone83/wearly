@@ -27,7 +27,7 @@ docker로 띄우기: 저장소 루트에서 `docker compose up -d --build`를 �
 npm run build        # tsc -b + vite build → dist/
 npm run lint         # 코드 규칙 검사. import 순서·빈 줄은 npm run lint -- --fix로 고친다
 npm run test:lint-rules   # 로컬 ESLint 규칙(eslint-rules/)과 import 그룹 설정 단위 테스트
-npm run test:unit        # 화면 없이 도는 순수 함수 테스트(tests/*.test.mjs: modelPicker, userAgent)
+npm run test:unit        # 화면 없이 도는 순수 함수 테스트(tests/*.test.mjs: errorText, modelPicker, userAgent, weather)
 ```
 
 ## 관리자 계정 만들기
@@ -54,9 +54,23 @@ wearly:
 | AI 공급자 | 목록(키 출처·사용 가능 여부·오늘 성공/실패), 사용 켜기/끄기, 우선순위 위·아래, 추가·수정(종류·**모델 드롭다운**·서버 설정 키 이름·우선순위·옵션), **API 키 웹 입력**, 삭제, **시험 분석** |
 | AI 분석 기록 | 공급자·상태·회원 이메일·기간 필터, 표, 행을 누르면 결과 JSON 전체 |
 | 회원 | 이메일·이름 검색, 상태·역할 필터, 정지·해제, 관리자 지정·해제 (자기 자신은 정지·해제 불가) |
-| 날씨 | doc/17 6장. **스케줄**(켜기·주기·예보 일수·차단 기준, 예상 월 호출 수, 지금 실행, 최근 실행), **공급자**(사용·상태·키 상태·차단 해제·월 사용량·수정·시험 호출), **호출 이력**(요약·필터·상세), **저장된 날씨**(지역별 값·앱 응답 미리보기·원본·이 지역 새로 받기). 순수 함수는 `lib/weather.ts`(`tests/weather.test.mjs`) |
+| 날씨 | doc/17 6장. **스케줄**(켜기·주기·예보 일수·차단 기준, 예상 월 호출 수, 지금 실행, 최근 실행), **공급자**(사용·상태·키 상태·차단 해제·월 사용량·수정·시험 호출, 아래에 **Open-Meteo 보조 공급자 카드**: 평년값·장소 검색의 이번 달 호출 수와 비상업 안내), **호출 이력**(요약·필터·상세, **종류** 칸·필터 = 정기·수동 실행 / 다른 장소 날씨 / 장소 검색 / 평년값을 서버 `callKind`로 거름, 격자 좌표는 "좌표 35.7, 139.7"로 표시, 요약에 보조 공급자 호출 수), **저장된 날씨**(지역별 값·앱 응답 미리보기·원본·이 지역 새로 받기). 순수 함수는 `lib/weather.ts`(`tests/weather.test.mjs`) |
 | 앱 설정 | **테마**(doc/12 3·6장): 냥깨비·Closeta 카드(이름·설명·색 견본 18개·작은 앱 화면 미리보기·마스코트 6자세), 현재 적용 중 배지, 마지막 변경 시각·관리자, "이 테마로 바꾸기" → 확인 대화상자 → `PUT /admin/app/theme`. 사용자가 앱을 다시 열거나 앱으로 돌아오면 반영된다. 백엔드가 아직 API를 모르면(404) 안내를 띄우고 미리보기만 보여 준다 |
 | 변경 이력 | 대상(코드·AI 공급자·회원·앱 설정·로그인 세션·날씨)별 목록, 행을 누르면 변경 전·후 JSON. 목록에 모르는 대상 종류가 오면 탭이 따로 생긴다. 테마 변경은 '냥깨비 → Closeta'처럼 보인다 |
+
+### 오류 표시 규칙 (doc/20)
+
+서버 오류 응답에는 문장이 없다(`{ status, code, params?, fieldErrors: [{ field, code, params? }], traceId }`). 화면에 오류를 보일 때는 **`e.message`를 그대로 쓰지 않고** `src/lib/errorText.ts`를 거친다.
+
+| 함수·표 | 쓰임 |
+|---|---|
+| `errorText(e)` | 한 줄 문구. `SERVER_ERROR_TEXT`/`CLIENT_ERROR_TEXT` 표 → 없으면 상태별 기본 문구(`statusText`). `VALIDATION_FAILED`는 필드 오류를 `field: 문구 / …`로 덧붙인다 |
+| `fieldErrorText(f)`·`fieldErrorOf`·`fieldErrorMap`·`fieldErrorsLine` | 입력칸 아래 필드 오류. 필드 오류 코드(`FIELD_ERROR_TEXT`)와 `params`(`min`·`max`·`allowed`·날짜 범위·바이트 등)로 문구를 만든다 |
+| `apiKeyReasonText`·`codeUsagesText` | `API_KEY_INVALID.reason`, `CODE_IN_USE.usages`(옷·프로필·세부 종류·예정 코디 N개) |
+| `isSystemError`·`systemTraceId`·`traceLabel`·`errorTextWithTrace` | **5xx**만 "오류 번호 ab12cd34"(`traceId` 앞 8자). 토스트(`useToastStore.showError`)와 `ErrorBox`가 보이고 누르면 전체 `traceId`를 복사한다. 글자만 쓰는 곳은 끝에 " (오류 번호 …)"를 붙인다 |
+
+- 토스트는 `const toastError = useToastStore((s) => s.showError)`로 API 오류를 넘기면 문구와 오류 번호를 붙인다.
+- 새 서버 오류 코드·필드 오류 코드가 `error-codes.json`에 생기면 `SERVER_ERROR_TEXT`/`FIELD_ERROR_TEXT`에 문구를 더해야 한다. 빠지면 `npm run test:unit`(`tests/errorText.test.mjs`)이 실패한다. 관리자 화면과 무관한 코드는 `null`로 두고 이유를 주석으로 적는다. 순서는 doc/20 8장.
 
 ### 코드 속성 폼
 
@@ -64,7 +78,7 @@ wearly:
 - **세부 종류(SUB_TYPE)**: 상위 종류, 볼륨(-1·0·1), 보온(0~3), 일러스트 모양(앱이 아는 목록 또는 직접 입력) + **옷 일러스트 미리보기**. 앱이 모르는 모양 키면 앱과 같은 규칙으로 상위 종류의 기본 모양을 그리고 그 사실을 알려 준다. 미리보기 색은 색 칩으로 바꿀 수 있다(저장 안 됨).
 - **색상(COLOR)**: hex 색 선택기 + 직접 입력, 뉴트럴, 밝기 슬라이더(hex로 계산한 제안값 '적용'), 어울리는 색 다중 선택(색 칩). 저장하면 서버가 상대 색에도 양방향으로 반영한다.
 - **보유 상태(ITEM_STATUS)**: 코디 추천에 넣기(`recommendable`).
-- 서버 검증 오류(`fieldErrors`의 `attrs.hex`, `attrs.pairs[1]` 같은 경로)는 해당 입력칸 아래에 표시한다.
+- 서버 검증 오류(`fieldErrors`의 `attrs.hex`, `attrs.pairs[1]` 같은 경로)는 해당 입력칸 아래에 필드 오류 코드의 문구로 표시한다 (위 "오류 표시 규칙").
 
 ### API 키 웹 입력 (doc/07 6장)
 
@@ -98,12 +112,13 @@ admin/
     api/                   관리자 API 클라이언트와 계약 타입 (앱 코드를 import하지 않음)
       client.ts            토큰 갱신 single-flight, 응답 정규화
       tokenStore.ts        sessionStorage (wearly-admin-tokens, wearly-admin-user)
-      types.ts · errors.ts · index.ts
+      types.ts · errors.ts(ApiError: code·params·fieldErrors·traceId) · index.ts
     stores/                zustand 스토어: useAuthStore(로그인 사용자·상태, 로그인·로그아웃, 로그인 잃음 처리), useToastStore(토스트)
     components/            Layout(왼쪽 메뉴), ui(버튼·표·패널 등), Garment(일러스트·색 칩), Toaster(토스트 표시),
                            Mascot(마스코트 PNG), ThemePreview(색 견본·작은 앱 화면)
     lib/                   queryClient(React Query 캐시), garment(앱 일러스트 데이터 래퍼), appTheme(앱 테마·마스코트 데이터 래퍼),
-                           queries(TanStack Query 키·훅), format, providerTypes, modelPicker(모델 드롭다운의 순수 함수)
+                           queries(TanStack Query 키·훅), format, providerTypes, modelPicker(모델 드롭다운의 순수 함수),
+                           errorText(오류 코드 → 한국어 문구·오류 번호, 위 "오류 표시 규칙"), weather(날씨 화면 순수 함수: 호출 종류·격자 좌표·보조 공급자)
     pages/                 Dashboard · codes/ · providers/(ApiKeySection = API 키 웹 입력, ModelPicker = 모델 드롭다운) · AiLogs · Users · AppTheme · AuditLogs · Login
 ```
 

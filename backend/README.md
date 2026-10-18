@@ -9,20 +9,24 @@
 - [`doc/09_AI_코디_추천.md`](../doc/09_AI_코디_추천.md) — 4차: AI 코디 추천 API (`POST /outfits/recommendations`)
 - [`doc/12_디자인_테마.md`](../doc/12_디자인_테마.md) 3장 — 6차: 앱 설정(전체 사용자 테마) `GET /app/config`, `GET·PUT /admin/app/theme`
 - [`doc/13_옷_사용_중지.md`](../doc/13_옷_사용_중지.md) — 6차: 사용하지 않는 옷(`retire`·`restore`, `retired` 필터, 통계) · 완전 삭제
+- [`doc/18_사진_저장.md`](../doc/18_사진_저장.md) — 옷 사진 서버 저장: S3 호환 저장소(로컬 MinIO), 서명 URL 올리기·받기, `/images/**`, 아이템 `image`·`imageId`, `analyze {imageId}`, 클라우드 전환
+- [`doc/20_오류_응답.md`](../doc/20_오류_응답.md) — 오류 응답: 문장 없이 `{ status, code, params?, fieldErrors, traceId }`, 오류 분류(기본·업무·시스템), `traceId`(`X-Request-Id`·MDC·로그 패턴), `error-codes.json` 카탈로그와 앱·관리자 문구 표 일치 검사, 새 코드 추가 순서
+- [`doc/21_예정_코디_저장.md`](../doc/21_예정_코디_저장.md) — 예정 코디 서버 저장: `GET·POST·PATCH·DELETE /plans`, `POST /plans/bulk`, 검증·`PLAN_LIMIT`(500개)·`missingItemIds`, V14, 앱 동기화 규칙
 - [`doc/16_세션_Valkey.md`](../doc/16_세션_Valkey.md) — 7차: Refresh 토큰·로그인 세션을 Valkey로, Access 토큰 `sid` 확인, 관리자 로그인 사용자 보기·강제 로그아웃
 
 | 항목 | 값 |
 |---|---|
 | Spring Boot | 4.1.1 (Java 21 toolchain, Gradle 9.8.1 wrapper, Kotlin DSL) |
 | 데이터 접근 | Spring Data JPA (Hibernate 7.4) + MyBatis (mybatis-spring-boot-starter 4.1.0) |
-| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V10) |
+| DB | PostgreSQL 17 + pgvector, 스키마는 Flyway (`src/main/resources/db/migration`, V1~V14) |
+| 사진 저장소 | S3 호환 오브젝트 스토리지: AWS SDK v2 `S3Client`·`S3Presigner`. 로컬은 MinIO 포크 `pgsty/minio`, 운영은 AWS S3·Cloudflare R2·네이버 클라우드. 사진 처리는 JDK ImageIO + metadata-extractor (18 문서) |
 | 세션 저장소 | Valkey 9.1 (Redis 호환), `spring-boot-starter-data-redis`(Lettuce). Refresh 토큰·로그인 세션 (16 문서) |
 | 인증 | Spring Security OAuth2 Resource Server, JWT HS256 (Nimbus) + 매 요청 `sid` 세션 확인 |
 | AI | Claude: Anthropic Java SDK 2.73.0 / OpenAI·Gemini: 각 사 REST API를 Spring `RestClient`로 (SDK 없음) |
 | 구조 | 헥사고날 (컨텍스트별 domain · application · adapter), 규칙은 ArchUnit 1.5.1 테스트 |
 | 키 암호화 | AES-256-GCM (JDK `javax.crypto`), 마스터 키 `wearly.secret-key` (환경변수 `WEARLY_SECRET_KEY`) |
 | 설정 | 공통 `application.yml` + 로컬 비밀 `config/application-local.yml` (git 제외, `.env` 쓰지 않음, 08 문서 6장) |
-| 로컬 실행 | 루트 `docker-compose.yml`: db · valkey · backend · admin |
+| 로컬 실행 | 루트 `docker-compose.yml`: db · valkey · minio(+ minio-init) · backend · admin |
 | 코드 스타일 | Google Java Style: Spotless 8.10.4 + google-java-format 1.36.1, Checkstyle 14.3.0 (`config/checkstyle/google_checks.xml`) |
 
 ## 실행
@@ -35,28 +39,29 @@ cp config/application-local.example.yml config/application-local.yml   # AI 키�
 chmod 600 config/application-local.yml
 ```
 
-### 전체 실행: docker compose (DB · Valkey · 백엔드 · 관리자 사이트)
+### 전체 실행: docker compose (DB · Valkey · MinIO · 백엔드 · 관리자 사이트)
 
 저장소 루트에서:
 
 ```bash
-docker compose up -d --build              # 전체 빌드·실행: db(5433) · valkey(6380) · backend(8080) · admin(5173)
-docker compose logs -f backend            # 백엔드 로그 보기 (admin, db, valkey도 같은 방식)
+docker compose up -d --build              # 전체 빌드·실행: db(5433) · valkey(6380) · minio(9000·9001) · backend(8080) · admin(5173)
+docker compose logs -f backend            # 백엔드 로그 보기 (admin, db, valkey, minio도 같은 방식)
 docker compose up -d --build backend      # 백엔드만 다시 빌드·재시작 (코드 수정 후)
-docker compose down                       # 중지 (DB 데이터는 wearly-pgdata, 로그인 세션은 wearly-valkeydata 볼륨에 남음)
+docker compose down                       # 중지 (DB 데이터는 wearly-pgdata, 로그인 세션은 wearly-valkeydata, 옷 사진은 wearly-miniodata 볼륨에 남음)
 ```
 
 - **앱(Expo)은 compose에 없다.** 시뮬레이터·휴대폰이 Mac의 Metro에 붙어야 하므로 Mac에서 `cd mobile && npx expo start`를 따로 띄운다. 앱은 `http://<Mac>:8080`의 compose 백엔드를 그대로 쓴다.
 - 백엔드 이미지(`backend/Dockerfile`): 빌드는 `eclipse-temurin:21-jdk`에서 `./gradlew bootJar -x test`(Gradle 캐시는 BuildKit 캐시 마운트), 실행은 `eclipse-temurin:21-jre`의 비루트 사용자 `wearly`, 작업 디렉터리 `/app`. 이미지 빌드에서는 테스트를 돌리지 않으니 테스트는 Mac에서 `./gradlew test`.
-- compose는 `--spring.profiles.active=docker`로 띄운다 (`application-docker.yml`: DB 주소 `db:5432`, Valkey `valkey:6379`, 비밀 값 없음). 비밀 값은 `backend/config/` 폴더를 `/app/config`에 **읽기 전용으로 마운트**해서 `application-local.yml`을 읽는다. `backend/.dockerignore`가 이 파일을 빼므로 이미지에는 들어가지 않는다.
-- 헬스체크는 `/actuator/health`(Valkey 상태 포함). 시작 순서는 db·valkey(healthy) → backend → admin.
+- compose는 `--spring.profiles.active=docker`로 띄운다 (`application-docker.yml`: DB 주소 `db:5432`, Valkey `valkey:6379`, 사진 저장소 `http://minio:9000`, 비밀 값 없음). 비밀 값은 `backend/config/` 폴더를 `/app/config`에 **읽기 전용으로 마운트**해서 `application-local.yml`을 읽는다. `backend/.dockerignore`가 이 파일을 빼므로 이미지에는 들어가지 않는다.
+- 헬스체크는 `/actuator/health`(Valkey 상태 포함). 시작 순서는 db·valkey·minio(healthy)·minio-init(버킷 만들기 끝) → backend → admin.
+- MinIO(옷 사진, 18 문서): 이미지 `pgsty/minio:RELEASE.2026-08-04T00-00-00Z`(공식 `minio/minio`는 받을 수 없어 커뮤니티 포크를 쓴다), 컨테이너 `wearly-minio`, S3 API 9000·웹 콘솔 9001(http://localhost:9001), 로컬 전용 계정 `wearly` / `wearly-minio-local`, 볼륨 `wearly-miniodata`, CORS는 환경변수 `MINIO_API_CORS_ALLOW_ORIGIN`. `minio-init`(`pgsty/mc`)이 비공개 버킷 `wearly-images`를 만들고 끝난다(Exited 0). 들여다보기는 doc/14 8장.
 - Valkey: 이미지 `valkey/valkey:9.1`, 컨테이너 `wearly-valkey`, 호스트 6380, AOF(`--appendonly yes`), 헬스체크 `valkey-cli ping`. 들여다보기는 `docker exec -it wearly-valkey valkey-cli` (doc/14 7장).
 - 관리자 사이트(`admin/Dockerfile`, 빌드 컨텍스트는 저장소 루트)는 nginx가 빌드 결과를 서빙한다. API 주소는 빌드 인자 `VITE_API_URL`(기본 `http://localhost:8080`). 관리자 사이트를 vite(`npm run dev`, 5173)로 띄울 때는 포트가 겹치므로 `docker compose up -d --build db backend`만 띄운다.
 
 ### Mac에서 직접 실행
 
 ```bash
-docker compose up -d db valkey   # 저장소 루트에서 DB(localhost:5433, DB·계정·비밀번호 wearly)와 Valkey(localhost:6380)만
+docker compose up -d db valkey minio minio-init   # 저장소 루트에서 DB(localhost:5433, DB·계정·비밀번호 wearly)·Valkey(localhost:6380)·사진 저장소 MinIO(localhost:9000)만
 cd backend
 ./gradlew bootRun         # 관리자 화면의 AI 공급자 설정(DB)대로 사진 분석
 ./gradlew bootRunMock     # 목업 공급자로 사진 분석 (키 불필요, WEARLY_AI_PROVIDER=mock)
@@ -65,7 +70,7 @@ cd backend
 compose의 backend가 떠 있으면 8080이 겹치므로 먼저 `docker compose stop backend`.
 
 - 서버: `http://localhost:8080`, API 기본 경로 `/api/v1`, 상태 확인 `GET /actuator/health`
-- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움) → `V8__app_setting.sql`(6차: 앱 설정 `tb_app_setting`, 초기 테마 `nyang`) → `V9__wardrobe_item_retire.sql`(6차: 옷 사용 중지 컬럼 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스, 코드 그룹 `RETIRE_REASON` 5개) → `V10__auth_session_valkey.sql`(7차: `tb_refresh_token` 삭제 — 기존 로그인은 끊김, 로그인 이력 `tb_auth_event`)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
+- 처음 뜰 때 Flyway가 `V1__init.sql` → `V2__codes.sql`(코드 테이블 + 초기값 102개) → `V3__admin_ai.sql`(역할·AI 공급자·변경 이력) → `V4__ai_provider_secret.sql`(웹 입력 AI 키 암호문) → `V5__outfit_recommend.sql`(AI 기록 feature에 `OUTFIT_RECOMMEND`, 한도 인덱스를 기능별로) → `V6__ai_usage_reservation.sql`(5차: 진행 중 AI 호출 예약, 동시 요청 한도) → `V7__ai_log_summary.sql`(5차: feature를 형식 CHECK로, 기록 요약 `result_summary` 추가·기존 행 채움) → `V8__app_setting.sql`(6차: 앱 설정 `tb_app_setting`, 초기 테마 `nyang`) → `V9__wardrobe_item_retire.sql`(6차: 옷 사용 중지 컬럼 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스, 코드 그룹 `RETIRE_REASON` 5개) → `V10__auth_session_valkey.sql`(7차: `tb_refresh_token` 삭제 — 기존 로그인은 끊김, 로그인 이력 `tb_auth_event`) → `V11__weather.sql`(날씨, 17 문서) → `V12__item_image_storage.sql`(옷 사진: V1의 빈 `tb_item_image`를 지우고 다시 만듦, 18 문서) → `V13__place_weather.sql`(장소별 날씨: `tb_weather_place_snapshot`·`tb_weather_climate`, `tb_weather_call_log`의 `run_id`·`region_code` NULL 허용과 `call_kind` 4종, 19 문서)을 적용한다. 1차 DB에 있던 데이터는 그대로 쓴다 (기존 값은 모두 새 코드에 있다). JPA는 `ddl-auto: validate`.
 - **AI 공급자 고르기** (07 문서 3장)
   - `bootRunMock`(`WEARLY_AI_PROVIDER=mock`)이면 언제나 목업. DB 설정은 무시한다.
   - 그 밖(`bootRun`, 기본 `db`)에는 `tb_ai_provider`에서 사용(`enabled`)·모델·키를 모두 갖춘 공급자를 `priority` 순으로 시도하고, 실패(시간 초과·HTTP 오류·응답 검증 실패)하면 다음 공급자로 넘어간다.
@@ -117,6 +122,8 @@ wearly:
 | `WEARLY_AI_DAILY_LIMIT` | `wearly.ai.daily-limit` | `10` | 회원별 하루 사진 분석 횟수 (Asia/Seoul 날짜, 성공만, 관리자 시험 분석 제외) |
 | `WEARLY_AI_OUTFIT_DAILY_LIMIT` | `wearly.ai.outfit-daily-limit` | `20` | 회원별 하루 AI 코디 추천 횟수 (사진 분석과 따로 센다, Asia/Seoul 날짜, 성공만) |
 | `WEARLY_AI_TIMEOUT` | `wearly.ai.timeout` | `PT60S` | 공급자 호출 제한 시간 기본값. 공급자 `options.timeoutSeconds`가 있으면 그 값 |
+| `WEARLY_AI_IMAGE_MAX_SIDE` | `wearly.ai.image-max-side` | `1024` | 사진 분석에서 AI 공급자에 보내기 전에 줄이는 긴 변 픽셀 (64~8192, multipart·`{imageId}` 모두). 이미 작거나 JPEG·PNG가 아니면 그대로 보낸다. 18 문서 3.1·7.4 |
+| `WEARLY_AI_IMAGE_QUALITY` | `wearly.ai.image-quality` | `0.8` | 줄인 사진의 JPEG 품질 (0.1~1.0) |
 | `WEARLY_AI_ALLOW_BASE_URL` | `wearly.ai.allow-base-url` | `false` | `true`일 때만 공급자 `options.baseUrl`(API 주소 바꾸기)을 허용. 키가 다른 주소로 갈 수 있어 운영에서는 끈다 |
 | (환경변수 없음) | `wearly.ai.model-catalog.<CLAUDE\|OPENAI\|GEMINI>` | `application.yml`의 Claude 3개 | 공급자 종류별 내장 모델 목록 `[{ id, display-name, recommended }]`. 관리자 모델 드롭다운이 키가 없거나 제공사 목록을 받지 못했을 때 보여 주고, 제공사 목록에서도 같은 ID에 추천 표시를 붙인다. 종류 이름은 대소문자 무시, 모르는 종류·형식이 틀린 ID는 시작 실패 (doc/07 4장) |
 | `ANTHROPIC_API_KEY` | `wearly.ai.keys.ANTHROPIC_API_KEY` | (없음) | Claude 키. 처음 상태의 `claude` 행이 가리키는 이름. yml 값이 먼저 |
@@ -126,12 +133,44 @@ wearly:
 | `WEARLY_ADMIN_NAME` | `wearly.admin.name` | `관리자` | 새로 만들 때의 이름 |
 | `WEARLY_SECRET_KEY` | `wearly.secret-key` | (없음) | 웹에서 넣은 AI 키를 암호화하는 마스터 키. **base64로 인코딩한 32바이트** (`openssl rand -base64 32`). 없으면 웹 키 입력이 꺼진다 |
 | `WEARLY_LOCAL_CONFIG` | — | `./config/application-local.yml` | 로컬 비밀 설정 파일 경로 |
+| `WEARLY_STORAGE_ENDPOINT` | `wearly.storage.endpoint` | `http://localhost:9000` | 사진 저장소 주소 (백엔드가 붙는 주소. compose는 `http://minio:9000`, AWS S3는 비움). 18 문서 3장 |
+| `WEARLY_STORAGE_REGION` | `wearly.storage.region` | `us-east-1` | 서명 리전 (R2 `auto`, AWS `ap-northeast-2` …) |
+| `WEARLY_STORAGE_BUCKET` | `wearly.storage.bucket` | `wearly-images` | 버킷 이름 (비공개) |
+| `WEARLY_STORAGE_ACCESS_KEY` / `WEARLY_STORAGE_SECRET_KEY` | `wearly.storage.access-key` / `secret-key` | `wearly` / `wearly-minio-local` | 로컬 MinIO 계정 (로컬 전용). 클라우드 키는 `application-local.yml`·배포 비밀 관리에. AWS는 비우면 기본 자격 증명 체인 |
+| `WEARLY_STORAGE_PATH_STYLE` | `wearly.storage.path-style` | `true` | MinIO·R2·NCP true, AWS S3 false |
+| `WEARLY_STORAGE_PUBLIC_ENDPOINT` | `wearly.storage.public-endpoint` | (빔) | 서명 URL 주소. 비우면 요청 Host 이름 + `endpoint` 포트(로컬 시뮬레이터 localhost, 휴대폰 LAN IP). **R2·NCP 같은 클라우드는 `endpoint`와 같은 값을 꼭 넣는다** |
+| `WEARLY_STORAGE_AUTO_CREATE_BUCKET` | `wearly.storage.auto-create-bucket` | `false` | true면 시작 때 버킷이 없으면 만든다 (테스트·하네스용) |
+| `WEARLY_STORAGE_UPLOAD_URL_TTL` | `wearly.storage.upload-url-ttl` | `PT10M` | 업로드(PUT) 서명 URL 수명 |
+| `WEARLY_STORAGE_DOWNLOAD_URL_TTL` | `wearly.storage.download-url-ttl` | `PT1H` | 받기(GET) 서명 URL 수명 |
+| `WEARLY_STORAGE_MAX_UPLOAD_BYTES` | `wearly.storage.max-upload-bytes` | `10MB` | 올릴 수 있는 최대 크기 (complete에서 검사) |
+| `WEARLY_STORAGE_DAILY_UPLOAD_LIMIT` | `wearly.storage.daily-upload-limit` | `200` | 회원별 하루 upload-url 발급 수 (Asia/Seoul 날짜, 상태 무관) |
+| `WEARLY_STORAGE_MAX_PIXELS` | `wearly.storage.max-pixels` | `40000000` | 디코딩 전에 막는 가로×세로 상한 |
+| `WEARLY_STORAGE_PROCESSING_CONCURRENCY` | `wearly.storage.processing-concurrency` | `2` | 동시에 처리하는 사진 수 |
+| `WEARLY_STORAGE_STALE_AFTER` | `wearly.storage.stale-after` | `P1D` | 아이템에 안 붙은 사진을 정리 대상으로 보는 시간 |
+| `WEARLY_STORAGE_CLEANUP_ENABLED` | `wearly.storage.cleanup-enabled` | `true` | false면 정리 주기 작업을 끈다 (테스트·하네스) |
+| `WEARLY_STORAGE_CLEANUP_INTERVAL` | `wearly.storage.cleanup-interval` | `PT1H` | 정리 작업 간격 (시작 5분 뒤 첫 실행) |
+| `WEARLY_STORAGE_ORIGINAL_MAX_SIDE` | `wearly.storage.original-max-side` | `1600` | 저장하는 `original.jpg`의 긴 변 최대 픽셀 (64~8192). 바꿔도 이미 저장된 사진은 그대로 |
+| `WEARLY_STORAGE_ORIGINAL_QUALITY` | `wearly.storage.original-quality` | `0.8` | `original.jpg` JPEG 품질 (0.1~1.0) |
+| `WEARLY_STORAGE_THUMB_MAX_SIDE` | `wearly.storage.thumb-max-side` | `400` | 목록용 `thumb.jpg`의 긴 변 (16~4096) |
+| `WEARLY_STORAGE_THUMB_QUALITY` | `wearly.storage.thumb-quality` | `0.8` | `thumb.jpg` JPEG 품질 (0.1~1.0) |
 | `WEATHERAPI_KEY` | `wearly.weather.keys.WEATHERAPI_KEY` | (없음) | WeatherAPI.com 키 (17 문서). 없으면 날씨 공급자는 "키 없음"으로 건너뛴다 |
 | `WEARLY_WEATHER_PROVIDER` | `wearly.weather.provider` | `db` | `db`(관리자 날씨 공급자 설정) · `mock`(키 없이 목업 날씨). 그 밖은 시작 실패 |
 | `WEARLY_WEATHER_TIMEOUT` | `wearly.weather.timeout` | `PT10S` | 날씨 공급자 호출 제한 시간 |
 | `WEARLY_WEATHER_LOG_RETENTION_DAYS` | `wearly.weather.log-retention-days` | `90` | 날씨 실행·호출 이력 보관 일수 (매일 04:00 정리) |
 | `WEARLY_WEATHER_SCHEDULER_ENABLED` | `wearly.weather.scheduler-enabled` | `true` | `false`면 날씨 주기 실행·시작 실행·이력 정리를 끈다 (테스트용). 주기·예보 일수 등 운영값은 DB와 관리자 화면에 있다 |
+| `WEARLY_WEATHER_PLACE_CACHE_TTL` | `wearly.weather.place-cache-ttl` | `PT3H` | REGION 밖 좌표 예보 캐시를 그대로 쓰는 시간 (19 문서) |
+| `WEARLY_WEATHER_ON_DEMAND_DAILY_LIMIT` | `wearly.weather.on-demand-daily-limit` | `30` | 회원마다 하루(한국 날짜)에 공급자를 실제로 부르게 할 수 있는 좌표 요청 수. 넘으면 예전 캐시 → 평년값 → 429 `WEATHER_LIMIT` |
+| `WEARLY_WEATHER_SEARCH_CACHE_TTL` | `wearly.weather.search-cache-ttl` | `P1D` | 같은 검색어의 장소 검색 결과 캐시 (Valkey) |
+| `WEARLY_WEATHER_SEARCH_DAILY_LIMIT` | `wearly.weather.search-daily-limit` | `100` | 회원마다 하루에 공급자를 실제로 부르게 할 수 있는 장소 검색 수 (캐시에서 준 검색은 세지 않음) |
+| `WEARLY_WEATHER_CLIMATE_ENABLED` | `wearly.weather.climate.enabled` | `true` | 평년값(예보 밖 날짜) 사용. false면 `CLIMATE`를 주지 않는다 |
+| `WEARLY_WEATHER_CLIMATE_BASE_URL` | `wearly.weather.climate.base-url` | `https://archive-api.open-meteo.com` | Open-Meteo 과거 기상 API. 무료는 비상업용 → 상업 전환 때 유료 주소(`customer-archive-api.open-meteo.com`)·키 또는 끄기 |
+| `WEARLY_WEATHER_CLIMATE_API_KEY` | `wearly.weather.climate.api-key` | (없음) | Open-Meteo 유료 플랜 키 |
+| `WEARLY_WEATHER_CLIMATE_YEARS` | `wearly.weather.climate.years` | `10` | 평년값에 쓰는 지난 완결 연도 수 (2026년이면 2016~2025) |
+| `WEARLY_WEATHER_GEOCODING_ENABLED` | `wearly.weather.geocoding.enabled` | `true` | 장소 검색에 Open-Meteo 지오코딩(한글 검색어·한글 이름) 사용. false나 실패면 WeatherAPI 검색(영어 이름) |
+| `WEARLY_WEATHER_GEOCODING_BASE_URL` | `wearly.weather.geocoding.base-url` | `https://geocoding-api.open-meteo.com` | 지오코딩 API 주소. 상업 전환 때 `customer-geocoding-api.open-meteo.com` |
+| `WEARLY_WEATHER_GEOCODING_API_KEY` | `wearly.weather.geocoding.api-key` | (없음) | Open-Meteo 유료 플랜 키 |
 
+- 로그: `logging.pattern.level`(`application.yml`)이 모든 로그 줄에 `[traceId=… userId=…]`를 붙인다. 오류 응답의 `traceId`·응답 헤더 `X-Request-Id`로 로그를 찾는다: `docker compose logs backend | grep <traceId>` (20 문서 4장). `server.error.*`는 응답에 예외 메시지·스택·바인딩 오류를 넣지 않게 모두 끈다.
 - 1차의 `WEARLY_AI_MODEL`·`WEARLY_AI_EFFORT`는 없어졌다. 모델·effort는 관리자 화면(`tb_ai_provider.model`·`options.effort`)에서 바꾼다.
 - 공급자 행의 `api_key_env`는 **서버 설정 키 이름**이다 (관리자 화면의 '서버 설정 키'). 서버는 `wearly.ai.keys.<이름>` → 같은 이름의 환경변수 순으로 키를 찾는다. 다른 서버 비밀(DB 비밀번호·JWT 키)이 공급자에게 가지 않도록 이름은 `*_API_KEY` 형식만 허용한다.
 - 키 값은 어떤 API 응답·로그·변경 이력·예외 메시지에도 나오지 않는다. 관리자 화면에는 출처(`keySource`)와 웹 입력 키의 끝 4자(`keyLast4`)만 준다. 공급자의 인증 오류(401·403) 메시지는 키 조각이 섞일 수 있어 버린다.
@@ -255,6 +294,36 @@ LC_ALL=C.UTF-8 ./gradlew check   # spotlessCheck + checkstyleMain + checkstyleTe
 - `/wardrobe/stats`의 기존 숫자는 사용 중인 옷만 센다. 새 필드 `retired`(수), `retiredByReason: [{ reason, count }]`(많은 순, 같으면 코드 순).
 - AI 코디 추천 후보에서 빠지고, 고정·중심으로 주면 400 `VALIDATION_FAILED`("사용하지 않는 옷이에요."). 코드 삭제 가드(`CODE_IN_USE`)는 사용 중지한 옷도 센다(`retire_reason` 포함).
 
+### 옷 사진 (18 문서)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/api/v1/images/upload-url` | `{ purpose: 'ITEM', contentType: 'image/jpeg'\|'image/png', size }` → 200 `{ imageId, uploadUrl, method: 'PUT', headers, expiresAt }`. 입력 오류 400 `VALIDATION_FAILED`, 하루 한도 429 `IMAGE_UPLOAD_LIMIT` |
+| POST | `/api/v1/images/{imageId}/complete` | 서명 URL로 올린 뒤 호출 → 200 `{ imageId, url, thumbUrl, width, height, expiresAt }`. 검증·EXIF 제거·축소(1600/400 JPEG, 설정 `wearly.storage.original-max-side`·`thumb-max-side`). 400 `IMAGE_INVALID`(그 imageId는 버려짐)·`IMAGE_NOT_UPLOADED`, 남의 이미지 404 |
+| POST | `/api/v1/wardrobe/items/analyze` | multipart 그대로, 또는 JSON `{ imageId }`(내 READY 이미지) |
+| POST·PATCH | `/api/v1/wardrobe/items`(·bulk), `/{id}` | `imageId?: string \| null`을 더했다 (PATCH `null` = 사진 빼기). 409 `IMAGE_IN_USE`, PENDING은 400 `IMAGE_NOT_UPLOADED` |
+
+- 아이템 응답에 `image: { imageId, url, thumbUrl, expiresAt } | null`이 있다 (`url`·`thumbUrl`은 `download-url-ttl` 동안 유효한 GET 서명 URL).
+- 버킷은 비공개이고 앱은 서명 URL로 저장소에 직접 올리고 받는다. 아이템 완전 삭제·사진 교체·회원 탈퇴는 객체도 지운다. 안 붙은 사진은 정리 작업이 지운다.
+- 운영 저장소(AWS S3·Cloudflare R2·네이버 클라우드) 설정 예시는 `config/application-cloud.example.yml`, 전환 방법은 doc/18 8장.
+
+### 오류 응답 (20 문서)
+
+모든 오류는 `{ status, code, params?, fieldErrors: [{ field, code, params? }], traceId }`이고 **문장(`message`)은 없다.** 응답 헤더 `X-Request-Id`(보내면 형식이 맞을 때 그 값, 아니면 서버가 만든 값)가 `traceId`와 같다. 코드 36개·필드 오류 코드 21개의 기준은 `src/main/resources/error-codes.json`, 앱·관리자는 이 파일로 화면 문구 표를 맞춘다.
+
+### 예정 코디 (21 문서, `V14__planned_outfit.sql`)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/v1/plans?from=&to=` | 내 예정 목록 (날짜 → 시간대 순, `YYYY-MM-DD` 양 끝 포함). 응답에 `missingItemIds` |
+| POST | `/api/v1/plans` | 만들기 201. 같은 `clientId`의 예정이 있으면 고치고 200 |
+| POST | `/api/v1/plans/bulk` | 기기에 있던 예정을 한 번에 (최대 100개, `clientId` 필수). 요청 순서대로 `{ items, created, updated }`, 틀린 항목이 있으면 하나도 저장하지 않음 |
+| PATCH | `/api/v1/plans/{id}` | 보낸 필드만 바꾼다 (`null`은 비움, `clientId`는 무시) |
+| DELETE | `/api/v1/plans/{id}` | 204 |
+
+- 로그인 필요, 남의 예정 404. 회원당 500개, 넘으면 409 `PLAN_LIMIT`(`params.max`). 날짜는 오늘(한국) 앞뒤 1년. 코디(`outfit`)는 앱 `Outfit` 모양 그대로 JSONB에 저장하고, 서버는 `items`(칸 → 아이템 id)만 본다. 옷장에 없는 아이템은 `missingItemIds`로 알려 주고 코디는 그대로 둔다.
+- 예정이 쓰는 STYLE·REGION 코드는 삭제할 수 없다 (409 `CODE_IN_USE`, `usages`의 `kind` = `PLAN`).
+
 ### 날씨 (17 문서, 8차)
 
 | 메서드 | 경로 | 설명 |
@@ -263,10 +332,23 @@ LC_ALL=C.UTF-8 ./gradlew check   # spotlessCheck + checkstyleMain + checkstyleTe
 | GET·PUT | `/api/v1/admin/weather/settings` | 스케줄 설정 (켜기·주기·예보 일수·차단 기준·차단 시간) + 다음 실행·마지막 실행 |
 | GET·PATCH | `/api/v1/admin/weather/providers[/{code}]` | 공급자 설정·상태·이번 달 사용량. `POST …/reset` 차단 해제, `POST …/test` 시험 호출 |
 | POST | `/api/v1/admin/weather/refresh` | 지금 실행 (202 `{runId}`). 409 `WEATHER_REFRESH_RUNNING`·`WEATHER_NO_PROVIDER` |
-| GET | `/api/v1/admin/weather/runs[/{runId}]`, `/calls`, `/calls/summary`, `/snapshots[/{region}]` | 실행·호출 이력, 요약, 저장된 날씨 |
+| GET | `/api/v1/admin/weather/runs[/{runId}]`, `/calls`, `/calls/summary`, `/snapshots[/{region}]` | 실행·호출 이력(`/calls`는 `callKind` = `FORECAST`·`ON_DEMAND`·`SEARCH`·`CLIMATE` 필터, 틀린 값 400), 요약(`/calls/summary`의 `auxiliaryMonths` = Open-Meteo 평년값·장소 검색의 이번 달 호출 수), 저장된 날씨 |
 
 - 서버가 활성 REGION 지역의 날씨를 주기적으로 받아 `tb_weather_snapshot`에 둔다. 앱 요청은 외부 API를 부르지 않는다. 실행은 Valkey 잠금(`wearly:weather:refresh:lock`)으로 한 번에 하나만 돈다.
 - 키 없이 화면을 보려면 `WEARLY_WEATHER_PROVIDER=mock ./gradlew bootRun`.
+
+### 장소별 날씨 (19 문서, 앱 예정일 코디)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/v1/weather/day?region=&date=` | 인증 불필요(틀린 토큰은 무시). 한 지역·한 날짜의 날씨. 저장된 스냅샷만 읽는다. 예보에 그 날이 있으면 `FORECAST`, 없으면 그 달 평년값 `CLIMATE`. 400(`date` 오늘~1년·`region`), 예보도 평년값도 없으면 503 `WEATHER_UNAVAILABLE` |
+| GET | `/api/v1/weather/day?lat=&lon=&date=` | 로그인 필요(없으면 401). REGION 밖 좌표. 격자(소수 첫째 자리) 캐시 3시간, 오래됐으면 공급자를 한 번 부른다. 회원 하루 한도 초과 → 예전 캐시 → 평년값 → 429 `WEATHER_LIMIT`(`params.kind: ON_DEMAND`) |
+| GET | `/api/v1/weather/places?q=` | 로그인 필요. 장소 검색(시·도 이름 맞추기 → Open-Meteo 지오코딩 → 실패 시 WeatherAPI 검색), 최대 10개, 1일 캐시 |
+
+- 좌표 응답의 `place.regionCode`는 `null`, `lat`·`lon`은 격자 좌표다. 평년값은 Open-Meteo 과거 기상 API에서 지난 10개 완결 연도로 처음 필요할 때 계산해 `tb_weather_climate`에 12개월을 저장하고 400일 뒤 다시 계산한다.
+- Valkey 키: `wearly:weather:lock:place:<격자>`·`…:lock:climate:<격자>`(60초 잠금), `wearly:weather:usage:<ON_DEMAND|SEARCH>:<날짜>:<userId>`(회원 하루 사용량), `wearly:weather:search:v3:<검색어>`(검색 캐시).
+- 호출은 `tb_weather_call_log`에 `ON_DEMAND`(WeatherAPI)·`SEARCH`(`OPEN_METEO_GEO`)·`CLIMATE`(`OPEN_METEO`)로 남는다 (`run_id` 없음).
+- Open-Meteo의 무료 API는 비상업용이다. 상업 서비스에서는 유료 주소·키를 넣거나 `climate.enabled`·`geocoding.enabled`를 끈다 (`backend/config/application-local.example.yml` 주석).
 
 ## 테스트
 
@@ -275,7 +357,7 @@ LC_ALL=C.UTF-8 ./gradlew test    # 테스트만
 LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 ```
 
-- 통합 테스트는 **Testcontainers**로 `pgvector/pgvector:pg17`과 `valkey/valkey:9.1`(compose와 같은 이미지, `support/TestValkey`) 컨테이너를 한 번 띄워 쓴다 (Docker 필요). 서버를 무작위 포트로 띄워 실제 HTTP로 부른다. 응답 스냅샷 테스트는 Valkey DB 2를 비우고 쓴다. 떠 있는 Valkey를 쓰려면 `WEARLY_TEST_VALKEY_HOST`(·`WEARLY_TEST_VALKEY_PORT`).
+- 통합 테스트는 **Testcontainers**로 `pgvector/pgvector:pg17`, `valkey/valkey:9.1`(compose와 같은 이미지, `support/TestValkey`), `pgsty/minio:RELEASE.2026-08-04T00-00-00Z`(compose와 같은 사진 저장소 이미지, `support/TestMinio`, 테스트 버킷은 서버가 시작할 때 만든다) 컨테이너를 한 번 띄워 쓴다 (Docker 필요). 서버를 무작위 포트로 띄워 실제 HTTP로 부른다. 응답 스냅샷 테스트는 Valkey DB 2를 비우고 쓴다. 떠 있는 Valkey를 쓰려면 `WEARLY_TEST_VALKEY_HOST`(·`WEARLY_TEST_VALKEY_PORT`).
 - Docker 없이 이미 떠 있는 DB로 돌리려면 `WEARLY_TEST_DB_URL`을 준다. 테스트는 매번 새 이메일로 데이터를 만들고 지우지 않으므로 **개발 DB가 아닌 빈 DB**를 쓴다.
 
   ```bash
@@ -309,8 +391,20 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 | `WardrobeRetireIntegrationTest` · `OutfitRetiredItemIntegrationTest` | (6차) 사용 중지 → 목록 `retired` 필터·다시 사용·시각 유지·PATCH, 통계(`retired`·`retiredByReason`), 완전 삭제와 차이, 남의 옷 404·입력 400, 비활성 이유 400·사용 중 코드 삭제 409, 회원 목록 `retiredItemCount`, DB CHECK, 코디 후보 제외·고정/중심 400·옷 부족 |
 | `AppConfigIntegrationTest` | (6차) `/app/config` 공개·형식·ETag 304·`no-cache`·틀린 토큰 무시·CORS `ETag` 노출, 관리자 GET·PUT, version 변경, 같은 값 PUT, 400·403·401, 변경 이력 `APP_THEME_UPDATE` |
 | `RetirementTest` · `ThemeSettingTest` · `AppSettingServiceTest` · `AdminAppThemeServiceTest` | (6차, Spring 없음) 사용 중지·다시 사용 규칙과 이유·메모 검증, 허용 테마·version, 테마 변경 저장·같은 값·400, 관리자 이메일·변경 이력 |
-| `HexagonalArchitectureTest` | 08 문서 3장·7장 규칙 19개 (ArchUnit): 의존 방향, 컨텍스트 사이는 `port.in`만, common·공유 커널은 컨텍스트를 모름, 출력 어댑터는 API 오류를 모름, `@Entity`·`@Mapper` 위치, 검증·Jackson 어노테이션은 웹 어댑터만, 컨트롤러는 `*Response`만 반환, 포트 DTO는 어댑터를 모름 |
-| `ApiResponseSnapshotTest` | (5차, 6차·7차에 새 필드로 갱신. 7차: 대시보드 `activeSessions`·`activeUsers24h`, `targetType` 오류 문구에 `SESSION`, 정지 해제 뒤 예전 토큰 401 단계 추가) 155개 요청의 응답(상태·헤더 일부·본문)을 `src/test/resources/snapshots/api-responses.json`과 비교. 토큰·시각·버전 등 매번 다른 값만 정규화한다. 응답 모양을 바꾸면 실패한다. 파일을 지우고 돌리면 다시 만든다 |
+| `ItemImageIntegrationTest` | (사진 저장, 18 문서, 실제 MinIO) upload-url → 서명 URL로 PUT → complete(JPEG로 다시 인코딩) → 아이템 등록 → 서명 URL로 받기, PNG도 JPEG로 저장, 남의·없는 이미지 404, 잘못된 파일 `IMAGE_INVALID`(업로드 원본 삭제), upload-url 입력 검증 400, PENDING 붙이기 `IMAGE_NOT_UPLOADED`, 다른 아이템에 붙은 이미지 409 `IMAGE_IN_USE`, 사진 교체·빼기·아이템 완전 삭제·회원 탈퇴 시 객체 삭제, 하루 한도 429, 정리 작업(오래된 PENDING·안 붙은 READY·DELETED), `{ imageId }`로 AI 분석 |
+| `ImageIoProcessorAdapterTest` · `ImageRulesTest` · `StoragePresignersTest` | (Spring 없음) 큰 PNG를 1600/400 JPEG(품질 0.8)로 줄임, 설정한 크기·품질을 씀, 작은 사진은 크기 유지, 투명 PNG는 흰 배경, EXIF 위치·방향 태그 제거와 방향 8가지, 가짜 JPEG·다른 형식 거부, 화소 상한을 디코딩 전에 거부 / 실제 바이트로 JPEG·PNG 판별, 업로드 요청 검증, `imageId` UUID 형식, 오브젝트 키 규칙 / 서명 호스트를 요청 Host 이름 + 저장소 포트로 만듦 |
+| `WeatherIntegrationTest` | (17 문서, 목업 날씨) 관리자 권한, 지금 실행 → 앱 조회·ETag·304·400·503, 한 지역 실행, 설정 검증·변경 이력, 공급자 수정·차단 해제·시험 호출, 호출 이력 필터·요약 |
+| `PlaceWeatherIntegrationTest` | (19 문서, 실제 HTTP, 목업 날씨·평년값) region 방식은 토큰 없이 `FORECAST`·`CLIMATE`, 좌표 방식·장소 검색은 로그인 필요(401), 날짜·좌표 검증 400, 좌표는 격자로 받아 캐시하고 동시에 와도 공급자는 한 번, 회원 하루 한도를 넘으면 공급자를 부르지 않고 평년값으로 답함, 장소 검색이 국내 결과에 REGION 코드를 붙이고 호출 이력에 `SEARCH`로 남음 |
+| `PlaceWeatherServiceTest` · `ClimateServiceTest` | (Spring 없음·가짜 포트) 순서 FORECAST → CLIMATE → 503/429, 한도는 실제 호출 직전에만 차감, 한도 초과 시 예전 캐시·평년값, 격자 잠금·대기, 시·도 이름 맞추기·지오코딩 정렬·국내 "시"·"군" 보정·중복 제거·`regionCode` 붙이기·지오코딩 실패 시 WeatherAPI 검색(캐시 안 함), 평년값 계산·400일 재계산·실패 10분 대기·끔 |
+| `OpenMeteoClientTest` · `OpenMeteoGeocodingClientTest` · `WeatherApiClientTest` | (가짜 HTTP 서버·응답 고정본) 과거 기상 요청 모양·일별 관측값 변환·자료 없는 날 null·오류 사유 분류·시간 초과·`apikey` 가림, 지오코딩 `language=ko` 응답 파싱·오류 사유, WeatherAPI 예보·검색 매핑 |
+| `GridKeyTest` · `MonthlyClimateTest` · `ProviderHealthTest` · `WeatherSettingTest` · `WeatherRefreshRunnerTest` · `WeatherScheduleServiceTest` | (Spring 없음) 격자 키 반올림·`-0.0`·거리, 월별 평년값 계산(평균·1mm 이상 비 온 날 비율·400일), 공급자 상태 전이, 설정 범위, 실행기(두 공급자 폴백)·스케줄 |
+| `HexagonalArchitectureTest` | 08 문서 3장·7장 규칙 22개 (ArchUnit, 오류 응답 규칙 3개 포함: `BusinessException`은 문장을 받지 않음, 예외 메시지를 읽는 메서드는 오류 응답 객체를 만들지 않음, `ErrorCode.description()`을 응답에 쓰지 않음, 20 문서 9장): 의존 방향, 컨텍스트 사이는 `port.in`만, common·공유 커널은 컨텍스트를 모름, 출력 어댑터는 API 오류를 모름, `@Entity`·`@Mapper` 위치, 검증·Jackson 어노테이션은 웹 어댑터만, 컨트롤러는 `*Response`만 반환, 포트 DTO는 어댑터를 모름 |
+| `ErrorHandlingIntegrationTest` | (20 문서, 실제 HTTP) 예상치 못한 예외 → 500 `INTERNAL_ERROR`와 `traceId`만, 로그에는 원문과 같은 `traceId`·`userId`, DB 연결 장애 → 503(DB 주소는 응답에 없음), 고유 제약 → 409 `CONFLICT`·그 밖의 무결성 위반 500, 필터 예외도 `/error`에서 같은 형식·받은 `X-Request-Id` 유지, 잘못된 JSON → `body INVALID_FORMAT`(Jackson·클래스 이름 없음)·빈 본문 `body REQUIRED`·타입 불일치, 검증 애너테이션 → 코드+`params`, `X-Request-Id` 전달·형식이 틀리면 새로 만듦·성공 응답에도 헤더, 시큐리티 401·403에도 `traceId`, 업무 오류는 카탈로그 코드·`params`만. 모든 오류 본문에 `message`·예외·SQL 문자열이 없는지 확인 |
+| `ErrorCodeCatalogTest` · `BusinessExceptionTest` | (Spring 없음) `error-codes.json` ↔ `ErrorCode`·`FieldErrorCode` enum이 코드 이름 집합·HTTP 상태·`params` 이름·권장 문구까지 같다 / 정하지 않은 `params` 이름 거부, 로그용 메시지는 코드와 필드 코드뿐, 응답 본문은 문장 없이 코드·`params`·`traceId` |
+| `PlanIntegrationTest` | (21 문서, 실제 HTTP) 등록 201·목록(날짜 → 시간대 순, `from`/`to`)·PATCH(보낸 필드만, `null` 비움)·삭제 204, 같은 `clientId`로 다시 올리면 200·같은 id, bulk(요청 순서·`created`/`updated`·틀린 항목이 있으면 하나도 저장 안 함·101개 400), 남의 예정 404, 입력 검증(필드 오류 코드·날짜 범위), 오래된 예정은 날짜를 바꾸지 않으면 고칠 수 있음, 회원당 500개 409 `PLAN_LIMIT`, 지운 아이템은 `missingItemIds`로 표시하고 코디는 그대로, 예정이 쓰는 STYLE 코드는 삭제 불가(`CODE_IN_USE`, `PLAN`), 탈퇴 시 예정도 삭제 |
+| `PlanRulesTest` | (Spring 없음) 날짜 범위(앞뒤 1년, 바꾸지 않은 날짜는 통과)·시간대·상황·제목·메모·스타일 코드(비활성은 저장된 값만)·장소·날씨·출처·확인 시각·코디(칸·id·크기)·`clientId` 형식, bulk의 `items[i].` 경로 |
+| `ImageIoAiImageResizerTest` | (Spring 없음, 18 문서 7.4) AI 전송용 줄이기: 큰 JPEG를 긴 변 1024 JPEG로(메타데이터 없음), 큰 PNG도 JPEG로, EXIF 방향 적용, 이미 작으면 다시 인코딩하지 않음, JPEG·PNG가 아니거나 읽을 수 없으면 그대로, 픽셀 수 상한 초과는 디코딩하지 않고 그대로, 설정한 긴 변·품질 사용. `AiProviderFallbackIntegrationTest`는 큰 사진을 줄여 보내고 `image_bytes`를 보낸 바이트로 기록하는지도 본다 |
+| `ApiResponseSnapshotTest` | (사진 저장: 아이템 응답의 `image` 필드를 반영해 스냅샷 갱신, 5차, 6차·7차에 새 필드로 갱신. 7차: 대시보드 `activeSessions`·`activeUsers24h`, `targetType` 오류 문구에 `SESSION`, 정지 해제 뒤 예전 토큰 401 단계 추가. 오류 응답 개편(20 문서): 오류 응답은 `message` 없이 `code`·`params`·`traceId`이고 `traceId`는 `<traceId>`로 정규화해 비교한다) 160개 요청의 응답(상태·헤더 일부·본문)을 `src/test/resources/snapshots/api-responses.json`과 비교. 토큰·시각·버전 등 매번 다른 값만 정규화한다. 응답 모양을 바꾸면 실패한다. 파일을 지우고 돌리면 다시 만든다 |
 | `*ServiceTest` (5차) | 서비스 단위 테스트(가짜 포트, Spring 없음): `AuthService`, `CodeManagementService`(색 짝·삭제 가드), `AdminUserService`(자기 정지 금지), `AdminAiService`(키 저장 순서), `AiCallRunner`(폴백·기록), `AiQuotaService`·`AiJsonGenerationService`(한도 예약), `WardrobeService` |
 | `AiQuotaConcurrencyIntegrationTest` | (5차) 12개 동시 예약·동시 사진 분석에서 한도 3개만 성공, 오래된 예약 무시 |
 | `CodeUsageSourceIntegrationTest` · `WardrobePatchIntegrationTest` · `AiLogSummaryMigrationTest` | (5차) 코드 사용 수를 옷장·프로필이 세는지, 옷장 PATCH 오류 모양, V7이 기존 기록 요약을 4차 문구대로 채우는지 |
@@ -337,6 +431,8 @@ LC_ALL=C.UTF-8 ./gradlew check   # 포맷·Checkstyle까지 (커밋 전)
 | 프로필 | | 코드 사용 수 (`user/ProfileMapper.xml`) |
 | 코드 | 관리자 추가·수정·순서·삭제 (`Code`) | 캐시 적재·version (`CodeMapper.xml`). 사용 수는 옷장·프로필이 `CodeUsageSource`로 센다 |
 | AI | 호출 기록 저장 (`AiAnalysisLogEntity`), 공급자 설정 (`AiProviderEntity`), 웹 키 암호문 (`ProviderSecretEntity`), 한도 예약 (`AiUsageReservationEntity`) | 일일 사용량·한도 잠금 (`ai/AiQuotaMapper.xml`), 관리자 AI 기록 검색·공급자별 통계·대시보드 (`admin/AdminQueryMapper.xml`) |
+| 옷 사진 | `tb_item_image` 쓰기·잠금 조회·정리 표시 (`ItemImageJpaAdapter`) | 하루 업로드 한도 집계(회원별 advisory lock)·정리 대상 (`image/ItemImageMapper.xml`) |
+| 예정 코디 | 만들기·수정·삭제·`clientId` 조회 (`PlanJpaAdapter`, `PlanEntity`) | 날짜 범위 목록·회원별 개수·쓰기 잠금(`pg_advisory_xact_lock`)·코드 사용 수 (`plan/PlanMapper.xml`) |
 | 변경 이력 | 기록 (`AuditLog`) | 목록 (`AdminQueryMapper.xml`) |
 
 ## 패키지 구조 (08 문서 2장·7장, 5차)
@@ -366,8 +462,9 @@ app.wearly.sharedkernel.code       공유 커널 (소유자 code): CodeSnapshot�
 app.wearly.common                  컨텍스트를 모른다 (ArchUnit)
 ├── domain/                        FieldError, DomainValidationException, Zones
 ├── application/                   Patch(안 보냄·값·형식 오류), ImageUpload
-├── error/                         오류 코드·ApiException·전역 예외 처리
-├── web/                           웹 어댑터 공용 (CurrentUser, CurrentSession, PathIds, Uploads, Ids, Times, JsonPatches)
+├── error/                         오류 코드(ErrorCode)·BusinessException·전역 예외 처리·traceId(TraceIds)·/error(ErrorPageController) — 20 문서
+├── imaging/                       ImageCodec: 사진 읽기·줄이기·JPEG 쓰기 도구 (image의 저장용·ai의 전송용 어댑터가 같이 씀)
+├── web/                           웹 어댑터 공용 (CurrentUser, CurrentSession, PathIds, Uploads, Ids, Times, JsonPatches, TraceIdFilter)
 ├── config/                        WearlyProperties, ClockConfig, CorsConfig
 ├── mybatis/                       TypeHandler, LikePatterns(LIKE 이스케이프, XML에서 <bind>)
 ├── persistence/                   PersistenceClock (엔티티 시각도 주입한 Clock)
@@ -383,6 +480,8 @@ app.wearly.common                  컨텍스트를 모른다 (ArchUnit)
 | `ai` | `AiProviderSetting`, `AiProviderSelection`, `AiRunMode`, `AiProviderType`, `ApiKeyRules`, `AnalysisPrompt`, `AiJsonPrompt`, `AiSuggestionValidator` … | `AnalyzeImageUseCase`, `ProviderTestUseCase`, `AiProviderAdminUseCase`, `AiProviderKeyUseCase`, `AiStatusUseCase`, `JsonGenerationUseCase` | JPA(공급자·호출 기록·웹 키·한도 예약), MyBatis(사용량·한도 잠금), ai/*(공급자 모듈: Claude SDK·OpenAI·Gemini REST·목업·키 확인), env, crypto(AES-GCM), transaction |
 | `outfit` | `OutfitPool`, `OutfitPrompt`, `CandidateValidator`, `MockOutfitPlanner`, `OutfitRequest` … | `RecommendOutfitUseCase` (기능 이름 `OutfitFeatures`) | 없음 (옷장·프로필·코드는 각 입력 포트, 공급자는 ai의 `JsonGenerationUseCase`) |
 | `appsetting` | `AppThemes`(허용 테마), `ThemeSetting`(변경·version) | `AppSettingUseCase` | JPA(`tb_app_setting`). 관리자 변경은 admin의 `AdminAppThemeService`가 이 포트로 부르고 이력을 남긴다 (6차) |
+| `image` | `ItemImage`(PENDING·READY·DELETED 전이), `ImageRules`(업로드 요청 검증·imageId 형식), `ImageFormats`(실제 바이트 판별), `ImageKeys`, `ImageSettings` | `ImageUploadUseCase`(upload-url·complete), `ItemImageUseCase`(아이템에 붙이기·빼기·조회), `ImageContentUseCase`(AI 분석용 original 읽기), `ImageCleanupUseCase`(정리·탈퇴 삭제) | JPA(`tb_item_image`), MyBatis(하루 한도 집계·정리 대상), storage(S3 호환: `S3ImageStorageAdapter`·`StoragePresigners`), imaging(JDK ImageIO 사진 처리), transaction(커밋 뒤 실행). 입력 어댑터 `adapter.in.scheduler`(정리 주기 작업), `adapter.in.user`(탈퇴 알림 받기, user의 `UserDeletedListener` 구현) |
+| `plan` | `Plan`, `PlanInput`·`PlanDraft`, `PlanRules`(입력 검증·500개·날짜 범위), `PlanOutfits`(코디 검증·`missingItemIds` 계산), `PlanPlace`, `PlanWeather` | `PlanUseCase`(목록·만들기·bulk·PATCH·삭제), `PlanCodeUsageUseCase`, wardrobe의 `ItemExistenceUseCase`를 부른다 (21 문서) | JPA(`tb_planned_outfit` 쓰기), MyBatis(목록·개수·회원별 쓰기 잠금·코드 사용 수), `in/code/`에 `PlanCodeUsageSource` |
 | `admin` | `AuditTargets`, `SearchText` | `AdminDashboardUseCase`, `AdminUserUseCase`, `AdminCodeUseCase`, `AdminAiProviderUseCase`, `AdminAppThemeUseCase`(6차), `AdminSessionUseCase`(7차), `EnsureAdminUseCase` | JPA(변경 이력 = `RecordAuditPort`), MyBatis(대시보드·목록 읽기 모델 → `port.out.dto`) |
 
 - 컨텍스트 사이는 상대 `port.in`(과 `port.in.dto`)으로만 부른다. 관리자 API는 admin 컨텍스트가 code·ai·user·auth 유스케이스를 부르고, 같은 트랜잭션에서 변경 이력을 남긴다. 외부 HTTP가 끼는 웹 키 저장은 트랜잭션을 나눈다(`AdminAiKeyWriter`).

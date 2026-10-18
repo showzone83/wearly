@@ -2,7 +2,7 @@ package app.wearly.user.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.sharedkernel.code.CodeChecks;
 import app.wearly.sharedkernel.code.CodeGroups;
 import app.wearly.sharedkernel.code.CodeSnapshot;
@@ -36,7 +36,7 @@ public class ProfileService implements ProfileUseCase {
   @Override
   @Transactional(readOnly = true)
   public ProfileDto get(long userId) {
-    User user = users.findById(userId).orElseThrow(ApiException::notFound);
+    User user = users.findById(userId).orElseThrow(BusinessException::notFound);
     return ProfileDto.of(
         user.name(), profiles.findByUserId(userId).orElseGet(UserProfile::defaults));
   }
@@ -52,7 +52,7 @@ public class ProfileService implements ProfileUseCase {
   @Override
   @Transactional
   public ProfileDto put(long userId, UpdateProfileDto data) {
-    final User user = users.findById(userId).orElseThrow(ApiException::notFound);
+    final User user = users.findById(userId).orElseThrow(BusinessException::notFound);
     Optional<UserProfile> saved = profiles.findByUserId(userId);
     UserProfile in = data.toProfile();
     // 새로 고르는 색·취향은 활성 코드만. 이미 저장돼 있던 값은 비활성이어도 둔다
@@ -72,7 +72,7 @@ public class ProfileService implements ProfileUseCase {
         in.colors(),
         saved.map(UserProfile::colors).orElse(null),
         errors);
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     user.rename(data.name().strip());
     users.save(user);
     UserProfile profile = in.normalized();

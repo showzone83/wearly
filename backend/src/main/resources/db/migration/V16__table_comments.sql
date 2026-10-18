@@ -1,7 +1,7 @@
--- V1~V11에서 만든 테이블·컬럼에 DB 코멘트(COMMENT ON)를 단다 (doc/08_백엔드_구조.md 8장).
+-- V1~V14에서 만든 테이블·컬럼에 DB 코멘트(COMMENT ON)를 단다 (doc/08_백엔드_구조.md 8장).
 -- 지금까지 설명은 마이그레이션 파일의 -- 주석에만 있어 DB 도구(psql \d+, DBeaver 등)에서 보이지 않았다.
 -- 적용된 마이그레이션은 체크섬 때문에 고치지 않고 여기에 모은다. 내용은 각 파일의 주석과 계약 문서를 옮겼다.
--- 이후 새 테이블·컬럼은 만드는 마이그레이션에서 바로 COMMENT ON을 쓴다.
+-- 이후 새 테이블·컬럼은 만드는 마이그레이션에서 바로 COMMENT ON을 쓴다 (V15 날씨 이력부터).
 
 -- ---------------------------------------------------------------------------
 -- 회원 (V1·V3·V10)
@@ -89,13 +89,23 @@ COMMENT ON COLUMN tb_wardrobe_item.retired_at IS '사용 중지한 시각. NULL�
 COMMENT ON COLUMN tb_wardrobe_item.retire_reason IS '사용 중지 이유 (RETIRE_REASON 코드). retired_at과 함께 있다';
 COMMENT ON COLUMN tb_wardrobe_item.retire_memo IS '사용 중지 메모 (선택, 200자 이하)';
 
-COMMENT ON TABLE tb_item_image IS '옷 이미지 URL (테이블만. 1차에서는 사진을 기기에만 둔다)';
-COMMENT ON COLUMN tb_item_image.item_image_id IS '이미지 ID';
-COMMENT ON COLUMN tb_item_image.item_id IS '옷 (tb_wardrobe_item)';
-COMMENT ON COLUMN tb_item_image.image_url IS '이미지 URL';
-COMMENT ON COLUMN tb_item_image.kind IS '종류: ORIGINAL · THUMBNAIL · CUTOUT(배경 제거)';
-COMMENT ON COLUMN tb_item_image.sort_order IS '표시 순서';
-COMMENT ON COLUMN tb_item_image.created_at IS '만든 시각';
+COMMENT ON TABLE tb_item_image IS '옷 사진 메타데이터 (V12). 파일은 S3 호환 저장소(로컬 MinIO 버킷 wearly-images, 비공개)에 있다 (doc/18)';
+COMMENT ON COLUMN tb_item_image.image_id IS '서버가 만든 무작위 UUID (API의 imageId)';
+COMMENT ON COLUMN tb_item_image.user_id IS '올린 회원 (tb_user)';
+COMMENT ON COLUMN tb_item_image.item_id IS '붙은 옷 (tb_wardrobe_item, 옷당 하나). 아직 안 붙였거나 DELETED면 NULL';
+COMMENT ON COLUMN tb_item_image.purpose IS '용도: ITEM';
+COMMENT ON COLUMN tb_item_image.status IS '상태: PENDING(업로드 URL 발급) · READY(저장 완료) · DELETED. 옷에 붙을 수 있는 것은 READY뿐';
+COMMENT ON COLUMN tb_item_image.content_type IS 'PENDING: 업로드 URL을 받을 때 선언한 형식, READY: 저장한 original의 형식(image/jpeg)';
+COMMENT ON COLUMN tb_item_image.declared_size IS '업로드 URL을 받을 때 선언한 크기(바이트)';
+COMMENT ON COLUMN tb_item_image.size_bytes IS '저장한 original.jpg 크기(바이트, READY부터)';
+COMMENT ON COLUMN tb_item_image.width IS 'original.jpg 가로(px, READY부터)';
+COMMENT ON COLUMN tb_item_image.height IS 'original.jpg 세로(px, READY부터)';
+COMMENT ON COLUMN tb_item_image.upload_key IS '업로드 객체 키 uploads/{userId}/{imageId} (처리 후 지운다)';
+COMMENT ON COLUMN tb_item_image.object_key IS '원본 객체 키 users/{userId}/items/{imageId}/original.jpg';
+COMMENT ON COLUMN tb_item_image.thumb_key IS '썸네일 객체 키 users/{userId}/items/{imageId}/thumb.jpg';
+COMMENT ON COLUMN tb_item_image.created_at IS '업로드 URL을 발급한 시각 (하루 업로드 한도 집계)';
+COMMENT ON COLUMN tb_item_image.ready_at IS '저장을 마친 시각';
+COMMENT ON COLUMN tb_item_image.deleted_at IS '지운 시각';
 
 -- ---------------------------------------------------------------------------
 -- 코디 (V1, 테이블만)
@@ -124,17 +134,23 @@ COMMENT ON COLUMN tb_outfit_feedback.feedback_type IS 'LIKE · DISLIKE';
 COMMENT ON COLUMN tb_outfit_feedback.reasons IS '이유 목록 (싫어요 이유 등)';
 COMMENT ON COLUMN tb_outfit_feedback.created_at IS '남긴 시각';
 
-COMMENT ON TABLE tb_planned_outfit IS '예정일 코디 (캘린더 일정)';
+COMMENT ON TABLE tb_planned_outfit IS '예정일 코디 (캘린더 일정, V14에서 다시 만듦). 앱과 동기화한다 (doc/21)';
 COMMENT ON COLUMN tb_planned_outfit.planned_outfit_id IS '예정 ID';
 COMMENT ON COLUMN tb_planned_outfit.user_id IS '회원 (tb_user)';
+COMMENT ON COLUMN tb_planned_outfit.client_id IS '앱이 기기에서 만든 예정 ID (회원 안에서 유일, 일괄 올리기 중복 방지)';
 COMMENT ON COLUMN tb_planned_outfit.planned_date IS '예정 날짜';
 COMMENT ON COLUMN tb_planned_outfit.time_of_day IS '시간대: AM · PM · EVENING';
 COMMENT ON COLUMN tb_planned_outfit.title IS '일정 제목 (50자 이하)';
 COMMENT ON COLUMN tb_planned_outfit.occasion IS '상황: COMMUTE · MEETING · FIELD · DINNER · DAILY · INTERVIEW · WEDDING · DATE · TRAVEL · GATHERING';
 COMMENT ON COLUMN tb_planned_outfit.concepts IS '원하는 컨셉 (STYLE 코드)';
-COMMENT ON COLUMN tb_planned_outfit.weather IS '그날 날씨 (예보가 없는 날짜는 사용자가 고른 값)';
-COMMENT ON COLUMN tb_planned_outfit.memo IS '메모';
-COMMENT ON COLUMN tb_planned_outfit.outfit_id IS '정해 둔 코디 (tb_outfit, 없으면 NULL)';
+COMMENT ON COLUMN tb_planned_outfit.memo IS '메모 (500자 이하)';
+COMMENT ON COLUMN tb_planned_outfit.place_region_code IS '예정 장소의 지역 (REGION 코드, 선택). 장소가 없으면 내 지역을 쓴다';
+COMMENT ON COLUMN tb_planned_outfit.place_label IS '예정 장소 이름. 장소가 있으면 좌표와 함께 있다';
+COMMENT ON COLUMN tb_planned_outfit.place_lat IS '예정 장소 위도 -90~90';
+COMMENT ON COLUMN tb_planned_outfit.place_lon IS '예정 장소 경도 -180~180';
+COMMENT ON COLUMN tb_planned_outfit.weather IS '그날 날씨 (앱 Weather + 출처·확인 시각) {temp, min, max, rainProb, cond, manual, source, checkedAt}';
+COMMENT ON COLUMN tb_planned_outfit.forecast_ready IS '"예보가 나왔어요" 표시. 평년값으로 저장한 예정에 예보가 나왔고 기온 3° 이상 또는 비 여부가 달라져 다시 추천해야 하면 true (doc/19)';
+COMMENT ON COLUMN tb_planned_outfit.outfit IS '정해 둔 코디 (앱 Outfit 모양, items: 칸 → 옷 ID). 옷이 지워져도 그대로 둔다';
 COMMENT ON COLUMN tb_planned_outfit.created_at IS '만든 시각';
 COMMENT ON COLUMN tb_planned_outfit.updated_at IS '마지막 수정 시각';
 
@@ -311,12 +327,12 @@ COMMENT ON COLUMN tb_weather_refresh_run.fallback_count IS '1순위가 아닌 �
 COMMENT ON COLUMN tb_weather_refresh_run.started_at IS '시작 시각';
 COMMENT ON COLUMN tb_weather_refresh_run.finished_at IS '끝난 시각. NULL이면 진행 중';
 
-COMMENT ON TABLE tb_weather_call_log IS '날씨 공급자 HTTP 호출 이력. 호출 한 번이 한 행이고 월 한도도 이걸로 센다. 오류 문구에 키는 들어가지 않는다';
+COMMENT ON TABLE tb_weather_call_log IS '날씨 공급자 HTTP 호출 이력. 호출 한 번이 한 행이고 월 한도도 이걸로 센다. 실행 밖 호출(ON_DEMAND·SEARCH·CLIMATE)도 남긴다. 오류 문구에 키는 들어가지 않는다';
 COMMENT ON COLUMN tb_weather_call_log.call_id IS '호출 ID';
-COMMENT ON COLUMN tb_weather_call_log.run_id IS '실행 (tb_weather_refresh_run, 실행을 지우면 함께 지워진다)';
-COMMENT ON COLUMN tb_weather_call_log.region_code IS '지역 (코드 그룹 REGION)';
-COMMENT ON COLUMN tb_weather_call_log.provider_code IS '공급자 (tb_weather_provider)';
-COMMENT ON COLUMN tb_weather_call_log.call_kind IS '호출 종류: FORECAST(현재 + 일별 예보 한 번에)';
+COMMENT ON COLUMN tb_weather_call_log.run_id IS '실행 (tb_weather_refresh_run, 실행을 지우면 함께 지워진다). FORECAST만 있고 실행 밖 호출은 NULL';
+COMMENT ON COLUMN tb_weather_call_log.region_code IS 'FORECAST: REGION 코드, ON_DEMAND·CLIMATE: 격자 키("37.6,127.0"), SEARCH: NULL';
+COMMENT ON COLUMN tb_weather_call_log.provider_code IS '공급자 (tb_weather_provider, 평년값은 OPEN_METEO)';
+COMMENT ON COLUMN tb_weather_call_log.call_kind IS '호출 종류: FORECAST(실행의 예보) · ON_DEMAND(좌표 요청 예보) · SEARCH(장소 검색) · CLIMATE(평년값용 과거 자료) (doc/19)';
 COMMENT ON COLUMN tb_weather_call_log.fallback IS '1순위가 아닌 공급자로 부른 호출인지';
 COMMENT ON COLUMN tb_weather_call_log.http_status IS 'HTTP 상태 코드 (연결 실패·시간 초과면 NULL)';
 COMMENT ON COLUMN tb_weather_call_log.success IS '성공 여부';
@@ -336,3 +352,29 @@ COMMENT ON COLUMN tb_weather_snapshot.location_name IS '공급자가 알려 준 
 COMMENT ON COLUMN tb_weather_snapshot.fetched_at IS '마지막으로 받기에 성공한 시각. 주기의 3배보다 오래되면 앱에 업데이트 지연을 알린다';
 COMMENT ON COLUMN tb_weather_snapshot.last_error IS '마지막 실패 문구 (성공해도 지우지 않는다)';
 COMMENT ON COLUMN tb_weather_snapshot.last_error_at IS '마지막 실패 시각';
+
+-- ---------------------------------------------------------------------------
+-- 장소별 날씨 (V13, doc/19)
+-- ---------------------------------------------------------------------------
+COMMENT ON TABLE tb_weather_place_snapshot IS 'REGION 밖 장소의 최신 예보. 요청 시점에 공급자를 불러 격자별로 캐시한다. 실패하면 이전 값은 두고 last_error만 바꾼다';
+COMMENT ON COLUMN tb_weather_place_snapshot.grid_key IS '격자 키: 위도·경도를 소수 첫째 자리로 반올림 ("37.6,127.0", 약 11km)';
+COMMENT ON COLUMN tb_weather_place_snapshot.lat IS '격자 위도 (반올림한 값)';
+COMMENT ON COLUMN tb_weather_place_snapshot.lon IS '격자 경도 (반올림한 값)';
+COMMENT ON COLUMN tb_weather_place_snapshot.label IS '공급자가 알려 준 장소 이름';
+COMMENT ON COLUMN tb_weather_place_snapshot.provider_code IS '이 값을 준 공급자 (tb_weather_provider)';
+COMMENT ON COLUMN tb_weather_place_snapshot.current IS '현재 날씨 {temp, feelsLike, cond, condText, observedAt}';
+COMMENT ON COLUMN tb_weather_place_snapshot.days IS '일별 예보 [{date, temp, min, max, rainProb, cond, condText}]';
+COMMENT ON COLUMN tb_weather_place_snapshot.fetched_at IS '마지막으로 받기에 성공한 시각';
+COMMENT ON COLUMN tb_weather_place_snapshot.last_error IS '마지막 실패 문구';
+COMMENT ON COLUMN tb_weather_place_snapshot.last_error_at IS '마지막 실패 시각';
+
+COMMENT ON TABLE tb_weather_climate IS '격자별 월 평년값 (예보 밖 날짜용). 처음 필요할 때 지난 완결 연도(기본 10년)의 일별 자료로 12개월을 한 번에 계산하고, 400일이 지나면 다시 계산한다';
+COMMENT ON COLUMN tb_weather_climate.grid_key IS '격자 키 (tb_weather_place_snapshot.grid_key와 같은 규칙)';
+COMMENT ON COLUMN tb_weather_climate.month IS '월 1~12';
+COMMENT ON COLUMN tb_weather_climate.temp_avg IS '(최고+최저)/2의 평균(섭씨, 소수 둘째 자리)';
+COMMENT ON COLUMN tb_weather_climate.temp_min IS '일 최저 기온의 평균(섭씨)';
+COMMENT ON COLUMN tb_weather_climate.temp_max IS '일 최고 기온의 평균(섭씨)';
+COMMENT ON COLUMN tb_weather_climate.rain_day_ratio IS '강수 1mm 이상인 날의 비율 0~1 (소수 셋째 자리)';
+COMMENT ON COLUMN tb_weather_climate.years IS '계산에 쓴 연도 범위 (예: "2016-2025")';
+COMMENT ON COLUMN tb_weather_climate.source IS '자료 출처: OPEN_METEO · MOCK';
+COMMENT ON COLUMN tb_weather_climate.computed_at IS '계산한 시각';
