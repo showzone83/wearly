@@ -17,6 +17,7 @@ import { retireScenarios } from './scenarios/retire';
 import { sessionScenarios } from './scenarios/sessions';
 import { tokenScenarios } from './scenarios/tokens';
 import { wardrobeScenarios } from './scenarios/wardrobe';
+import { weatherScenarios } from './scenarios/weather';
 
 const ALL: Scenario[] = [
   ...authScenarios,
@@ -31,6 +32,7 @@ const ALL: Scenario[] = [
   ...retireScenarios,
   ...sessionScenarios,
   ...imageScenarios,
+  ...weatherScenarios,
 ];
 
 type Status = 'PASS' | 'FAIL' | 'SKIP';

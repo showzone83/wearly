@@ -99,41 +99,46 @@ class WeatherSnapshotJpaAdapter implements WeatherSnapshotPort {
   }
 
   private static WeatherSnapshot toDomain(WeatherSnapshotEntity e) {
-    Map<String, Object> c = e.getCurrent();
-    CurrentWeather current =
-        c == null
-            ? null
-            : new CurrentWeather(
-                number(c.get("temp")),
-                c.get("feelsLike") instanceof Number n ? n.doubleValue() : null,
-                cond(c.get("cond")),
-                text(c.get("condText")),
-                c.get("observedAt") instanceof String s ? Instant.parse(s) : null);
-    List<DailyForecast> days =
-        e.getDays() == null
-            ? List.of()
-            : e.getDays().stream()
-                .map(
-                    d ->
-                        new DailyForecast(
-                            LocalDate.parse(String.valueOf(d.get("date"))),
-                            number(d.get("temp")),
-                            number(d.get("min")),
-                            number(d.get("max")),
-                            (int) number(d.get("rainProb")),
-                            cond(d.get("cond")),
-                            text(d.get("condText"))))
-                .toList();
     return new WeatherSnapshot(
         e.getRegionCode(),
         e.getProviderCode(),
-        current,
-        days,
+        currentOf(e.getCurrent()),
+        daysOf(e.getDays()),
         e.getRaw(),
         e.getLocationName(),
         e.getFetchedAt(),
         e.getLastError(),
         e.getLastErrorAt());
+  }
+
+  /** JSONB current → 도메인 (장소 캐시 tb_weather_place_snapshot도 같은 모양) */
+  static CurrentWeather currentOf(Map<String, Object> c) {
+    return c == null
+        ? null
+        : new CurrentWeather(
+            number(c.get("temp")),
+            c.get("feelsLike") instanceof Number n ? n.doubleValue() : null,
+            cond(c.get("cond")),
+            text(c.get("condText")),
+            c.get("observedAt") instanceof String s ? Instant.parse(s) : null);
+  }
+
+  /** JSONB days → 도메인 */
+  static List<DailyForecast> daysOf(List<Map<String, Object>> days) {
+    return days == null
+        ? List.of()
+        : days.stream()
+            .map(
+                d ->
+                    new DailyForecast(
+                        LocalDate.parse(String.valueOf(d.get("date"))),
+                        number(d.get("temp")),
+                        number(d.get("min")),
+                        number(d.get("max")),
+                        (int) number(d.get("rainProb")),
+                        cond(d.get("cond")),
+                        text(d.get("condText"))))
+            .toList();
   }
 
   private static double number(Object v) {
@@ -152,7 +157,7 @@ class WeatherSnapshotJpaAdapter implements WeatherSnapshotPort {
     }
   }
 
-  private static String truncate(String s, int max) {
+  static String truncate(String s, int max) {
     return s == null || s.length() <= max ? s : s.substring(0, max - 1) + "…";
   }
 }

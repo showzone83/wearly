@@ -37,7 +37,9 @@ public record WearlyProperties(
 
   @Override
   public Weather weather() {
-    return weather == null ? new Weather(null, null, 0, true, null, null) : weather;
+    return weather == null
+        ? new Weather(null, null, 0, true, null, null, null, null, null, null, null)
+        : weather;
   }
 
   /** 날씨 공급자 고정값과 키. 키 값은 config/application-local.yml(git 제외)에 둔다 */
@@ -52,7 +54,42 @@ public record WearlyProperties(
       // 공급자 코드(WEATHERAPI) → API 주소
       Map<String, String> baseUrls,
       // 공급자 행의 키 이름(key_name) → 키 값. 없으면 같은 이름의 OS 환경변수를 본다
-      Map<String, String> keys) {
+      Map<String, String> keys,
+      // 장소별 날씨 (19 문서). REGION 밖 장소 예보 캐시를 그대로 쓰는 시간 (기본 3시간)
+      Duration placeCacheTtl,
+      // 회원마다 하루(한국 날짜)에 공급자를 실제로 부르게 할 수 있는 좌표 요청 수 (기본 30)
+      @Min(0) Integer onDemandDailyLimit,
+      // 같은 검색어의 장소 검색 결과를 그대로 쓰는 시간 (기본 1일)
+      Duration searchCacheTtl,
+      // 회원마다 하루에 공급자를 실제로 부르게 할 수 있는 장소 검색 수 (기본 100)
+      @Min(0) Integer searchDailyLimit,
+      // 평년값 (Open-Meteo 과거 기상 API)
+      @Valid Climate climate) {
+
+    @Override
+    public Duration placeCacheTtl() {
+      return placeCacheTtl == null ? Duration.ofHours(3) : placeCacheTtl;
+    }
+
+    @Override
+    public Integer onDemandDailyLimit() {
+      return onDemandDailyLimit == null ? 30 : onDemandDailyLimit;
+    }
+
+    @Override
+    public Duration searchCacheTtl() {
+      return searchCacheTtl == null ? Duration.ofDays(1) : searchCacheTtl;
+    }
+
+    @Override
+    public Integer searchDailyLimit() {
+      return searchDailyLimit == null ? 100 : searchDailyLimit;
+    }
+
+    @Override
+    public Climate climate() {
+      return climate == null ? new Climate(null, null, null, null) : climate;
+    }
 
     @Override
     public Duration timeout() {
@@ -72,6 +109,30 @@ public record WearlyProperties(
     @Override
     public Map<String, String> keys() {
       return keys == null ? Map.of() : keys;
+    }
+  }
+
+  /**
+   * 평년값 자료 (19 문서 4장). Open-Meteo 무료 API는 비상업용이다: 상업 서비스로 바꿀 때는 유료 플랜 주소(base-url)·키(api-key)를 넣거나
+   * enabled=false로 끈다 (끄면 예보 밖 날짜는 평년값 없이 503, 앱은 체감 온도를 직접 고른다).
+   */
+  public record Climate(
+      Boolean enabled,
+      // 기본 https://archive-api.open-meteo.com (경로 /v1/archive는 서버가 붙인다)
+      String baseUrl,
+      // 유료 플랜 키. 비우면 무료 API로 부른다 (config/application-local.yml에 둔다)
+      String apiKey,
+      // 지난 완결 연도 몇 해로 계산할지 (기본 10)
+      @Min(1) Integer years) {
+
+    @Override
+    public Boolean enabled() {
+      return enabled == null || enabled;
+    }
+
+    @Override
+    public Integer years() {
+      return years == null ? 10 : years;
     }
   }
 

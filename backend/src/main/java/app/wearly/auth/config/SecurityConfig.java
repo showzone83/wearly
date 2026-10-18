@@ -44,6 +44,8 @@ public class SecurityConfig {
   static final String CODES_PATH = "/api/v1/codes";
   static final String APP_CONFIG_PATH = "/api/v1/app/config";
   static final String WEATHER_PATH = "/api/v1/weather";
+  // 장소별 날씨 (19 문서): region 방식은 공개, lat·lon 방식은 컨트롤러·유스케이스가 로그인을 확인한다 (401)
+  static final String WEATHER_DAY_PATH = "/api/v1/weather/day";
 
   @Bean
   SecurityFilterChain securityFilterChain(
@@ -66,7 +68,8 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/api/v1/auth/**")
                     .permitAll()
-                    .requestMatchers(HttpMethod.GET, CODES_PATH, APP_CONFIG_PATH, WEATHER_PATH)
+                    .requestMatchers(
+                        HttpMethod.GET, CODES_PATH, APP_CONFIG_PATH, WEATHER_PATH, WEATHER_DAY_PATH)
                     .permitAll()
                     .requestMatchers("/api/v1/admin/**")
                     .hasRole("ADMIN")
@@ -98,7 +101,7 @@ public class SecurityConfig {
 
   /**
    * 공개 경로(/api/v1/auth/**, /api/v1/codes, /api/v1/app/config, /api/v1/weather)에서는 만료된 Authorization
-   * 헤더가 같이 와도 무시한다.
+   * 헤더가 같이 와도 무시한다. /api/v1/weather/day는 region 방식(lat·lon 없음)일 때만 무시하고, 좌표 방식은 토큰을 읽는다 (로그인 필요).
    */
   static BearerTokenResolver bearerTokenResolver() {
     DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
@@ -107,7 +110,10 @@ public class SecurityConfig {
       if (path.startsWith(AUTH_PATH_PREFIX)
           || path.equals(CODES_PATH)
           || path.equals(APP_CONFIG_PATH)
-          || path.equals(WEATHER_PATH)) {
+          || path.equals(WEATHER_PATH)
+          || (path.equals(WEATHER_DAY_PATH)
+              && request.getParameter("lat") == null
+              && request.getParameter("lon") == null)) {
         return null;
       }
       return delegate.resolve(request);

@@ -9,6 +9,7 @@ import app.wearly.weather.domain.FetchErrors;
 import app.wearly.weather.domain.FetchResult;
 import app.wearly.weather.domain.KeyState;
 import app.wearly.weather.domain.MockWeather;
+import app.wearly.weather.domain.SearchResult;
 import app.wearly.weather.domain.WeatherOptions;
 import app.wearly.weather.domain.WeatherProvider;
 import app.wearly.weather.domain.WeatherRegion;
@@ -93,6 +94,40 @@ class WeatherSourceAdapter implements WeatherSourcePort {
           FetchErrors.CLIENT, provider.displayName() + ": 키 또는 구현이 없어요.", List.of());
     }
     return client.fetch(key, region, days);
+  }
+
+  @Override
+  public boolean supportsSearch(String providerCode) {
+    return options.mock() || clients.containsKey(providerCode);
+  }
+
+  @Override
+  public SearchResult search(WeatherProvider provider, String query) {
+    Instant now = clock.instant();
+    if (options.mock()) {
+      return SearchResult.success(
+          MockWeather.search(query),
+          List.of(
+              new CallRecord(
+                  null,
+                  provider.code(),
+                  CallRecord.SEARCH,
+                  false,
+                  200,
+                  true,
+                  null,
+                  null,
+                  0,
+                  0,
+                  now)));
+    }
+    WeatherApiClient client = clients.get(provider.code());
+    String key = key(provider.keyName());
+    if (client == null || key == null) {
+      return SearchResult.failed(
+          FetchErrors.CLIENT, provider.displayName() + ": 키 또는 구현이 없어요.", List.of());
+    }
+    return client.search(key, query);
   }
 
   private String key(String keyName) {

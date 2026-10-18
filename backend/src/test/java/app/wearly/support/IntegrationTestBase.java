@@ -36,6 +36,8 @@ import org.testcontainers.utility.DockerImageName;
       "wearly.weather.provider=mock",
       "wearly.weather.scheduler-enabled=false",
       "wearly.weather.keys.WEATHERAPI_KEY=",
+      // 장소별 날씨(19 문서): 좌표 요청 한도를 작게 둬서 한도 초과를 확인한다 (평년값도 목업 자료)
+      "wearly.weather.on-demand-daily-limit=3",
     })
 public abstract class IntegrationTestBase {
 

@@ -5,6 +5,8 @@ import app.wearly.weather.domain.CurrentWeather;
 import app.wearly.weather.domain.DailyForecast;
 import app.wearly.weather.domain.FetchErrors;
 import app.wearly.weather.domain.FetchResult;
+import app.wearly.weather.domain.PlaceCandidate;
+import app.wearly.weather.domain.SearchResult;
 import app.wearly.weather.domain.WeatherCondition;
 import app.wearly.weather.domain.WeatherRegion;
 import app.wearly.weather.domain.WeatherReport;
@@ -33,7 +35,8 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * WeatherAPI.com forecast.json 호출 (17 문서 4장). 현재 날씨와 일별 예보를 호출 한 번으로 받는다.
+ * WeatherAPI.com forecast.json 호출 (17 문서 4장). 현재 날씨와 일별 예보를 호출 한 번으로 받는다. 장소 검색은 search.json (19
+ * 문서).
  *
  * <pre>
  * GET {base}/forecast.json?key=…&amp;q={lat},{lon}&amp;days={n}
@@ -84,31 +87,20 @@ public final class WeatherApiClient {
     Response res;
     try {
       res =
-          client
-              .get()
-              .uri(
-                  "/forecast.json?key={key}&q={q}&days={days}&lang=ko&aqi=no&alerts=no",
-                  Map.of(
-                      "key",
-                      apiKey,
-                      "q",
-                      String.format(Locale.ROOT, "%.4f,%.4f", region.lat(), region.lon()),
-                      "days",
-                      days))
-              .accept(MediaType.APPLICATION_JSON)
-              .exchange(
-                  (req, r) ->
-                      new Response(
-                          r.getStatusCode().value(),
-                          new String(r.getBody().readAllBytes(), StandardCharsets.UTF_8)));
+          get(
+              "/forecast.json?key={key}&q={q}&days={days}&lang=ko&aqi=no&alerts=no",
+              Map.of(
+                  "key",
+                  apiKey,
+                  "q",
+                  String.format(Locale.ROOT, "%.4f,%.4f", region.lat(), region.lon()),
+                  "days",
+                  days));
     } catch (RestClientException e) {
       long ms = elapsed(started);
-      boolean timeout = isTimeout(e);
-      String code = timeout ? FetchErrors.TIMEOUT : FetchErrors.CLIENT;
-      String message =
-          timeout ? LABEL + " 응답 시간 초과" : LABEL + " 호출 실패: " + scrub(rootMessage(e), apiKey);
+      String[] err = clientError(e, apiKey);
       return FetchResult.failed(
-          code, message, List.of(call(region, null, false, code, message, ms, null, calledAt)));
+          err[0], err[1], List.of(call(region, null, false, err[0], err[1], ms, null, calledAt)));
     }
     long ms = elapsed(started);
     int bytes = res.body().getBytes(StandardCharsets.UTF_8).length;
@@ -131,6 +123,90 @@ public final class WeatherApiClient {
           List.of(
               call(region, res.status(), false, FetchErrors.PARSE, message, ms, bytes, calledAt)));
     }
+  }
+
+  /**
+   * 장소 검색 (19 문서). {@code GET {base}/search.json?key=…&q=…} 응답은 [{id, name, region, country, lat,
+   * lon, url}]. 결과가 없으면 빈 배열이다. 호출 기록의 regionCode는 null이다.
+   */
+  public SearchResult search(String apiKey, String query) {
+    Instant calledAt = clock.instant();
+    long started = System.nanoTime();
+    Response res;
+    try {
+      res = get("/search.json?key={key}&q={q}", Map.of("key", apiKey, "q", query));
+    } catch (RestClientException e) {
+      long ms = elapsed(started);
+      String[] err = clientError(e, apiKey);
+      return SearchResult.failed(
+          err[0],
+          err[1],
+          List.of(call(null, CallRecord.SEARCH, null, false, err[0], err[1], ms, null, calledAt)));
+    }
+    long ms = elapsed(started);
+    int bytes = res.body().getBytes(StandardCharsets.UTF_8).length;
+    if (res.status() < 200 || res.status() >= 300) {
+      String[] err = upstreamError(res, apiKey);
+      return SearchResult.failed(
+          err[0],
+          err[1],
+          List.of(
+              call(
+                  null,
+                  CallRecord.SEARCH,
+                  res.status(),
+                  false,
+                  err[0],
+                  err[1],
+                  ms,
+                  bytes,
+                  calledAt)));
+    }
+    try {
+      List<PlaceCandidate> items = parseSearch(res.body());
+      return SearchResult.success(
+          items,
+          List.of(
+              call(null, CallRecord.SEARCH, res.status(), true, null, null, ms, bytes, calledAt)));
+    } catch (RuntimeException e) {
+      String message = LABEL + " 응답을 읽지 못했어요: " + e.getClass().getSimpleName();
+      return SearchResult.failed(
+          FetchErrors.PARSE,
+          message,
+          List.of(
+              call(
+                  null,
+                  CallRecord.SEARCH,
+                  res.status(),
+                  false,
+                  FetchErrors.PARSE,
+                  message,
+                  ms,
+                  bytes,
+                  calledAt)));
+    }
+  }
+
+  /** search.json 응답 → 검색 결과. 좌표가 없는 항목은 뺀다 */
+  List<PlaceCandidate> parseSearch(String body) {
+    JsonNode root = json.readTree(body);
+    if (!root.isArray()) {
+      throw new IllegalStateException("배열이 아님");
+    }
+    List<PlaceCandidate> out = new ArrayList<>();
+    for (JsonNode n : root) {
+      if (!n.path("lat").isNumber() || !n.path("lon").isNumber()) {
+        continue;
+      }
+      out.add(
+          new PlaceCandidate(
+              n.path("name").asString("").strip(),
+              n.path("region").asString("").strip(),
+              n.path("country").asString("").strip(),
+              n.path("lat").asDouble(),
+              n.path("lon").asDouble()));
+    }
+    return out;
   }
 
   /** forecast.json 응답 → 공통 모델 */
@@ -216,6 +292,26 @@ public final class WeatherApiClient {
     return new String[] {code, LABEL + " API 오류 (HTTP " + status + ")" + detail};
   }
 
+  private Response get(String uri, Map<String, ?> vars) {
+    return client
+        .get()
+        .uri(uri, vars)
+        .accept(MediaType.APPLICATION_JSON)
+        .exchange(
+            (req, r) ->
+                new Response(
+                    r.getStatusCode().value(),
+                    new String(r.getBody().readAllBytes(), StandardCharsets.UTF_8)));
+  }
+
+  /** 응답을 받지 못한 호출: [오류 코드, 문구] */
+  private static String[] clientError(RestClientException e, String apiKey) {
+    if (isTimeout(e)) {
+      return new String[] {FetchErrors.TIMEOUT, LABEL + " 응답 시간 초과"};
+    }
+    return new String[] {FetchErrors.CLIENT, LABEL + " 호출 실패: " + scrub(rootMessage(e), apiKey)};
+  }
+
   private static CallRecord call(
       WeatherRegion region,
       Integer status,
@@ -225,18 +321,22 @@ public final class WeatherApiClient {
       long ms,
       Integer bytes,
       Instant at) {
+    return call(
+        region.code(), CallRecord.FORECAST, status, success, errorCode, message, ms, bytes, at);
+  }
+
+  private static CallRecord call(
+      String target,
+      String kind,
+      Integer status,
+      boolean success,
+      String errorCode,
+      String message,
+      long ms,
+      Integer bytes,
+      Instant at) {
     return new CallRecord(
-        region.code(),
-        CODE,
-        CallRecord.FORECAST,
-        false,
-        status,
-        success,
-        errorCode,
-        message,
-        ms,
-        bytes,
-        at);
+        target, CODE, kind, false, status, success, errorCode, message, ms, bytes, at);
   }
 
   private static String text(JsonNode condition) {

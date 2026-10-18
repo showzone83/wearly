@@ -277,6 +277,7 @@ start_backend() {
     cd "$BACKEND_DIR"
     unset ANTHROPIC_API_KEY
     # 개발용 backend/config/application-local.yml(실제 AI 키·관리자 계정·마스터 키)을 읽지 않게 없는 경로를 준다
+    # 날씨는 목업 공급자·목업 평년값(WEARLY_WEATHER_PROVIDER=mock)으로 돌아 외부 API(WeatherAPI·Open-Meteo)를 부르지 않는다 (doc/17·19)
     exec env \
       WEARLY_LOCAL_CONFIG="$HARNESS_DIR/.logs/no-local-config.yml" \
       JAVA_HOME="$java_home" \
@@ -297,6 +298,7 @@ start_backend() {
       WEARLY_ACCESS_TTL=PT3S \
       WEARLY_AI_DAILY_LIMIT=3 \
       WEARLY_AI_PROVIDER=mock \
+      WEARLY_WEATHER_PROVIDER=mock \
       WEARLY_ADMIN_EMAIL=admin@harness.wearly.test \
       WEARLY_ADMIN_PASSWORD=HarnessAdmin1234 \
       WEARLY_ADMIN_NAME=하네스관리자 \

@@ -111,6 +111,22 @@ wearly:
     # 공급자 행의 키 이름(key_name) → 키 값. 실제 값은 config/application-local.yml에 적는다 (없으면 같은 이름의 OS 환경변수)
     keys:
       WEATHERAPI_KEY: ${WEATHERAPI_KEY:}
+    # 장소별 날씨 (doc/19). REGION 밖 좌표는 요청 때 공급자를 부르고 격자(소수 첫째 자리)별로 캐시한다
+    place-cache-ttl: ${WEARLY_WEATHER_PLACE_CACHE_TTL:PT3H}
+    # 회원마다 하루(한국 날짜)에 공급자를 실제로 부르게 할 수 있는 좌표 요청 수. 넘으면 예전 캐시·평년값, 둘 다 없으면 429 WEATHER_LIMIT
+    on-demand-daily-limit: ${WEARLY_WEATHER_ON_DEMAND_DAILY_LIMIT:30}
+    # 장소 검색 결과 캐시 (같은 검색어, 소문자·공백 정리)
+    search-cache-ttl: ${WEARLY_WEATHER_SEARCH_CACHE_TTL:P1D}
+    # 회원마다 하루에 공급자를 실제로 부르게 할 수 있는 장소 검색 수 (캐시에서 준 검색은 세지 않는다)
+    search-daily-limit: ${WEARLY_WEATHER_SEARCH_DAILY_LIMIT:100}
+    # 예보 밖 날짜의 평년값: Open-Meteo 과거 기상 API (키 없음). 무료 API는 비상업용이다.
+    # 상업 서비스로 바꿀 때는 유료 플랜 주소(customer-archive-api.open-meteo.com)와 api-key(config/application-local.yml)를 넣거나 끈다
+    climate:
+      enabled: ${WEARLY_WEATHER_CLIMATE_ENABLED:true}
+      base-url: ${WEARLY_WEATHER_CLIMATE_BASE_URL:https://archive-api.open-meteo.com}
+      api-key: ${WEARLY_WEATHER_CLIMATE_API_KEY:}
+      # 지난 완결 연도 몇 해로 계산할지 (2026년이면 2016~2025)
+      years: ${WEARLY_WEATHER_CLIMATE_YEARS:10}
   # 웹에서 넣은 AI 키를 암호화하는 마스터 키 (base64 32바이트, openssl rand -base64 32). 없으면 웹 키 입력이 꺼진다
   secret-key: ${WEARLY_SECRET_KEY:}
   admin:

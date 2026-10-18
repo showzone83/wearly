@@ -1,8 +1,8 @@
 package app.wearly.common.error;
 
 /**
- * 05 문서 4장 + 07 문서 + 18 문서(사진 저장)의 오류 코드. HTTP 상태 번호와 기본 메시지를 함께 둔다 (유스케이스가 쓰므로 Spring Web 타입은 쓰지
- * 않는다).
+ * 05 문서 4장 + 07 문서 + 17·19 문서(날씨) + 18 문서(사진 저장)의 오류 코드. HTTP 상태 번호와 기본 메시지를 함께 둔다 (유스케이스가 쓰므로
+ * Spring Web 타입은 쓰지 않는다).
  */
 public enum ErrorCode {
   VALIDATION_FAILED(400, "입력값을 확인해 주세요."),
@@ -34,6 +34,7 @@ public enum ErrorCode {
   AI_UNAVAILABLE(502, "AI 분석을 지금 할 수 없어요. 잠시 후 다시 시도해 주세요."),
   WEATHER_UNAVAILABLE(503, "날씨 정보를 아직 받지 못했어요. 잠시 후 다시 시도해 주세요."),
   WEATHER_REFRESH_RUNNING(409, "날씨를 이미 받고 있어요. 끝난 뒤 다시 시도해 주세요."),
+  WEATHER_LIMIT(429, "오늘 다른 장소 날씨를 볼 수 있는 횟수를 모두 썼어요. 내일 다시 시도해 주세요."),
   WEATHER_NO_PROVIDER(409, "쓸 수 있는 날씨 공급자가 없어요. 공급자 사용 여부·키·차단 상태·월 한도를 확인해 주세요."),
   INTERNAL_ERROR(500, "일시적인 오류가 발생했어요.");
 
