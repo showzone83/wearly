@@ -1,15 +1,39 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
 import { OutfitMini } from '@/components/OutfitMini';
 import { Badge, Button, confirm, PageTitle, Row, Screen, SectionHead, Stars, Title } from '@/components/ui';
 import { OCCASION_LABEL, WEEKDAY_SHORT } from '@/data/constants';
+import type { PlannedEvent } from '@/data/types';
 import { styleLabel } from '@/lib/codes';
 import { addDays, diffDays, fromKey, shortLabel, todayKey, weekStart, weekTitle } from '@/lib/date';
+import { myPlace, recheckPlans } from '@/lib/placeWeather';
+import { planSource, samePlace, SOURCE_LABEL } from '@/lib/planWeather';
 import { upcomingPlans, useStore } from '@/store/useStore';
+import { useWeatherStore } from '@/store/useWeatherStore';
 import { cardBase, makeStyles, useColors } from '@/theme';
+
+/** 예정으로 PLAN 모드 열기 (저장된 조건·장소를 채우고, 저장하면 그 예정을 바꾼다) */
+const openPlan = (p: PlannedEvent) => router.push(`/coordi?mode=plan&planId=${encodeURIComponent(p.id)}&t=${Date.now()}`);
+
+/** 내 지역이 아닌 장소 이름 (내 지역이면 null) */
+const otherPlaceLabel = (p: PlannedEvent, regionCode: string): string | null =>
+  p.place && !samePlace(p.place, myPlace(regionCode)) ? p.place.label : null;
+
+/** "예보가 나왔어요 · 다시 추천" 배지 (doc/19) */
+const ForecastReadyBadge = ({ plan }: { plan: PlannedEvent }) => {
+  const s = useStyles();
+  const colors = useColors();
+
+  return (
+    <Pressable onPress={() => openPlan(plan)} style={s.readyBadge} accessibilityRole="button" hitSlop={4}>
+      <Icon name="refresh" size={13} color={colors.text} />
+      <Text style={s.readyText}>예보가 나왔어요 · 다시 추천</Text>
+    </Pressable>
+  );
+};
 
 // 목업 ④ 코디 캘린더 (p.42): 주간 보기 · D-day · 지난 기록
 export default function Calendar() {
@@ -17,6 +41,7 @@ export default function Calendar() {
   const looks = useStore((s) => s.looks);
   const plans = useStore((s) => s.plans);
   const deletePlan = useStore((s) => s.deletePlan);
+  const regionCode = useWeatherStore((s) => s.regionCode);
   const s = useStyles();
   const colors = useColors();
   const today = todayKey();
@@ -30,6 +55,13 @@ export default function Calendar() {
   const past = selected <= today;
   const upcoming = upcomingPlans(plans);
   const history = [...looks].sort((a, b) => b.date.localeCompare(a.date));
+
+  // 캘린더에 들어올 때마다 평년값 예정의 예보가 나왔는지 확인한다 (하루 한 번, doc/19)
+  useFocusEffect(
+    useCallback(() => {
+      void recheckPlans();
+    }, []),
+  );
 
   return (
     <Screen
@@ -62,11 +94,19 @@ export default function Calendar() {
         {week.map((d) => {
           const on = d === selected;
           const has = !!dayOutfits[d] || looks.some((l) => l.date === d) || plans.some((p) => p.date === d);
+          const ready = plans.some((p) => p.date === d && p.forecastReady);
           return (
             <Pressable key={d} onPress={() => setSelected(d)} style={[s.day, on && s.dayOn]}>
               <Text style={[s.dayW, { color: on ? colors.onPrimary : colors.textSub }]}>{WEEKDAY_SHORT[fromKey(d).getDay()]}</Text>
               <Title style={[s.dayN, { color: on ? colors.onPrimary : colors.text }]}>{fromKey(d).getDate()}</Title>
-              <View style={[s.dot, { backgroundColor: has ? (on ? colors.onPrimary : d === today ? colors.accent : colors.primary) : 'transparent' }]} />
+              <View
+                style={[
+                  s.dot,
+                  { backgroundColor: has ? (on ? colors.onPrimary : d === today ? colors.accent : colors.primary) : 'transparent' },
+                  ready && s.dotReady,
+                  ready && !on && { backgroundColor: colors.accent },
+                ]}
+              />
             </Pressable>
           );
         })}
@@ -110,9 +150,19 @@ export default function Calendar() {
           </View>
         )}
         {plan && (
-          <Text style={[s.cardSub, { marginTop: 10, color: colors.primary }]}>
-            예정 · {plan.title} {plan.outfit ? '(코디 저장됨)' : '(추천 대기)'}
-          </Text>
+          <View style={{ marginTop: 10, gap: 6 }}>
+            <Text style={[s.cardSub, { color: colors.primary }]}>
+              {[
+                `예정 · ${plan.title}`,
+                otherPlaceLabel(plan, regionCode),
+                `${plan.weather.temp}°C (${SOURCE_LABEL[planSource(plan)]})`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}{' '}
+              {plan.outfit ? '(코디 저장됨)' : '(추천 대기)'}
+            </Text>
+            {plan.forecastReady && <ForecastReadyBadge plan={plan} />}
+          </View>
         )}
       </View>
 
@@ -128,13 +178,20 @@ export default function Calendar() {
             </View>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={s.cardTitle}>{p.title}</Text>
+              {otherPlaceLabel(p, regionCode) && (
+                <Row style={{ gap: 4 }}>
+                  <Icon name="pin" size={13} color={colors.textSub} />
+                  <Text style={s.cardSub}>{otherPlaceLabel(p, regionCode)}</Text>
+                </Row>
+              )}
               <Text style={s.cardSub}>
-                {p.concepts.map(styleLabel).join(' · ')} · {p.weather.temp}°C{p.weather.manual ? ' (직접 입력)' : ''}
+                {[...p.concepts.map(styleLabel), `${p.weather.temp}°C (${SOURCE_LABEL[planSource(p)]})`].join(' · ')}
               </Text>
+              {p.forecastReady && <ForecastReadyBadge plan={p} />}
               {p.outfit ? <OutfitMini items={p.outfit.items} size={38} /> : <Text style={s.cardSub}>추천 대기</Text>}
               <Row style={{ gap: 12, marginTop: 4 }}>
                 {!p.outfit && (
-                  <Pressable onPress={() => router.push('/coordi?mode=plan')}>
+                  <Pressable onPress={() => openPlan(p)}>
                     <Text style={s.link}>추천 받기 ›</Text>
                   </Pressable>
                 )}
@@ -186,6 +243,18 @@ const useStyles = makeStyles((t) => ({
   dayW: { fontSize: 12, fontWeight: '700' },
   dayN: { fontSize: 18 },
   dot: { width: 5, height: 5, borderRadius: 3 },
+  dotReady: { width: 12 },
+  readyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: t.colors.accentSoft,
+    borderRadius: t.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  readyText: { fontSize: 12, fontWeight: '800', color: t.colors.text },
   section: { fontSize: 17, fontWeight: '800', color: t.colors.text, marginTop: 26, marginBottom: 12 },
   card: { ...cardBase(t), padding: 16 },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },

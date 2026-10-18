@@ -6,17 +6,20 @@ import { Chip, ChipGroup } from '@/components/Chip';
 import { condIcon, Icon } from '@/components/Icon';
 import { ItemThumb } from '@/components/ItemThumb';
 import { Mascot } from '@/components/Mascot';
-import { Button, Label, notify, PageTitle, Row, Screen, Title } from '@/components/ui';
+import { Button, Label, Notice, notify, PageTitle, Row, Screen, Title } from '@/components/ui';
 import { FORMALITY_LABEL, MOOD_LABEL, OCCASION_LABEL, PLAN_OCCASIONS, TIME_LABEL, WEEKDAY_SHORT, WORK_OCCASIONS } from '@/data/constants';
-import type { ColorKey, Formality, Mood, Occasion, Outfit, RecommendContext, StyleTag, TimeOfDay } from '@/data/types';
+import type { ColorKey, Formality, Mood, Occasion, Outfit, Place, RecommendContext, StyleTag, TimeOfDay, TWeatherSource, Weather } from '@/data/types';
 import type { RecommendSource } from '@/lib/aiOutfits';
 import { requestAiOutfits, ruleOutfits, type AiPhase } from '@/lib/aiRecommend';
 import { activeCodes, colorLabel, isActiveCode, styleLabel, withCurrent } from '@/lib/codes';
 import { dayContext } from '@/lib/context';
 import { addDays, diffDays, fromKey, longLabel, todayKey } from '@/lib/date';
+import { myPlace, placeWeatherEnabled, usePlanDayWeather } from '@/lib/placeWeather';
+import { climateNotice, placeKey, planSource, samePlace, SOURCE_LABEL, weatherFromDay } from '@/lib/planWeather';
 import { canRecommend, isCandidate, slotOf } from '@/lib/recommend';
 import { COND_LABEL, FEEL_PRESETS, forecast, hasForecast, manualWeather } from '@/lib/weather';
 import { useCodesVersion } from '@/store/useCodes';
+import { usePlaceStore } from '@/store/usePlaceStore';
 import { useStore } from '@/store/useStore';
 import { useWeatherStore } from '@/store/useWeatherStore';
 import { inputBase, makeStyles, useColors } from '@/theme';
@@ -56,7 +59,7 @@ function planMood(concepts: StyleTag[]): Mood {
 
 // 목업 ④ AI 코디 (p.15 조건 선택 · p.16 예정일 코디)
 export default function Coordi() {
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; planId?: string; t?: string }>();
   const profile = useStore((s) => s.profile);
   const items = useStore((s) => s.items);
   const setDraft = useStore((s) => s.setDraft);
@@ -67,9 +70,6 @@ export default function Coordi() {
   const base = dayContext(today, profile);
 
   const [mode, setMode] = useState<Mode>('TODAY');
-  useEffect(() => {
-    if (params.mode === 'plan') setMode('PLAN');
-  }, [params.mode]);
 
   // 오늘 코디 조건
   const [occasion, setOccasion] = useState<Occasion>(base.occasion);
@@ -87,14 +87,78 @@ export default function Coordi() {
   const [feel, setFeel] = useState(FEEL_PRESETS[2].temp);
   const [rain, setRain] = useState(false);
   const [memo, setMemo] = useState('');
+  /** 날씨를 볼 장소. null이면 내 지역(날씨 지역 설정) (doc/19) */
+  const [place, setPlace] = useState<Place | null>(null);
+  /** 서버 날씨(예보·평년)가 있어도 체감 온도를 직접 고름 */
+  const [manualOn, setManualOn] = useState(false);
+  /** 이미 있는 예정을 다시 추천하는 중이면 그 예정 */
+  const [editing, setEditing] = useState<{ id: string; title: string; occasion: Occasion } | null>(null);
   // 서버 날씨가 도착하면 예보·예보 기간이 바뀌므로 다시 그린다 (lib/weather.ts가 스토어 값을 읽는다)
   useWeatherStore((s) => s.weather);
+  const regionCode = useWeatherStore((s) => s.regionCode);
+  const recentPlaces = usePlaceStore((s) => s.recent);
+  const picked = usePlaceStore((s) => s.picked);
+  /** 이 화면이 이미 받아 간 장소 고르기 결과 (다시 그려질 때 예전 결과를 다시 적용하지 않도록) */
+  const seenPick = useRef(usePlaceStore.getState().picked?.nonce ?? 0);
+
+  const home = myPlace(regionCode);
+  const target = place ?? home;
+  const placeOn = placeWeatherEnabled();
+  const day = usePlanDayWeather(target, planDate, mode === 'PLAN' && placeOn);
+  const serverDay = day.outcome?.kind === 'ok' ? day.outcome.res : null;
+
+  useEffect(() => {
+    if (params.mode === 'plan') setMode('PLAN');
+    if (!params.planId) return;
+    const p = useStore.getState().plans.find((x) => x.id === params.planId);
+    if (!p) return;
+    // 저장된 예정으로 조건을 채운다 ("예보가 나왔어요 · 다시 추천", "추천 받기")
+    setEditing({ id: p.id, title: p.title, occasion: p.occasion });
+    setPlanDate(p.date);
+    setTime(p.timeOfDay);
+    setPlanOcc(p.occasion);
+    setConcepts(p.concepts);
+    setMemo(p.memo ?? '');
+    setPlace(p.place && !samePlace(p.place, myPlace()) ? p.place : null);
+    setManualOn(false);
+    if (planSource(p) === 'MANUAL') {
+      const nearest = FEEL_PRESETS.reduce((a, b) => (Math.abs(b.temp - p.weather.temp) < Math.abs(a.temp - p.weather.temp) ? b : a));
+      setFeel(nearest.temp);
+      setRain(p.weather.rainProb >= 60);
+    }
+  }, [params.mode, params.planId, params.t]);
+
+  useEffect(() => {
+    if (!picked || picked.nonce === seenPick.current) return;
+    seenPick.current = picked.nonce;
+    setPlace(samePlace(picked.place, myPlace()) ? null : picked.place);
+    setManualOn(false);
+  }, [picked]);
 
   const ready = canRecommend(items);
-  const auto = hasForecast(planDate);
-  const planWeather = auto ? forecast(planDate) : manualWeather(feel, rain);
+  /** 서버 날씨가 없을 때: 내 지역은 지금처럼(예보 기간이면 예보), 다른 장소는 직접 고르기 */
+  const auto = !place && hasForecast(planDate);
+  const planSourceNow: TWeatherSource = serverDay ? (manualOn ? 'MANUAL' : serverDay.source) : auto ? 'FORECAST' : 'MANUAL';
+  const planWeather: Weather =
+    planSourceNow === 'MANUAL' ? manualWeather(feel, rain) : serverDay ? weatherFromDay(serverDay) : forecast(planDate);
   const todayWeather = forecast(today);
+  /** 장소 칩: 최근 장소 중 내 지역과 같은 곳은 빼고, 고른 장소가 목록에 없으면 앞에 둔다 */
+  const placeChips = (() => {
+    const list = recentPlaces.filter((p) => !samePlace(p, home));
+    if (place && !list.some((p) => samePlace(p, place))) list.unshift(place);
+    return list;
+  })();
   const anchorable = items.filter((i) => isCandidate(i) && slotOf(i.category) !== null);
+
+  /** 날짜·장소를 바꾸면 그곳·그날의 서버 날씨(예보·평년)로 돌아간다 */
+  const pickDate = (d: string) => {
+    setPlanDate(d);
+    setManualOn(false);
+  };
+  const pickPlace = (p: Place | null) => {
+    setPlace(p);
+    setManualOn(false);
+  };
 
   /** 지금 화면 조건 (오늘 코디: 오늘 예보 · 예정일 코디: 그날 예보 또는 직접 고른 기온) */
   const buildCtx = (): RecommendContext =>
@@ -118,8 +182,21 @@ export default function Coordi() {
       source,
       plan:
         mode === 'PLAN'
-          ? { date: planDate, timeOfDay: time, title: OCCASION_LABEL[planOcc], occasion: planOcc, concepts, weather: planWeather, memo: memo.trim() || undefined }
+          ? {
+              date: planDate,
+              timeOfDay: time,
+              title: editing && editing.occasion === planOcc ? editing.title : OCCASION_LABEL[planOcc],
+              occasion: planOcc,
+              concepts,
+              weather: planWeather,
+              memo: memo.trim() || undefined,
+              place: place ?? undefined,
+              weatherSource: planSourceNow,
+              weatherCheckedAt: serverDay && !manualOn ? new Date().toISOString() : undefined,
+              forecastReady: false,
+            }
           : undefined,
+      planId: mode === 'PLAN' ? editing?.id : undefined,
     });
     router.push('/result');
   };
@@ -186,6 +263,7 @@ export default function Coordi() {
           <Button
             title="코디 추천 받기"
             icon={<Icon name="sparkle" color={colors.onPrimary} size={18} filled />}
+            disabled={mode === 'PLAN' && day.loading}
             onPress={() => void submit()}
           />
         ) : undefined
@@ -246,6 +324,14 @@ export default function Coordi() {
         </View>
       ) : (
         <View style={{ gap: 24 }}>
+          {editing && (
+            <Notice tone="beige" icon="calendar">
+              <Text style={s.noticeText}>‘{editing.title}’ 예정을 다시 추천해요. 저장하면 이 예정의 코디가 바뀌어요.</Text>
+              <Pressable onPress={() => setEditing(null)} hitSlop={6}>
+                <Text style={[s.link, { marginTop: 6, fontSize: 13 }]}>새 예정으로 만들기</Text>
+              </Pressable>
+            </Notice>
+          )}
           <Title style={s.headline}>언제 입을 코디인가요?</Title>
           <View>
             <Label>날짜 · 시간대</Label>
@@ -254,7 +340,7 @@ export default function Coordi() {
                 const on = d === planDate;
                 const dt = fromKey(d);
                 return (
-                  <Pressable key={d} onPress={() => setPlanDate(d)} style={[s.dateChip, on ? s.dateOn : s.dateOff]}>
+                  <Pressable key={d} onPress={() => pickDate(d)} style={[s.dateChip, on ? s.dateOn : s.dateOff]}>
                     <Text style={[s.dateW, { color: on ? colors.onPrimary : colors.textSub }]}>
                       {dt.getDate() === 1 || d === planDates[0] ? `${dt.getMonth() + 1}월` : WEEKDAY_SHORT[dt.getDay()]}
                     </Text>
@@ -270,6 +356,22 @@ export default function Coordi() {
               <ChipGroup options={['AM', 'PM', 'EVENING'] as TimeOfDay[]} labels={TIME_LABEL} value={time} small onChange={([t]) => setTime(t)} />
             </View>
           </View>
+          {placeOn && (
+            <View>
+              <Label>장소</Label>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 20 }}>
+                <Chip label={`내 지역 · ${home.label}`} selected={!place} onPress={() => pickPlace(null)} small />
+                {placeChips.map((p) => (
+                  <Chip key={placeKey(p)} label={p.label} selected={samePlace(p, place)} onPress={() => pickPlace(p)} small />
+                ))}
+                <Chip
+                  label="다른 장소…"
+                  onPress={() => router.push({ pathname: '/place', params: { current: placeKey(target) } })}
+                  small
+                />
+              </ScrollView>
+            </View>
+          )}
           <View>
             <Label>컨셉</Label>
             <ChipGroup options={withCurrent(activeCodes('STYLE'), concepts)} labels={styleLabel} value={concepts} multi onChange={setConcepts} />
@@ -279,25 +381,36 @@ export default function Coordi() {
             <ChipGroup options={PLAN_OCCASIONS} labels={OCCASION_LABEL} value={planOcc} onChange={([o]) => setPlanOcc(o)} />
           </View>
           <View>
-            <Label>날씨</Label>
-            {auto ? (
-              <View style={s.weatherBox}>
-                <Icon name={condIcon(planWeather.cond)} size={22} color={colors.primary} />
-                <Text style={s.weatherBoxText}>
-                  예보 자동 · {planWeather.temp}°C {COND_LABEL[planWeather.cond]} · 강수 {planWeather.rainProb}%
-                </Text>
-              </View>
-            ) : (
-              <View style={{ gap: 10 }}>
-                <Text style={s.switchSub}>예보 기간 밖이라 기온을 직접 골라 주세요. D-1에 최신 예보로 다시 확인해요.</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {FEEL_PRESETS.map((p) => (
-                    <Chip key={p.label} label={`${p.label} ${p.temp}°`} selected={feel === p.temp} onPress={() => setFeel(p.temp)} small />
-                  ))}
-                  <Chip label="비 예상" selected={rain} onPress={() => setRain(!rain)} small />
-                </View>
-              </View>
-            )}
+            <Label>날씨{place ? ` · ${place.label}` : ''}</Label>
+            <PlanWeatherBox
+              source={planSourceNow}
+              weather={planWeather}
+              serverSource={serverDay?.source ?? null}
+              climateText={serverDay?.source === 'CLIMATE' ? climateNotice(target.label, planDate, weatherFromDay(serverDay)) : null}
+              loading={day.loading}
+              problem={
+                day.outcome?.kind === 'error'
+                  ? day.outcome.code === 'WEATHER_LIMIT'
+                    ? `${day.outcome.message} 기온을 직접 골라 주세요.`
+                    : '이 장소의 날씨를 받지 못했어요. 기온을 직접 골라 주세요.'
+                  : day.outcome?.kind === 'login'
+                    ? '이 장소의 날씨는 로그인해야 받을 수 있어요. 기온을 직접 골라 주세요.'
+                    : place && day.outcome?.kind === 'unsupported'
+                      ? '이 장소의 날씨는 아직 받을 수 없어요. 기온을 직접 골라 주세요.'
+                      : null
+              }
+              feel={feel}
+              rain={rain}
+              onFeel={(t) => {
+                setFeel(t);
+                setManualOn(true);
+              }}
+              onRain={() => {
+                setRain(!rain);
+                setManualOn(true);
+              }}
+              onUseServer={serverDay && manualOn ? () => setManualOn(false) : undefined}
+            />
           </View>
           <AnchorPicker items={anchorable} value={anchor} onChange={setAnchor} title="꼭 입을 아이템 고정 (선택)" />
           <AvoidColors value={avoid} onChange={setAvoid} />
@@ -310,6 +423,92 @@ export default function Coordi() {
     </Screen>
   );
 }
+
+interface IPlanWeatherBoxProps {
+  /** 추천에 쓸 날씨의 출처 */
+  source: TWeatherSource;
+  weather: Weather;
+  /** 서버 날씨(GET /weather/day)의 출처. 없으면 null (목업·예전 서버·실패) */
+  serverSource: 'FORECAST' | 'CLIMATE' | null;
+  /** 평년값 안내 문구 */
+  climateText: string | null;
+  loading: boolean;
+  /** 서버 날씨를 받지 못한 이유 (직접 고르기 안내) */
+  problem: string | null;
+  feel: number;
+  rain: boolean;
+  onFeel: (temp: number) => void;
+  onRain: () => void;
+  /** 직접 고르다가 서버 날씨(예보·평년)로 되돌리기 */
+  onUseServer?: () => void;
+}
+
+/** 예정일 날씨 (doc/19): 예보 · 평년 기준(안내 + 체감 온도 칩) · 직접 고르기 */
+const PlanWeatherBox = ({ source, weather, serverSource, climateText, loading, problem, feel, rain, onFeel, onRain, onUseServer }: IPlanWeatherBoxProps) => {
+  const s = useStyles();
+  const colors = useColors();
+
+  if (loading) {
+    return (
+      <Row style={[s.weatherBox, { backgroundColor: colors.surfaceAlt }]}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={[s.weatherBoxText, { color: colors.textSub }]}>날씨를 확인하는 중…</Text>
+      </Row>
+    );
+  }
+
+  const chips = (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {FEEL_PRESETS.map((p) => (
+        <Chip key={p.label} label={`${p.label} ${p.temp}°`} selected={source === 'MANUAL' && feel === p.temp} onPress={() => onFeel(p.temp)} small />
+      ))}
+      <Chip label="비 예상" selected={source === 'MANUAL' && rain} onPress={onRain} small />
+    </View>
+  );
+
+  if (source === 'FORECAST') {
+    return (
+      <View style={s.weatherBox}>
+        <Icon name={condIcon(weather.cond)} size={22} color={colors.primary} />
+        <Text style={s.weatherBoxText}>
+          예보 자동 · {weather.temp}°C {COND_LABEL[weather.cond]} · 강수 {weather.rainProb}%
+        </Text>
+      </View>
+    );
+  }
+
+  if (source === 'CLIMATE') {
+    return (
+      <View style={{ gap: 10 }}>
+        <View style={[s.weatherBox, s.climateBox]}>
+          <Icon name="calendar" size={22} color={colors.primary} />
+          <Text style={[s.weatherBoxText, { flex: 1 }]}>
+            {SOURCE_LABEL.CLIMATE} 기준 · {weather.temp}°C (최저 {weather.min}° · 최고 {weather.max}°) · 비 온 날 {weather.rainProb}%
+          </Text>
+        </View>
+        {climateText && <Text style={s.switchSub}>{climateText}</Text>}
+        <Text style={s.switchSub}>체감 온도를 직접 고를 수도 있어요.</Text>
+        {chips}
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      <Text style={s.switchSub}>
+        {serverSource
+          ? '직접 고른 체감 온도로 추천해요.'
+          : (problem ?? '예보 기간 밖이라 기온을 직접 골라 주세요. D-1에 최신 예보로 다시 확인해요.')}
+      </Text>
+      {chips}
+      {onUseServer && (
+        <Pressable onPress={onUseServer} hitSlop={6} style={{ alignSelf: 'flex-start' }}>
+          <Text style={[s.link, { fontSize: 13 }]}>{serverSource === 'FORECAST' ? '예보로' : '평년 기온으로'} 되돌리기</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+};
 
 /** AI 추천 진행 표시: 옷장을 살펴보는 중 → 조합을 고르는 중 → 점수를 매기는 중 */
 function AiProgress({ phase, onCancel }: { phase: number; onCancel: () => void }) {
@@ -462,6 +661,8 @@ const useStyles = makeStyles((t) => ({
     padding: 14,
   },
   weatherBoxText: { color: t.colors.primary, fontWeight: '700', fontSize: 14 },
+  climateBox: { borderWidth: 1, borderStyle: 'dashed', borderColor: t.colors.primary },
+  noticeText: { fontSize: 13, color: t.colors.text, lineHeight: 19 },
   anchor: { width: 78, borderWidth: 2, borderColor: 'transparent', borderRadius: 16, padding: 3 },
   anchorName: { fontSize: 11, color: t.colors.text, marginTop: 4, textAlign: 'center' },
   panel: { alignItems: 'center', paddingTop: 16, paddingHorizontal: 4 },

@@ -60,7 +60,7 @@ export default function Result() {
 
   const save = () => {
     if (isPlan) {
-      addPlan({ ...draft.plan!, id: newId('plan'), outfit: current });
+      addPlan({ ...draft.plan!, id: draft.planId ?? newId('plan'), outfit: current });
       router.dismissTo('/calendar');
     } else {
       saveDayOutfit(todayKey(), current);

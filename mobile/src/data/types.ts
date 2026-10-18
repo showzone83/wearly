@@ -1,4 +1,5 @@
 // 옷 속성 값은 서버 코드 테이블(doc/06_코드_관리.md)이 정한다. 라벨·속성은 src/lib/codes.ts로 읽는다.
+import type { Place } from '../api/types'; // 하네스가 이 파일을 함께 컴파일하므로 상대 경로
 
 /** CATEGORY 코드 (예: TOP, DRESS, ACC) */
 export type Category = string;
@@ -134,6 +135,9 @@ export interface SavedOutfit {
 
 export type TimeOfDay = 'AM' | 'PM' | 'EVENING';
 
+/** 예정일 날씨 출처 (doc/19): 예보 · 평년값 · 체감 온도 직접 고르기 */
+export type TWeatherSource = 'FORECAST' | 'CLIMATE' | 'MANUAL';
+
 export interface PlannedEvent {
   id: string;
   date: string;
@@ -141,10 +145,21 @@ export interface PlannedEvent {
   title: string;
   occasion: Occasion;
   concepts: StyleTag[];
+  /** 저장(또는 마지막 재확인) 때의 날씨. 추천 엔진에 넣은 값 */
   weather: Weather;
   memo?: string;
   outfit?: Outfit;
+  /** 날씨를 볼 장소. 없으면 내 지역(날씨 지역 설정, 예전 데이터 포함) */
+  place?: Place;
+  /** 없으면 예전 데이터: weather.manual이면 MANUAL, 아니면 FORECAST로 본다 (lib/planWeather.ts planSource) */
+  weatherSource?: TWeatherSource;
+  /** 서버에서 날씨를 마지막으로 받은(확인한) 시각 (ISO). 하루 한 번 다시 확인할 때 쓴다 */
+  weatherCheckedAt?: string;
+  /** 평년값으로 고른 코디인데 예보가 나와 날씨가 달라졌다 → "예보가 나왔어요 · 다시 추천" 배지 */
+  forecastReady?: boolean;
 }
+
+export type { Place };
 
 export type Emotion = 'CONFIDENT' | 'COMFY' | 'AWKWARD' | 'UNCOMFY';
 export type OthersReaction = 'PRAISE' | 'NORMAL' | 'MEH';

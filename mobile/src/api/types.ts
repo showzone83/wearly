@@ -408,6 +408,68 @@ export type WeatherResult =
   | { changed: true; weather: WeatherDto; /** 다음 요청의 If-None-Match */ etag: string | null }
   | { changed: false };
 
+// ── 장소별 날씨 (doc/19) ──
+
+/**
+ * 날씨 장소. REGION 코드(시·도)에 있는 곳은 regionCode(좌표는 코드 attrs), 그 밖(해외 등)은 검색 결과의 이름·좌표.
+ * 서버 응답에서는 regionCode가 null일 수 있다
+ */
+export interface Place {
+  regionCode?: string | null;
+  label: string;
+  lat: number;
+  lon: number;
+}
+
+/** 날씨 출처: 예보 · 평년값. MANUAL(체감 온도 직접 고르기)은 앱만 쓴다 */
+export type WeatherDaySource = 'FORECAST' | 'CLIMATE';
+
+/** GET /weather/day 요청 장소: 지역 코드(인증 불필요) 또는 좌표(로그인 필요) */
+export type WeatherDayWhere = { region: string } | { lat: number; lon: number };
+
+/** GET /weather/day (doc/19). 한 장소·한 날짜의 날씨 */
+export interface WeatherDayResponse {
+  place: Place;
+  /** YYYY-MM-DD (한국 날짜) */
+  date: string;
+  source: WeatherDaySource;
+  day: {
+    /** CLIMATE면 평년 평균 */
+    temp: number;
+    /** CLIMATE면 평년 평균 최저 */
+    min: number;
+    /** CLIMATE면 평년 평균 최고 */
+    max: number;
+    /** 0~100. CLIMATE면 비 온 날 비율×100 */
+    rainProb: number;
+    /** CLIMATE면 null */
+    cond: WeatherCondDto | null;
+    condText: string | null;
+  };
+  /** 이 장소의 예보가 있는 마지막 날짜 (없으면 null) */
+  forecastUntil: string | null;
+  /** FORECAST면 예보를 받은 시각, CLIMATE면 평년값 계산 시각 (ISO) */
+  fetchedAt: string;
+  /** CLIMATE일 때만 */
+  climate: { years: string; rainDayRatio: number } | null;
+}
+
+/** GET /weather/places 결과 한 줄 */
+export interface PlaceSearchItem {
+  label: string;
+  /** 시·도·주 이름 (공급자 값) */
+  region: string | null;
+  country: string | null;
+  lat: number;
+  lon: number;
+  /** 국내 결과가 REGION 좌표 30km 안이면 그 코드 */
+  regionCode?: string | null;
+}
+
+export interface PlaceSearchResponse {
+  items: PlaceSearchItem[];
+}
+
 export type AppConfigResult =
   | { changed: true; config: AppConfigDto; /** 다음 요청의 If-None-Match에 그대로 넣을 값 */ etag: string }
   | { changed: false };

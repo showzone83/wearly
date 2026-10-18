@@ -21,6 +21,7 @@ import type {
   LoginRequest,
   OutfitRecommendRequest,
   OutfitRecommendResponse,
+  PlaceSearchResponse,
   ProfileDto,
   RetireRequest,
   RNFile,
@@ -30,6 +31,8 @@ import type {
   UploadUrlResponse,
   UserDto,
   WardrobeStats,
+  WeatherDayResponse,
+  WeatherDayWhere,
   WeatherDto,
   WeatherResult,
 } from './types';
@@ -368,6 +371,32 @@ export function createApiClient(options: ApiClientOptions) {
           throw new ApiError(res.status, 'HTTP_ERROR', '날씨 응답 형식이 달라요.');
         }
         return { changed: true, weather, etag: res.headers?.get?.('ETag') ?? null };
+      },
+      /**
+       * 한 장소·한 날짜의 날씨 (doc/19). 지역 코드는 인증 없이, 좌표는 로그인한 사용자만 부른다.
+       * source: FORECAST(예보) · CLIMATE(그 달 평년값). date는 한국 날짜 YYYY-MM-DD, 오늘부터 1년 안.
+       * 오류: 400 VALIDATION_FAILED(date·region) · 429 WEATHER_LIMIT(좌표 하루 한도) · 503 WEATHER_UNAVAILABLE.
+       * 이 API가 없는 예전 서버는 404(로그인) 또는 401 UNAUTHORIZED(지역 코드, 공개 경로가 아님)를 준다
+       */
+      day: async (where: WeatherDayWhere, date: string): Promise<WeatherDayResponse> => {
+        const query =
+          'region' in where
+            ? { region: where.region, date }
+            : { lat: String(where.lat), lon: String(where.lon), date };
+        const res = await request<WeatherDayResponse>('GET', '/weather/day', { auth: !('region' in where), query });
+        if (!res || !res.day || typeof res.day.temp !== 'number' || (res.source !== 'FORECAST' && res.source !== 'CLIMATE')) {
+          throw new ApiError(200, 'HTTP_ERROR', '날씨 응답 형식이 달라요.');
+        }
+        return res;
+      },
+      /**
+       * 장소 검색 (로그인 필요, doc/19). q는 1~50자, 결과는 최대 10개.
+       * 오류: 400 VALIDATION_FAILED(q) · 429 WEATHER_LIMIT. 예전 서버는 404
+       */
+      places: async (q: string): Promise<PlaceSearchResponse> => {
+        const res = await request<PlaceSearchResponse>('GET', '/weather/places', { auth: true, query: { q } });
+        if (!res || !Array.isArray(res.items)) throw new ApiError(200, 'HTTP_ERROR', '장소 검색 응답 형식이 달라요.');
+        return res;
       },
     },
     auth: {

@@ -10,8 +10,10 @@ import { bootstrapSession } from '@/lib/account';
 import { API_BASE_URL } from '@/lib/api';
 import { syncAppConfig } from '@/lib/appConfig';
 import { onAppActive, startPhotoMaintenance } from '@/lib/photoSync';
+import { recheckPlans } from '@/lib/placeWeather';
 import { syncWeather } from '@/lib/weatherSync';
 import { bootstrapCodes, useCodes } from '@/store/useCodes';
+import { usePlaceStore } from '@/store/usePlaceStore';
 import { useStore } from '@/store/useStore';
 import { useThemeStore } from '@/store/useThemeStore';
 import { useWeatherStore } from '@/store/useWeatherStore';
@@ -123,6 +125,21 @@ const useWeatherSync = (weatherHydrated: boolean) => {
   }, [weatherHydrated]);
 };
 
+/**
+ * 예정일 날씨 다시 확인 (doc/19): 세션 확인(좌표 장소는 로그인 필요)과 장소·날씨 저장값 복원이 끝나면 한 번,
+ * 앱이 다시 활성이 될 때마다 한 번. 같은 예정은 하루 한 번만 서버에 묻고, 서버에 API가 없으면 아무것도 하지 않는다.
+ */
+const usePlanWeatherRecheck = (ready: boolean) => {
+  useEffect(() => {
+    if (!ready) return;
+    void recheckPlans();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void recheckPlans();
+    });
+    return () => sub.remove();
+  }, [ready]);
+};
+
 /** 계정 모드에서 로그인이 풀리면(Refresh 실패) 로그인 화면으로 보낸다 */
 function AuthWatcher() {
   const lost = useStore((s) => s.authMode === 'account' && s.authLost);
@@ -141,11 +158,13 @@ export default function RootLayout() {
   const codesHydrated = useHydrated(useCodes.persist);
   const themeHydrated = useHydrated(useThemeStore.persist);
   const weatherHydrated = useHydrated(useWeatherStore.persist);
+  const placeHydrated = useHydrated(usePlaceStore.persist);
   const sessionChecked = useSession(hydrated);
   const codes = useCodesReady(codesHydrated);
   useAppConfigSync(themeHydrated);
   usePhotoMaintenance(sessionChecked);
   useWeatherSync(weatherHydrated);
+  usePlanWeatherRecheck(sessionChecked && weatherHydrated && placeHydrated && codes.phase === 'ready');
   // 저장된 테마로 첫 화면을 그리도록 테마 복원을 기다린다 (제목은 시스템 산세리프라 글꼴 로딩은 없다)
   const ready = themeHydrated && hydrated && sessionChecked && codes.phase === 'ready';
   const codesFailed = codes.phase === 'failed';

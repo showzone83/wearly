@@ -24,6 +24,8 @@ export interface Draft {
   mode: 'TODAY' | 'PLAN';
   outfits: Outfit[];
   plan?: Omit<PlannedEvent, 'id' | 'outfit'>;
+  /** 이미 있는 예정을 다시 추천할 때 그 id (저장하면 그 예정을 바꾼다) */
+  planId?: string;
   /** 추천 방식(AI·규칙)과 AI 공급자·모델·남은 횟수. 없으면 규칙 추천 */
   source?: RecommendSource;
 }
@@ -80,6 +82,8 @@ interface State {
   bumpAffinity: (ids: (string | undefined)[], delta: number) => void;
   addPlan: (plan: PlannedEvent) => void;
   deletePlan: (id: string) => void;
+  /** 예정의 날씨 칸만 바꾼다 (다시 확인, doc/19). 그사이 지워진 예정이면 아무것도 안 한다 */
+  updatePlanWeather: (id: string, patch: Pick<PlannedEvent, 'weather' | 'weatherSource' | 'weatherCheckedAt' | 'forecastReady'>) => void;
   addLook: (look: DailyLook) => void;
   setDraft: (draft: Draft | null) => void;
   loadSample: () => void;
@@ -207,6 +211,12 @@ export const useStore = create<State>()(
         set({ plans: [...get().plans.filter((p) => p.id !== plan.id), plan].sort((a, b) => a.date.localeCompare(b.date)) }),
 
       deletePlan: (id) => set({ plans: get().plans.filter((p) => p.id !== id) }),
+
+      updatePlanWeather: (id, patch) => {
+        const plans = get().plans;
+        if (!plans.some((p) => p.id === id)) return;
+        set({ plans: plans.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
+      },
 
       addLook: (look) => {
         const s = get();
