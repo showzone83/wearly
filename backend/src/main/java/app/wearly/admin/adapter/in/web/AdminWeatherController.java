@@ -114,6 +114,7 @@ public class AdminWeatherController {
   @GetMapping("/calls")
   public PageResponse<WeatherCallResponse> calls(
       @RequestParam(required = false) String providerCode,
+      @RequestParam(required = false) String callKind,
       @RequestParam(required = false) String regionCode,
       @RequestParam(required = false) String success,
       @RequestParam(required = false) String fallback,
@@ -125,7 +126,7 @@ public class AdminWeatherController {
     return PageResponse.from(
         weather.calls(
             new WeatherCallFilterDto(
-                providerCode, regionCode, success, fallback, errorCode, from, to),
+                providerCode, callKind, regionCode, success, fallback, errorCode, from, to),
             PagingDto.of(page, size)),
         WeatherCallResponse::from);
   }

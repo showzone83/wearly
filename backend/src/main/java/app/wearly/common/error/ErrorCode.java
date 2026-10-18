@@ -43,6 +43,7 @@ public enum ErrorCode {
   WEATHER_LIMIT(429, "오늘 다른 장소 날씨를 볼 수 있는 횟수를 모두 썼어요. 내일 다시 시도해 주세요.", "kind"),
   WEATHER_NO_PROVIDER(
       409, "쓸 수 있는 날씨 공급자가 없어요. 공급자 사용 여부·키·차단 상태·월 한도를 확인해 주세요.", "reason", "keyName"),
+  PLAN_LIMIT(409, "예정은 {max}개까지 저장할 수 있어요. 지난 예정을 지워 주세요.", "max"),
   INTERNAL_ERROR(500, "일시적인 오류가 발생했어요."),
   NOT_ACCEPTABLE(406, "지원하지 않는 응답 형식이에요."),
   CONFLICT(409, "다른 요청과 겹쳐 처리하지 못했어요. 다시 시도해 주세요."),

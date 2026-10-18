@@ -143,6 +143,7 @@ public class AdminWeatherService implements AdminWeatherUseCase {
     CallSearchDto search =
         new CallSearchDto(
             upper(f.providerCode()),
+            upper(f.callKind()),
             upper(f.regionCode()),
             bool("success", f.success()),
             bool("fallback", f.fallback()),

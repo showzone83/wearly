@@ -19,6 +19,7 @@ import app.wearly.weather.application.port.in.dto.RunSearchDto;
 import app.wearly.weather.application.port.in.dto.UpdateWeatherSettingDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto;
+import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto.AuxiliaryUsageDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto.MonthUsageDto;
 import app.wearly.weather.application.port.in.dto.WeatherProviderChangeDto;
 import app.wearly.weather.application.port.in.dto.WeatherProviderDto;
@@ -26,6 +27,8 @@ import app.wearly.weather.application.port.in.dto.WeatherScheduleDto;
 import app.wearly.weather.application.port.in.dto.WeatherSettingChangeDto;
 import app.wearly.weather.application.port.in.dto.WeatherSettingDto;
 import app.wearly.weather.application.port.in.dto.WeatherSnapshotDto;
+import app.wearly.weather.application.port.out.ClimateSourcePort;
+import app.wearly.weather.application.port.out.GeocodingPort;
 import app.wearly.weather.application.port.out.RefreshExecutorPort;
 import app.wearly.weather.application.port.out.RefreshLockPort;
 import app.wearly.weather.application.port.out.WeatherLogQueryPort;
@@ -39,6 +42,7 @@ import app.wearly.weather.application.port.out.WeatherSourcePort;
 import app.wearly.weather.application.port.out.dto.CallRowDto;
 import app.wearly.weather.application.port.out.dto.CallSummaryRowDto;
 import app.wearly.weather.application.port.out.dto.RunRowDto;
+import app.wearly.weather.domain.CallRecord;
 import app.wearly.weather.domain.FetchResult;
 import app.wearly.weather.domain.KeyState;
 import app.wearly.weather.domain.RefreshRun;
@@ -55,11 +59,13 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -72,6 +78,13 @@ public class WeatherAdminService implements WeatherAdminUseCase {
 
   /** 실행 상세에 보여 줄 호출 수 상한 (지역 17개 × 공급자 몇 곳이면 충분하다) */
   static final int RUN_CALLS_LIMIT = 500;
+
+  /** 호출 이력 callKind 필터에 쓸 수 있는 값 (19 문서 7장) */
+  static final List<String> CALL_KINDS =
+      List.of(CallRecord.FORECAST, CallRecord.ON_DEMAND, CallRecord.SEARCH, CallRecord.CLIMATE);
+
+  /** 공급자 표 밖 보조 공급자 (코드 → 관리자 화면 이름). 호출 요약 auxiliaryMonths에 늘 나온다 */
+  static final Map<String, String> AUXILIARY_PROVIDERS = auxiliaryProviders();
 
   private final WeatherRefreshRunner runner;
   private final WeatherSettingPort settings;
@@ -318,7 +331,7 @@ public class WeatherAdminService implements WeatherAdminUseCase {
         new ArrayList<>(
             logs
                 .findCalls(
-                    new CallFilter(runId, null, null, null, null, null, null, null),
+                    new CallFilter(runId, null, null, null, null, null, null, null, null),
                     RUN_CALLS_LIMIT,
                     0)
                 .stream()
@@ -332,10 +345,14 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   @Override
   @Transactional(readOnly = true)
   public PageResultDto<WeatherCallDto> calls(CallSearchDto s, int limit, long offset) {
+    if (s.callKind() != null && !CALL_KINDS.contains(s.callKind())) {
+      throw BusinessException.validation(FieldError.notAllowed("callKind", CALL_KINDS));
+    }
     CallFilter filter =
         new CallFilter(
             null,
             s.providerCode(),
+            s.callKind(),
             s.regionCode(),
             s.success(),
             s.fallback(),
@@ -364,7 +381,28 @@ public class WeatherAdminService implements WeatherAdminUseCase {
                         p.monthlyQuota()))
             .toList();
     return new WeatherCallSummaryDto(
-        t.calls(), t.failures(), t.fallbacks(), t.avgDurationMs(), months);
+        t.calls(), t.failures(), t.fallbacks(), t.avgDurationMs(), months, auxiliary(used));
+  }
+
+  private static Map<String, String> auxiliaryProviders() {
+    Map<String, String> m = new LinkedHashMap<>();
+    m.put(ClimateSourcePort.PROVIDER_CODE, "Open-Meteo 평년값");
+    m.put(GeocodingPort.PROVIDER_CODE, "Open-Meteo 장소 검색");
+    return Collections.unmodifiableMap(m);
+  }
+
+  /** 공급자 표 밖 호출 수: 평년값(OPEN_METEO)·장소 검색(OPEN_METEO_GEO)은 늘, 그 밖에 이력에만 있는 코드는 이름순으로 뒤에 */
+  private List<AuxiliaryUsageDto> auxiliary(Map<String, Long> used) {
+    Set<String> table =
+        providers.findAll().stream().map(WeatherProvider::code).collect(Collectors.toSet());
+    List<AuxiliaryUsageDto> out = new ArrayList<>();
+    AUXILIARY_PROVIDERS.forEach(
+        (code, name) -> out.add(new AuxiliaryUsageDto(code, name, used.getOrDefault(code, 0L))));
+    used.keySet().stream()
+        .filter(code -> !table.contains(code) && !AUXILIARY_PROVIDERS.containsKey(code))
+        .sorted()
+        .forEach(code -> out.add(new AuxiliaryUsageDto(code, code, used.get(code))));
+    return out;
   }
 
   @Override

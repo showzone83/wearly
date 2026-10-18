@@ -12,6 +12,7 @@ import { appSettingScenarios } from './scenarios/appSettings';
 import { authScenarios } from './scenarios/auth';
 import { codeScenarios } from './scenarios/codes';
 import { imageScenarios } from './scenarios/images';
+import { planScenarios } from './scenarios/plans';
 import { profileScenarios } from './scenarios/profile';
 import { retireScenarios } from './scenarios/retire';
 import { sessionScenarios } from './scenarios/sessions';
@@ -33,6 +34,7 @@ const ALL: Scenario[] = [
   ...sessionScenarios,
   ...imageScenarios,
   ...weatherScenarios,
+  ...planScenarios,
 ];
 
 type Status = 'PASS' | 'FAIL' | 'SKIP';

@@ -1,6 +1,9 @@
 package app.wearly.common.config;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -180,11 +183,25 @@ public record WearlyProperties(
       boolean allowBaseUrl,
       // 공급자 종류(CLAUDE·OPENAI·GEMINI)별 내장 모델 목록. 키가 없거나 제공사 목록을 받지 못했을 때
       // 관리자 화면 모델 드롭다운에 보여 주고, 제공사 목록에서도 같은 ID에 추천 표시를 붙인다 (ai.config.AiConfig)
-      Map<String, List<CatalogModel>> modelCatalog) {
+      Map<String, List<CatalogModel>> modelCatalog,
+      // 사진 분석: 공급자에 보내기 전에 긴 변을 이 픽셀 이하로 줄인다 (기본 1024). 이미 작으면 그대로 보낸다
+      @Min(64) @Max(8192) Integer imageMaxSide,
+      // 줄일 때 JPEG 품질 (0.1~1.0, 기본 0.8)
+      @DecimalMin("0.1") @DecimalMax("1.0") Double imageQuality) {
 
     @Override
     public Map<String, List<CatalogModel>> modelCatalog() {
       return modelCatalog == null ? Map.of() : modelCatalog;
+    }
+
+    @Override
+    public Integer imageMaxSide() {
+      return imageMaxSide == null ? 1024 : imageMaxSide;
+    }
+
+    @Override
+    public Double imageQuality() {
+      return imageQuality == null ? 0.8 : imageQuality;
     }
   }
 
@@ -233,5 +250,32 @@ public record WearlyProperties(
       @NotNull Duration staleAfter,
       boolean cleanupEnabled,
       // 정리 작업 간격 (@Scheduled fixedDelay)
-      @NotNull Duration cleanupInterval) {}
+      @NotNull Duration cleanupInterval,
+      // 저장하는 original.jpg의 긴 변 최대 픽셀 (기본 1600)과 JPEG 품질 (기본 0.8). 이미 저장된 사진은 그대로 둔다
+      @Min(64) @Max(8192) Integer originalMaxSide,
+      @DecimalMin("0.1") @DecimalMax("1.0") Double originalQuality,
+      // 목록용 thumb.jpg의 긴 변 최대 픽셀 (기본 400)과 JPEG 품질 (기본 0.8)
+      @Min(16) @Max(4096) Integer thumbMaxSide,
+      @DecimalMin("0.1") @DecimalMax("1.0") Double thumbQuality) {
+
+    @Override
+    public Integer originalMaxSide() {
+      return originalMaxSide == null ? 1600 : originalMaxSide;
+    }
+
+    @Override
+    public Double originalQuality() {
+      return originalQuality == null ? 0.8 : originalQuality;
+    }
+
+    @Override
+    public Integer thumbMaxSide() {
+      return thumbMaxSide == null ? 400 : thumbMaxSide;
+    }
+
+    @Override
+    public Double thumbQuality() {
+      return thumbQuality == null ? 0.8 : thumbQuality;
+    }
+  }
 }

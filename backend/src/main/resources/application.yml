@@ -98,6 +98,10 @@ wearly:
     outfit-daily-limit: ${WEARLY_AI_OUTFIT_DAILY_LIMIT:20}
     timeout: ${WEARLY_AI_TIMEOUT:PT60S}
     allow-base-url: ${WEARLY_AI_ALLOW_BASE_URL:false}
+    # 사진 분석: 공급자에 보내기 전에 긴 변을 이 픽셀 이하 JPEG로 줄인다 (multipart 업로드·{imageId} 모두).
+    # 이미 작으면(긴 변이 이 값 이하) 다시 인코딩하지 않고 그대로 보낸다. JPEG·PNG만 줄이고 webp·heic는 그대로 보낸다
+    image-max-side: ${WEARLY_AI_IMAGE_MAX_SIDE:1024}
+    image-quality: ${WEARLY_AI_IMAGE_QUALITY:0.8}
     # 공급자 종류별 내장 모델 목록 (관리자 화면 모델 드롭다운, doc/07 4장).
     # 키가 없거나 제공사 모델 목록을 받지 못했을 때 이 목록을 보여 주고(source: CATALOG),
     # 제공사 목록(source: LIVE)에서도 여기 있는 ID에는 recommended를 그대로 붙인다.
@@ -175,6 +179,11 @@ wearly:
     stale-after: ${WEARLY_STORAGE_STALE_AFTER:P1D}
     cleanup-enabled: ${WEARLY_STORAGE_CLEANUP_ENABLED:true}
     cleanup-interval: ${WEARLY_STORAGE_CLEANUP_INTERVAL:PT1H}
+    # 저장하는 사진 크기 (긴 변 픽셀)와 JPEG 품질. 바꿔도 이미 저장된 사진은 그대로 둔다
+    original-max-side: ${WEARLY_STORAGE_ORIGINAL_MAX_SIDE:1600}
+    original-quality: ${WEARLY_STORAGE_ORIGINAL_QUALITY:0.8}
+    thumb-max-side: ${WEARLY_STORAGE_THUMB_MAX_SIDE:400}
+    thumb-quality: ${WEARLY_STORAGE_THUMB_QUALITY:0.8}
   cors:
     allowed-origins:
       - http://localhost:8081

@@ -24,19 +24,42 @@ class ImageIoProcessorAdapterTest {
   final ImageIoProcessorAdapter processor = new ImageIoProcessorAdapter(40_000_000L, 2);
 
   @Test
-  void 큰_PNG는_긴_변_2048_original과_400_thumb_JPEG로_줄인다() throws Exception {
+  void 큰_PNG는_긴_변_1600_original과_400_thumb_JPEG로_줄인다() throws Exception {
     ProcessedImage p = processor.process(TestImages.png(3000, 1000));
 
     assertThat(ImageFormats.sniff(p.original())).contains(ImageFormats.JPEG);
     assertThat(ImageFormats.sniff(p.thumb())).contains(ImageFormats.JPEG);
-    assertThat(p.width()).isEqualTo(2048);
-    assertThat(p.height()).isEqualTo(683);
+    assertThat(p.width()).isEqualTo(1600);
+    assertThat(p.height()).isEqualTo(533);
     BufferedImage original = ImageIO.read(new ByteArrayInputStream(p.original()));
-    assertThat(original.getWidth()).isEqualTo(2048);
-    assertThat(original.getHeight()).isEqualTo(683);
+    assertThat(original.getWidth()).isEqualTo(1600);
+    assertThat(original.getHeight()).isEqualTo(533);
     BufferedImage thumb = ImageIO.read(new ByteArrayInputStream(p.thumb()));
     assertThat(thumb.getWidth()).isEqualTo(400);
     assertThat(thumb.getHeight()).isEqualTo(133);
+  }
+
+  @Test
+  void 설정한_크기와_품질로_줄인다() throws Exception {
+    ImageIoProcessorAdapter custom =
+        new ImageIoProcessorAdapter(
+            40_000_000L, 1, new ImageIoProcessorAdapter.Sizes(800, 0.5f, 100, 0.3f));
+    byte[] photo = TestImages.noisyJpeg(2000, 1000);
+
+    ProcessedImage p = custom.process(photo);
+
+    assertThat(p.width()).isEqualTo(800);
+    assertThat(p.height()).isEqualTo(400);
+    BufferedImage thumb = ImageIO.read(new ByteArrayInputStream(p.thumb()));
+    assertThat(thumb.getWidth()).isEqualTo(100);
+    assertThat(thumb.getHeight()).isEqualTo(50);
+    // 같은 크기라면 품질이 낮을수록 파일이 작다
+    ProcessedImage better =
+        new ImageIoProcessorAdapter(
+                40_000_000L, 1, new ImageIoProcessorAdapter.Sizes(800, 0.95f, 100, 0.95f))
+            .process(photo);
+    assertThat(p.original().length).isLessThan(better.original().length);
+    assertThat(p.thumb().length).isLessThan(better.thumb().length);
   }
 
   @Test

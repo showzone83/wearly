@@ -2,6 +2,8 @@ package app.wearly.image;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.wearly.ai.domain.AiImages;
+import app.wearly.common.imaging.ImageCodec;
 import app.wearly.image.application.port.in.ImageCleanupUseCase;
 import app.wearly.image.application.port.in.dto.CleanupResultDto;
 import app.wearly.image.domain.ImageFormats;
@@ -12,6 +14,7 @@ import app.wearly.support.TestImages;
 import app.wearly.support.TestMinio;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.metadata.exif.GpsDirectory;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -23,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,8 +87,9 @@ class ItemImageIntegrationTest extends IntegrationTestBase {
     assertThat(put(body, photo)).isEqualTo(200);
     Resp done = complete(s, imageId).expect(200);
     assertThat(done.body().get("imageId").asString()).isEqualTo(imageId);
-    assertThat(done.body().get("width").asInt()).isEqualTo(2048);
-    assertThat(done.body().get("height").asInt()).isEqualTo(1024);
+    // original은 긴 변 1600 (wearly.storage.original-max-side 기본값)
+    assertThat(done.body().get("width").asInt()).isEqualTo(1600);
+    assertThat(done.body().get("height").asInt()).isEqualTo(800);
     assertThat(Instant.parse(done.body().get("expiresAt").asString()))
         .isBetween(before.plusSeconds(3590), before.plusSeconds(3660));
 
@@ -106,7 +111,7 @@ class ItemImageIntegrationTest extends IntegrationTestBase {
                 .statusCode())
         .isEqualTo(403);
     // 이미 READY면 같은 응답
-    assertThat(complete(s, imageId).expect(200).body().get("width").asInt()).isEqualTo(2048);
+    assertThat(complete(s, imageId).expect(200).body().get("width").asInt()).isEqualTo(1600);
 
     // 아이템에 붙이기 → 응답·목록·상세·retire·restore에 image
     Resp created = api().post("/api/v1/wardrobe/items", s.accessToken(), item(imageId)).expect(201);
@@ -459,9 +464,51 @@ class ItemImageIntegrationTest extends IntegrationTestBase {
             .expectError(400, "VALIDATION_FAILED");
     assertThat(missing.body().get("fieldErrors").get(0).get("field").asString())
         .isEqualTo("imageId");
+    // 작은 사진(200x300)은 저장한 original 그대로 보낸다
+    byte[] stored = get(originalUrl(s, imageId)).body();
+    Map<String, Object> log = lastAiLog(s);
+    assertThat(((Number) log.get("image_bytes")).intValue()).isEqualTo(stored.length);
+    assertThat(log.get("image_sha256")).isEqualTo(AiImages.sha256(stored));
+  }
+
+  @Test
+  void imageId로_AI_분석할_때_큰_사진은_긴_변_1024_JPEG로_줄여_보낸다() throws Exception {
+    Session s = signup();
+    JsonNode done = uploadReady(s, TestImages.noisyJpeg(3000, 1500), "image/jpeg");
+    String imageId = done.get("imageId").asString();
+    assertThat(done.get("width").asInt()).isEqualTo(1600);
+
+    api()
+        .post("/api/v1/wardrobe/items/analyze", s.accessToken(), Map.of("imageId", imageId))
+        .expect(200);
+
+    // 저장한 original(1600x800)을 1024x512 JPEG(품질 0.8)로 줄여 보냈다: 기록의 바이트 수·해시가 그 결과와 같다
+    byte[] stored = get(done.get("url").asString()).body();
+    BufferedImage decoded = ImageCodec.decode(stored, ImageCodec.JPEG, 1024, Long.MAX_VALUE);
+    byte[] expected = ImageCodec.encodeJpeg(ImageCodec.fit(decoded, 1024), 0.8f);
+    BufferedImage sent = ImageIO.read(new ByteArrayInputStream(expected));
+    assertThat(sent.getWidth()).isEqualTo(1024);
+    assertThat(sent.getHeight()).isEqualTo(512);
+    Map<String, Object> log = lastAiLog(s);
+    assertThat(((Number) log.get("image_bytes")).intValue())
+        .isEqualTo(expected.length)
+        .isLessThan(stored.length);
+    assertThat(log.get("image_sha256")).isEqualTo(AiImages.sha256(expected));
   }
 
   // ── 도우미 ──
+
+  /** complete를 다시 불러 지금 쓸 수 있는 original 서명 URL을 받는다 */
+  private String originalUrl(Session s, String imageId) {
+    return complete(s, imageId).expect(200).body().get("url").asString();
+  }
+
+  private Map<String, Object> lastAiLog(Session s) {
+    return jdbc.queryForMap(
+        "SELECT image_bytes, image_sha256 FROM tb_ai_analysis_log WHERE user_id = ?"
+            + " ORDER BY ai_analysis_log_id DESC LIMIT 1",
+        Long.parseLong(s.userId()));
+  }
 
   private Resp uploadUrl(Session s, String contentType, long size) {
     return api().post("/api/v1/images/upload-url", s.accessToken(), uploadBody(contentType, size));

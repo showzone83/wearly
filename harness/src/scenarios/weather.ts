@@ -139,4 +139,29 @@ const dateValidation: Scenario = {
   },
 };
 
-export const weatherScenarios: Scenario[] = [regionDay, coordinateDay, dateValidation];
+const adminCallKind: Scenario = {
+  group: '장소 날씨',
+  name: '(관리자) GET /admin/weather/calls?callKind= 필터(대소문자 무관), 틀린 값 400 NOT_ALLOWED, calls/summary의 auxiliaryMonths(OPEN_METEO·OPEN_METEO_GEO)',
+  needs: ['admin'],
+  async run() {
+    const user = await rawSignup('weather-kind');
+    const lat = -40 + Math.floor(Math.random() * 100) / 10;
+    const lon = -120 + Math.floor(Math.random() * 1000) / 10;
+    eq((await user.call('GET', `/weather/day?lat=${lat}&lon=${lon}&date=${seoulDate(60)}`)).status, 200, '평년값 요청 200');
+    const admin = await rawAdmin();
+    const climate = await admin.call('GET', '/admin/weather/calls?callKind=climate&size=20');
+    eq(climate.status, 200, 'callKind=climate 200');
+    ok(climate.json.items.length > 0, 'CLIMATE 호출이 있다', climate.json.total);
+    ok(climate.json.items.every((c: { callKind: string }) => c.callKind === 'CLIMATE'), '모두 CLIMATE', climate.json.items);
+    const bad = await admin.call('GET', '/admin/weather/calls?callKind=DAILY');
+    checkErrorBody(bad, 400, 'VALIDATION_FAILED', '틀린 callKind');
+    eq(bad.json.fieldErrors, [{ field: 'callKind', code: 'NOT_ALLOWED', params: { allowed: ['FORECAST', 'ON_DEMAND', 'SEARCH', 'CLIMATE'] } }], 'callKind NOT_ALLOWED');
+    const summary = await admin.call('GET', '/admin/weather/calls/summary');
+    eq(Object.keys(summary.json).sort(), ['auxiliaryMonths', 'months', 'today'], '요약 키');
+    eq(summary.json.auxiliaryMonths.slice(0, 2).map((m: { providerCode: string }) => m.providerCode), ['OPEN_METEO', 'OPEN_METEO_GEO'], '보조 공급자 순서');
+    eq(Object.keys(summary.json.auxiliaryMonths[0]).sort(), ['displayName', 'providerCode', 'used'], '보조 공급자 항목 키');
+    ok(summary.json.auxiliaryMonths[0].used > 0, 'OPEN_METEO 이번 달 호출 수', summary.json.auxiliaryMonths[0]);
+  },
+};
+
+export const weatherScenarios: Scenario[] = [regionDay, coordinateDay, dateValidation, adminCallKind];

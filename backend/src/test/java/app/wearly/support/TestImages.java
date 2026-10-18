@@ -84,6 +84,18 @@ public final class TestImages {
     return out.toByteArray();
   }
 
+  /** 무작위 색 점으로 채운 JPEG (압축이 잘 안 돼 품질에 따라 크기가 달라진다). seed가 같으면 같은 그림 */
+  public static byte[] noisyJpeg(int width, int height) {
+    BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+    java.util.Random random = new java.util.Random(width * 31L + height);
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        image.setRGB(x, y, random.nextInt(0xFFFFFF));
+      }
+    }
+    return encode(image, "jpeg");
+  }
+
   /** JPEG 시작 바이트 뒤가 쓰레기인 가짜 JPEG */
   public static byte[] fakeJpeg() {
     byte[] b = new byte[2048];

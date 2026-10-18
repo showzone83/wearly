@@ -5,7 +5,7 @@ import app.wearly.image.domain.ProcessedImage;
 
 /**
  * 사진 검증·다시 인코딩: 실제 바이트로 형식 판별(JPEG·PNG), 픽셀 수 상한, 디코딩, EXIF 방향 적용, 메타데이터 없이 JPEG로 다시 인코딩(original 긴
- * 변 2048, thumb 400).
+ * 변 wearly.storage.original-max-side 기본 1600, thumb thumb-max-side 기본 400).
  */
 public interface ImageProcessorPort {
 

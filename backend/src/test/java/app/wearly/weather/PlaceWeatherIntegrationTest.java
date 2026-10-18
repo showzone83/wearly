@@ -335,4 +335,76 @@ class PlaceWeatherIntegrationTest extends IntegrationTestBase {
     }
     assertThat(found).as("SEARCH 호출 이력").isTrue();
   }
+
+  @Test
+  void 관리자_호출_이력은_callKind로_거르고_요약에_보조_공급자_사용량이_있다() {
+    String token = signup().accessToken();
+    double[] p = randomPlace();
+    String gridKey = grid(p[0], p[1]);
+    coords(token, p[0], p[1], today()).expect(200);
+    coords(token, p[0], p[1], today().plusMonths(3)).expect(200);
+    // 캐시에 없는 검색어라 지오코딩(목업)을 실제로 부른다
+    api()
+        .get(
+            "/api/v1/weather/places?q={q}",
+            token,
+            Map.of("q", "zq" + java.util.UUID.randomUUID().toString().substring(0, 8)))
+        .expect(200);
+    String adminToken = admin().accessToken();
+
+    JsonNode onDemand =
+        api()
+            .get(
+                "/api/v1/admin/weather/calls?callKind={k}&regionCode={g}",
+                adminToken,
+                Map.of("k", "on_demand", "g", gridKey))
+            .expect(200)
+            .body();
+    assertThat(onDemand.get("items").size()).isEqualTo(1);
+    assertThat(onDemand.get("items").get(0).get("callKind").asString()).isEqualTo("ON_DEMAND");
+    assertThat(onDemand.get("total").asLong()).isEqualTo(1);
+    JsonNode climate =
+        api()
+            .get("/api/v1/admin/weather/calls?callKind=CLIMATE&size=100", adminToken)
+            .expect(200)
+            .body()
+            .get("items");
+    assertThat(climate.size()).isPositive();
+    climate.forEach(c -> assertThat(c.get("callKind").asString()).isEqualTo("CLIMATE"));
+    JsonNode search =
+        api()
+            .get("/api/v1/admin/weather/calls?callKind=SEARCH&size=100", adminToken)
+            .expect(200)
+            .body()
+            .get("items");
+    assertThat(search.size()).isPositive();
+    search.forEach(c -> assertThat(c.get("callKind").asString()).isEqualTo("SEARCH"));
+
+    Resp bad =
+        api()
+            .get("/api/v1/admin/weather/calls?callKind=DAILY", adminToken)
+            .expectError(400, "VALIDATION_FAILED");
+    JsonNode error = bad.body().get("fieldErrors").get(0);
+    assertThat(error.get("field").asString()).isEqualTo("callKind");
+    assertThat(error.get("code").asString()).isEqualTo("NOT_ALLOWED");
+    assertThat(error.get("params").get("allowed").toString())
+        .isEqualTo("[\"FORECAST\",\"ON_DEMAND\",\"SEARCH\",\"CLIMATE\"]");
+
+    JsonNode summary =
+        api().get("/api/v1/admin/weather/calls/summary", adminToken).expect(200).body();
+    // 기존 months 모양은 그대로 (공급자 표의 공급자만)
+    summary
+        .get("months")
+        .forEach(
+            m ->
+                assertThat(m.get("providerCode").asString())
+                    .isNotIn("OPEN_METEO", "OPEN_METEO_GEO"));
+    JsonNode aux = summary.get("auxiliaryMonths");
+    assertThat(aux.get(0).get("providerCode").asString()).isEqualTo("OPEN_METEO");
+    assertThat(aux.get(0).get("displayName").asString()).isEqualTo("Open-Meteo 평년값");
+    assertThat(aux.get(0).get("used").asLong()).isPositive();
+    assertThat(aux.get(1).get("providerCode").asString()).isEqualTo("OPEN_METEO_GEO");
+    assertThat(aux.get(1).get("used").asLong()).isPositive();
+    assertThat(aux.get(0).has("quota")).isFalse();
+  }
 }

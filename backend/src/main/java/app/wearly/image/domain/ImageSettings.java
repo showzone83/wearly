@@ -16,11 +16,4 @@ public record ImageSettings(
     Duration downloadUrlTtl,
     long maxUploadBytes,
     int dailyUploadLimit,
-    Duration staleAfter) {
-
-  /** 저장 original의 긴 변 최대 픽셀 */
-  public static final int ORIGINAL_MAX_SIDE = 2048;
-
-  /** 목록용 thumb의 긴 변 최대 픽셀 */
-  public static final int THUMB_MAX_SIDE = 400;
-}
+    Duration staleAfter) {}

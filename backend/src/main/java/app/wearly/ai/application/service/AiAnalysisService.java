@@ -6,6 +6,7 @@ import app.wearly.ai.application.port.in.ProviderTestUseCase;
 import app.wearly.ai.application.port.in.dto.AiSuggestionDto;
 import app.wearly.ai.application.port.in.dto.AnalyzeResultDto;
 import app.wearly.ai.application.port.in.dto.ProviderTestResultDto;
+import app.wearly.ai.application.port.out.AiImageResizePort;
 import app.wearly.ai.application.port.out.AiModelPort;
 import app.wearly.ai.application.port.out.AiProviderPort;
 import app.wearly.ai.domain.AiCallRecord;
@@ -18,6 +19,7 @@ import app.wearly.ai.domain.AiSuggestion;
 import app.wearly.ai.domain.AiSuggestionValidator;
 import app.wearly.ai.domain.AnalysisPrompt;
 import app.wearly.ai.domain.ImageTypes;
+import app.wearly.ai.domain.ResizedImage;
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.application.ImageUpload;
 import app.wearly.common.domain.FieldError;
@@ -29,13 +31,15 @@ import app.wearly.sharedkernel.code.CodeSnapshot;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * 사진 분석: 형식·크기 검사 → 일일 한도 확인(MyBatis 집계) → 공급자를 우선순위 순으로 시도 → 기록(JPA). 앞 공급자가 실패하면 다음 공급자로 넘어가고,
- * 실패도 각각 기록한다. 성공한 ITEM_ANALYZE만 한도에 센다 (Asia/Seoul 날짜).
+ * 사진 분석: 형식·크기 검사 → 보낼 사진 줄이기(긴 변 wearly.ai.image-max-side) → 일일 한도 확인(MyBatis 집계) → 공급자를 우선순위 순으로
+ * 시도 → 기록(JPA). 앞 공급자가 실패하면 다음 공급자로 넘어가고, 실패도 각각 기록한다. 성공한 ITEM_ANALYZE만 한도에 센다 (Asia/Seoul 날짜).
+ * 기록의 image_bytes·image_sha256은 실제로 보낸(줄인) 사진 기준이다.
  */
 @Service
 public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCase {
@@ -55,6 +59,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
   private final AiCallRunner runner;
   private final AiSettings settings;
   private final ImageContentUseCase storedImages;
+  private final AiImageResizePort resizer;
 
   public AiAnalysisService(
       AiProviderRegistry registry,
@@ -63,7 +68,8 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
       AiQuotaService quota,
       AiCallRunner runner,
       AiSettings settings,
-      ImageContentUseCase storedImages) {
+      ImageContentUseCase storedImages,
+      AiImageResizePort resizer) {
     this.registry = registry;
     this.providers = providers;
     this.catalog = catalog;
@@ -71,6 +77,7 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
     this.runner = runner;
     this.settings = settings;
     this.storedImages = storedImages;
+    this.resizer = resizer;
   }
 
   @Override
@@ -176,8 +183,11 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
     return quota.successToday(userId, AiCallRecord.FEATURE_ITEM_ANALYZE);
   }
 
-  /** 검사 순서: 파트 없음·빈 파일 → 10MB 초과 → 읽기 실패 → 형식 */
-  private static AiImage readImage(ImageUpload file) {
+  /**
+   * 검사 순서: 파트 없음·빈 파일 → 10MB 초과 → 읽기 실패 → 형식. 통과하면 공급자에 보낼 크기로 줄인다 (이미 작거나 줄일 수 없으면 그대로). 검사는 올린
+   * 원본으로 한다
+   */
+  private AiImage readImage(ImageUpload file) {
     if (file == null || file.isEmpty()) {
       throw BusinessException.validation(FieldError.required("image"));
     }
@@ -193,6 +203,11 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
             .orElseThrow(
                 () ->
                     BusinessException.validation(FieldError.notAllowed("image", ImageTypes.NAMES)));
+    Optional<ResizedImage> resized = resizer.shrink(bytes);
+    if (resized.isPresent()) {
+      byte[] sent = resized.get().bytes();
+      return new AiImage(sent, ResizedImage.MEDIA_TYPE, sha256(sent));
+    }
     return new AiImage(bytes, mediaType, sha256(bytes));
   }
 
