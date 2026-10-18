@@ -2,11 +2,13 @@ package app.wearly.weather;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.wearly.common.domain.Zones;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -100,6 +102,43 @@ class WeatherIntegrationTest extends IntegrationTestBase {
     JsonNode one = api().get(BASE + "/snapshots/SEOUL", admin.accessToken()).expect(200).body();
     assertThat(one.get("raw").get("mock").asBoolean()).isTrue();
     api().get(BASE + "/snapshots/NOWHERE", admin.accessToken()).expectError(404, "NOT_FOUND");
+  }
+
+  @Test
+  void 받은_날씨는_오늘_이력에_남고_관리자가_조회한다() throws InterruptedException {
+    Session admin = admin();
+    refreshAndWait(admin, Map.of("regionCode", "SEOUL"));
+    JsonNode page =
+        api().get(BASE + "/history?regionCode=seoul", admin.accessToken()).expect(200).body();
+    JsonNode row = page.get("items").get(0);
+    String today = LocalDate.now(Zones.SEOUL).toString();
+    assertThat(row.get("regionCode").asString()).isEqualTo("SEOUL");
+    assertThat(row.get("regionLabel").asString()).isEqualTo("서울");
+    assertThat(row.get("date").asString()).isEqualTo(today);
+    assertThat(row.get("providerCode").asString()).isEqualTo("WEATHERAPI");
+    assertThat(row.get("forecast").get("date").asString()).isEqualTo(today);
+    int count = row.get("observed").get("count").asInt();
+    assertThat(count).isPositive();
+
+    // 다시 받으면 같은 행에 관측이 더해진다 (목업은 관측 시각 = 받은 시각)
+    refreshAndWait(admin, Map.of("regionCode", "SEOUL"));
+    JsonNode again =
+        api()
+            .get(
+                BASE + "/history?regionCode=SEOUL&from=" + today + "&to=" + today,
+                admin.accessToken())
+            .expect(200)
+            .body();
+    assertThat(again.get("total").asLong()).isEqualTo(1);
+    assertThat(again.get("items").get(0).get("observed").get("count").asInt()).isEqualTo(count + 1);
+
+    api()
+        .get(BASE + "/history?from=2026-13-01", admin.accessToken())
+        .expectError(400, "VALIDATION_FAILED");
+    api()
+        .get(BASE + "/history?from=2026-10-10&to=2026-10-01", admin.accessToken())
+        .expectError(400, "VALIDATION_FAILED");
+    api().get(BASE + "/history", signup().accessToken()).expectError(403, "FORBIDDEN");
   }
 
   @Test

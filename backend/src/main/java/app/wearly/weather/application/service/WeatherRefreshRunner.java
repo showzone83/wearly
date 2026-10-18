@@ -48,6 +48,7 @@ public class WeatherRefreshRunner {
   private final WeatherRunPort runs;
   private final WeatherLogQueryPort logs;
   private final WeatherSourcePort sources;
+  private final WeatherHistoryRecorder history;
   private final CodeCatalog catalog;
   private final Clock clock;
 
@@ -58,6 +59,7 @@ public class WeatherRefreshRunner {
       WeatherRunPort runs,
       WeatherLogQueryPort logs,
       WeatherSourcePort sources,
+      WeatherHistoryRecorder history,
       CodeCatalog catalog,
       Clock clock) {
     this.settings = settings;
@@ -66,6 +68,7 @@ public class WeatherRefreshRunner {
     this.runs = runs;
     this.logs = logs;
     this.sources = sources;
+    this.history = history;
     this.catalog = catalog;
     this.clock = clock;
   }
@@ -172,6 +175,8 @@ public class WeatherRefreshRunner {
         list.set(i, p.withHealth(health));
         if (r.ok()) {
           snapshots.save(WeatherSnapshot.of(region.code(), p.code(), r.report(), now));
+          // 지난 날씨 이력 (실패해도 실행은 계속된다)
+          history.record(region.code(), p.code(), r.report(), now);
           done = true;
           ok++;
           if (fallback) {

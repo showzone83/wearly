@@ -7,6 +7,7 @@ import app.wearly.sharedkernel.code.CodeGroups;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.weather.application.port.out.RefreshExecutorPort;
 import app.wearly.weather.application.port.out.RefreshLockPort;
+import app.wearly.weather.application.port.out.WeatherHistoryPort;
 import app.wearly.weather.application.port.out.WeatherLogQueryPort;
 import app.wearly.weather.application.port.out.WeatherProviderPort;
 import app.wearly.weather.application.port.out.WeatherRunPort;
@@ -15,6 +16,7 @@ import app.wearly.weather.application.port.out.WeatherSnapshotPort;
 import app.wearly.weather.application.port.out.WeatherSourcePort;
 import app.wearly.weather.application.port.out.dto.CallRowDto;
 import app.wearly.weather.application.port.out.dto.CallSummaryRowDto;
+import app.wearly.weather.application.port.out.dto.HistoryRowDto;
 import app.wearly.weather.application.port.out.dto.ProviderUsageRowDto;
 import app.wearly.weather.application.port.out.dto.RunRowDto;
 import app.wearly.weather.domain.CallRecord;
@@ -26,6 +28,7 @@ import app.wearly.weather.domain.KeyState;
 import app.wearly.weather.domain.ProviderHealth;
 import app.wearly.weather.domain.RefreshRun;
 import app.wearly.weather.domain.WeatherCondition;
+import app.wearly.weather.domain.WeatherHistory;
 import app.wearly.weather.domain.WeatherOptions;
 import app.wearly.weather.domain.WeatherProvider;
 import app.wearly.weather.domain.WeatherRegion;
@@ -295,7 +298,42 @@ final class WeatherFakes {
         public CallSummaryRowDto summary(Instant from, Instant to) {
           throw new UnsupportedOperationException();
         }
+
+        @Override
+        public List<HistoryRowDto> findHistory(HistoryFilter filter, int limit, long offset) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long countHistory(HistoryFilter filter) {
+          throw new UnsupportedOperationException();
+        }
       };
+
+  /** 이력 행 (지역:날짜 → 이력). historyFails면 저장할 때 예외를 던진다 */
+  final Map<String, WeatherHistory> historyRows = new LinkedHashMap<>();
+
+  boolean historyFails;
+
+  final WeatherHistoryPort histories =
+      new WeatherHistoryPort() {
+        @Override
+        public Optional<WeatherHistory> find(String regionCode, LocalDate date) {
+          return Optional.ofNullable(historyRows.get(regionCode + ":" + date));
+        }
+
+        @Override
+        public void save(WeatherHistory h) {
+          if (historyFails) {
+            throw new IllegalStateException("이력 저장 실패");
+          }
+          historyRows.put(h.regionCode() + ":" + h.date(), h);
+        }
+      };
+
+  WeatherHistory history(String regionCode, String date) {
+    return historyRows.get(regionCode + ":" + date);
+  }
 
   final WeatherSourcePort sources =
       new WeatherSourcePort() {
@@ -366,7 +404,15 @@ final class WeatherFakes {
 
   WeatherRefreshRunner runner() {
     return new WeatherRefreshRunner(
-        settings, providers, snapshots, runs, logs, sources, catalog, clock);
+        settings,
+        providers,
+        snapshots,
+        runs,
+        logs,
+        sources,
+        new WeatherHistoryRecorder(histories),
+        catalog,
+        clock);
   }
 
   WeatherScheduleService schedule() {

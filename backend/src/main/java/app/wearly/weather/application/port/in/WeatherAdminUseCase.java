@@ -1,6 +1,7 @@
 package app.wearly.weather.application.port.in;
 
 import app.wearly.weather.application.port.in.dto.CallSearchDto;
+import app.wearly.weather.application.port.in.dto.HistorySearchDto;
 import app.wearly.weather.application.port.in.dto.PageResultDto;
 import app.wearly.weather.application.port.in.dto.PatchWeatherProviderDto;
 import app.wearly.weather.application.port.in.dto.ProviderTestResultDto;
@@ -10,6 +11,7 @@ import app.wearly.weather.application.port.in.dto.RunSearchDto;
 import app.wearly.weather.application.port.in.dto.UpdateWeatherSettingDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto;
+import app.wearly.weather.application.port.in.dto.WeatherHistoryDto;
 import app.wearly.weather.application.port.in.dto.WeatherProviderChangeDto;
 import app.wearly.weather.application.port.in.dto.WeatherProviderDto;
 import app.wearly.weather.application.port.in.dto.WeatherScheduleDto;
@@ -59,4 +61,7 @@ public interface WeatherAdminUseCase {
 
   /** 원본 응답까지 */
   WeatherSnapshotDto snapshot(String regionCode);
+
+  /** 지역·날짜별 날씨 이력 (최신 날짜순). 기간이 없으면 오늘까지 최근 30일 */
+  PageResultDto<WeatherHistoryDto> history(HistorySearchDto search, int limit, long offset);
 }

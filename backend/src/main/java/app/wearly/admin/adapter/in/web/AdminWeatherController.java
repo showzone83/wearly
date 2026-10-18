@@ -5,6 +5,7 @@ import app.wearly.admin.adapter.in.web.request.WeatherSettingRequest;
 import app.wearly.admin.adapter.in.web.response.PageResponse;
 import app.wearly.admin.adapter.in.web.response.WeatherCallResponse;
 import app.wearly.admin.adapter.in.web.response.WeatherCallSummaryResponse;
+import app.wearly.admin.adapter.in.web.response.WeatherHistoryResponse;
 import app.wearly.admin.adapter.in.web.response.WeatherProviderResponse;
 import app.wearly.admin.adapter.in.web.response.WeatherProviderTestResponse;
 import app.wearly.admin.adapter.in.web.response.WeatherRefreshResponse;
@@ -143,6 +144,19 @@ public class AdminWeatherController {
   @GetMapping("/snapshots/{regionCode}")
   public WeatherSnapshotResponse snapshot(@PathVariable String regionCode) {
     return WeatherSnapshotResponse.from(weather.snapshot(regionCode));
+  }
+
+  /** 지역·날짜별 날씨 이력. from·to는 YYYY-MM-DD(한국 날짜, 둘 다 포함), 없으면 오늘까지 최근 30일 */
+  @GetMapping("/history")
+  public PageResponse<WeatherHistoryResponse> history(
+      @RequestParam(required = false) String regionCode,
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to,
+      @RequestParam(required = false) Integer page,
+      @RequestParam(required = false) Integer size) {
+    return PageResponse.from(
+        weather.history(regionCode, from, to, PagingDto.of(page, size)),
+        WeatherHistoryResponse::from);
   }
 
   /** JSON → 공급자 부분 수정. 형식(JSON 타입) 판단과 그 오류 문구는 여기서 정한다 (M4) */

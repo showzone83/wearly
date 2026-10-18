@@ -4,6 +4,7 @@ import app.wearly.weather.adapter.out.persistence.mybatis.mapper.WeatherLogMappe
 import app.wearly.weather.application.port.out.WeatherLogQueryPort;
 import app.wearly.weather.application.port.out.dto.CallRowDto;
 import app.wearly.weather.application.port.out.dto.CallSummaryRowDto;
+import app.wearly.weather.application.port.out.dto.HistoryRowDto;
 import app.wearly.weather.application.port.out.dto.ProviderUsageRowDto;
 import app.wearly.weather.application.port.out.dto.RunRowDto;
 import java.time.Instant;
@@ -48,5 +49,15 @@ class WeatherLogMybatisAdapter implements WeatherLogQueryPort {
   @Override
   public CallSummaryRowDto summary(Instant from, Instant to) {
     return mapper.summary(from, to);
+  }
+
+  @Override
+  public List<HistoryRowDto> findHistory(HistoryFilter filter, int limit, long offset) {
+    return mapper.findHistory(filter, limit, offset);
+  }
+
+  @Override
+  public long countHistory(HistoryFilter filter) {
+    return mapper.countHistory(filter);
   }
 }

@@ -31,4 +31,21 @@ final class SearchTimes {
       throw ApiException.validation(field, "YYYY-MM-DD 또는 ISO-8601 시각이어야 해요.");
     }
   }
+
+  /**
+   * 날짜만 받는 조건 (YYYY-MM-DD, 한국 날짜).
+   *
+   * @return 비었으면 null. 형식이 틀리면 400 VALIDATION_FAILED
+   */
+  static LocalDate date(String field, String raw) {
+    String v = SearchText.blankToNull(raw);
+    if (v == null) {
+      return null;
+    }
+    try {
+      return LocalDate.parse(v);
+    } catch (DateTimeParseException e) {
+      throw ApiException.validation(field, "YYYY-MM-DD 형식이어야 해요.");
+    }
+  }
 }

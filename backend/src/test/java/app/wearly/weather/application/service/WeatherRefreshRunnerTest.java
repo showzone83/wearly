@@ -2,12 +2,18 @@ package app.wearly.weather.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.wearly.weather.domain.CurrentWeather;
 import app.wearly.weather.domain.FetchErrors;
+import app.wearly.weather.domain.FetchResult;
 import app.wearly.weather.domain.ProviderStatus;
 import app.wearly.weather.domain.RefreshRun;
 import app.wearly.weather.domain.RunStatus;
 import app.wearly.weather.domain.RunTrigger;
+import app.wearly.weather.domain.WeatherCondition;
+import app.wearly.weather.domain.WeatherHistory;
+import app.wearly.weather.domain.WeatherReport;
 import app.wearly.weather.domain.WeatherSnapshot;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +50,78 @@ class WeatherRefreshRunnerTest {
     assertThat(seoul.fetchedAt()).isEqualTo(WeatherFakes.NOW);
     assertThat(fakes.callRows).hasSize(3).allMatch(c -> !c.fallback());
     assertThat(fakes.runRows.getFirst().status()).isEqualTo(RunStatus.SUCCESS);
+  }
+
+  @Test
+  void 받은_지역은_오늘_이력에_예보와_관측을_남긴다() {
+    fakes.provider("WEATHERAPI", 1, null);
+
+    run();
+
+    assertThat(fakes.historyRows)
+        .containsOnlyKeys("SEOUL:2026-10-17", "BUSAN:2026-10-17", "JEJU:2026-10-17");
+    WeatherHistory seoul = fakes.history("SEOUL", "2026-10-17");
+    assertThat(seoul.providerCode()).isEqualTo("WEATHERAPI");
+    assertThat(seoul.forecast().max()).isEqualTo(21);
+    assertThat(seoul.forecastFetchedAt()).isEqualTo(WeatherFakes.NOW);
+    assertThat(seoul.observedCount()).isEqualTo(1);
+    assertThat(seoul.observedMin()).isEqualTo(18.5);
+
+    // 같은 관측 시각을 다시 받으면 관측 수는 그대로다
+    run();
+    assertThat(fakes.history("SEOUL", "2026-10-17").observedCount()).isEqualTo(1);
+  }
+
+  @Test
+  void 자정_전_관측은_전날_이력에_더하고_예보는_오늘_이력에_남긴다() {
+    fakes.provider("WEATHERAPI", 1, null);
+    // 2026-10-16 23:55 KST에 관측한 값
+    Instant lateNight = Instant.parse("2026-10-16T14:55:00Z");
+    fakes.answers.put(
+        "WEATHERAPI",
+        (p, r) -> {
+          FetchResult ok = fakes.ok(p, r);
+          WeatherReport report = ok.report();
+          return FetchResult.success(
+              new WeatherReport(
+                  report.locationName(),
+                  new CurrentWeather(9, null, WeatherCondition.RAIN, "비", lateNight),
+                  report.days(),
+                  report.raw()),
+              ok.calls());
+        });
+
+    run();
+
+    WeatherHistory yesterday = fakes.history("SEOUL", "2026-10-16");
+    assertThat(yesterday.observedCount()).isEqualTo(1);
+    assertThat(yesterday.observedRainCount()).isEqualTo(1);
+    assertThat(yesterday.forecast()).isNull();
+    WeatherHistory today = fakes.history("SEOUL", "2026-10-17");
+    assertThat(today.forecast()).isNotNull();
+    assertThat(today.observedCount()).isZero();
+  }
+
+  @Test
+  void 실패한_지역은_이력을_남기지_않는다() {
+    fakes.provider("WEATHERAPI", 1, null);
+    fakes.answers.put("WEATHERAPI", WeatherFakes.failing(fakes, FetchErrors.TIMEOUT, null));
+
+    run();
+
+    assertThat(fakes.historyRows).isEmpty();
+  }
+
+  @Test
+  void 이력_저장이_실패해도_저장값과_실행은_그대로다() {
+    fakes.provider("WEATHERAPI", 1, null);
+    fakes.historyFails = true;
+
+    RefreshRun done = run();
+
+    assertThat(done.status()).isEqualTo(RunStatus.SUCCESS);
+    assertThat(fakes.snapshotRows).containsOnlyKeys("SEOUL", "BUSAN", "JEJU");
+    assertThat(fakes.historyRows).isEmpty();
   }
 
   @Test

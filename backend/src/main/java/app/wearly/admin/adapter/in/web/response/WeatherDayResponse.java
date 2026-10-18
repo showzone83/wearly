@@ -8,20 +8,21 @@ public record WeatherDayResponse(
     String date, double temp, double min, double max, int rainProb, String cond, String condText) {
 
   public static List<WeatherDayResponse> from(List<DailyForecastDto> days) {
-    return days == null
-        ? List.of()
-        : days.stream()
-            .map(
-                d ->
-                    new WeatherDayResponse(
-                        d.date().toString(),
-                        round(d.temp()),
-                        round(d.min()),
-                        round(d.max()),
-                        d.rainProb(),
-                        d.cond(),
-                        d.condText()))
-            .toList();
+    return days == null ? List.of() : days.stream().map(WeatherDayResponse::from).toList();
+  }
+
+  /** 없으면 null */
+  public static WeatherDayResponse from(DailyForecastDto d) {
+    return d == null
+        ? null
+        : new WeatherDayResponse(
+            d.date().toString(),
+            round(d.temp()),
+            round(d.min()),
+            round(d.max()),
+            d.rainProb(),
+            d.cond(),
+            d.condText());
   }
 
   static double round(double v) {

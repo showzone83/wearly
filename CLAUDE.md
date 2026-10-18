@@ -22,7 +22,7 @@
   - `14_DB_명령.md` — 로컬 DB 접속·조회·수정·백업 명령
   - `15_터미널_명령.md` — 서버·앱·관리자·하네스 실행 명령과 포트
   - `16_세션_Valkey.md` — Refresh 토큰·세션을 Valkey로, 관리자 강제 로그아웃
-  - `17_날씨.md` — 날씨: 서버가 WeatherAPI.com에서 지역별로 주기적으로 받아 저장, 앱은 저장값만 조회, 관리자 날씨 메뉴
+  - `17_날씨.md` — 날씨: 서버가 WeatherAPI.com에서 지역별로 주기적으로 받아 저장, 앱은 저장값만 조회, 관리자 날씨 메뉴, 지역·날짜별 날씨 이력(`tb_weather_daily_history`)
 - `mobile/` — React Native(Expo SDK 57) 목업 앱. 백엔드 없이 기기 안에 데이터 저장. Expo 작업 규칙은 `mobile/AGENTS.md`를 따른다.
 
 git 저장소는 `wearly/` 루트 하나다 (원격: `github.com/showzone83/wearly`). `mobile/`은 별도 저장소가 아니다.

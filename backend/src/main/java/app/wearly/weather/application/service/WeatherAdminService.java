@@ -9,6 +9,7 @@ import app.wearly.weather.application.port.in.WeatherAdminUseCase;
 import app.wearly.weather.application.port.in.dto.CallSearchDto;
 import app.wearly.weather.application.port.in.dto.CurrentWeatherDto;
 import app.wearly.weather.application.port.in.dto.DailyForecastDto;
+import app.wearly.weather.application.port.in.dto.HistorySearchDto;
 import app.wearly.weather.application.port.in.dto.PageResultDto;
 import app.wearly.weather.application.port.in.dto.PatchWeatherProviderDto;
 import app.wearly.weather.application.port.in.dto.ProviderTestResultDto;
@@ -19,6 +20,8 @@ import app.wearly.weather.application.port.in.dto.UpdateWeatherSettingDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto.MonthUsageDto;
+import app.wearly.weather.application.port.in.dto.WeatherHistoryDto;
+import app.wearly.weather.application.port.in.dto.WeatherHistoryDto.ObservedDto;
 import app.wearly.weather.application.port.in.dto.WeatherProviderChangeDto;
 import app.wearly.weather.application.port.in.dto.WeatherProviderDto;
 import app.wearly.weather.application.port.in.dto.WeatherScheduleDto;
@@ -29,6 +32,7 @@ import app.wearly.weather.application.port.out.RefreshExecutorPort;
 import app.wearly.weather.application.port.out.RefreshLockPort;
 import app.wearly.weather.application.port.out.WeatherLogQueryPort;
 import app.wearly.weather.application.port.out.WeatherLogQueryPort.CallFilter;
+import app.wearly.weather.application.port.out.WeatherLogQueryPort.HistoryFilter;
 import app.wearly.weather.application.port.out.WeatherLogQueryPort.RunFilter;
 import app.wearly.weather.application.port.out.WeatherProviderPort;
 import app.wearly.weather.application.port.out.WeatherRunPort;
@@ -37,6 +41,7 @@ import app.wearly.weather.application.port.out.WeatherSnapshotPort;
 import app.wearly.weather.application.port.out.WeatherSourcePort;
 import app.wearly.weather.application.port.out.dto.CallRowDto;
 import app.wearly.weather.application.port.out.dto.CallSummaryRowDto;
+import app.wearly.weather.application.port.out.dto.HistoryRowDto;
 import app.wearly.weather.application.port.out.dto.RunRowDto;
 import app.wearly.weather.domain.FetchResult;
 import app.wearly.weather.domain.KeyState;
@@ -71,6 +76,9 @@ public class WeatherAdminService implements WeatherAdminUseCase {
 
   /** 실행 상세에 보여 줄 호출 수 상한 (지역 17개 × 공급자 몇 곳이면 충분하다) */
   static final int RUN_CALLS_LIMIT = 500;
+
+  /** 날씨 이력 기간을 주지 않았을 때 오늘까지 며칠을 보여 줄지 */
+  static final int HISTORY_DEFAULT_DAYS = 30;
 
   private final WeatherRefreshRunner runner;
   private final WeatherSettingPort settings;
@@ -396,6 +404,25 @@ public class WeatherAdminService implements WeatherAdminUseCase {
         true);
   }
 
+  @Override
+  @Transactional(readOnly = true)
+  public PageResultDto<WeatherHistoryDto> history(HistorySearchDto s, int limit, long offset) {
+    LocalDate to = s.to() == null ? Zones.today(clock) : s.to();
+    LocalDate from = s.from() == null ? to.minusDays(HISTORY_DEFAULT_DAYS - 1) : s.from();
+    if (from.isAfter(to)) {
+      throw ApiException.validation("from", "시작 날짜가 끝 날짜보다 늦어요.");
+    }
+    HistoryFilter filter = new HistoryFilter(s.regionCode(), from, to);
+    Map<String, String> labels =
+        WeatherRegion.all(catalog.current()).stream()
+            .collect(Collectors.toMap(WeatherRegion::code, WeatherRegion::label));
+    return new PageResultDto<>(
+        logs.findHistory(filter, limit, offset).stream()
+            .map(r -> toHistoryDto(r, labels.get(r.regionCode())))
+            .toList(),
+        logs.countHistory(filter));
+  }
+
   private WeatherProvider provider(String code) {
     return providers.find(code).orElseThrow(ApiException::notFound);
   }
@@ -492,6 +519,39 @@ public class WeatherAdminService implements WeatherAdminUseCase {
         s.lastError(),
         s.lastErrorAt(),
         raw ? s.raw() : null);
+  }
+
+  private static WeatherHistoryDto toHistoryDto(HistoryRowDto r, String regionLabel) {
+    DailyForecastDto forecast =
+        r.forecastTemp() == null || r.cond() == null
+            ? null
+            : new DailyForecastDto(
+                r.weatherDate(),
+                r.forecastTemp(),
+                r.forecastMin() == null ? r.forecastTemp() : r.forecastMin(),
+                r.forecastMax() == null ? r.forecastTemp() : r.forecastMax(),
+                r.rainProb() == null ? 0 : r.rainProb(),
+                r.cond(),
+                r.condText());
+    ObservedDto observed =
+        r.observedCount() == 0 || r.observedMin() == null || r.observedMax() == null
+            ? null
+            : new ObservedDto(
+                r.observedMin(),
+                r.observedMax(),
+                Math.round(r.observedTempSum() / r.observedCount() * 10) / 10.0,
+                r.observedCount(),
+                r.observedRainCount());
+    return new WeatherHistoryDto(
+        r.regionCode(),
+        regionLabel,
+        r.weatherDate(),
+        r.providerCode(),
+        forecast,
+        r.forecastFetchedAt(),
+        observed,
+        r.firstObservedAt(),
+        r.lastObservedAt());
   }
 
   private static RefreshRunDto toRunDto(RunRowDto r) {

@@ -71,4 +71,28 @@
           FROM tb_weather_call_log
          WHERE called_at &gt;= #{from} AND called_at &lt; #{to}
     </select>
+
+    <!-- 날씨 이력 (지역·날짜별). 기간은 한국 날짜 [from, to] -->
+    <sql id="historyWhere">
+        <where>
+            <if test="f.regionCode != null">h.region_code = #{f.regionCode}</if>
+            <if test="f.from != null">AND h.weather_date &gt;= #{f.from}</if>
+            <if test="f.to != null">AND h.weather_date &lt;= #{f.to}</if>
+        </where>
+    </sql>
+
+    <select id="findHistory" resultType="app.wearly.weather.application.port.out.dto.HistoryRowDto">
+        SELECT h.region_code, h.weather_date, h.provider_code, h.forecast_temp, h.forecast_min, h.forecast_max,
+               h.rain_prob, h.cond, h.cond_text, h.forecast_fetched_at, h.observed_min, h.observed_max,
+               h.observed_temp_sum, h.observed_count, h.observed_rain_count, h.first_observed_at, h.last_observed_at
+          FROM tb_weather_daily_history h
+        <include refid="historyWhere"/>
+         ORDER BY h.weather_date DESC, h.region_code
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countHistory" resultType="long">
+        SELECT count(*) FROM tb_weather_daily_history h
+        <include refid="historyWhere"/>
+    </select>
 </mapper>

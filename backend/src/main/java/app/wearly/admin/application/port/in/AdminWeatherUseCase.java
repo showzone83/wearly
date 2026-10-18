@@ -10,6 +10,7 @@ import app.wearly.weather.application.port.in.dto.RefreshRunDto;
 import app.wearly.weather.application.port.in.dto.UpdateWeatherSettingDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto;
+import app.wearly.weather.application.port.in.dto.WeatherHistoryDto;
 import app.wearly.weather.application.port.in.dto.WeatherProviderDto;
 import app.wearly.weather.application.port.in.dto.WeatherScheduleDto;
 import app.wearly.weather.application.port.in.dto.WeatherSnapshotDto;
@@ -47,4 +48,12 @@ public interface AdminWeatherUseCase {
   List<WeatherSnapshotDto> snapshots();
 
   WeatherSnapshotDto snapshot(String regionCode);
+
+  /**
+   * 지역·날짜별 날씨 이력.
+   *
+   * @param from YYYY-MM-DD (한국 날짜). 비었으면 to 기준 최근 30일
+   * @param to YYYY-MM-DD (포함). 비었으면 오늘
+   */
+  PageDto<WeatherHistoryDto> history(String regionCode, String from, String to, PagingDto paging);
 }

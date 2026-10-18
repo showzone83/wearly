@@ -10,6 +10,7 @@ import app.wearly.admin.domain.SearchText;
 import app.wearly.common.error.ApiException;
 import app.wearly.weather.application.port.in.WeatherAdminUseCase;
 import app.wearly.weather.application.port.in.dto.CallSearchDto;
+import app.wearly.weather.application.port.in.dto.HistorySearchDto;
 import app.wearly.weather.application.port.in.dto.PageResultDto;
 import app.wearly.weather.application.port.in.dto.PatchWeatherProviderDto;
 import app.wearly.weather.application.port.in.dto.ProviderTestResultDto;
@@ -19,6 +20,7 @@ import app.wearly.weather.application.port.in.dto.RunSearchDto;
 import app.wearly.weather.application.port.in.dto.UpdateWeatherSettingDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallDto;
 import app.wearly.weather.application.port.in.dto.WeatherCallSummaryDto;
+import app.wearly.weather.application.port.in.dto.WeatherHistoryDto;
 import app.wearly.weather.application.port.in.dto.WeatherProviderChangeDto;
 import app.wearly.weather.application.port.in.dto.WeatherProviderDto;
 import app.wearly.weather.application.port.in.dto.WeatherScheduleDto;
@@ -164,6 +166,15 @@ public class AdminWeatherService implements AdminWeatherUseCase {
   @Override
   public WeatherSnapshotDto snapshot(String regionCode) {
     return weather.snapshot(regionCode);
+  }
+
+  @Override
+  public PageDto<WeatherHistoryDto> history(
+      String regionCode, String from, String to, PagingDto paging) {
+    HistorySearchDto search =
+        new HistorySearchDto(
+            upper(regionCode), SearchTimes.date("from", from), SearchTimes.date("to", to));
+    return page(weather.history(search, paging.size(), paging.offset()), paging);
   }
 
   private static <T> PageDto<T> page(PageResultDto<T> r, PagingDto paging) {
