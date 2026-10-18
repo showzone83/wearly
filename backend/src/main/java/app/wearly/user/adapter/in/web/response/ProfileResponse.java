@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * GET·PUT /users/me/profile 응답: 앱 Profile과 같은 모양 + onboarded (05 문서 6장). 필드 이름 notify가
- * Object.notify()와 겹쳐 record로 만들 수 없어 일반 클래스(읽기 전용)로 둔다.
+ * Object.notify()와 겹쳐 record로 만들 수 없어 일반 클래스(읽기 전용)로 둔다. 나의 정보 4개는 비어 있으면 null로 내려간다.
  */
 public final class ProfileResponse {
 
@@ -20,6 +20,10 @@ public final class ProfileResponse {
   private final boolean workRule;
   private final boolean offRule;
   private final Notify notify;
+  private final String ageRange;
+  private final String bodyType;
+  private final Integer heightCm;
+  private final String fitPreference;
   private final boolean onboarded;
 
   private ProfileResponse(ProfileDto p) {
@@ -33,6 +37,10 @@ public final class ProfileResponse {
     this.offRule = p.offRule();
     ProfileDto.NotifyDto n = p.notifications();
     this.notify = new Notify(n.morning(), n.evening(), n.dayBefore());
+    this.ageRange = p.ageRange();
+    this.bodyType = p.bodyType();
+    this.heightCm = p.heightCm();
+    this.fitPreference = p.fitPreference();
     this.onboarded = p.onboarded();
   }
 
@@ -78,6 +86,22 @@ public final class ProfileResponse {
 
   public Notify getNotify() {
     return notify;
+  }
+
+  public String getAgeRange() {
+    return ageRange;
+  }
+
+  public String getBodyType() {
+    return bodyType;
+  }
+
+  public Integer getHeightCm() {
+    return heightCm;
+  }
+
+  public String getFitPreference() {
+    return fitPreference;
   }
 
   public boolean getOnboarded() {

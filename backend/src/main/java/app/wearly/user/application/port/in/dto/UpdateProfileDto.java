@@ -6,7 +6,7 @@ import app.wearly.user.domain.UserProfile;
 import app.wearly.user.domain.WorkType;
 import java.util.List;
 
-/** 프로필 바꾸기 (PUT, 전체 교체) 입력. 회원 이름도 함께 바꾼다 */
+/** 프로필 바꾸기 (PUT, 전체 교체) 입력. 회원 이름도 함께 바꾼다. 나의 정보는 null이면 비운다 */
 public record UpdateProfileDto(
     String name,
     List<DressCode> dressCodes,
@@ -17,6 +17,10 @@ public record UpdateProfileDto(
     boolean workRule,
     boolean offRule,
     NotifyDto notifications,
+    String ageRange,
+    String bodyType,
+    Integer heightCm,
+    String fitPreference,
     boolean onboarded) {
 
   public UserProfile toProfile() {
@@ -30,6 +34,7 @@ public record UpdateProfileDto(
         offRule,
         new UserProfile.Notify(
             notifications.morning(), notifications.evening(), notifications.dayBefore()),
-        onboarded);
+        onboarded,
+        new UserProfile.PersonalInfo(ageRange, bodyType, heightCm, fitPreference));
   }
 }

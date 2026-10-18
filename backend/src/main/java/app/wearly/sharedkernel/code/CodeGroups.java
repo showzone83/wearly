@@ -19,9 +19,29 @@ public final class CodeGroups {
   /** 날씨를 받아 두는 지역 (17 문서 2장). attrs.lat·lon */
   public static final String REGION = "REGION";
 
+  /** 프로필 나의 정보: 연령대 (GitHub 이슈 #5). attrs 없음 */
+  public static final String AGE_RANGE = "AGE_RANGE";
+
+  /** 프로필 나의 정보: 체형 (골격 유형). attrs.description·hint */
+  public static final String BODY_TYPE = "BODY_TYPE";
+
+  /** 프로필 나의 정보: 핏 선호. attrs 없음 */
+  public static final String FIT = "FIT";
+
   public static final List<String> ALL =
       List.of(
-          CATEGORY, SUB_TYPE, COLOR, PATTERN, SEASON, STYLE, ITEM_STATUS, RETIRE_REASON, REGION);
+          CATEGORY,
+          SUB_TYPE,
+          COLOR,
+          PATTERN,
+          SEASON,
+          STYLE,
+          ITEM_STATUS,
+          RETIRE_REASON,
+          REGION,
+          AGE_RANGE,
+          BODY_TYPE,
+          FIT);
 
   private CodeGroups() {}
 }

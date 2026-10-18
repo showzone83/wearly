@@ -229,4 +229,12 @@ export interface Profile {
   workRule: boolean;
   offRule: boolean;
   notify: { morning: boolean; evening: boolean; dMinus1: boolean };
+  /** 나의 정보 (모두 선택). 연령대 = AGE_RANGE 코드. 예전에 저장한 프로필에는 없다 */
+  ageRange?: string | null;
+  /** 체형 = BODY_TYPE 코드 */
+  bodyType?: string | null;
+  /** 키 (cm, 130~210) */
+  heightCm?: number | null;
+  /** 핏 선호 = FIT 코드 */
+  fitPreference?: string | null;
 }

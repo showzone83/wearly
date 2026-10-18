@@ -145,6 +145,10 @@ public class AdminUserService implements AdminUserUseCase {
         r.createdAt(),
         r.itemCount(),
         r.retiredItemCount(),
-        r.aiToday());
+        r.aiToday(),
+        r.ageRange(),
+        r.bodyType(),
+        r.heightCm(),
+        r.fitPreference());
   }
 }

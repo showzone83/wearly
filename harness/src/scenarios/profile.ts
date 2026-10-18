@@ -32,6 +32,10 @@ const profile: Scenario = {
       workRule: false,
       offRule: true,
       notify: { morning: false, evening: true, dMinus1: false },
+      ageRange: 'AGE_30_LATE',
+      bodyType: 'STRAIGHT',
+      heightCm: 175,
+      fitPreference: 'REGULAR',
       onboarded: true,
     };
     const saved = await u.api.profile.put(next);
@@ -54,4 +58,42 @@ const profile: Scenario = {
   },
 };
 
-export const profileScenarios: Scenario[] = [profile];
+const personal: Scenario = {
+  group: '프로필',
+  name: '나의 정보(연령대·체형·키·핏 선호): 저장·비우기·코드·키 범위 검증',
+  async run() {
+    const u = await signedUp('personal');
+    const base = { ...(await u.api.profile.get()), onboarded: true };
+    eq(
+      [base.ageRange, base.bodyType, base.heightCm, base.fitPreference],
+      [null, null, null, null],
+      '처음에는 모두 null',
+    );
+
+    const filled: ProfileDto = {
+      ...base,
+      ageRange: 'AGE_20_LATE',
+      bodyType: 'NATURAL',
+      heightCm: 168,
+      fitPreference: 'OVERSIZED',
+    };
+    eq(await u.api.profile.put(filled), filled, '나의 정보 저장');
+    eq(await u.api.profile.get(), filled, '저장 뒤 GET');
+
+    const cleared: ProfileDto = { ...filled, ageRange: null, bodyType: null, heightCm: null, fitPreference: null };
+    eq(await u.api.profile.put(cleared), cleared, 'null로 보내면 비운다');
+
+    await expectApiError(
+      u.api.profile.put({ ...filled, ageRange: 'AGE_99' }),
+      { status: 400, code: 'VALIDATION_FAILED' },
+      '모르는 연령대 코드',
+    );
+    await expectApiError(
+      u.api.profile.put({ ...filled, heightCm: 250 }),
+      { status: 400, code: 'VALIDATION_FAILED' },
+      '키 범위(130~210) 밖',
+    );
+  },
+};
+
+export const profileScenarios: Scenario[] = [profile, personal];

@@ -15,7 +15,7 @@ import java.util.Map;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** tb_user_profile JPA 엔티티. 배열은 TEXT[]/SMALLINT[], 알림은 JSONB */
+/** tb_user_profile JPA 엔티티. 배열은 TEXT[]/SMALLINT[], 알림은 JSONB. 나의 정보 4칸은 NULL이면 비어 있다 (V21) */
 @Entity
 @Table(name = "tb_user_profile")
 public class UserProfileEntity {
@@ -60,6 +60,18 @@ public class UserProfileEntity {
   @Column(name = "onboarded", nullable = false)
   private boolean onboarded;
 
+  @Column(name = "age_range", length = 30)
+  private String ageRange;
+
+  @Column(name = "body_type", length = 30)
+  private String bodyType;
+
+  @Column(name = "height_cm")
+  private Short heightCm;
+
+  @Column(name = "fit_preference", length = 30)
+  private String fitPreference;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -92,7 +104,11 @@ public class UserProfileEntity {
       boolean workRule,
       boolean offRule,
       Map<String, Boolean> notify,
-      boolean onboarded) {
+      boolean onboarded,
+      String ageRange,
+      String bodyType,
+      Short heightCm,
+      String fitPreference) {
     this.dressCodes = dressCodes;
     this.moods = moods;
     this.colors = colors;
@@ -102,6 +118,10 @@ public class UserProfileEntity {
     this.offRule = offRule;
     this.notify = notify;
     this.onboarded = onboarded;
+    this.ageRange = ageRange;
+    this.bodyType = bodyType;
+    this.heightCm = heightCm;
+    this.fitPreference = fitPreference;
   }
 
   public List<String> getDressCodes() {
@@ -138,5 +158,21 @@ public class UserProfileEntity {
 
   public boolean isOnboarded() {
     return onboarded;
+  }
+
+  public String getAgeRange() {
+    return ageRange;
+  }
+
+  public String getBodyType() {
+    return bodyType;
+  }
+
+  public Short getHeightCm() {
+    return heightCm;
+  }
+
+  public String getFitPreference() {
+    return fitPreference;
   }
 }

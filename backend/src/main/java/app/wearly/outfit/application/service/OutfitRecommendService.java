@@ -128,7 +128,16 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
             OutfitPrompt.SCHEMA_NAME,
             OutfitPrompt.instructions(),
             OutfitPrompt.prompt(
-                pool, new OutfitTaste(taste.dressCodes(), taste.moods(), taste.colors()), codes),
+                pool,
+                new OutfitTaste(
+                    taste.dressCodes(),
+                    taste.moods(),
+                    taste.colors(),
+                    taste.ageRange(),
+                    taste.bodyType(),
+                    taste.heightCm(),
+                    taste.fitPreference()),
+                codes),
             OutfitPrompt.schema(pool),
             // 목업 실행일 때만 계산한다 (L8)
             () -> MockOutfitPlanner.plan(pool));

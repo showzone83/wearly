@@ -1,4 +1,4 @@
-// 회원: 검색, 정지·해제, 관리자 지정·해제, 로그인 기기(세션·이력·강제 로그아웃)
+// 회원: 검색, 정지·해제, 관리자 지정·해제, 로그인 기기(세션·이력·강제 로그아웃), 나의 정보(조회만)
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
@@ -15,7 +15,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useSearchParams } from 'react-router';
 
 import { fmtDate, fmtNum } from '@/lib/format';
-import { qk } from '@/lib/queries';
+import { qk, useCodeBook } from '@/lib/queries';
+import { personalParts, personalSummary } from '@/lib/userInfo';
 
 const PAGE_SIZE = 20;
 
@@ -36,6 +37,7 @@ export const UsersPage = () => {
   const [sessionsOf, setSessionsOf] = useState<IAdminUser | null>(null);
 
   const me = useAuthStore((s) => s.user);
+  const codes = useCodeBook();
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
   const toastError = useToastStore((s) => s.showError);
@@ -135,6 +137,7 @@ export const UsersPage = () => {
                     <th>가입일</th>
                     <th className="num">아이템</th>
                     <th className="num">오늘 AI</th>
+                    <th title="연령대 · 체형 · 키 · 핏 선호 (회원이 앱에서 입력, 선택)">나의 정보</th>
                     <th />
                   </tr>
                 </thead>
@@ -162,6 +165,14 @@ export const UsersPage = () => {
                         <td className="small">{fmtDate(u.createdAt)}</td>
                         <td className="num">{fmtNum(u.itemCount)}</td>
                         <td className="num">{fmtNum(u.aiToday)}</td>
+                        <td
+                          className="small"
+                          title={personalParts(u, codes.label)
+                            .map((p) => `${p.name}: ${p.text}${p.code ? ` (${p.code})` : ''}`)
+                            .join('\n')}
+                        >
+                          {personalSummary(u, codes.label) ?? <span className="muted">—</span>}
+                        </td>
                         <td className="actions">
                           <Button size="sm" variant="ghost" onClick={() => setSessionsOf(u)}>
                             로그인 기기

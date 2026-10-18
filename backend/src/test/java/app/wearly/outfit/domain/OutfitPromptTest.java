@@ -149,6 +149,59 @@ class OutfitPromptTest {
         .isEqualTo(json.writeValueAsString(schema));
   }
 
+  @Test
+  void 나의_정보가_있으면_사용자_메시지에만_한_줄_넣고_시스템_지시는_그대로다() {
+    OutfitPool pool = pinnedPool();
+    String instructionsBefore = OutfitPrompt.instructions();
+    String without = OutfitPrompt.prompt(pool, taste, CODES);
+    OutfitTaste withInfo =
+        new OutfitTaste(
+            taste.dressCodes(), taste.moods(), taste.colors(), "AGE_30_EARLY", "WAVE", 162, "SLIM");
+    String with = OutfitPrompt.prompt(pool, withInfo, CODES);
+
+    assertThat(without).doesNotContain("회원 정보");
+    assertThat(with)
+        .contains(
+            "- 회원 정보: 연령대 30대 초반(AGE_30_EARLY), 체형 웨이브(WAVE), 키 162cm, 핏 선호 슬림핏(SLIM)"
+                + " (옷의 볼륨·실루엣을 고를 때 참고)\n");
+    // 바뀌는 곳은 그 한 줄뿐이다
+    assertThat(with.replaceFirst("- 회원 정보: [^\n]*\n", "")).isEqualTo(without);
+    // 시스템 지시(프롬프트 캐시의 고정 부분)는 회원 정보와 상관없이 같은 상수다
+    assertThat(OutfitPrompt.instructions())
+        .isSameAs(instructionsBefore)
+        .doesNotContain("회원 정보")
+        .doesNotContain("AGE_30_EARLY")
+        .doesNotContain("162cm");
+    // 스키마도 회원 정보와 상관없다
+    JsonMapper json = JsonMapper.builder().build();
+    assertThat(json.writeValueAsString(OutfitPrompt.schema(pool)))
+        .isEqualTo(json.writeValueAsString(OutfitPrompt.schema(pinnedPool())));
+  }
+
+  @Test
+  void 나의_정보는_있는_것만_넣고_체형_잘_모르겠어요는_뺀다() {
+    OutfitPool pool = pinnedPool();
+    assertThat(
+            OutfitPrompt.prompt(
+                pool,
+                new OutfitTaste(
+                    taste.dressCodes(), taste.moods(), taste.colors(), null, "UNKNOWN", null, null),
+                CODES))
+        .doesNotContain("회원 정보")
+        .doesNotContain("UNKNOWN");
+    assertThat(
+            OutfitPrompt.personal(
+                new OutfitTaste(List.of(), List.of(), List.of(), null, "UNKNOWN", 175, "OVERSIZED"),
+                CODES))
+        .isEqualTo("키 175cm, 핏 선호 오버핏(OVERSIZED)");
+    // 범위 밖 키는 넣지 않는다
+    assertThat(
+            OutfitPrompt.personal(
+                new OutfitTaste(List.of(), List.of(), List.of(), "AGE_40", null, 300, null), CODES))
+        .isEqualTo("연령대 40대(AGE_40)");
+    assertThat(OutfitPrompt.personal(taste, CODES)).isNull();
+  }
+
   private static OutfitPool pinnedPool() {
     return OutfitPool.of(request(Map.of("TOP", "2"), null, Set.of(), List.of(), 3), wardrobe());
   }

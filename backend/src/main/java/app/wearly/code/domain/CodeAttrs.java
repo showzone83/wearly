@@ -21,6 +21,9 @@ public final class CodeAttrs {
 
   static final int SHAPE_MAX = 30;
 
+  /** BODY_TYPE attrs.description·hint 최대 길이 (앱 체형 고르기 화면에 한두 줄로 보인다) */
+  static final int TEXT_MAX = 80;
+
   private CodeAttrs() {}
 
   /**
@@ -42,6 +45,7 @@ public final class CodeAttrs {
           case CodeGroups.COLOR -> Set.of("hex", "neutral", "light", "pairs");
           case CodeGroups.ITEM_STATUS -> Set.of("recommendable");
           case CodeGroups.REGION -> Set.of("lat", "lon");
+          case CodeGroups.BODY_TYPE -> Set.of("description", "hint");
           default -> Set.of();
         };
     for (String key : in.keySet()) {
@@ -101,8 +105,12 @@ public final class CodeAttrs {
         out.put("lat", number(in, "lat", -90, 90, errors));
         out.put("lon", number(in, "lon", -180, 180, errors));
       }
+      case CodeGroups.BODY_TYPE -> {
+        out.put("description", text(in, "description", errors));
+        out.put("hint", text(in, "hint", errors));
+      }
       default -> {
-        // PATTERN·SEASON·STYLE: attrs 없음
+        // PATTERN·SEASON·STYLE·RETIRE_REASON·AGE_RANGE·FIT: attrs 없음
       }
     }
     return out;
@@ -174,6 +182,23 @@ public final class CodeAttrs {
               : FieldError.invalidType("attrs." + key, "number"));
     }
     return v;
+  }
+
+  /** 필수 문자열 (앞뒤 공백 제거, TEXT_MAX자 이하) */
+  private static Object text(Map<String, Object> in, String key, List<FieldError> errors) {
+    Object v = in.get(key);
+    String field = "attrs." + key;
+    if (!(v instanceof String s)) {
+      errors.add(v == null ? FieldError.required(field) : FieldError.invalidType(field, "string"));
+      return v;
+    }
+    String t = s.strip();
+    if (t.isEmpty()) {
+      errors.add(FieldError.required(field));
+    } else if (t.codePointCount(0, t.length()) > TEXT_MAX) {
+      errors.add(FieldError.tooLong(field, TEXT_MAX));
+    }
+    return t;
   }
 
   private static Object bool(Map<String, Object> in, String key, List<FieldError> errors) {

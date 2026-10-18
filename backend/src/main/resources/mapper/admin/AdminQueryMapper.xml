@@ -86,8 +86,10 @@
                  WHERE i.user_id = u.user_id AND i.retired_at IS NOT NULL) AS retired_item_count,
                (SELECT count(*) FROM tb_ai_analysis_log l
                  WHERE l.user_id = u.user_id AND l.feature = 'ITEM_ANALYZE' AND l.status = 'SUCCESS'
-                   AND l.created_at &gt;= #{todayFrom} AND l.created_at &lt; #{todayTo}) AS ai_today
+                   AND l.created_at &gt;= #{todayFrom} AND l.created_at &lt; #{todayTo}) AS ai_today,
+               p.age_range, p.body_type, p.height_cm, p.fit_preference
           FROM tb_user u
+          LEFT JOIN tb_user_profile p ON p.user_id = u.user_id
         <include refid="userWhere"/>
          ORDER BY u.created_at DESC, u.user_id DESC
          LIMIT #{limit} OFFSET #{offset}
