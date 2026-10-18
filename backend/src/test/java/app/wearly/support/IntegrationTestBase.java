@@ -25,6 +25,9 @@ import org.testcontainers.utility.DockerImageName;
       "wearly.admin.email=" + IntegrationTestBase.ADMIN_EMAIL,
       "wearly.admin.password=" + IntegrationTestBase.ADMIN_PASSWORD,
       "wearly.admin.name=테스트관리자",
+      // 관리자 2단계 인증(22 문서)은 끈다: 등록하지 않은 관리자는 비밀번호만으로 관리자 API를 쓴다.
+      // 켠 흐름은 AdminMfaIntegrationTest가 따로 확인한다
+      "wearly.admin.mfa.required=false",
       // 개발자 PC의 실제 키가 테스트에 섞이지 않게 비워 둔다. 테스트용 가짜 키는 TEST_*_API_KEY
       "ANTHROPIC_API_KEY=",
       "OPENAI_API_KEY=",

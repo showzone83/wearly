@@ -9,7 +9,8 @@ import java.util.List;
 
 /**
  * 옷장 아이템 한 벌 (유스케이스 출력). 속성 값은 코드 문자열 (06 문서), ID·시각은 자바 타입 그대로. 사용 중이면 retiredAt·retireReason·
- * retireMemo가 null (13 문서). image는 대표 사진(서명 URL), 없으면 null (18 문서)
+ * retireMemo가 null (13 문서). image는 대표 사진(서명 URL), 없으면 null (18 문서). color는 주 색상(= colors[0]),
+ * colors는 주 색상 + 보조 색 1~3개, purchasedAtEstimated는 구입일을 몰라 등록일을 넣은 값인지 (이슈 #4)
  */
 public record ItemDto(
     Long id,
@@ -17,6 +18,7 @@ public record ItemDto(
     String category,
     String subType,
     String color,
+    List<String> colors,
     String pattern,
     List<String> seasons,
     List<String> styles,
@@ -25,6 +27,8 @@ public record ItemDto(
     String brand,
     int wornCount,
     LocalDate lastWornAt,
+    LocalDate purchasedAt,
+    boolean purchasedAtEstimated,
     Instant createdAt,
     Instant retiredAt,
     String retireReason,
@@ -39,6 +43,7 @@ public record ItemDto(
         e.category(),
         e.subType(),
         e.color(),
+        e.colors(),
         e.pattern(),
         e.seasons(),
         e.styles(),
@@ -47,6 +52,8 @@ public record ItemDto(
         e.brand(),
         e.wornCount(),
         e.lastWornAt(),
+        e.purchasedAt(),
+        e.purchasedAtEstimated(),
         e.createdAt(),
         r == null ? null : r.at(),
         r == null ? null : r.reason(),

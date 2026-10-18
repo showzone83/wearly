@@ -132,11 +132,16 @@ class ClaudeAiProviderTest {
             "category",
             "subType",
             "color",
+            "colors",
             "pattern",
             "seasons",
             "styles",
             "formality",
             "confidence");
+    // 이슈 #4: 색 1~3개는 COLOR enum 배열 (길이 제약은 스키마에 넣지 않고 검증기가 자른다)
+    assertThat(schema.get("properties").get("colors").get("type").asString()).isEqualTo("array");
+    assertThat(texts(schema.get("properties").get("colors").get("items").get("enum")))
+        .contains("navy", "denim");
     assertThat(texts(schema.get("properties").get("category").get("enum")))
         .hasSize(7)
         .contains("DRESS");
@@ -147,7 +152,8 @@ class ClaudeAiProviderTest {
         .hasSize(22)
         .contains("navy", "burgundy", "denim");
     assertThat(texts(schema.get("properties").get("seasons").get("items").get("enum")))
-        .containsExactly("SPRING", "SUMMER", "FALL", "WINTER");
+        .containsExactly(
+            "EARLY_SPRING", "SPRING", "EARLY_SUMMER", "SUMMER", "EARLY_FALL", "FALL", "WINTER");
     assertThat(schema.get("properties").get("formality").get("enum").toString())
         .isEqualTo("[1,2,3]");
 

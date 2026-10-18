@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 푸시 토큰 읽기 전용 조회: D-1 알림을 보낼 기기 (회원 → 기기 순) -->
+<mapper namespace="app.wearly.notify.adapter.out.persistence.mybatis.mapper.PushTokenMapper">
+
+    <select id="findByUsers" resultType="app.wearly.notify.application.port.out.dto.PushTargetRowDto">
+        SELECT user_id, device_id, platform, token
+          FROM tb_push_token
+         WHERE user_id IN
+        <foreach collection="userIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+         ORDER BY user_id ASC, device_id ASC
+    </select>
+</mapper>

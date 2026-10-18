@@ -9,6 +9,7 @@ import app.wearly.plan.application.port.out.dto.PlanCodeCountRowDto;
 import app.wearly.plan.domain.Plan;
 import app.wearly.plan.domain.PlanInput;
 import app.wearly.plan.domain.PlanPlace;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +26,11 @@ class PlanMybatisAdapter implements PlanQueryPort {
   @Override
   public List<Plan> findPlans(PlanFilter filter) {
     return mapper.findPlans(filter).stream().map(PlanMybatisAdapter::toDomain).toList();
+  }
+
+  @Override
+  public List<Plan> findOnDate(LocalDate date) {
+    return mapper.findOnDate(date).stream().map(PlanMybatisAdapter::toDomain).toList();
   }
 
   @Override

@@ -32,6 +32,12 @@ const TARGET_TYPES: { value: string; label: string }[] = [
 
 /** 동작 라벨. 없는 동작은 원문(SESSION_REVOKE 같은 값) 그대로 보여 준다 */
 const ACTION_LABELS: Record<string, string> = {
+  // 관리자 계정 (doc/22)
+  USER_ROLE_CHANGE: '역할 변경',
+  ADMIN_PASSWORD_CHANGE: '내 비밀번호 변경',
+  ADMIN_MFA_ENROLL: '2단계 인증 등록',
+  ADMIN_MFA_RESET: '내 2단계 인증 초기화',
+  USER_MFA_RESET: '회원 2단계 인증 초기화',
   SESSION_REVOKE: '세션 로그아웃',
   USER_SESSIONS_REVOKE: '모든 기기 로그아웃',
   WEATHER_SETTING_UPDATE: '날씨 스케줄 변경',
@@ -41,7 +47,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const actionTone = (action: string): 'red' | 'green' | 'gray' => {
-  return /DELETE|REVOKE/i.test(action) ? 'red' : /CREATE/i.test(action) ? 'green' : 'gray';
+  return /DELETE|REVOKE|MFA_RESET/i.test(action) ? 'red' : /CREATE|ENROLL/i.test(action) ? 'green' : 'gray';
 };
 
 const targetLabel = (t: string): string => {
@@ -104,7 +110,10 @@ export const AuditLogsPage = () => {
 
   return (
     <>
-      <PageHeader title="변경 이력" desc="관리자가 바꾼 코드·AI 공급자·회원·앱 설정 기록과 강제 로그아웃" />
+      <PageHeader
+        title="변경 이력"
+        desc="관리자가 바꾼 코드·AI 공급자·회원·앱 설정 기록, 강제 로그아웃, 관리자 계정(역할·비밀번호·2단계 인증) 변경"
+      />
       <div className="tabs">
         {[{ value: '', label: '전체' }, ...TARGET_TYPES, ...extraTypes.map((t) => ({ value: t, label: t }))].map(
           (t) => (

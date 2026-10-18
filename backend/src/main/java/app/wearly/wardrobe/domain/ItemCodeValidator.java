@@ -48,13 +48,7 @@ public final class ItemCodeValidator {
         && !codes.belongsTo(in.subType(), in.category())) {
       errors.add(new FieldError(prefix + "subType", SUBTYPE_MISMATCH));
     }
-    CodeChecks.one(
-        codes,
-        CodeGroups.COLOR,
-        prefix + "color",
-        in.color(),
-        p == null ? null : p.color(),
-        errors);
+    colors(codes, in, p == null ? null : p.colors(), prefix, errors);
     CodeChecks.one(
         codes,
         CodeGroups.PATTERN,
@@ -83,5 +77,28 @@ public final class ItemCodeValidator {
         in.styles(),
         p == null ? null : p.styles(),
         errors);
+  }
+
+  /** 색: 저장돼 있던 색(주·보조 어느 자리든)은 비활성이어도 둔다. 필드 이름은 colors[i] (예전 color 입력이면 첫 색은 color) */
+  private static void colors(
+      CodeSnapshot codes,
+      ItemInput in,
+      List<String> previous,
+      String prefix,
+      List<FieldError> errors) {
+    List<String> colors = in.colors();
+    if (colors == null) {
+      return;
+    }
+    for (int i = 0; i < colors.size(); i++) {
+      String c = colors.get(i);
+      CodeChecks.one(
+          codes,
+          CodeGroups.COLOR,
+          ItemRules.colorField(in, prefix, i),
+          c,
+          previous != null && previous.contains(c) ? c : null,
+          errors);
+    }
   }
 }

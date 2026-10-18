@@ -12,6 +12,8 @@ import java.util.Optional;
  * 코디 추천에 쓰는 옷장 아이템 한 벌. 옷장 값에 코드 속성(칸·보온·볼륨·색의 뉴트럴·밝기·추천 가능 상태)을 붙인 모양이다.
  *
  * @param slot CATEGORY attrs.slot. null이면 코디에 넣지 않는다 (액세서리 등)
+ * @param color 주 색상. 뉴트럴·밝기·피하고 싶은 색은 주 색상으로 본다
+ * @param subColors 보조 색 0~2개 (이슈 #4). 색 짝·반복 판단에 주 색상보다 약하게 쓴다
  * @param recommendable ITEM_STATUS attrs.recommendable (세탁·수선 중이면 false)
  */
 public record OutfitItem(
@@ -21,6 +23,7 @@ public record OutfitItem(
     String category,
     String subType,
     String color,
+    List<String> subColors,
     String pattern,
     List<String> seasons,
     List<String> styles,
@@ -41,6 +44,7 @@ public record OutfitItem(
       String category,
       String subType,
       String color,
+      List<String> subColors,
       String pattern,
       List<String> seasons,
       List<String> styles,
@@ -60,6 +64,7 @@ public record OutfitItem(
         category,
         subType,
         color,
+        subColors == null ? List.of() : List.copyOf(subColors),
         pattern,
         seasons == null ? List.of() : List.copyOf(seasons),
         styles == null ? List.of() : List.copyOf(styles),

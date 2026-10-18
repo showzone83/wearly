@@ -3,6 +3,7 @@ package app.wearly.user.adapter.in.web.request;
 import app.wearly.sharedkernel.code.DressCode;
 import app.wearly.user.application.port.in.dto.ProfileDto.NotifyDto;
 import app.wearly.user.application.port.in.dto.UpdateProfileDto;
+import app.wearly.user.domain.UserProfile;
 import app.wearly.user.domain.WorkType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -14,6 +15,9 @@ import org.hibernate.validator.constraints.Range;
 /**
  * PUT /users/me/profile 본문: 앱 Profile과 같은 모양 + onboarded (05 문서 6장). moods는 STYLE 코드, colors는 COLOR
  * 코드 (06 문서). 필드 이름 notify가 Object.notify()와 겹쳐 record로 만들 수 없어 일반 클래스로 둔다.
+ *
+ * <p>나의 정보(ageRange = AGE_RANGE 코드, bodyType = BODY_TYPE 코드, heightCm 130~210, fitPreference = FIT
+ * 코드)는 모두 선택이다. 전체 교체라서 빠지거나 null이면 비운다. 코드 값은 서비스가 코드 테이블로 검증한다.
  */
 public class ProfileRequest {
 
@@ -37,6 +41,15 @@ public class ProfileRequest {
 
   @NotNull @Valid private Notify notify;
 
+  private String ageRange;
+
+  private String bodyType;
+
+  @Range(min = UserProfile.PersonalInfo.HEIGHT_MIN, max = UserProfile.PersonalInfo.HEIGHT_MAX)
+  private Integer heightCm;
+
+  private String fitPreference;
+
   /** PUT에서 빠지면 저장과 함께 온보딩을 마친 것으로 본다 */
   private Boolean onboarded;
 
@@ -59,6 +72,10 @@ public class ProfileRequest {
         workRule,
         offRule,
         new NotifyDto(notify.morning(), notify.evening(), notify.dMinus1()),
+        ageRange,
+        bodyType,
+        heightCm,
+        fitPreference,
         onboarded == null || onboarded);
   }
 
@@ -132,6 +149,38 @@ public class ProfileRequest {
 
   public void setNotify(Notify notify) {
     this.notify = notify;
+  }
+
+  public String getAgeRange() {
+    return ageRange;
+  }
+
+  public void setAgeRange(String ageRange) {
+    this.ageRange = ageRange;
+  }
+
+  public String getBodyType() {
+    return bodyType;
+  }
+
+  public void setBodyType(String bodyType) {
+    this.bodyType = bodyType;
+  }
+
+  public Integer getHeightCm() {
+    return heightCm;
+  }
+
+  public void setHeightCm(Integer heightCm) {
+    this.heightCm = heightCm;
+  }
+
+  public String getFitPreference() {
+    return fitPreference;
+  }
+
+  public void setFitPreference(String fitPreference) {
+    this.fitPreference = fitPreference;
   }
 
   public Boolean getOnboarded() {

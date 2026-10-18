@@ -11,9 +11,11 @@ import { API_BASE_URL } from '@/lib/api';
 import { syncAppConfig } from '@/lib/appConfig';
 import { onAppActive, startPhotoMaintenance } from '@/lib/photoSync';
 import { recheckPlans } from '@/lib/placeWeather';
+import { onNotifyAppActive, startPlanNotifications } from '@/lib/planNotify';
 import { syncPlans } from '@/lib/planSync';
 import { syncWeather } from '@/lib/weatherSync';
 import { bootstrapCodes, useCodes } from '@/store/useCodes';
+import { useNotifyStore } from '@/store/useNotifyStore';
 import { usePlaceStore } from '@/store/usePlaceStore';
 import { useStore } from '@/store/useStore';
 import { useThemeStore } from '@/store/useThemeStore';
@@ -82,15 +84,17 @@ function useSession(hydrated: boolean) {
 }
 
 /**
- * 서버 앱 설정(테마) 동기화 (doc/12 3장): 테마 저장값을 복원한 뒤 한 번, 앱이 다시 활성이 될 때마다 한 번.
- * 실패해도 화면을 막지 않는다.
+ * 서버 앱 설정(테마·계절 모드) 동기화 (doc/12 3장, 이슈 #6): 테마 저장값을 복원한 뒤 한 번, 앱이 다시 활성이 될 때마다 한 번.
+ * 활성이 될 때 날짜로 계절도 다시 계산한다(AUTO에서 달이 바뀌었을 수 있다, 목업 실행 포함). 실패해도 화면을 막지 않는다.
  */
 const useAppConfigSync = (themeHydrated: boolean) => {
   useEffect(() => {
     if (!themeHydrated) return;
     void syncAppConfig();
     const sub = AppState.addEventListener('change', (next) => {
-      if (next === 'active') void syncAppConfig();
+      if (next !== 'active') return;
+      useThemeStore.getState().refreshSeason();
+      void syncAppConfig();
     });
     return () => sub.remove();
   }, [themeHydrated]);
@@ -156,6 +160,24 @@ const usePlanSync = (sessionChecked: boolean) => {
   }, [sessionChecked]);
 };
 
+/**
+ * 예정 D-1 알림 (lib/planNotify.ts): 화면이 준비되면(알림을 눌러 예정을 열 수 있게) 시작하고, 앱이 다시 활성이 될 때마다
+ * 예약을 예정 목록과 맞춘다(날짜가 바뀌었으면 전날 날씨 다시 확인, 기기 설정에서 바꾼 권한 반영). 웹 미리보기는 아무것도 하지 않는다.
+ */
+const usePlanNotifications = (ready: boolean) => {
+  useEffect(() => {
+    if (!ready) return;
+    const stop = startPlanNotifications();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') onNotifyAppActive();
+    });
+    return () => {
+      sub.remove();
+      stop();
+    };
+  }, [ready]);
+};
+
 /** 계정 모드에서 로그인이 풀리면(Refresh 실패) 로그인 화면으로 보낸다 */
 function AuthWatcher() {
   const lost = useStore((s) => s.authMode === 'account' && s.authLost);
@@ -175,6 +197,7 @@ export default function RootLayout() {
   const themeHydrated = useHydrated(useThemeStore.persist);
   const weatherHydrated = useHydrated(useWeatherStore.persist);
   const placeHydrated = useHydrated(usePlaceStore.persist);
+  const notifyHydrated = useHydrated(useNotifyStore.persist);
   const sessionChecked = useSession(hydrated);
   const codes = useCodesReady(codesHydrated);
   useAppConfigSync(themeHydrated);
@@ -185,6 +208,7 @@ export default function RootLayout() {
   // 저장된 테마로 첫 화면을 그리도록 테마 복원을 기다린다 (제목은 시스템 산세리프라 글꼴 로딩은 없다)
   const ready = themeHydrated && hydrated && sessionChecked && codes.phase === 'ready';
   const codesFailed = codes.phase === 'failed';
+  usePlanNotifications(ready && notifyHydrated && weatherHydrated && placeHydrated);
 
   return (
     <SafeAreaProvider>

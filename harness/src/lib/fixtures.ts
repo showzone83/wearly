@@ -14,6 +14,11 @@ export const DEFAULT_PROFILE_WITHOUT_NAME: Omit<ProfileDto, 'name' | 'onboarded'
   workRule: true,
   offRule: true,
   notify: { morning: true, evening: true, dMinus1: true },
+  // 나의 정보 (선택): 처음에는 모두 비어 있다
+  ageRange: null,
+  bodyType: null,
+  heightCm: null,
+  fitPreference: null,
 };
 export const DEFAULT_PROFILE_NAME = '웨어리 사용자';
 

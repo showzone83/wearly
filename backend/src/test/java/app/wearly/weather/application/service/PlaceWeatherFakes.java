@@ -1,5 +1,6 @@
 package app.wearly.weather.application.service;
 
+import app.wearly.weather.adapter.out.data.DistrictFileAdapter;
 import app.wearly.weather.application.port.out.ClimatePort;
 import app.wearly.weather.application.port.out.ClimateSourcePort;
 import app.wearly.weather.application.port.out.GeocodingPort;
@@ -13,6 +14,7 @@ import app.wearly.weather.domain.DailyObservation;
 import app.wearly.weather.domain.GeoPlace;
 import app.wearly.weather.domain.GeocodeResult;
 import app.wearly.weather.domain.GridKey;
+import app.wearly.weather.domain.KoreanDistricts;
 import app.wearly.weather.domain.MonthlyClimate;
 import app.wearly.weather.domain.PlaceCandidate;
 import app.wearly.weather.domain.PlaceSnapshot;
@@ -53,6 +55,18 @@ final class PlaceWeatherFakes {
   final Map<String, String> lockRows = new ConcurrentHashMap<>();
   final List<String> climateFetches = Collections.synchronizedList(new ArrayList<>());
   final AtomicInteger climateSaves = new AtomicInteger();
+
+  /** 시·군·구 자료. 기본은 비워 둔다 (시·군·구 테스트만 realDistricts()로 바꾼다) */
+  KoreanDistricts districts = KoreanDistricts.EMPTY;
+
+  /** 서버에 넣은 시·군·구 자료 파일 그대로 */
+  static KoreanDistricts realDistricts() {
+    return new KoreanDistricts(
+        DistrictFileAdapter.load(JsonMapper.builder().build(), DistrictFileAdapter.RESOURCE)
+            .stream()
+            .map(DistrictFileAdapter.Row::toDomain)
+            .toList());
+  }
 
   /** 지오코딩 사용 여부. 기본은 꺼 둔다 (날씨 공급자 검색 테스트가 그대로 돌게) */
   boolean geoEnabled = false;
@@ -357,6 +371,7 @@ final class PlaceWeatherFakes {
         limits,
         searchCache,
         geocoding,
+        () -> districts,
         base.runs,
         options,
         base.clock);

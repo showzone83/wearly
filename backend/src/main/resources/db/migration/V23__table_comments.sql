@@ -1,7 +1,7 @@
--- V1~V14에서 만든 테이블·컬럼에 DB 코멘트(COMMENT ON)를 단다 (doc/08_백엔드_구조.md 8장).
+-- V1~V21에서 만든 테이블·컬럼에 DB 코멘트(COMMENT ON)를 단다 (doc/08_백엔드_구조.md 8장).
 -- 지금까지 설명은 마이그레이션 파일의 -- 주석에만 있어 DB 도구(psql \d+, DBeaver 등)에서 보이지 않았다.
 -- 적용된 마이그레이션은 체크섬 때문에 고치지 않고 여기에 모은다. 내용은 각 파일의 주석과 계약 문서를 옮겼다.
--- 이후 새 테이블·컬럼은 만드는 마이그레이션에서 바로 COMMENT ON을 쓴다 (V15 날씨 이력부터).
+-- 이후 새 테이블·컬럼은 만드는 마이그레이션에서 바로 COMMENT ON을 쓴다 (V22 날씨 이력부터).
 
 -- ---------------------------------------------------------------------------
 -- 회원 (V1·V3·V10)
@@ -44,6 +44,10 @@ COMMENT ON COLUMN tb_user_profile.work_rule IS 'true면 근무일에 출근 코�
 COMMENT ON COLUMN tb_user_profile.off_rule IS 'true면 휴무일에 데일리(편한) 코디로 추천한다';
 COMMENT ON COLUMN tb_user_profile.notify IS '알림 설정 {morning, evening, dMinus1}';
 COMMENT ON COLUMN tb_user_profile.onboarded IS '첫 설정(온보딩)을 마쳤는지';
+COMMENT ON COLUMN tb_user_profile.age_range IS '나의 정보: 연령대 (AGE_RANGE 코드, 선택)';
+COMMENT ON COLUMN tb_user_profile.body_type IS '나의 정보: 체형 (BODY_TYPE 코드, 골격 유형, 선택)';
+COMMENT ON COLUMN tb_user_profile.height_cm IS '나의 정보: 키(cm) 130~210 (선택)';
+COMMENT ON COLUMN tb_user_profile.fit_preference IS '나의 정보: 핏 선호 (FIT 코드, 선택)';
 COMMENT ON COLUMN tb_user_profile.created_at IS '만든 시각';
 COMMENT ON COLUMN tb_user_profile.updated_at IS '마지막 수정 시각';
 
@@ -54,10 +58,10 @@ COMMENT ON COLUMN tb_user_style.style_code IS '스타일 (STYLE 코드)';
 COMMENT ON COLUMN tb_user_style.preference_score IS '선호 점수';
 COMMENT ON COLUMN tb_user_style.updated_at IS '마지막 수정 시각';
 
-COMMENT ON TABLE tb_auth_event IS '회원별 로그인 이력 (로그인·로그아웃·재사용 감지·강제 로그아웃). 누가 끊었는지는 tb_admin_audit_log에 따로 남는다 (doc/16)';
+COMMENT ON TABLE tb_auth_event IS '회원별 로그인 이력 (로그인·로그아웃·재사용 감지·강제 로그아웃·비밀번호 실패·2단계 인증). 관리자 로그인 기록 화면도 이걸 본다. 누가 끊었는지는 tb_admin_audit_log에 따로 남는다 (doc/16·doc/22)';
 COMMENT ON COLUMN tb_auth_event.auth_event_id IS '이력 ID';
 COMMENT ON COLUMN tb_auth_event.user_id IS '회원 (tb_user)';
-COMMENT ON COLUMN tb_auth_event.type IS '종류: LOGIN · LOGOUT · REFRESH_REUSED · FORCED_LOGOUT';
+COMMENT ON COLUMN tb_auth_event.type IS '종류: LOGIN · LOGOUT · REFRESH_REUSED · FORCED_LOGOUT · LOGIN_FAILED(가입한 이메일로 비밀번호 틀림) · MFA_SUCCESS · MFA_FAILED · MFA_LOCKED(5번 틀려 15분 잠김)';
 COMMENT ON COLUMN tb_auth_event.session_id IS '로그인 세션 ID (UUID 문자열, 세션은 Valkey에 있다)';
 COMMENT ON COLUMN tb_auth_event.client IS '클라이언트: APP · ADMIN · WEB';
 COMMENT ON COLUMN tb_auth_event.ip IS '요청 IP (IPv6까지 45자)';
@@ -73,9 +77,9 @@ COMMENT ON COLUMN tb_wardrobe_item.user_id IS '주인 (tb_user)';
 COMMENT ON COLUMN tb_wardrobe_item.name IS '이름 (40자 이하)';
 COMMENT ON COLUMN tb_wardrobe_item.category IS '종류 (CATEGORY 코드)';
 COMMENT ON COLUMN tb_wardrobe_item.sub_type IS '세부 종류 (SUB_TYPE 코드, 부모가 category)';
-COMMENT ON COLUMN tb_wardrobe_item.color IS '색 (COLOR 코드)';
+COMMENT ON COLUMN tb_wardrobe_item.color IS '주 색상 (COLOR 코드). API의 colors = [color] + sub_colors';
 COMMENT ON COLUMN tb_wardrobe_item.pattern IS '패턴 (PATTERN 코드)';
-COMMENT ON COLUMN tb_wardrobe_item.seasons IS '입는 계절 (SEASON 코드)';
+COMMENT ON COLUMN tb_wardrobe_item.seasons IS '입는 계절 (SEASON 코드: 초봄·봄·초여름·여름·초가을·가을·겨울)';
 COMMENT ON COLUMN tb_wardrobe_item.styles IS '스타일 (STYLE 코드)';
 COMMENT ON COLUMN tb_wardrobe_item.formality IS '격식 1(캐주얼)~3(포멀)';
 COMMENT ON COLUMN tb_wardrobe_item.status IS '보유 상태 (ITEM_STATUS 코드: 보유·세탁·수선 등). 사용 중지(retired_at)와는 별개';
@@ -88,6 +92,9 @@ COMMENT ON COLUMN tb_wardrobe_item.updated_at IS '마지막 수정 시각';
 COMMENT ON COLUMN tb_wardrobe_item.retired_at IS '사용 중지한 시각. NULL이면 사용 중 (doc/13)';
 COMMENT ON COLUMN tb_wardrobe_item.retire_reason IS '사용 중지 이유 (RETIRE_REASON 코드). retired_at과 함께 있다';
 COMMENT ON COLUMN tb_wardrobe_item.retire_memo IS '사용 중지 메모 (선택, 200자 이하)';
+COMMENT ON COLUMN tb_wardrobe_item.sub_colors IS '보조 색 0~2개 (COLOR 코드, 순서 유지, 주 색상과 겹치지 않음)';
+COMMENT ON COLUMN tb_wardrobe_item.purchased_at IS '구입일 (1990-01-01부터). 모르면 등록일(서울 날짜)';
+COMMENT ON COLUMN tb_wardrobe_item.purchased_at_estimated IS 'true면 구입일을 몰라 등록일로 넣은 값 ("모름(등록일)")';
 
 COMMENT ON TABLE tb_item_image IS '옷 사진 메타데이터 (V12). 파일은 S3 호환 저장소(로컬 MinIO 버킷 wearly-images, 비공개)에 있다 (doc/18)';
 COMMENT ON COLUMN tb_item_image.image_id IS '서버가 만든 무작위 UUID (API의 imageId)';
@@ -198,7 +205,7 @@ COMMENT ON COLUMN tb_wardrobe_report.created_at IS '만든 시각';
 -- ---------------------------------------------------------------------------
 -- 코드 (V2, doc/06)
 -- ---------------------------------------------------------------------------
-COMMENT ON TABLE tb_code_group IS '코드 그룹 (CATEGORY · SUB_TYPE · COLOR · PATTERN · SEASON · STYLE · ITEM_STATUS · RETIRE_REASON · REGION 등, doc/06)';
+COMMENT ON TABLE tb_code_group IS '코드 그룹 (CATEGORY · SUB_TYPE · COLOR · PATTERN · SEASON · STYLE · ITEM_STATUS · RETIRE_REASON · REGION · AGE_RANGE · BODY_TYPE · FIT 등, doc/06)';
 COMMENT ON COLUMN tb_code_group.group_code IS '그룹 코드';
 COMMENT ON COLUMN tb_code_group.name IS '그룹 이름 (관리자 화면 표시)';
 COMMENT ON COLUMN tb_code_group.description IS '설명 (attrs 모양 등)';
@@ -378,3 +385,42 @@ COMMENT ON COLUMN tb_weather_climate.rain_day_ratio IS '강수 1mm 이상인 날
 COMMENT ON COLUMN tb_weather_climate.years IS '계산에 쓴 연도 범위 (예: "2016-2025")';
 COMMENT ON COLUMN tb_weather_climate.source IS '자료 출처: OPEN_METEO · MOCK';
 COMMENT ON COLUMN tb_weather_climate.computed_at IS '계산한 시각';
+
+-- ---------------------------------------------------------------------------
+-- 관리자 2단계 인증 (V15, doc/22 4.1)
+-- ---------------------------------------------------------------------------
+COMMENT ON TABLE tb_user_mfa IS '관리자 2단계 인증 TOTP(RFC 6238) 비밀. 마스터 키(wearly.secret-key)로 AES-256-GCM 암호화한 값만 두고, AAD = "mfa:{user_id}"라 다른 회원 행에 옮기면 복호화되지 않는다';
+COMMENT ON COLUMN tb_user_mfa.user_id IS '회원 (tb_user)';
+COMMENT ON COLUMN tb_user_mfa.secret_cipher IS 'TOTP 비밀 암호문 + GCM 태그(16바이트)';
+COMMENT ON COLUMN tb_user_mfa.secret_nonce IS '저장할 때마다 새로 만드는 무작위 12바이트';
+COMMENT ON COLUMN tb_user_mfa.key_version IS '마스터 키 버전 (지금 1)';
+COMMENT ON COLUMN tb_user_mfa.last_used_step IS '마지막으로 받은 30초 단계 (같은 코드 재사용 막기)';
+COMMENT ON COLUMN tb_user_mfa.enrolled_at IS '등록한 시각';
+
+COMMENT ON TABLE tb_user_mfa_recovery_code IS '2단계 인증 복구 코드 (등록할 때 10개를 한 번만 보여 준다). 원문은 두지 않는다';
+COMMENT ON COLUMN tb_user_mfa_recovery_code.recovery_code_id IS '복구 코드 ID';
+COMMENT ON COLUMN tb_user_mfa_recovery_code.user_id IS '회원 (tb_user)';
+COMMENT ON COLUMN tb_user_mfa_recovery_code.code_hash IS 'SHA-256 hex("{user_id}:{정규화한 코드}")';
+COMMENT ON COLUMN tb_user_mfa_recovery_code.used_at IS '쓴 시각. 쓴 코드는 다시 쓸 수 없다';
+COMMENT ON COLUMN tb_user_mfa_recovery_code.created_at IS '만든 시각';
+
+-- ---------------------------------------------------------------------------
+-- 푸시 알림 (V17, doc/23)
+-- ---------------------------------------------------------------------------
+COMMENT ON TABLE tb_push_token IS '앱이 등록한 Expo 푸시 토큰. 회원·기기당 하나, 같은 토큰은 한 행만 (다른 계정으로 로그인하면 옮긴다). 로그아웃하면 앱이, DeviceNotRegistered면 서버가 지운다';
+COMMENT ON COLUMN tb_push_token.push_token_id IS '푸시 토큰 ID';
+COMMENT ON COLUMN tb_push_token.user_id IS '회원 (tb_user)';
+COMMENT ON COLUMN tb_push_token.device_id IS '기기 ID (회원 안에서 유일)';
+COMMENT ON COLUMN tb_push_token.platform IS '플랫폼: IOS · ANDROID';
+COMMENT ON COLUMN tb_push_token.token IS 'Expo 푸시 토큰 (중복 불가)';
+COMMENT ON COLUMN tb_push_token.created_at IS '등록한 시각';
+COMMENT ON COLUMN tb_push_token.updated_at IS '마지막으로 고친 시각';
+
+COMMENT ON TABLE tb_push_send_log IS 'D-1 알림 발송 기록. 같은 예정은 하루(한국 날짜)에 한 번만 보낸다. 보내기 전에 행을 먼저 넣어 서버가 여러 대여도 한 번만 보낸다. 30일이 지나면 지운다';
+COMMENT ON COLUMN tb_push_send_log.push_send_log_id IS '발송 기록 ID';
+COMMENT ON COLUMN tb_push_send_log.planned_outfit_id IS '알린 예정 (tb_planned_outfit)';
+COMMENT ON COLUMN tb_push_send_log.user_id IS '받은 회원 (tb_user)';
+COMMENT ON COLUMN tb_push_send_log.notify_kind IS '알림 종류: DAY_BEFORE';
+COMMENT ON COLUMN tb_push_send_log.planned_date IS '예정 날짜';
+COMMENT ON COLUMN tb_push_send_log.send_date IS '보낸 날짜 (한국 날짜, 하루 한 번 기준)';
+COMMENT ON COLUMN tb_push_send_log.created_at IS '보낸 시각';

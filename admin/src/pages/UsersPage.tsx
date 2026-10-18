@@ -1,4 +1,4 @@
-// 회원: 검색, 정지·해제, 관리자 지정·해제, 로그인 기기(세션·이력·강제 로그아웃)
+// 회원: 검색, 정지·해제, 관리자 지정·해제, 2단계 인증 초기화(doc/22), 로그인 기기(세션·이력·강제 로그아웃), 나의 정보(조회만)
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
@@ -12,10 +12,11 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import { fmtDate, fmtNum } from '@/lib/format';
-import { qk } from '@/lib/queries';
+import { qk, useCodeBook } from '@/lib/queries';
+import { personalParts, personalSummary } from '@/lib/userInfo';
 
 const PAGE_SIZE = 20;
 
@@ -36,6 +37,8 @@ export const UsersPage = () => {
   const [sessionsOf, setSessionsOf] = useState<IAdminUser | null>(null);
 
   const me = useAuthStore((s) => s.user);
+  const codes = useCodeBook();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
   const toastError = useToastStore((s) => s.showError);
@@ -57,8 +60,21 @@ export const UsersPage = () => {
           : '정지를 해제했습니다'
         : patch.role === 'ADMIN'
           ? '관리자로 지정했습니다'
-          : '관리자에서 해제했습니다';
+          : '관리자에서 해제했습니다. 그 회원의 로그인은 모두 끊겼습니다';
       toast(`${user.email ?? user.name}: ${what}.`);
+      if (patch.role) void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    },
+    onError: (e) => toastError(e),
+  });
+
+  /** 다른 관리자의 2단계 인증 초기화 (doc/22). 그 회원의 세션도 모두 끊긴다 */
+  const resetMfa = useMutation({
+    mutationFn: (user: IAdminUser) => api.users.resetMfa(user.id),
+    onSuccess: async (_r, user) => {
+      await queryClient.invalidateQueries({ queryKey: ['users'] });
+      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      void queryClient.invalidateQueries({ queryKey: ['audit'] });
+      toast(`${user.email ?? user.name}: 2단계 인증을 초기화했습니다. 다음 로그인 때 다시 등록합니다.`);
     },
     onError: (e) => toastError(e),
   });
@@ -83,10 +99,20 @@ export const UsersPage = () => {
   const act = (u: IAdminUser, patch: IUserPatch, message: string) => {
     if (window.confirm(message)) update.mutate({ user: u, patch });
   };
+  const confirmResetMfa = (u: IAdminUser) => {
+    const ok = window.confirm(
+      `${u.email ?? u.name} 회원의 2단계 인증을 초기화할까요?\n` +
+        '인증 앱 등록과 복구 코드가 지워지고 그 회원의 로그인이 모두 끊깁니다. 다음 로그인 때 인증 앱을 다시 등록합니다.',
+    );
+    if (ok) resetMfa.mutate(u);
+  };
 
   return (
     <>
-      <PageHeader title="회원" desc="정지하면 로그인이 막히고, 이미 받은 토큰도 바로 무효가 됩니다." />
+      <PageHeader
+        title="회원"
+        desc="정지하면 로그인이 막히고, 이미 받은 토큰도 바로 무효가 됩니다. 관리자 해제·2단계 인증 초기화도 그 회원의 로그인을 모두 끊습니다."
+      />
       <Card>
         <div className="toolbar">
           <form onSubmit={search} className="row gap-sm">
@@ -131,10 +157,12 @@ export const UsersPage = () => {
                     <th>이메일</th>
                     <th>이름</th>
                     <th>역할</th>
+                    <th>2단계 인증</th>
                     <th>상태</th>
                     <th>가입일</th>
                     <th className="num">아이템</th>
                     <th className="num">오늘 AI</th>
+                    <th title="연령대 · 체형 · 키 · 핏 선호 (회원이 앱에서 입력, 선택)">나의 정보</th>
                     <th />
                   </tr>
                 </thead>
@@ -142,6 +170,7 @@ export const UsersPage = () => {
                   {data.items.map((u) => {
                     const isMe = u.id === me?.id;
                     const busy = update.isPending && update.variables?.user.id === u.id;
+                    const mfaBusy = resetMfa.isPending && resetMfa.variables?.id === u.id;
                     return (
                       <tr key={u.id} className={u.status === 'SUSPENDED' ? 'row-inactive' : ''}>
                         <td className="mono small">{u.id}</td>
@@ -157,15 +186,59 @@ export const UsersPage = () => {
                           )}
                         </td>
                         <td>
+                          {u.role !== 'ADMIN' ? (
+                            <span className="muted small">—</span>
+                          ) : u.mfaEnrolled ? (
+                            <Badge tone="green">등록</Badge>
+                          ) : (
+                            <Badge tone="gray">미등록</Badge>
+                          )}
+                        </td>
+                        <td>
                           {u.status === 'SUSPENDED' ? <Badge tone="red">정지</Badge> : <Badge tone="green">정상</Badge>}
                         </td>
                         <td className="small">{fmtDate(u.createdAt)}</td>
                         <td className="num">{fmtNum(u.itemCount)}</td>
                         <td className="num">{fmtNum(u.aiToday)}</td>
+                        <td
+                          className="small"
+                          title={personalParts(u, codes.label)
+                            .map((p) => `${p.name}: ${p.text}${p.code ? ` (${p.code})` : ''}`)
+                            .join('\n')}
+                        >
+                          {personalSummary(u, codes.label) ?? <span className="muted">—</span>}
+                        </td>
                         <td className="actions">
                           <Button size="sm" variant="ghost" onClick={() => setSessionsOf(u)}>
                             로그인 기기
                           </Button>
+                          {u.role === 'ADMIN' ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title="이 관리자의 로그인·2단계 인증 기록"
+                              onClick={() => navigate(`/auth-events?userId=${encodeURIComponent(u.id)}`)}
+                            >
+                              로그인 기록
+                            </Button>
+                          ) : null}
+                          {u.role === 'ADMIN' && u.mfaEnrolled ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-danger"
+                              busy={mfaBusy}
+                              disabled={isMe}
+                              title={
+                                isMe
+                                  ? '내 2단계 인증은 내 계정 화면에서 다시 등록하세요'
+                                  : '인증 앱 등록과 복구 코드를 지웁니다 (휴대폰 분실 등)'
+                              }
+                              onClick={() => confirmResetMfa(u)}
+                            >
+                              2단계 인증 초기화
+                            </Button>
+                          ) : null}
                           {u.status === 'SUSPENDED' ? (
                             <Button
                               size="sm"
@@ -202,7 +275,11 @@ export const UsersPage = () => {
                               disabled={isMe || busy}
                               title={isMe ? '자기 자신의 역할은 내릴 수 없습니다' : undefined}
                               onClick={() =>
-                                act(u, { role: 'USER' }, `${u.email ?? u.name} 회원을 관리자에서 해제할까요?`)
+                                act(
+                                  u,
+                                  { role: 'USER' },
+                                  `${u.email ?? u.name} 회원을 관리자에서 해제할까요? 그 회원의 로그인이 모두 끊깁니다.`,
+                                )
                               }
                             >
                               관리자 해제

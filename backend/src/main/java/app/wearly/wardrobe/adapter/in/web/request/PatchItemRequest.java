@@ -73,6 +73,7 @@ public final class PatchItemRequest {
         get(fields, "category"),
         get(fields, "subType"),
         get(fields, "color"),
+        get(fields, "colors"),
         get(fields, "pattern"),
         get(fields, "seasons"),
         get(fields, "styles"),
@@ -81,6 +82,7 @@ public final class PatchItemRequest {
         get(fields, "brand"),
         get(fields, "wornCount"),
         PatchItemRequest.<LocalDate>get(fields, "lastWornAt"),
+        PatchItemRequest.<LocalDate>get(fields, "purchasedAt"),
         get(fields, "imageId"),
         errors);
   }

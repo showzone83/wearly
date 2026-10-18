@@ -105,10 +105,29 @@ const coordinateDay: Scenario = {
     eq(search.status, 200, '검색 200');
     eq(Object.keys(search.json), ['items'], '검색 응답 키');
     const item = search.json.items[0];
-    eq(Object.keys(item).sort(), ['country', 'label', 'lat', 'lon', 'region', 'regionCode'], '검색 항목 키');
-    eq([item.label, item.country, item.regionCode], ['도쿄', '일본', null], '목업 검색 결과는 한글 이름 (해외는 regionCode null)');
+    eq(
+      Object.keys(item).sort(),
+      ['country', 'label', 'lat', 'lon', 'parentRegionCode', 'region', 'regionCode'],
+      '검색 항목 키',
+    );
+    eq(
+      [item.label, item.country, item.regionCode, item.parentRegionCode],
+      ['도쿄', '일본', null, null],
+      '목업 검색 결과는 한글 이름 (해외는 regionCode·parentRegionCode null)',
+    );
     const busan = await user.call('GET', '/weather/places?q=busan');
     eq([busan.json.items[0].label, busan.json.items[0].regionCode], ['부산', 'BUSAN'], '영어 검색어도 한글 이름, 국내 결과는 30km 안 REGION 코드');
+    // 시·군·구 자료(서버에 넣은 파일): 해운대 → 해운대구, 좌표 방식으로 쓰게 regionCode null·상위 시·도는 parentRegionCode
+    const gu = await user.call('GET', `/weather/places?q=${encodeURIComponent('해운대')}`);
+    eq(gu.status, 200, '시·군·구 검색 200');
+    const h = gu.json.items[0];
+    eq([h.label, h.region, h.country, h.regionCode, h.parentRegionCode], ['해운대구', '부산광역시', '대한민국', null, 'BUSAN'], '해운대 → 해운대구');
+    const jung = await user.call('GET', `/weather/places?q=${encodeURIComponent('중구')}`);
+    eq(
+      jung.json.items.map((x: { label: string }) => x.label),
+      ['서울 중구', '부산 중구', '대구 중구', '대전 중구', '울산 중구'],
+      '같은 이름은 시·도를 붙여 모두',
+    );
     const empty = await user.call('GET', `/weather/places?q=${encodeURIComponent('   ')}`);
     checkErrorBody(empty, 400, 'VALIDATION_FAILED', '빈 검색어');
     eq(empty.json.fieldErrors, [{ field: 'q', code: 'REQUIRED' }], '빈 검색어 fieldErrors: q REQUIRED');

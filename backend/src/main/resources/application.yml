@@ -157,12 +157,37 @@ wearly:
       enabled: ${WEARLY_WEATHER_GEOCODING_ENABLED:true}
       base-url: ${WEARLY_WEATHER_GEOCODING_BASE_URL:https://geocoding-api.open-meteo.com}
       api-key: ${WEARLY_WEATHER_GEOCODING_API_KEY:}
+  # 예정 코디 D-1 알림 서버 푸시 (notify 컨텍스트). 앱은 기기 로컬 알림을 따로 예약하고,
+  # 토큰 등록 응답의 serverPush가 true(enabled=true · provider=expo)일 때만 로컬 D-1 알림을 끈다
+  notify:
+    push:
+      # 서버 푸시 사용. false(기본)면 토큰은 받아 두지만 D-1 작업을 예약하지 않는다
+      enabled: ${WEARLY_NOTIFY_PUSH_ENABLED:false}
+      # expo: Expo Push API로 보낸다. log(기본): 보내지 않고 건수만 로그에 남긴다 (로컬 확인용)
+      provider: ${WEARLY_NOTIFY_PUSH_PROVIDER:log}
+      expo:
+        base-url: ${WEARLY_NOTIFY_EXPO_BASE_URL:https://exp.host}
+        # Expo 대시보드에서 "enhanced push security"를 켰을 때만 넣는다 (비우면 Authorization 헤더를 보내지 않는다).
+        # 실제 값은 config/application-local.yml에 적는다
+        access-token: ${WEARLY_NOTIFY_EXPO_ACCESS_TOKEN:}
+        timeout: ${WEARLY_NOTIFY_EXPO_TIMEOUT:PT10S}
+    day-before:
+      # D-1 작업 시각 HH:mm (한국 시간). 내일(한국 날짜) 예정을 가진 회원에게 보낸다
+      time: ${WEARLY_NOTIFY_DAY_BEFORE_TIME:19:30}
+      # false면 작업을 예약하지 않는다 (테스트용)
+      scheduler-enabled: ${WEARLY_NOTIFY_DAY_BEFORE_SCHEDULER_ENABLED:true}
   # 웹에서 넣은 AI 키를 암호화하는 마스터 키 (base64 32바이트, openssl rand -base64 32). 없으면 웹 키 입력이 꺼진다
   secret-key: ${WEARLY_SECRET_KEY:}
   admin:
+    # 관리자가 한 명도 없을 때만 이 계정을 만든다 (그 이메일로 이미 일반 회원이 있으면 올리지 않는다). 비밀번호는 첫 생성에만 쓴다
     email: ${WEARLY_ADMIN_EMAIL:}
     password: ${WEARLY_ADMIN_PASSWORD:}
     name: ${WEARLY_ADMIN_NAME:관리자}
+    # 관리자 2단계 인증 TOTP (doc/22). required=true면 관리자 사이트 로그인 뒤 TOTP 등록·확인을 마쳐야 관리자 API를 쓴다.
+    # false면 TOTP를 등록한 관리자만 코드를 확인한다 (로컬 개발·하네스). TOTP 비밀은 secret-key(마스터 키)로 암호화하므로 켤 때는 secret-key가 있어야 한다
+    mfa:
+      required: ${WEARLY_ADMIN_MFA_REQUIRED:true}
+      issuer: ${WEARLY_ADMIN_MFA_ISSUER:Wearly}
   # 옷 사진 저장소 (S3 호환, 18 문서). 로컬 기본은 compose의 MinIO(wearly-minio, 호스트 9000).
   # 계정 wearly / wearly-minio-local은 로컬 전용 값이다 (DB 비밀번호와 같은 취급). 운영 예시: backend/config/application-cloud.example.yml
   storage:

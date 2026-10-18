@@ -26,11 +26,11 @@ public class AdminAppController {
     return AdminThemeResponse.from(themes.theme());
   }
 
-  /** 본문이 없거나 themeId가 없으면 400 VALIDATION_FAILED(themeId) */
+  /** 보낸 값(themeId · seasonMode)만 바꾼다. 본문이 없거나 둘 다 없으면 400 VALIDATION_FAILED(themeId) */
   @PutMapping("/theme")
   public AdminThemeResponse changeTheme(
       @CurrentUser long adminId, @RequestBody(required = false) ThemeRequest request) {
     return AdminThemeResponse.from(
-        themes.changeTheme(adminId, request == null ? null : request.themeId()));
+        themes.changeTheme(adminId, request == null ? null : request.toDto()));
   }
 }

@@ -2,7 +2,14 @@
 import { useMemo } from 'react';
 
 import { api, isApiError } from '@/api';
-import type { IAdminCode, IAdminCodeGroup, IWeatherProviderPatch, IWeatherRun, TWeatherSettingUpdate } from '@/api';
+import type {
+  IAdminCode,
+  IAdminCodeGroup,
+  IAppThemeUpdate,
+  IWeatherProviderPatch,
+  IWeatherRun,
+  TWeatherSettingUpdate,
+} from '@/api';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -17,6 +24,10 @@ export const qk = {
   aiLogs: (q: object) => ['ai', 'logs', q] as const,
   aiLog: (id: string) => ['ai', 'log', id] as const,
   users: (q: object) => ['users', q] as const,
+  /** 내 2단계 인증 상태 (내 계정 화면) */
+  myMfa: ['me', 'mfa'] as const,
+  /** 관리자 로그인 기록 */
+  authEvents: (q: object) => ['auth-events', q] as const,
   audit: (q: object) => ['audit', q] as const,
   appTheme: ['app', 'theme'] as const,
   /** 'sessions'로 시작하는 키를 무효화하면 목록과 회원별 세션이 함께 다시 읽힌다 */
@@ -183,11 +194,11 @@ export const useAppTheme = () => {
   return useQuery({ queryKey: qk.appTheme, queryFn: () => api.appSettings.theme() });
 };
 
-/** 앱 테마 바꾸기. 성공하면 현재 테마 캐시를 응답으로 바꾸고 변경 이력을 다시 읽게 한다 */
+/** 앱 테마·계절 모드 바꾸기 (보낸 값만). 성공하면 현재 테마 캐시를 응답으로 바꾸고 변경 이력을 다시 읽게 한다 */
 export const useUpdateAppTheme = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (themeId: string) => api.appSettings.setTheme({ themeId }),
+    mutationFn: (body: IAppThemeUpdate) => api.appSettings.setTheme(body),
     onSuccess: (data) => {
       // 본문 없이(204) 오면 themeId가 비어 있으므로 서버에서 다시 읽는다
       if (data.themeId) queryClient.setQueryData(qk.appTheme, data);

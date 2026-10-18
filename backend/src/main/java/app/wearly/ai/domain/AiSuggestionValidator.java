@@ -9,10 +9,16 @@ import java.util.Map;
 /**
  * 공급자가 준 사진 분석 JSON 검증 (06 문서 4장 "AI 분석", M1). 공급자와 무관하게 같은 규칙: 활성 코드 밖 값, 종류·세부 종류 짝 불일치, 범위 밖 숫자는
  * 거부하고(INVALID_OUTPUT, 다음 공급자로), 이름은 40자로 자르고 확신도는 소수 둘째 자리로 맞춘다.
+ *
+ * <p>색 (이슈 #4): color(주 색상)는 필수. colors는 중복을 없애고 color를 맨 앞에 둔 뒤(없으면 넣는다) 3개로 자른다. colors가 없으면(예전
+ * 응답) [color].
  */
 public final class AiSuggestionValidator {
 
   static final int NAME_MAX = 40;
+
+  /** 색은 주 색상 포함 3개까지 (옷장 ItemRules.COLORS_MAX와 같다) */
+  static final int COLORS_MAX = 3;
 
   private AiSuggestionValidator() {}
 
@@ -34,6 +40,7 @@ public final class AiSuggestionValidator {
       throw reject("category와 subType의 짝이 맞지 않아요: " + category + "/" + subType);
     }
     final String color = one(json, "color", codes, CodeGroups.COLOR);
+    final List<String> colors = colors(json, color, codes);
     final String pattern = one(json, "pattern", codes, CodeGroups.PATTERN);
     final List<String> seasons = many(json, "seasons", codes, CodeGroups.SEASON);
     final List<String> styles = many(json, "styles", codes, CodeGroups.STYLE);
@@ -55,6 +62,7 @@ public final class AiSuggestionValidator {
         category,
         subType,
         color,
+        colors,
         pattern,
         seasons,
         styles,
@@ -83,6 +91,21 @@ public final class AiSuggestionValidator {
       throw reject(field + " 값이 허용 목록 밖이에요: " + value);
     }
     return value;
+  }
+
+  /** 주 색상을 맨 앞에, 중복 없이, 3개까지. colors가 없으면 [color] */
+  private static List<String> colors(Map<String, Object> json, String color, CodeSnapshot codes) {
+    if (!json.containsKey("colors") || json.get("colors") == null) {
+      return List.of(color);
+    }
+    List<String> out = new ArrayList<>();
+    out.add(color);
+    for (String c : many(json, "colors", codes, CodeGroups.COLOR)) {
+      if (out.size() < COLORS_MAX && !out.contains(c)) {
+        out.add(c);
+      }
+    }
+    return List.copyOf(out);
   }
 
   private static List<String> many(

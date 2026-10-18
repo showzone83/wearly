@@ -34,6 +34,19 @@ export type TApiErrorCode =
   | 'WEATHER_REFRESH_RUNNING'
   /** doc/17 6장: 쓸 수 있는 날씨 공급자가 없음 (409). 시험 호출이면 params.reason KEY_MISSING(keyName) · NOT_IMPLEMENTED */
   | 'WEATHER_NO_PROVIDER'
+  /** doc/22: 마지막 관리자는 해제할 수 없음 (409) */
+  | 'LAST_ADMIN'
+  /** doc/22: 2단계 인증을 거치지 않은 세션으로 관리자 API를 부름 (403) → 로그인 상태를 지운다 */
+  | 'MFA_REQUIRED'
+  /** doc/22: 대기 토큰 만료·무효 (401) → 로그인 첫 화면으로 */
+  | 'MFA_TOKEN_INVALID'
+  /** doc/22: 코드가 맞지 않음 (400). params.remainingAttempts */
+  | 'MFA_CODE_INVALID'
+  /** doc/22: 여러 번 틀려 잠김 (429). params.retryAfterSeconds */
+  | 'MFA_LOCKED'
+  | 'MFA_SETUP_REQUIRED'
+  | 'MFA_ALREADY_ENROLLED'
+  | 'MFA_NOT_ENROLLED'
   | 'INTERNAL_ERROR'
   | 'SERVICE_UNAVAILABLE'
   /** 서버에 닿지 못함 (연결 실패·시간 초과 — params.reason TIMEOUT) */

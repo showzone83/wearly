@@ -13,10 +13,14 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { removeItem, restoreItem, retireItem, saveItem } from '@/lib/account';
 import { errorAlertMessage } from '@/lib/api';
+import { colorLabel, colorMeta } from '@/lib/codes';
 import { diffDays, todayKey } from '@/lib/date';
+import { itemColors, purchaseInfo, purchaseText } from '@/lib/itemAttrs';
 import { josa } from '@/lib/josa';
 import { isRetired, retiredSummary } from '@/lib/retire';
 import { cardBase, makeStyles, useColors } from '@/theme';
+
+import type { WardrobeItem } from '@/data/types';
 
 /** 완전 삭제 확인 문구 (doc/13 4장 그대로) */
 const DELETE_MESSAGE =
@@ -43,11 +47,13 @@ const ItemDetail = () => {
   }
 
   const retired = isRetired(item);
+  // 저장된 값 기준 (폼에서 고치는 중인 값이 아니다)
+  const savedColors = itemColors(item);
   const since = item.lastWornAt ? diffDays(todayKey(), item.lastWornAt) : null;
   const sleeping = since === null || since >= 30;
   // 폼 값끼리만 비교한다 (draftOf가 키 순서를 맞춘다). 사진은 이 화면에서 바꾸지 않으므로 비교하지 않는다
   // (화면을 연 뒤 사진 옮기기·주소 갱신으로 사진 필드가 바뀌어도 '수정됨'이 되지 않게)
-  const formKey = (d: ItemDraft) => JSON.stringify({ ...draftOf(d), imageUri: undefined });
+  const formKey = (d: ItemDraft | WardrobeItem) => JSON.stringify({ ...draftOf(d), imageUri: undefined });
   const dirty = formKey(draft) !== formKey(item);
 
   /** 다른 기기에서 지운 옷이라 기기에서도 지웠을 때 */
@@ -148,6 +154,23 @@ const ItemDetail = () => {
           dim={retired}
           variant="full"
         />
+        <View style={s.attrs} accessible accessibilityLabel={`색 ${savedColors.map(colorLabel).join(', ')}`}>
+          {savedColors.map((c, i) => (
+            <View
+              key={c}
+              style={[
+                i === 0 ? s.mainDot : s.subDot,
+                { backgroundColor: colorMeta(c).hex },
+                colorMeta(c).light >= 0.9 && s.dotEdge,
+              ]}
+            />
+          ))}
+          <Text style={s.attrText}>
+            {colorLabel(savedColors[0])}
+            {savedColors.length > 1 ? ` + ${savedColors.slice(1).map(colorLabel).join('·')}` : ''}
+          </Text>
+        </View>
+        <Text style={s.purchase}>구입일 {purchaseText(item)}</Text>
       </View>
       <Row style={s.stats}>
         <View style={s.stat}>
@@ -165,7 +188,7 @@ const ItemDetail = () => {
           <Text style={s.statLabel}>활용 상태</Text>
         </View>
       </Row>
-      <ItemForm value={draft} onChange={setDraft} />
+      <ItemForm value={draft} onChange={setDraft} purchaseBaseDate={purchaseInfo(item).date} />
 
       <SectionHead title="관리" style={{ marginTop: 32 }} />
       <View style={s.manage}>
@@ -212,6 +235,12 @@ const useStyles = makeStyles((t) => ({
   bannerMemo: { fontSize: 13, color: t.colors.text, marginTop: 8, lineHeight: 19 },
   bannerNote: { fontSize: 12, color: t.colors.textSub, marginTop: 6, lineHeight: 18 },
   bannerButton: { marginTop: 12, alignSelf: 'flex-start', paddingHorizontal: 18 },
+  attrs: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
+  mainDot: { width: 14, height: 14, borderRadius: 7 },
+  subDot: { width: 9, height: 9, borderRadius: 4.5 },
+  dotEdge: { borderWidth: 1, borderColor: t.colors.border },
+  attrText: { fontSize: 13, fontWeight: '700', color: t.colors.text, marginLeft: 2 },
+  purchase: { fontSize: 12, color: t.colors.textSub, marginTop: 4 },
   stats: { ...cardBase(t), marginVertical: 22 },
   stat: { flex: 1, alignItems: 'center', paddingVertical: 14 },
   statNum: { fontSize: 16, fontWeight: '800', color: t.colors.text },

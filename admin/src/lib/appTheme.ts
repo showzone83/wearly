@@ -4,12 +4,35 @@
 import type { CSSProperties } from 'react';
 
 import { MASCOT_FILES, MASCOT_IMAGES, MASCOT_POSES, mascotImage } from '@app-mascots';
+import { contrastRatio, SEASON_COLORS, SEASON_INFO, seasonalTheme, seasonAt, SEASONS, TEXT_PAIRS } from '@app-seasons';
 import { DEFAULT_THEME_ID, isThemeId, THEME_IDS, THEMES } from '@app-themes';
 import type { IMascotImage, TMascotId, TMascotPose } from '@app-mascots';
+import type { TSeason, TSeasonToken } from '@app-seasons';
 import type { ITheme, IThemeColors, TThemeId } from '@app-themes';
 
 export { DEFAULT_THEME_ID, isThemeId, MASCOT_FILES, MASCOT_IMAGES, MASCOT_POSES, mascotImage, THEME_IDS, THEMES };
-export type { IMascotImage, ITheme, IThemeColors, TMascotId, TMascotPose, TThemeId };
+export { contrastRatio, SEASON_COLORS, SEASON_INFO, seasonAt, seasonalTheme, SEASONS, TEXT_PAIRS };
+export type { IMascotImage, ITheme, IThemeColors, TMascotId, TMascotPose, TSeason, TSeasonToken, TThemeId };
+
+/** 글자/바탕 조합 중 가장 낮은 대비 (앱이 실제로 글자를 얹는 조합, @app-seasons TEXT_PAIRS) */
+export const minTextContrast = (colors: IThemeColors): { ratio: number; pair: string } => {
+  let worst = { ratio: Infinity, pair: '' };
+  for (const [fg, bg] of TEXT_PAIRS) {
+    const ratio = contrastRatio(colors[fg], colors[bg]);
+    if (ratio < worst.ratio) worst = { ratio, pair: `${fg} / ${bg}` };
+  }
+  return worst;
+};
+
+/** 계절 미리보기 색 견본에 보일 토큰 (계절이 바꾸는 토큰 중 눈에 잘 띄는 것) */
+export const SEASON_SWATCH_TOKENS: { key: TSeasonToken; label: string }[] = [
+  { key: 'primary', label: '주 색' },
+  { key: 'primarySoft', label: '주 색 연한 바탕' },
+  { key: 'accent', label: '포인트' },
+  { key: 'accentSoft', label: '포인트 연한 바탕' },
+  { key: 'bg', label: '화면 바탕' },
+  { key: 'surfaceAlt', label: '연한 강조 바탕' },
+];
 
 // 폴더의 PNG를 빌드에 넣고 주소를 받는다. 키는 빌드 도구가 정한 경로라 'mascots/' 뒤만 떼어 매핑 파일 이름과 맞춘다.
 const MASCOT_URLS: Record<string, string> = Object.fromEntries(

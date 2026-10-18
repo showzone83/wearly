@@ -10,6 +10,7 @@
         <result property="category" column="category"/>
         <result property="subType" column="sub_type"/>
         <result property="color" column="color"/>
+        <result property="subColors" column="sub_colors" typeHandler="app.wearly.common.mybatis.StringListArrayTypeHandler"/>
         <result property="pattern" column="pattern"/>
         <result property="seasons" column="seasons" typeHandler="app.wearly.common.mybatis.StringListArrayTypeHandler"/>
         <result property="styles" column="styles" typeHandler="app.wearly.common.mybatis.StringListArrayTypeHandler"/>
@@ -18,6 +19,8 @@
         <result property="brand" column="brand"/>
         <result property="wornCount" column="worn_count"/>
         <result property="lastWornAt" column="last_worn_at"/>
+        <result property="purchasedAt" column="purchased_at"/>
+        <result property="purchasedAtEstimated" column="purchased_at_estimated"/>
         <result property="createdAt" column="created_at"/>
         <result property="retiredAt" column="retired_at"/>
         <result property="retireReason" column="retire_reason"/>
@@ -26,8 +29,9 @@
 
 
     <select id="findItems" parameterType="app.wearly.wardrobe.application.port.out.ItemFilter" resultMap="itemRow">
-        SELECT item_id, name, category, sub_type, color, pattern, seasons, styles, formality, status, brand,
-               worn_count, last_worn_at, created_at, retired_at, retire_reason, retire_memo
+        SELECT item_id, name, category, sub_type, color, sub_colors, pattern, seasons, styles, formality, status, brand,
+               worn_count, last_worn_at, purchased_at, purchased_at_estimated, created_at, retired_at, retire_reason,
+               retire_memo
           FROM tb_wardrobe_item
          WHERE user_id = #{userId}
         <if test="retired != null and retired">
@@ -42,8 +46,9 @@
         <if test="status != null">
            AND status = #{status}
         </if>
+        <!-- 주 색상이든 보조 색이든 그 색이 있으면 맞다 (이슈 #4) -->
         <if test="color != null">
-           AND color = #{color}
+           AND (color = #{color} OR #{color} = ANY (sub_colors))
         </if>
         <if test="query != null">
             <bind name="queryPattern" value="@app.wearly.common.mybatis.LikePatterns@contains(query)"/>
@@ -84,6 +89,7 @@
          GROUP BY category
     </select>
 
+    <!-- 통계 byColor는 주 색상 기준 (보조 색은 세지 않는다, 이슈 #4) -->
     <select id="countByColor" resultType="app.wearly.wardrobe.application.port.out.dto.KeyCountDto">
         SELECT color AS key, count(*) AS count
           FROM tb_wardrobe_item
@@ -144,7 +150,8 @@
          ORDER BY count DESC, retire_reason ASC
     </select>
 
-    <!-- 코드 값을 담는 컬럼 8개 (category·sub_type·color·pattern·status·retire_reason 한 값, seasons·styles 배열).
+    <!-- 코드 값을 담는 컬럼 9개 (category·sub_type·color·pattern·status·retire_reason 한 값, seasons·styles·sub_colors 배열).
+         COLOR는 주 색상과 보조 색(sub_colors)을 함께 센다 (한 아이템 안에서 겹치지 않으므로 아이템 수와 같다).
          사용 중지한 옷도 센다 (데이터가 남아 있으므로).
          컬럼을 늘리면 여기와 countUsing에 함께 넣는다 (코드 삭제 가드가 이 쿼리로만 사용 여부를 본다) -->
     <select id="countByCode" resultType="app.wearly.wardrobe.application.port.out.dto.CodeCountDto">
@@ -152,7 +159,7 @@
         UNION ALL
         SELECT 'SUB_TYPE', sub_type, count(*) FROM tb_wardrobe_item GROUP BY sub_type
         UNION ALL
-        SELECT 'COLOR', color, count(*) FROM tb_wardrobe_item GROUP BY color
+        SELECT 'COLOR', c.v, count(*) FROM tb_wardrobe_item i CROSS JOIN LATERAL unnest(array_prepend(i.color::text, i.sub_colors)) AS c(v) GROUP BY c.v
         UNION ALL
         SELECT 'PATTERN', pattern, count(*) FROM tb_wardrobe_item GROUP BY pattern
         UNION ALL
@@ -171,7 +178,7 @@
         <choose>
             <when test="group == 'CATEGORY'">WHERE category = #{code}</when>
             <when test="group == 'SUB_TYPE'">WHERE sub_type = #{code}</when>
-            <when test="group == 'COLOR'">WHERE color = #{code}</when>
+            <when test="group == 'COLOR'">WHERE color = #{code} OR #{code} = ANY (sub_colors)</when>
             <when test="group == 'PATTERN'">WHERE pattern = #{code}</when>
             <when test="group == 'ITEM_STATUS'">WHERE status = #{code}</when>
             <when test="group == 'SEASON'">WHERE #{code} = ANY (seasons)</when>

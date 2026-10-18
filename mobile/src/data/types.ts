@@ -9,7 +9,7 @@ export type SubType = string;
 export type ColorKey = string;
 /** PATTERN 코드 (예: SOLID) */
 export type Pattern = string;
-/** SEASON 코드 (SPRING·SUMMER·FALL·WINTER) */
+/** SEASON 코드 (EARLY_SPRING·SPRING·EARLY_SUMMER·SUMMER·EARLY_FALL·FALL·WINTER) */
 export type Season = string;
 /** STYLE 코드 (예: NEAT) */
 export type StyleTag = string;
@@ -31,7 +31,13 @@ export interface WardrobeItem {
   name: string;
   category: Category;
   subType: SubType;
+  /** 주 색상. colors가 있으면 항상 colors[0]과 같다 (목록·썸네일 그림·통계·피할 색 판단은 이 값) */
   color: ColorKey;
+  /**
+   * 색 1~3개, 첫 번째가 주 색상, 중복 없음. 나머지는 보조 색(줄무늬의 바탕색 등).
+   * 예전 데이터·예전 서버에는 없다 → [color]로 본다 (lib/itemAttrs.ts itemColors)
+   */
+  colors?: ColorKey[];
   pattern: Pattern;
   seasons: Season[];
   styles: StyleTag[];
@@ -46,6 +52,13 @@ export interface WardrobeItem {
   /** 서버에 올린 사진 (계정 모드). url·thumbUrl은 서명 주소라 expiresAt 뒤에는 아이템을 다시 받아야 한다 */
   image?: IItemImage;
   brand?: string;
+  /**
+   * 구입일 YYYY-MM-DD. 모르면 등록일(서버는 서울 기준, 게스트는 기기 날짜)을 넣고 purchasedAtEstimated = true.
+   * 예전 데이터·예전 서버에는 없다 → 화면은 createdAt 날짜를 "모름(등록일)"로 보여 준다 (lib/itemAttrs.ts purchaseInfo)
+   */
+  purchasedAt?: string;
+  /** true면 사용자가 구입일을 몰라 등록일을 넣은 값 */
+  purchasedAtEstimated?: boolean;
   wornCount: number;
   lastWornAt?: string;
   createdAt: string;
@@ -229,4 +242,12 @@ export interface Profile {
   workRule: boolean;
   offRule: boolean;
   notify: { morning: boolean; evening: boolean; dMinus1: boolean };
+  /** 나의 정보 (모두 선택). 연령대 = AGE_RANGE 코드. 예전에 저장한 프로필에는 없다 */
+  ageRange?: string | null;
+  /** 체형 = BODY_TYPE 코드 */
+  bodyType?: string | null;
+  /** 키 (cm, 130~210) */
+  heightCm?: number | null;
+  /** 핏 선호 = FIT 코드 */
+  fitPreference?: string | null;
 }

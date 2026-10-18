@@ -81,4 +81,60 @@ class CodeAttrsTest {
     assertThat(CodeRules.isCompleteOrder(List.of("A", "B"), List.of("A"))).isFalse();
     assertThat(CodeRules.isCompleteOrder(List.of("A", "B"), null)).isFalse();
   }
+
+  @Test
+  void BODY_TYPE은_설명과_한_줄_특징이_필요하고_공백을_정리한다() {
+    List<FieldError> errors = new ArrayList<>();
+    Map<String, Object> out =
+        CodeAttrs.validate(
+            "BODY_TYPE",
+            Map.of("description", "  탄탄한 몸 ", "hint", "허리 위치가 높아요"),
+            "X",
+            codes,
+            errors);
+    assertThat(errors).isEmpty();
+    assertThat(out).containsEntry("description", "탄탄한 몸").containsEntry("hint", "허리 위치가 높아요");
+    assertThat(out.keySet()).containsExactly("description", "hint");
+
+    List<FieldError> bad = new ArrayList<>();
+    CodeAttrs.validate(
+        "BODY_TYPE",
+        Map.of("description", " ", "hint", "가".repeat(CodeAttrs.TEXT_MAX + 1), "volume", 1),
+        "X",
+        codes,
+        bad);
+    assertThat(bad)
+        .extracting(e -> e.field() + "=" + e.code())
+        .containsExactlyInAnyOrder(
+            "attrs.volume=NOT_ALLOWED", "attrs.description=REQUIRED", "attrs.hint=TOO_LONG");
+
+    List<FieldError> missing = new ArrayList<>();
+    CodeAttrs.validate("BODY_TYPE", Map.of("hint", 3), "X", codes, missing);
+    assertThat(missing)
+        .extracting(e -> e.field() + "=" + e.code())
+        .containsExactlyInAnyOrder("attrs.description=REQUIRED", "attrs.hint=INVALID_TYPE");
+  }
+
+  @Test
+  void AGE_RANGE와_FIT은_attrs가_없다() {
+    List<FieldError> errors = new ArrayList<>();
+    assertThat(CodeAttrs.validate("AGE_RANGE", Map.of(), "X", codes, errors)).isEmpty();
+    assertThat(CodeAttrs.validate("FIT", Map.of("volume", -1), "X", codes, errors)).isEmpty();
+    assertThat(errors).extracting(FieldError::field).containsExactly("attrs.volume");
+  }
+
+  @Test
+  void 초기값의_체형_코드는_모두_attrs_검증을_통과한다() {
+    assertThat(codes.codes("BODY_TYPE"))
+        .extracting(c -> c.code())
+        .containsExactly("STRAIGHT", "WAVE", "NATURAL", "UNKNOWN");
+    codes
+        .codes("BODY_TYPE")
+        .forEach(
+            c -> {
+              List<FieldError> errors = new ArrayList<>();
+              CodeAttrs.validate("BODY_TYPE", c.attrs(), c.code(), codes, errors);
+              assertThat(errors).as(c.code()).isEmpty();
+            });
+  }
 }

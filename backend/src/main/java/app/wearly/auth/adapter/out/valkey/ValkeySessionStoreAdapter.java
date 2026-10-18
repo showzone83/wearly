@@ -52,7 +52,8 @@ class ValkeySessionStoreAdapter implements SessionStorePort {
         Long.toString(now + ttl.toMillis()),
         s.client().name(),
         nullToEmpty(s.userAgent()),
-        nullToEmpty(s.ip()));
+        nullToEmpty(s.ip()),
+        s.mfaVerified() ? "1" : "0");
   }
 
   @Override
@@ -96,7 +97,7 @@ class ValkeySessionStoreAdapter implements SessionStorePort {
   }
 
   @Override
-  public boolean touch(String sessionId, long userId, Instant now, Duration minInterval) {
+  public SessionState touch(String sessionId, long userId, Instant now, Duration minInterval) {
     Long ok =
         redis.execute(
             ValkeyScripts.TOUCH,
@@ -105,6 +106,17 @@ class ValkeySessionStoreAdapter implements SessionStorePort {
             Long.toString(now.toEpochMilli()),
             Long.toString(minInterval.toMillis()),
             sessionId);
+    if (ok == null || ok == 0L) {
+      return SessionState.GONE;
+    }
+    return ok == 2L ? SessionState.ACTIVE_MFA : SessionState.ACTIVE;
+  }
+
+  @Override
+  public boolean markMfaVerified(String sessionId, long userId) {
+    Long ok =
+        redis.execute(
+            ValkeyScripts.MARK_MFA, List.of(ValkeyKeys.session(sessionId)), Long.toString(userId));
     return ok != null && ok == 1L;
   }
 
@@ -267,7 +279,8 @@ class ValkeySessionStoreAdapter implements SessionStorePort {
             emptyToNull(f.get("ip")),
             instant(f.get("createdAt")),
             instant(f.get("lastRefreshAt")),
-            instant(f.get("lastSeenAt"))));
+            instant(f.get("lastSeenAt")),
+            "1".equals(f.get("mfa"))));
   }
 
   private static Instant instant(String epochMillis) {

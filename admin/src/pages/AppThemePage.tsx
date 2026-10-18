@@ -1,21 +1,25 @@
-// 앱 설정 > 테마: 전체 사용자의 앱 테마(냥깨비·Closeta)를 미리 보고 바꾼다 (doc/12 3·6장).
-// 테마 값과 마스코트 그림은 앱 코드(mobile/src/data)에 있고, 서버는 어떤 테마를 쓸지만 저장한다.
+// 앱 설정 > 테마: 전체 사용자의 앱 테마(냥깨비·Closeta)와 계절 테마 모드를 미리 보고 바꾼다 (doc/12 3·6장, 이슈 #6).
+// 테마·계절 색과 마스코트 그림은 앱 코드(mobile/src/data)에 있고, 서버는 어떤 테마·계절 모드를 쓸지만 저장한다.
 // 백엔드가 아직 이 API를 모르면(404) 안내만 띄우고 미리보기는 그대로 보여 준다.
 import { useState } from 'react';
 
 import { MascotImage } from '@/components/Mascot';
+import { SeasonPreviewGrid } from '@/components/SeasonPreview';
 import { ColorSwatches, MiniAppPreview } from '@/components/ThemePreview';
 import { Badge, Button, Card, ErrorBox, Loading, Modal, Notice, PageHeader } from '@/components/ui';
 
 import { useToastStore } from '@/stores/useToastStore';
 
-import { isThemeId, MASCOT_POSES, POSE_LABELS, THEME_IDS, themeName, THEMES } from '@/lib/appTheme';
+import { isThemeId, MASCOT_POSES, POSE_LABELS, seasonAt, THEME_IDS, themeName, THEMES } from '@/lib/appTheme';
 import { fmtDateTime } from '@/lib/format';
 import { isUnsupportedApi, useAppTheme, useUpdateAppTheme } from '@/lib/queries';
+import { appliedSeason, SEASON_MODE_KEYS, SEASON_MODE_TEXT, seasonModeSummary } from '@/lib/seasonMode';
 import type { TThemeId } from '@/lib/appTheme';
+import type { TSeasonModeKey } from '@/lib/seasonMode';
 
 const UNSUPPORTED_TEXT = '서버가 아직 테마 전환을 지원하지 않아요';
 const APPLY_TEXT = '사용자가 앱을 다시 열거나 돌아오면 반영돼요';
+const SEASON_UNSUPPORTED_TEXT = '서버가 아직 계절 모드를 지원하지 않아요';
 
 const ThemeCard = ({
   id,
@@ -81,6 +85,7 @@ const ThemeCard = ({
 
 export const AppThemePage = () => {
   const [target, setTarget] = useState<TThemeId | null>(null);
+  const [seasonTarget, setSeasonTarget] = useState<TSeasonModeKey | null>(null);
 
   const { data, error, isLoading, isFetching, refetch } = useAppTheme();
   const update = useUpdateAppTheme();
@@ -90,6 +95,12 @@ export const AppThemePage = () => {
   const current = data?.themeId || null;
   const unknownCurrent = !!current && !isThemeId(current);
   const pickDisabled = unsupported || isLoading || update.isPending;
+  // 계절 (이슈 #6): 서버 값이 null이면 옛 서버라 고를 수 없다. 오늘 계절은 앱과 같은 규칙(한국 날짜)으로 계산
+  const seasonMode = data?.seasonMode ?? null;
+  const seasonUnsupported = !!data && seasonMode === null;
+  const seasonDisabled = pickDisabled || !data || seasonUnsupported;
+  const today = seasonAt(new Date());
+  const activeSeason = appliedSeason(seasonMode, today);
 
   const openConfirm = (id: TThemeId) => {
     update.reset();
@@ -98,21 +109,50 @@ export const AppThemePage = () => {
   const closeConfirm = () => {
     if (!update.isPending) setTarget(null);
   };
+  const openSeasonConfirm = (mode: TSeasonModeKey) => {
+    if (mode === seasonMode) return;
+    update.reset();
+    setSeasonTarget(mode);
+  };
+  const closeSeasonConfirm = () => {
+    if (!update.isPending) setSeasonTarget(null);
+  };
+  const confirmSeason = () => {
+    if (!seasonTarget) return;
+    const label = SEASON_MODE_TEXT[seasonTarget].label;
+    update.mutate(
+      { seasonMode: seasonTarget },
+      {
+        onSuccess: () => {
+          setSeasonTarget(null);
+          toast(`계절 테마를 '${label}'(으)로 바꿨어요. ${APPLY_TEXT}.`);
+        },
+        onError: (e) => {
+          if (!isUnsupportedApi(e)) return;
+          setSeasonTarget(null);
+          toast(`${UNSUPPORTED_TEXT}.`, 'error');
+        },
+      },
+    );
+  };
   const confirm = () => {
     if (!target) return;
     const name = THEMES[target].name;
-    update.mutate(target, {
-      onSuccess: () => {
-        setTarget(null);
-        toast(`앱 테마를 ${name} 테마로 바꿨어요. ${APPLY_TEXT}.`);
+    update.mutate(
+      { themeId: target },
+      {
+        onSuccess: () => {
+          setTarget(null);
+          toast(`앱 테마를 ${name} 테마로 바꿨어요. ${APPLY_TEXT}.`);
+        },
+        onError: (e) => {
+          // 조회는 됐는데 변경만 404인 경우 (서버 배포 중 등): 대화상자를 닫고 알린다. 그 밖의 오류는 대화상자 안에 보인다
+          if (!isUnsupportedApi(e)) return;
+          setTarget(null);
+          toast(`${UNSUPPORTED_TEXT}.`, 'error');
+        },
       },
-      onError: (e) => {
-        // 조회는 됐는데 변경만 404인 경우 (서버 배포 중 등): 대화상자를 닫고 알린다. 그 밖의 오류는 대화상자 안에 보인다
-        if (!isUnsupportedApi(e)) return;
-        setTarget(null);
-        toast(`${UNSUPPORTED_TEXT}.`, 'error');
-      },
-    });
+    );
   };
 
   return (
@@ -150,6 +190,10 @@ export const AppThemePage = () => {
               </div>
             </div>
             <div>
+              <div className="field-label">계절 테마</div>
+              <div>{seasonModeSummary(seasonMode, today)}</div>
+            </div>
+            <div>
               <div className="field-label">마지막 변경</div>
               <div>
                 {data.updatedAt ? fmtDateTime(data.updatedAt) : <span className="muted">초기값 (바꾼 적 없음)</span>}
@@ -180,6 +224,72 @@ export const AppThemePage = () => {
           />
         ))}
       </div>
+      <section className="card theme-card" aria-labelledby="season-title">
+        <div>
+          <h2 className="card-title" id="season-title">
+            계절 테마
+          </h2>
+          <p className="theme-desc">
+            테마 위에 계절 색(주 색·포인트·배경 틴트 몇 개)만 덮어써요. 글자 색·마스코트·기능은 그대로예요. 홈 인사 위에
+            작은 계절 인사가 보이고, 사용자는 앱 더보기 &gt; 화면에서 계절 테마를 끌 수 있어요.
+          </p>
+        </div>
+        {seasonUnsupported ? (
+          <Notice tone="warn">{SEASON_UNSUPPORTED_TEXT}. 아래 미리보기만 볼 수 있어요.</Notice>
+        ) : null}
+        <div className="season-modes">
+          <div className="segmented" role="group" aria-label="계절 모드">
+            {SEASON_MODE_KEYS.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={seasonMode === mode ? 'on' : undefined}
+                aria-pressed={seasonMode === mode}
+                disabled={seasonDisabled}
+                title={seasonUnsupported ? SEASON_UNSUPPORTED_TEXT : SEASON_MODE_TEXT[mode].desc}
+                onClick={() => openSeasonConfirm(mode)}
+              >
+                {SEASON_MODE_TEXT[mode].label}
+              </button>
+            ))}
+          </div>
+          <span className="muted small mono">{seasonMode ?? ''}</span>
+        </div>
+        {seasonMode && SEASON_MODE_TEXT[seasonMode as TSeasonModeKey] ? (
+          <p className="muted small">{SEASON_MODE_TEXT[seasonMode as TSeasonModeKey].desc}</p>
+        ) : null}
+        <div className="theme-sub">4계절 × 2테마 미리보기 · 글자 대비는 WCAG AA(4.5:1) 기준</div>
+        <SeasonPreviewGrid active={{ themeId: current, season: activeSeason }} />
+      </section>
+      {seasonTarget ? (
+        <Modal
+          title="계절 테마 바꾸기"
+          onClose={closeSeasonConfirm}
+          footer={
+            <>
+              <Button onClick={closeSeasonConfirm} disabled={update.isPending}>
+                취소
+              </Button>
+              <Button variant="primary" busy={update.isPending} onClick={confirmSeason}>
+                '{SEASON_MODE_TEXT[seasonTarget].label}'(으)로 바꾸기
+              </Button>
+            </>
+          }
+        >
+          <p className="mt-xs">전체 사용자의 계절 테마 모드를 바꿔요.</p>
+          <div className="theme-change">
+            <span>{seasonModeSummary(seasonMode, today)}</span>
+            <span className="muted" aria-hidden>
+              →
+            </span>
+            <strong>{seasonModeSummary(seasonTarget, today)}</strong>
+          </div>
+          <p className="muted small">
+            {SEASON_MODE_TEXT[seasonTarget].desc} {APPLY_TEXT}. 계절 테마를 끈 사용자에게는 보이지 않아요.
+          </p>
+          {update.error && !isUnsupportedApi(update.error) ? <ErrorBox error={update.error} /> : null}
+        </Modal>
+      ) : null}
       {target ? (
         <Modal
           title="앱 테마 바꾸기"

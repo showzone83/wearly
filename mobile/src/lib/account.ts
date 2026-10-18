@@ -8,7 +8,9 @@ import { ApiError, isApiError } from '@/api/errors';
 import { useStore, type AccountUser } from '@/store/useStore';
 import { api, setAuthLostHandler, tokenStore } from './api';
 import { newId } from './context';
+import { purchaseFields } from './itemAttrs';
 import { keepPhotoLocally } from './photoUpload';
+import { unregisterPushToken } from './planNotify';
 import { syncPlans } from './planSync';
 import { RETIRE_MEMO_MAX } from './retire';
 import {
@@ -190,12 +192,14 @@ export function continueAsGuest() {
 }
 
 export async function logout(): Promise<void> {
+  await unregisterPushToken(); // 이 기기로 D-1 푸시가 더 오지 않게 (실패해도 계속)
   await api.auth.logout(); // 서버 호출이 실패해도 토큰은 지운다
   useStore.getState().resetAll();
 }
 
 export async function deleteAccount(): Promise<void> {
-  await api.users.deleteMe();
+  await api.users.deleteMe(); // 서버의 푸시 토큰도 함께 지워진다
+  await unregisterPushToken(false);
   useStore.getState().resetAll();
 }
 
@@ -262,7 +266,9 @@ export async function createItem(draft: ItemDraft): Promise<WardrobeItem> {
   if (s.authMode !== 'account') {
     const id = newId('item');
     const imageUri = await keepPhotoLocally(form.imageUri, id);
-    const item: WardrobeItem = { ...form, imageUri, id, wornCount: 0, createdAt: new Date().toISOString() };
+    const createdAt = new Date().toISOString();
+    // 구입일을 모르면 등록일(오늘, 기기 날짜)을 넣고 estimated (서버와 같은 규칙)
+    const item: WardrobeItem = { ...form, ...purchaseFields(form.purchasedAt, createdAt), imageUri, id, wornCount: 0, createdAt };
     s.addItem(item);
     return item;
   }
@@ -294,7 +300,9 @@ export async function saveItem(id: string, draft: ItemDraft): Promise<boolean> {
   const photoChanged = form.imageUri !== current?.imageUri;
   if (s.authMode !== 'account') {
     const imageUri = photoChanged ? await keepPhotoLocally(form.imageUri, id) : form.imageUri;
-    useStore.getState().updateItem(id, { ...form, imageUri });
+    // 모름이면 등록일로 되돌린다 (서버 PATCH purchasedAt: null과 같다)
+    const purchase = purchaseFields(form.purchasedAt, current?.createdAt ?? new Date().toISOString());
+    useStore.getState().updateItem(id, { ...form, ...purchase, imageUri });
     return true;
   }
   try {

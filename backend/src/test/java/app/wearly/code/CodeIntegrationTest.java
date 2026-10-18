@@ -35,7 +35,10 @@ public class CodeIntegrationTest extends IntegrationTestBase {
             "STYLE",
             "ITEM_STATUS",
             "RETIRE_REASON",
-            "REGION");
+            "REGION",
+            "AGE_RANGE",
+            "BODY_TYPE",
+            "FIT");
 
     JsonNode category = body.get("groups").get(0);
     assertThat(category.get("name").asString()).isEqualTo("종류");

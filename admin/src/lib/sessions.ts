@@ -15,13 +15,21 @@ export const SESSION_CLIENT_OPTIONS = Object.entries(SESSION_CLIENTS).map(([valu
   label: c.label,
 }));
 
-/** 로그인 이력 종류 (tb_auth_event.type) */
+/** 로그인 이력 종류 (tb_auth_event.type). 성공은 초록, 실패·잠김·강제 종료는 빨강 */
 export const AUTH_EVENTS: Record<string, { label: string; tone: TBadgeTone }> = {
   LOGIN: { label: '로그인', tone: 'green' },
   LOGOUT: { label: '로그아웃', tone: 'gray' },
   FORCED_LOGOUT: { label: '강제 로그아웃', tone: 'red' },
   REFRESH_REUSED: { label: '토큰 재사용 감지', tone: 'red' },
+  // 관리자 2단계 인증 (doc/22)
+  LOGIN_FAILED: { label: '로그인 실패', tone: 'red' },
+  MFA_SUCCESS: { label: '2단계 인증 성공', tone: 'green' },
+  MFA_FAILED: { label: '2단계 인증 실패', tone: 'red' },
+  MFA_LOCKED: { label: '2단계 인증 잠김', tone: 'red' },
 };
+
+/** 종류 필터 선택지 */
+export const AUTH_EVENT_OPTIONS = Object.entries(AUTH_EVENTS).map(([value, e]) => ({ value, label: e.label }));
 
 /** 세션을 확인 대화상자·토스트에서 부르는 이름: "앱 · iOS · Expo Go" */
 export const sessionDeviceText = (client: string | null, uaLabel: string): string => {

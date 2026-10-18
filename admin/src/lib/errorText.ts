@@ -121,6 +121,18 @@ export const apiKeyReasonText = (reason: unknown): string => {
   }
 };
 
+/** MFA_CODE_INVALID.remainingAttempts → " (남은 횟수 3번)". 없으면 빈 문자열 */
+export const remainingAttemptsText = (v: unknown): string => {
+  const n = num(v);
+  return n !== null && n >= 0 ? ` (남은 횟수 ${Math.floor(n)}번)` : '';
+};
+
+/** MFA_LOCKED.retryAfterSeconds → "15분" (분 단위 올림, 최소 1분). 없으면 null */
+export const retryAfterMinutes = (v: unknown): number | null => {
+  const n = num(v);
+  return n !== null && n > 0 ? Math.max(1, Math.ceil(n / 60)) : null;
+};
+
 const USAGE_KIND_TEXT: Record<string, (n: number) => string> = {
   ITEM: (n) => `옷 ${n.toLocaleString('ko-KR')}개`,
   PROFILE: (n) => `회원 프로필 ${n.toLocaleString('ko-KR')}개`,
@@ -245,6 +257,18 @@ export const SERVER_ERROR_TEXT: Record<string, TText | null> = {
   WEATHER_UNAVAILABLE: null, // 앱 날씨 조회
   WEATHER_REFRESH_RUNNING: '날씨를 이미 받고 있어요. 지금 실행이 끝난 뒤 다시 시도해 주세요.',
   WEATHER_LIMIT: null, // 앱 회원 하루 한도
+  // 관리자 계정 (doc/22)
+  LAST_ADMIN: '마지막 관리자는 해제할 수 없어요. 다른 회원을 먼저 관리자로 지정해 주세요.',
+  MFA_REQUIRED: '2단계 인증을 마쳐야 관리자 기능을 쓸 수 있어요. 다시 로그인해 주세요.',
+  MFA_TOKEN_INVALID: '인증 시간이 지났어요. 처음부터 다시 로그인해 주세요.',
+  MFA_CODE_INVALID: (p) => `인증 코드가 맞지 않아요.${remainingAttemptsText(p.remainingAttempts)}`,
+  MFA_LOCKED: (p) => {
+    const min = retryAfterMinutes(p.retryAfterSeconds);
+    return `인증 코드를 여러 번 틀려 잠시 잠겼어요. ${min ? `${min}분 뒤 다시 시도해 주세요.` : '잠시 후 다시 시도해 주세요.'}`;
+  },
+  MFA_SETUP_REQUIRED: '2단계 인증 등록을 먼저 시작해 주세요.',
+  MFA_ALREADY_ENROLLED: '이미 2단계 인증을 등록했어요.',
+  MFA_NOT_ENROLLED: '2단계 인증을 등록하지 않았어요.',
   WEATHER_NO_PROVIDER: (p) => {
     const reason = str(p.reason);
     if (reason === 'KEY_MISSING') {
@@ -322,8 +346,12 @@ const FIELD_OVERRIDE_TEXT: Record<string, string> = {
   'SELF_NOT_ALLOWED:attrs.pairs': '자기 색은 어울리는 색에 넣을 수 없어요.',
   'SELF_NOT_ALLOWED:status': '자기 자신은 정지할 수 없어요.',
   'SELF_NOT_ALLOWED:role': '자기 자신의 관리자 역할은 내릴 수 없어요.',
+  'CONFLICT:role': '정지된 회원은 관리자로 지정할 수 없어요. 먼저 정지를 해제해 주세요.',
   'SELF_NOT_ALLOWED:sessionId': '지금 쓰는 세션은 여기서 끊을 수 없어요. 로그아웃을 쓰세요.',
-  'SELF_NOT_ALLOWED:id': '자기 자신의 세션 전체는 끊을 수 없어요.',
+  // 세션 전체 끊기(DELETE /admin/users/{id}/sessions)와 2단계 인증 초기화(DELETE /admin/users/{id}/mfa)
+  'SELF_NOT_ALLOWED:id': '자기 자신의 세션 전체 끊기·2단계 인증 초기화는 여기서 할 수 없어요.',
+  'INVALID_FORMAT:newPassword': '8~64자로, 영문과 숫자를 함께 넣어 주세요.',
+  'INVALID_FORMAT:code': '인증 앱의 6자리 숫자를 입력해 주세요.',
   'DISABLED_BY_SERVER:options.baseUrl': '서버 설정(wearly.ai.allow-base-url)이 꺼져 있어 API 주소를 바꿀 수 없어요.',
   'NOT_ALLOWED:attrs.pairs': '없는 색 코드가 들어 있어요.',
   'NOT_ALLOWED:parent': '상위 종류로 쓸 수 없는 코드예요.',

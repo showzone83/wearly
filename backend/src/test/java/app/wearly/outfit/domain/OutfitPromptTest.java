@@ -136,6 +136,42 @@ class OutfitPromptTest {
   }
 
   @Test
+  void 보조_색은_옷_목록과_색_짝에_들어가고_피하고_싶은_색은_주_색상으로_본다() {
+    List<OutfitItem> items = new java.util.ArrayList<>(wardrobe());
+    items.add(item("12", "TOP", "SHIRT", "gray", List.of("lavender", "white"), "OWNED"));
+    items.add(item("13", "TOP", "KNIT", "beige", List.of("navy"), "OWNED"));
+    OutfitPool pool = OutfitPool.of(request(Map.of(), null, Set.of(), List.of("navy"), 3), items);
+    String prompt = OutfitPrompt.prompt(pool, taste, CODES);
+    assertThat(prompt)
+        .contains("- id 12 | \"옷12\" | 셔츠(SHIRT) | 색 gray(그레이, 뉴트럴, 밝기 ")
+        .contains(") + 보조 lavender(라벤더), white(화이트) | ")
+        // 보조 색도 내 옷의 색이라 색 짝에 들어간다
+        .contains("- gray: black, lavender, navy");
+    // 주 색상이 navy인 옷(2)만 빠지고, navy를 보조 색으로 가진 옷(13)은 남는다
+    assertThat(pool.eligible(OutfitCodes.TOP)).extracting(OutfitItem::id).contains("13");
+    assertThat(pool.eligible(OutfitCodes.TOP)).extracting(OutfitItem::id).doesNotContain("2");
+    assertThat(OutfitPrompt.instructions()).contains("보조 색은 주 색상보다 약하게 보되");
+  }
+
+  @Test
+  void 기온에_맞는_계절에_초봄_초여름_초가을이_더해진다() {
+    assertThat(weather(24).seasons()).containsExactly("SUMMER", "EARLY_SUMMER");
+    assertThat(weather(23.9).seasons())
+        .containsExactly("SPRING", "FALL", "SUMMER", "EARLY_SUMMER", "EARLY_FALL");
+    assertThat(weather(17).seasons())
+        .containsExactly("SPRING", "FALL", "SUMMER", "EARLY_SUMMER", "EARLY_FALL");
+    assertThat(weather(16.9).seasons()).containsExactly("SPRING", "FALL", "EARLY_SPRING");
+    assertThat(weather(9).seasons()).containsExactly("SPRING", "FALL", "EARLY_SPRING");
+    assertThat(weather(8.9).seasons()).containsExactly("FALL", "WINTER", "EARLY_SPRING");
+    assertThat(weather(4).seasons()).containsExactly("FALL", "WINTER", "EARLY_SPRING");
+    assertThat(weather(3.9).seasons()).containsExactly("WINTER");
+  }
+
+  private static OutfitRequest.Weather weather(double temp) {
+    return new OutfitRequest.Weather(temp, temp - 5, temp + 5, 0, "SUNNY");
+  }
+
+  @Test
   void 시스템_지시는_회원_요청과_상관없이_같고_스키마는_순서가_고정된_맵이다() {
     // 시스템 지시(Claude 캐시 앞부분)는 상수: 요청·옷장 값이 들어가지 않는다
     String instructions = OutfitPrompt.instructions();
@@ -147,6 +183,59 @@ class OutfitPromptTest {
     JsonMapper json = JsonMapper.builder().build();
     assertThat(json.writeValueAsString(OutfitPrompt.schema(pinnedPool())))
         .isEqualTo(json.writeValueAsString(schema));
+  }
+
+  @Test
+  void 나의_정보가_있으면_사용자_메시지에만_한_줄_넣고_시스템_지시는_그대로다() {
+    OutfitPool pool = pinnedPool();
+    String instructionsBefore = OutfitPrompt.instructions();
+    String without = OutfitPrompt.prompt(pool, taste, CODES);
+    OutfitTaste withInfo =
+        new OutfitTaste(
+            taste.dressCodes(), taste.moods(), taste.colors(), "AGE_30_EARLY", "WAVE", 162, "SLIM");
+    String with = OutfitPrompt.prompt(pool, withInfo, CODES);
+
+    assertThat(without).doesNotContain("회원 정보");
+    assertThat(with)
+        .contains(
+            "- 회원 정보: 연령대 30대 초반(AGE_30_EARLY), 체형 웨이브(WAVE), 키 162cm, 핏 선호 슬림핏(SLIM)"
+                + " (옷의 볼륨·실루엣을 고를 때 참고)\n");
+    // 바뀌는 곳은 그 한 줄뿐이다
+    assertThat(with.replaceFirst("- 회원 정보: [^\n]*\n", "")).isEqualTo(without);
+    // 시스템 지시(프롬프트 캐시의 고정 부분)는 회원 정보와 상관없이 같은 상수다
+    assertThat(OutfitPrompt.instructions())
+        .isSameAs(instructionsBefore)
+        .doesNotContain("회원 정보")
+        .doesNotContain("AGE_30_EARLY")
+        .doesNotContain("162cm");
+    // 스키마도 회원 정보와 상관없다
+    JsonMapper json = JsonMapper.builder().build();
+    assertThat(json.writeValueAsString(OutfitPrompt.schema(pool)))
+        .isEqualTo(json.writeValueAsString(OutfitPrompt.schema(pinnedPool())));
+  }
+
+  @Test
+  void 나의_정보는_있는_것만_넣고_체형_잘_모르겠어요는_뺀다() {
+    OutfitPool pool = pinnedPool();
+    assertThat(
+            OutfitPrompt.prompt(
+                pool,
+                new OutfitTaste(
+                    taste.dressCodes(), taste.moods(), taste.colors(), null, "UNKNOWN", null, null),
+                CODES))
+        .doesNotContain("회원 정보")
+        .doesNotContain("UNKNOWN");
+    assertThat(
+            OutfitPrompt.personal(
+                new OutfitTaste(List.of(), List.of(), List.of(), null, "UNKNOWN", 175, "OVERSIZED"),
+                CODES))
+        .isEqualTo("키 175cm, 핏 선호 오버핏(OVERSIZED)");
+    // 범위 밖 키는 넣지 않는다
+    assertThat(
+            OutfitPrompt.personal(
+                new OutfitTaste(List.of(), List.of(), List.of(), "AGE_40", null, 300, null), CODES))
+        .isEqualTo("연령대 40대(AGE_40)");
+    assertThat(OutfitPrompt.personal(taste, CODES)).isNull();
   }
 
   private static OutfitPool pinnedPool() {

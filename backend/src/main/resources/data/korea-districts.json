@@ -1,0 +1,2686 @@
+{
+ "version": "2026-10-18",
+ "source": "Open-Meteo geocoding (backend/scripts/build-districts.py)",
+ "districts": [
+  {
+   "name": "종로구",
+   "fullName": "서울특별시 종로구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5868,
+   "lon": 127.0008,
+   "approx": false,
+   "via": "혜화동 → Hyehwa-dong (PPL)"
+  },
+  {
+   "name": "중구",
+   "fullName": "서울특별시 중구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5638,
+   "lon": 126.9845,
+   "approx": false,
+   "via": "명동 → 명동 (PPL)"
+  },
+  {
+   "name": "용산구",
+   "fullName": "서울특별시 용산구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5333,
+   "lon": 126.9667,
+   "approx": false,
+   "via": "용산 → 용산 (PPLX)"
+  },
+  {
+   "name": "성동구",
+   "fullName": "서울특별시 성동구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5538,
+   "lon": 127.0683,
+   "approx": false,
+   "via": "(다른 검색 결과) → Songjŏng-dong (PPL)"
+  },
+  {
+   "name": "광진구",
+   "fullName": "서울특별시 광진구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5411,
+   "lon": 127.0892,
+   "approx": false,
+   "via": "구의동 → Kuŭi-dong (PPL)"
+  },
+  {
+   "name": "동대문구",
+   "fullName": "서울특별시 동대문구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5845,
+   "lon": 127.0478,
+   "approx": false,
+   "via": "청량리 → Ch’ŏngnyangniil-tong (PPL)"
+  },
+  {
+   "name": "중랑구",
+   "fullName": "서울특별시 중랑구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.612,
+   "lon": 127.0927,
+   "approx": false,
+   "via": "신내동 → Sinnae-dong (PPL)"
+  },
+  {
+   "name": "성북구",
+   "fullName": "서울특별시 성북구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5882,
+   "lon": 127.0114,
+   "approx": false,
+   "via": "삼선동 → Samsŏn-dong (PPL)"
+  },
+  {
+   "name": "강북구",
+   "fullName": "서울특별시 강북구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.6332,
+   "lon": 127.0147,
+   "approx": false,
+   "via": "수유동 → 수유동 (PPLX)"
+  },
+  {
+   "name": "도봉구",
+   "fullName": "서울특별시 도봉구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.6665,
+   "lon": 127.0372,
+   "approx": false,
+   "via": "방학동 → Panghak-tong (PPL)"
+  },
+  {
+   "name": "노원구",
+   "fullName": "서울특별시 노원구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.6221,
+   "lon": 127.0764,
+   "approx": false,
+   "via": "공릉동 → Kongnŭng-dong (PPL)"
+  },
+  {
+   "name": "은평구",
+   "fullName": "서울특별시 은평구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.6042,
+   "lon": 126.9355,
+   "approx": false,
+   "via": "녹번동 → Nokpŏn-dong (PPL)"
+  },
+  {
+   "name": "서대문구",
+   "fullName": "서울특별시 서대문구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5738,
+   "lon": 126.9356,
+   "approx": false,
+   "via": "연희동 → Yŏnhŭi-dong (PPL)"
+  },
+  {
+   "name": "마포구",
+   "fullName": "서울특별시 마포구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5665,
+   "lon": 126.978,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "양천구",
+   "fullName": "서울특별시 양천구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5206,
+   "lon": 126.8747,
+   "approx": false,
+   "via": "양천구 → 양천구 (PPLX)"
+  },
+  {
+   "name": "강서구",
+   "fullName": "서울특별시 강서구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5633,
+   "lon": 126.8214,
+   "approx": false,
+   "via": "강서구 → 강서구 (PPL)"
+  },
+  {
+   "name": "구로구",
+   "fullName": "서울특별시 구로구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5665,
+   "lon": 126.978,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "금천구",
+   "fullName": "서울특별시 금천구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.4518,
+   "lon": 126.9108,
+   "approx": false,
+   "via": "시흥동 → 시흥동 (PPLX)"
+  },
+  {
+   "name": "영등포구",
+   "fullName": "서울특별시 영등포구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5153,
+   "lon": 126.8872,
+   "approx": false,
+   "via": "영등포구 → 영등포구 (PPLX)"
+  },
+  {
+   "name": "동작구",
+   "fullName": "서울특별시 동작구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5112,
+   "lon": 126.9402,
+   "approx": false,
+   "via": "노량진동 → Noryangjin-dong (PPL)"
+  },
+  {
+   "name": "관악구",
+   "fullName": "서울특별시 관악구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.4844,
+   "lon": 126.9489,
+   "approx": false,
+   "via": "봉천동 → 봉천동 (PPL)"
+  },
+  {
+   "name": "서초구",
+   "fullName": "서울특별시 서초구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.4847,
+   "lon": 126.9908,
+   "approx": false,
+   "via": "방배동 → Pangbae-dong (PPL)"
+  },
+  {
+   "name": "강남구",
+   "fullName": "서울특별시 강남구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5124,
+   "lon": 127.0432,
+   "approx": false,
+   "via": "삼성동 → Samsŏng-dong (PPL)"
+  },
+  {
+   "name": "송파구",
+   "fullName": "서울특별시 송파구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.4984,
+   "lon": 127.1196,
+   "approx": false,
+   "via": "가락동 → Garakdong (PPLX)"
+  },
+  {
+   "name": "강동구",
+   "fullName": "서울특별시 강동구",
+   "city": null,
+   "regionCode": "SEOUL",
+   "lat": 37.5444,
+   "lon": 127.1265,
+   "approx": false,
+   "via": "천호동 → 천호동공원 (PRK)"
+  },
+  {
+   "name": "중구",
+   "fullName": "부산광역시 중구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1796,
+   "lon": 129.0756,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "서구",
+   "fullName": "부산광역시 서구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.0667,
+   "lon": 129.0167,
+   "approx": false,
+   "via": "Amnam → Amnam-dong (PPL)"
+  },
+  {
+   "name": "동구",
+   "fullName": "부산광역시 동구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1796,
+   "lon": 129.0756,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "영도구",
+   "fullName": "부산광역시 영도구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1796,
+   "lon": 129.0756,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "부산진구",
+   "fullName": "부산광역시 부산진구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1796,
+   "lon": 129.0756,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "동래구",
+   "fullName": "부산광역시 동래구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.2016,
+   "lon": 129.0848,
+   "approx": false,
+   "via": "동래 → 동래 (PPLA2)"
+  },
+  {
+   "name": "남구",
+   "fullName": "부산광역시 남구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1278,
+   "lon": 129.1206,
+   "approx": false,
+   "via": "Yongho → Yongho-dong (PPL)"
+  },
+  {
+   "name": "북구",
+   "fullName": "부산광역시 북구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.2518,
+   "lon": 129.0427,
+   "approx": false,
+   "via": "(다른 검색 결과) → 황지자연휴양림 (PRK)"
+  },
+  {
+   "name": "해운대구",
+   "fullName": "부산광역시 해운대구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1563,
+   "lon": 129.1534,
+   "approx": false,
+   "via": "해운대 → 해운대공원 (PRK)"
+  },
+  {
+   "name": "사하구",
+   "fullName": "부산광역시 사하구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1796,
+   "lon": 129.0756,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "금정구",
+   "fullName": "부산광역시 금정구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1796,
+   "lon": 129.0756,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "강서구",
+   "fullName": "부산광역시 강서구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1438,
+   "lon": 128.8416,
+   "approx": false,
+   "via": "(다른 검색 결과) → 명동 (PPL)"
+  },
+  {
+   "name": "연제구",
+   "fullName": "부산광역시 연제구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1846,
+   "lon": 129.0896,
+   "approx": false,
+   "via": "연산동 → 연산동 (PPLX)"
+  },
+  {
+   "name": "수영구",
+   "fullName": "부산광역시 수영구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1796,
+   "lon": 129.0756,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "사상구",
+   "fullName": "부산광역시 사상구",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.1796,
+   "lon": 129.0756,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "기장군",
+   "fullName": "부산광역시 기장군",
+   "city": null,
+   "regionCode": "BUSAN",
+   "lat": 35.2442,
+   "lon": 129.2139,
+   "approx": false,
+   "via": "기장 → 기장 (PPLA3)"
+  },
+  {
+   "name": "중구",
+   "fullName": "대구광역시 중구",
+   "city": null,
+   "regionCode": "DAEGU",
+   "lat": 35.8714,
+   "lon": 128.6014,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "동구",
+   "fullName": "대구광역시 동구",
+   "city": null,
+   "regionCode": "DAEGU",
+   "lat": 35.9313,
+   "lon": 128.6441,
+   "approx": false,
+   "via": "(다른 검색 결과) → 강동 (PPL)"
+  },
+  {
+   "name": "서구",
+   "fullName": "대구광역시 서구",
+   "city": null,
+   "regionCode": "DAEGU",
+   "lat": 35.8827,
+   "lon": 128.523,
+   "approx": false,
+   "via": "(다른 검색 결과) → 상중리동 (PPLX)"
+  },
+  {
+   "name": "남구",
+   "fullName": "대구광역시 남구",
+   "city": null,
+   "regionCode": "DAEGU",
+   "lat": 35.8714,
+   "lon": 128.6014,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "북구",
+   "fullName": "대구광역시 북구",
+   "city": null,
+   "regionCode": "DAEGU",
+   "lat": 35.8714,
+   "lon": 128.6014,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "수성구",
+   "fullName": "대구광역시 수성구",
+   "city": null,
+   "regionCode": "DAEGU",
+   "lat": 35.8491,
+   "lon": 128.7202,
+   "approx": false,
+   "via": "(다른 검색 결과) → 성동 (PPL)"
+  },
+  {
+   "name": "달서구",
+   "fullName": "대구광역시 달서구",
+   "city": null,
+   "regionCode": "DAEGU",
+   "lat": 35.817,
+   "lon": 128.5556,
+   "approx": false,
+   "via": "상인동 → 상인동 (PPLX)"
+  },
+  {
+   "name": "달성군",
+   "fullName": "대구광역시 달성군",
+   "city": null,
+   "regionCode": "DAEGU",
+   "lat": 35.7993,
+   "lon": 128.4879,
+   "approx": false,
+   "via": "화원 → Hwawŏn (PPL)"
+  },
+  {
+   "name": "군위군",
+   "fullName": "대구광역시 군위군",
+   "city": null,
+   "regionCode": "DAEGU",
+   "lat": 36.2347,
+   "lon": 128.5728,
+   "approx": false,
+   "via": "군위 → 군위 (PPL)"
+  },
+  {
+   "name": "제물포구",
+   "fullName": "인천광역시 제물포구",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.4786,
+   "lon": 126.6482,
+   "approx": false,
+   "via": "송림동 → 송림동 (PPLX)"
+  },
+  {
+   "name": "영종구",
+   "fullName": "인천광역시 영종구",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.5043,
+   "lon": 126.4945,
+   "approx": false,
+   "via": "운서동 → Unseodong (PPLX)"
+  },
+  {
+   "name": "미추홀구",
+   "fullName": "인천광역시 미추홀구",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.4569,
+   "lon": 126.6852,
+   "approx": false,
+   "via": "주안동 → 주안동 (PPLX)"
+  },
+  {
+   "name": "연수구",
+   "fullName": "인천광역시 연수구",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.4205,
+   "lon": 126.6854,
+   "approx": false,
+   "via": "연수동 → 연수동 (PPLX)"
+  },
+  {
+   "name": "남동구",
+   "fullName": "인천광역시 남동구",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.457,
+   "lon": 126.7186,
+   "approx": false,
+   "via": "남동구 → 남동구노인게이트볼구장 (PRK)"
+  },
+  {
+   "name": "부평구",
+   "fullName": "인천광역시 부평구",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.5053,
+   "lon": 126.722,
+   "approx": false,
+   "via": "Bupyeong → Bupyeong (PPLA2)"
+  },
+  {
+   "name": "계양구",
+   "fullName": "인천광역시 계양구",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.5497,
+   "lon": 126.7304,
+   "approx": false,
+   "via": "계양구 → 계양구산림욕장 (PRK)"
+  },
+  {
+   "name": "서구",
+   "fullName": "인천광역시 서구",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.5414,
+   "lon": 126.6793,
+   "approx": false,
+   "via": "심곡동 → 심곡동 (PPLX)"
+  },
+  {
+   "name": "검단구",
+   "fullName": "인천광역시 검단구",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.5892,
+   "lon": 126.6641,
+   "approx": false,
+   "via": "Geomdan → 검단중앙공원 (PRK)"
+  },
+  {
+   "name": "강화군",
+   "fullName": "인천광역시 강화군",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.7472,
+   "lon": 126.4856,
+   "approx": false,
+   "via": "강화군 → 강화군 (PPLA3)"
+  },
+  {
+   "name": "옹진군",
+   "fullName": "인천광역시 옹진군",
+   "city": null,
+   "regionCode": "INCHEON",
+   "lat": 37.225,
+   "lon": 126.1168,
+   "approx": false,
+   "via": "(다른 검색 결과) → 서포리 (PPL)"
+  },
+  {
+   "name": "동구",
+   "fullName": "광주광역시 동구",
+   "city": null,
+   "regionCode": "GWANGJU",
+   "lat": 35.0913,
+   "lon": 126.9544,
+   "approx": false,
+   "via": "(다른 검색 결과) → 진동 (PPL)"
+  },
+  {
+   "name": "서구",
+   "fullName": "광주광역시 서구",
+   "city": null,
+   "regionCode": "GWANGJU",
+   "lat": 35.1272,
+   "lon": 126.8315,
+   "approx": false,
+   "via": "(다른 검색 결과) → 마산 (PPL)"
+  },
+  {
+   "name": "남구",
+   "fullName": "광주광역시 남구",
+   "city": null,
+   "regionCode": "GWANGJU",
+   "lat": 35.1249,
+   "lon": 126.9144,
+   "approx": false,
+   "via": "봉선동 → 봉선동 (PPLX)"
+  },
+  {
+   "name": "북구",
+   "fullName": "광주광역시 북구",
+   "city": null,
+   "regionCode": "GWANGJU",
+   "lat": 35.2441,
+   "lon": 126.8855,
+   "approx": false,
+   "via": "(다른 검색 결과) → 용산 (PPL)"
+  },
+  {
+   "name": "광산구",
+   "fullName": "광주광역시 광산구",
+   "city": null,
+   "regionCode": "GWANGJU",
+   "lat": 35.1314,
+   "lon": 126.811,
+   "approx": false,
+   "via": "송정동 → 송정동 (PPLX)"
+  },
+  {
+   "name": "동구",
+   "fullName": "대전광역시 동구",
+   "city": null,
+   "regionCode": "DAEJEON",
+   "lat": 36.3048,
+   "lon": 127.4578,
+   "approx": false,
+   "via": "가오동 → Gaodong (PPLX)"
+  },
+  {
+   "name": "중구",
+   "fullName": "대전광역시 중구",
+   "city": null,
+   "regionCode": "DAEJEON",
+   "lat": 36.323,
+   "lon": 127.4251,
+   "approx": false,
+   "via": "대흥동 → Taehŭng-dong (PPLX)"
+  },
+  {
+   "name": "서구",
+   "fullName": "대전광역시 서구",
+   "city": null,
+   "regionCode": "DAEJEON",
+   "lat": 36.357,
+   "lon": 127.3838,
+   "approx": false,
+   "via": "둔산동 → Dunsandong (PPLX)"
+  },
+  {
+   "name": "유성구",
+   "fullName": "대전광역시 유성구",
+   "city": null,
+   "regionCode": "DAEJEON",
+   "lat": 36.3539,
+   "lon": 127.3367,
+   "approx": false,
+   "via": "Yuseong → Yuseong (PPLA2)"
+  },
+  {
+   "name": "대덕구",
+   "fullName": "대전광역시 대덕구",
+   "city": null,
+   "regionCode": "DAEJEON",
+   "lat": 36.3535,
+   "lon": 127.4141,
+   "approx": false,
+   "via": "오정동 → Ojŏng-dong (PPLX)"
+  },
+  {
+   "name": "중구",
+   "fullName": "울산광역시 중구",
+   "city": null,
+   "regionCode": "ULSAN",
+   "lat": 35.584,
+   "lon": 129.3074,
+   "approx": false,
+   "via": "(다른 검색 결과) → 성동 (PPL)"
+  },
+  {
+   "name": "남구",
+   "fullName": "울산광역시 남구",
+   "city": null,
+   "regionCode": "ULSAN",
+   "lat": 35.4958,
+   "lon": 129.3404,
+   "approx": false,
+   "via": "(다른 검색 결과) → 부곡동 (PPLX)"
+  },
+  {
+   "name": "동구",
+   "fullName": "울산광역시 동구",
+   "city": null,
+   "regionCode": "ULSAN",
+   "lat": 35.5384,
+   "lon": 129.3114,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "북구",
+   "fullName": "울산광역시 북구",
+   "city": null,
+   "regionCode": "ULSAN",
+   "lat": 35.5803,
+   "lon": 129.4493,
+   "approx": false,
+   "via": "(다른 검색 결과) → 금천 (PPL)"
+  },
+  {
+   "name": "울주군",
+   "fullName": "울산광역시 울주군",
+   "city": null,
+   "regionCode": "ULSAN",
+   "lat": 35.5589,
+   "lon": 129.1203,
+   "approx": false,
+   "via": "Eonyang → 언양 (PPL)"
+  },
+  {
+   "name": "수원시",
+   "fullName": "경기도 수원시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.2911,
+   "lon": 127.0089,
+   "approx": false,
+   "via": "수원시 → 수원시 (PPLA)"
+  },
+  {
+   "name": "장안구",
+   "fullName": "경기도 수원시 장안구",
+   "city": "수원시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.3164,
+   "lon": 126.9875,
+   "approx": false,
+   "via": "파장동 → Pajang-dong (PPL)"
+  },
+  {
+   "name": "권선구",
+   "fullName": "경기도 수원시 권선구",
+   "city": "수원시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2583,
+   "lon": 127.0283,
+   "approx": false,
+   "via": "권선동 → Gwonseon-dong (PPL)"
+  },
+  {
+   "name": "팔달구",
+   "fullName": "경기도 수원시 팔달구",
+   "city": "수원시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2675,
+   "lon": 127.0292,
+   "approx": false,
+   "via": "인계동 → Ingye-dong (PPL)"
+  },
+  {
+   "name": "영통구",
+   "fullName": "경기도 수원시 영통구",
+   "city": "수원시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2589,
+   "lon": 127.0758,
+   "approx": false,
+   "via": "(다른 검색 결과) → Yeongdongil-dong (PPL)"
+  },
+  {
+   "name": "고양시",
+   "fullName": "경기도 고양시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.6564,
+   "lon": 126.835,
+   "approx": false,
+   "via": "고양시 → 고양시 (PPLA2)"
+  },
+  {
+   "name": "덕양구",
+   "fullName": "경기도 고양시 덕양구",
+   "city": "고양시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.6517,
+   "lon": 126.8542,
+   "approx": false,
+   "via": "덕양구 → 덕양구 (PPLX)"
+  },
+  {
+   "name": "일산동구",
+   "fullName": "경기도 고양시 일산동구",
+   "city": "고양시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.6559,
+   "lon": 126.772,
+   "approx": false,
+   "via": "장항동 → 장항동 (PPLX)"
+  },
+  {
+   "name": "일산서구",
+   "fullName": "경기도 고양시 일산서구",
+   "city": "고양시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.6809,
+   "lon": 126.7677,
+   "approx": false,
+   "via": "(다른 검색 결과) → 일산동 (PPLX)"
+  },
+  {
+   "name": "용인시",
+   "fullName": "경기도 용인시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.2969,
+   "lon": 127.0804,
+   "approx": false,
+   "via": "Yongin → Yongin-si (PPL)"
+  },
+  {
+   "name": "처인구",
+   "fullName": "경기도 용인시 처인구",
+   "city": "용인시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.3433,
+   "lon": 127.2519,
+   "approx": false,
+   "via": "(다른 검색 결과) → Jangjeonpyeong (PPL)"
+  },
+  {
+   "name": "기흥구",
+   "fullName": "경기도 용인시 기흥구",
+   "city": "용인시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2792,
+   "lon": 127.1083,
+   "approx": false,
+   "via": "기흥 → Giheung (PPL)"
+  },
+  {
+   "name": "수지구",
+   "fullName": "경기도 용인시 수지구",
+   "city": "용인시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.3339,
+   "lon": 127.0464,
+   "approx": false,
+   "via": "풍덕천동 → Pungdeokcheon-dong (PPLL)"
+  },
+  {
+   "name": "성남시",
+   "fullName": "경기도 성남시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.4386,
+   "lon": 127.1378,
+   "approx": false,
+   "via": "성남시 → 성남시 (PPL)"
+  },
+  {
+   "name": "수정구",
+   "fullName": "경기도 성남시 수정구",
+   "city": "성남시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.4486,
+   "lon": 127.1386,
+   "approx": false,
+   "via": "태평동 → Taepyeong-dong (PPL)"
+  },
+  {
+   "name": "중원구",
+   "fullName": "경기도 성남시 중원구",
+   "city": "성남시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.4311,
+   "lon": 127.1331,
+   "approx": false,
+   "via": "성남동 → Seongnam-dong (PPL)"
+  },
+  {
+   "name": "분당구",
+   "fullName": "경기도 성남시 분당구",
+   "city": "성남시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.3675,
+   "lon": 127.1197,
+   "approx": false,
+   "via": "Jeongja → Jeongjai-dong (PPL)"
+  },
+  {
+   "name": "부천시",
+   "fullName": "경기도 부천시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.4989,
+   "lon": 126.7831,
+   "approx": false,
+   "via": "부천시 → 부천시 (PPL)"
+  },
+  {
+   "name": "원미구",
+   "fullName": "경기도 부천시 원미구",
+   "city": "부천시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.5075,
+   "lon": 126.7458,
+   "approx": false,
+   "via": "원미구 → 원미구 (PPL)"
+  },
+  {
+   "name": "소사구",
+   "fullName": "경기도 부천시 소사구",
+   "city": "부천시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2636,
+   "lon": 127.0286,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "오정구",
+   "fullName": "경기도 부천시 오정구",
+   "city": "부천시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.5314,
+   "lon": 126.7831,
+   "approx": false,
+   "via": "오정구 → 오정구 (PPLX)"
+  },
+  {
+   "name": "화성시",
+   "fullName": "경기도 화성시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.2068,
+   "lon": 126.8169,
+   "approx": false,
+   "via": "화성시 → 화성시 (PPL)"
+  },
+  {
+   "name": "만세구",
+   "fullName": "경기도 화성시 만세구",
+   "city": "화성시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.0422,
+   "lon": 126.8547,
+   "approx": false,
+   "via": "(다른 검색 결과) → 장안 (PPL)"
+  },
+  {
+   "name": "효행구",
+   "fullName": "경기도 화성시 효행구",
+   "city": "화성시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2003,
+   "lon": 126.8731,
+   "approx": false,
+   "via": "(다른 검색 결과) → 자양동 (PPL)"
+  },
+  {
+   "name": "병점구",
+   "fullName": "경기도 화성시 병점구",
+   "city": "화성시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2061,
+   "lon": 127.035,
+   "approx": false,
+   "via": "Byeongjeom → Byeongjeom-ri (PPL)"
+  },
+  {
+   "name": "동탄구",
+   "fullName": "경기도 화성시 동탄구",
+   "city": "화성시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2636,
+   "lon": 127.0286,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "안산시",
+   "fullName": "경기도 안산시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.3236,
+   "lon": 126.8219,
+   "approx": false,
+   "via": "안산시 → 안산시 (PPL)"
+  },
+  {
+   "name": "상록구",
+   "fullName": "경기도 안산시 상록구",
+   "city": "안산시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2636,
+   "lon": 127.0286,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "단원구",
+   "fullName": "경기도 안산시 단원구",
+   "city": "안산시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2247,
+   "lon": 126.5483,
+   "approx": false,
+   "via": "(다른 검색 결과) → Hongseong-ri (PPL)"
+  },
+  {
+   "name": "남양주시",
+   "fullName": "경기도 남양주시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.6367,
+   "lon": 127.2142,
+   "approx": false,
+   "via": "남양주시 → 남양주시 (PPL)"
+  },
+  {
+   "name": "안양시",
+   "fullName": "경기도 안양시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.3925,
+   "lon": 126.9269,
+   "approx": false,
+   "via": "안양시 → 안양시 (PPL)"
+  },
+  {
+   "name": "만안구",
+   "fullName": "경기도 안양시 만안구",
+   "city": "안양시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.2636,
+   "lon": 127.0286,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "동안구",
+   "fullName": "경기도 안양시 동안구",
+   "city": "안양시",
+   "regionCode": "GYEONGGI",
+   "lat": 37.3917,
+   "lon": 126.9756,
+   "approx": false,
+   "via": "Pyeongchon → Pyeongchon-dong (PPL)"
+  },
+  {
+   "name": "평택시",
+   "fullName": "경기도 평택시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 36.9947,
+   "lon": 127.0889,
+   "approx": false,
+   "via": "평택시 → 평택시 (PPL)"
+  },
+  {
+   "name": "시흥시",
+   "fullName": "경기도 시흥시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.4041,
+   "lon": 126.7641,
+   "approx": false,
+   "via": "(다른 검색 결과) → 마산 (PPL)"
+  },
+  {
+   "name": "파주시",
+   "fullName": "경기도 파주시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.8328,
+   "lon": 126.8169,
+   "approx": false,
+   "via": "파주 → 파주 (PPLA3)"
+  },
+  {
+   "name": "의정부시",
+   "fullName": "경기도 의정부시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.7415,
+   "lon": 127.0474,
+   "approx": false,
+   "via": "의정부시 → 의정부시 (PPL)"
+  },
+  {
+   "name": "김포시",
+   "fullName": "경기도 김포시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.6236,
+   "lon": 126.7142,
+   "approx": false,
+   "via": "김포시 → 김포시 (PPL)"
+  },
+  {
+   "name": "광주시",
+   "fullName": "경기도 광주시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.41,
+   "lon": 127.2572,
+   "approx": false,
+   "via": "광주시 → 광주시 (PPL)"
+  },
+  {
+   "name": "광명시",
+   "fullName": "경기도 광명시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.4772,
+   "lon": 126.8664,
+   "approx": false,
+   "via": "광명시 → 광명시 (PPL)"
+  },
+  {
+   "name": "군포시",
+   "fullName": "경기도 군포시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.3697,
+   "lon": 126.9303,
+   "approx": false,
+   "via": "Sanbon → Sanboni-dong (PPL)"
+  },
+  {
+   "name": "하남시",
+   "fullName": "경기도 하남시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.54,
+   "lon": 127.2056,
+   "approx": false,
+   "via": "하남 → 하남 (PPL)"
+  },
+  {
+   "name": "오산시",
+   "fullName": "경기도 오산시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.1522,
+   "lon": 127.0706,
+   "approx": false,
+   "via": "오산시 → 오산시 (PPL)"
+  },
+  {
+   "name": "양주시",
+   "fullName": "경기도 양주시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.8331,
+   "lon": 127.0617,
+   "approx": false,
+   "via": "양주 → 양주 (PPL)"
+  },
+  {
+   "name": "이천시",
+   "fullName": "경기도 이천시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.2792,
+   "lon": 127.4425,
+   "approx": false,
+   "via": "이천시 → 이천시 (PPL)"
+  },
+  {
+   "name": "구리시",
+   "fullName": "경기도 구리시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.5986,
+   "lon": 127.1394,
+   "approx": false,
+   "via": "구리시 → 구리시 (PPL)"
+  },
+  {
+   "name": "안성시",
+   "fullName": "경기도 안성시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.0108,
+   "lon": 127.2703,
+   "approx": false,
+   "via": "Anseong → Anjŏ (PPL)"
+  },
+  {
+   "name": "포천시",
+   "fullName": "경기도 포천시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.8944,
+   "lon": 127.1992,
+   "approx": false,
+   "via": "포천시 → 포천시 (PPL)"
+  },
+  {
+   "name": "의왕시",
+   "fullName": "경기도 의왕시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.3411,
+   "lon": 126.9886,
+   "approx": false,
+   "via": "고천동 → Gocheon-dong (PPL)"
+  },
+  {
+   "name": "여주시",
+   "fullName": "경기도 여주시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.2958,
+   "lon": 127.6339,
+   "approx": false,
+   "via": "여주시 → 여주시 (PPL)"
+  },
+  {
+   "name": "동두천시",
+   "fullName": "경기도 동두천시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.911,
+   "lon": 127.0568,
+   "approx": false,
+   "via": "동두천시 → 동두천시 (PPL)"
+  },
+  {
+   "name": "과천시",
+   "fullName": "경기도 과천시",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.4289,
+   "lon": 126.9892,
+   "approx": false,
+   "via": "과천 → 과천 (PPL)"
+  },
+  {
+   "name": "가평군",
+   "fullName": "경기도 가평군",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.831,
+   "lon": 127.5106,
+   "approx": false,
+   "via": "가평 → Gapyeong (PPL)"
+  },
+  {
+   "name": "양평군",
+   "fullName": "경기도 양평군",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 37.4897,
+   "lon": 127.4906,
+   "approx": false,
+   "via": "양평 → 양평 (PPL)"
+  },
+  {
+   "name": "연천군",
+   "fullName": "경기도 연천군",
+   "city": null,
+   "regionCode": "GYEONGGI",
+   "lat": 38.1011,
+   "lon": 127.0773,
+   "approx": false,
+   "via": "연천 → 연천 (PPLA2)"
+  },
+  {
+   "name": "춘천시",
+   "fullName": "강원특별자치도 춘천시",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.8747,
+   "lon": 127.7342,
+   "approx": false,
+   "via": "춘천시 → 춘천시 (PPLA)"
+  },
+  {
+   "name": "원주시",
+   "fullName": "강원특별자치도 원주시",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.3514,
+   "lon": 127.9453,
+   "approx": false,
+   "via": "원주시 → 원주시 (PPL)"
+  },
+  {
+   "name": "강릉시",
+   "fullName": "강원특별자치도 강릉시",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.7527,
+   "lon": 128.8724,
+   "approx": false,
+   "via": "강릉시 → 강릉시 (PPLA3)"
+  },
+  {
+   "name": "동해시",
+   "fullName": "강원특별자치도 동해시",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.5439,
+   "lon": 129.1069,
+   "approx": false,
+   "via": "동해 → 동해 (PPL)"
+  },
+  {
+   "name": "태백시",
+   "fullName": "강원특별자치도 태백시",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.8813,
+   "lon": 127.7298,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "속초시",
+   "fullName": "강원특별자치도 속초시",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 38.207,
+   "lon": 128.5918,
+   "approx": false,
+   "via": "속초 → 속초 (PPLA2)"
+  },
+  {
+   "name": "삼척시",
+   "fullName": "강원특별자치도 삼척시",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.4395,
+   "lon": 129.1579,
+   "approx": false,
+   "via": "(다른 검색 결과) → Sŏngnam-dong (PPL)"
+  },
+  {
+   "name": "홍천군",
+   "fullName": "강원특별자치도 홍천군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.6918,
+   "lon": 127.8857,
+   "approx": false,
+   "via": "홍천군 → 홍천군 (PPL)"
+  },
+  {
+   "name": "횡성군",
+   "fullName": "강원특별자치도 횡성군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.4897,
+   "lon": 127.9875,
+   "approx": false,
+   "via": "Hoengsong → Hoengsŏng (PPL)"
+  },
+  {
+   "name": "영월군",
+   "fullName": "강원특별자치도 영월군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.1623,
+   "lon": 128.8814,
+   "approx": false,
+   "via": "(다른 검색 결과) → 강동 (PPL)"
+  },
+  {
+   "name": "평창군",
+   "fullName": "강원특별자치도 평창군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.3703,
+   "lon": 128.3931,
+   "approx": false,
+   "via": "평창군 → 평창군 (PPL)"
+  },
+  {
+   "name": "정선군",
+   "fullName": "강원특별자치도 정선군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 37.2689,
+   "lon": 128.5691,
+   "approx": false,
+   "via": "(다른 검색 결과) → 구포 (PPL)"
+  },
+  {
+   "name": "철원군",
+   "fullName": "강원특별자치도 철원군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 38.2092,
+   "lon": 127.2175,
+   "approx": false,
+   "via": "철원 → 철원 (PPLA3)"
+  },
+  {
+   "name": "화천군",
+   "fullName": "강원특별자치도 화천군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 38.1071,
+   "lon": 127.7063,
+   "approx": false,
+   "via": "화천군 → 화천군 (PPLA2)"
+  },
+  {
+   "name": "양구군",
+   "fullName": "강원특별자치도 양구군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 38.1058,
+   "lon": 127.9894,
+   "approx": false,
+   "via": "양구군 → 양구 (PPL)"
+  },
+  {
+   "name": "인제군",
+   "fullName": "강원특별자치도 인제군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 38.0656,
+   "lon": 128.1731,
+   "approx": false,
+   "via": "인제 → 인제 (PPL)"
+  },
+  {
+   "name": "고성군",
+   "fullName": "강원특별자치도 고성군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 38.3767,
+   "lon": 128.4222,
+   "approx": false,
+   "via": "(다른 검색 결과) → 광산 (PPL)"
+  },
+  {
+   "name": "양양군",
+   "fullName": "강원특별자치도 양양군",
+   "city": null,
+   "regionCode": "GANGWON",
+   "lat": 38.0776,
+   "lon": 128.6179,
+   "approx": false,
+   "via": "양양 → 양양 (PPL)"
+  },
+  {
+   "name": "청주시",
+   "fullName": "충청북도 청주시",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 36.6372,
+   "lon": 127.4897,
+   "approx": false,
+   "via": "청주시 → 청주시 (PPLA)"
+  },
+  {
+   "name": "상당구",
+   "fullName": "충청북도 청주시 상당구",
+   "city": "청주시",
+   "regionCode": "CHUNGBUK",
+   "lat": 36.6836,
+   "lon": 127.6682,
+   "approx": false,
+   "via": "(다른 검색 결과) → 소새울 (PPL)"
+  },
+  {
+   "name": "서원구",
+   "fullName": "충청북도 청주시 서원구",
+   "city": "청주시",
+   "regionCode": "CHUNGBUK",
+   "lat": 36.4596,
+   "lon": 127.4394,
+   "approx": false,
+   "via": "(다른 검색 결과) → Geomdani (PPL)"
+  },
+  {
+   "name": "흥덕구",
+   "fullName": "충청북도 청주시 흥덕구",
+   "city": "청주시",
+   "regionCode": "CHUNGBUK",
+   "lat": 36.6488,
+   "lon": 127.3414,
+   "approx": false,
+   "via": "(다른 검색 결과) → 용산 (PPL)"
+  },
+  {
+   "name": "청원구",
+   "fullName": "충청북도 청주시 청원구",
+   "city": "청주시",
+   "regionCode": "CHUNGBUK",
+   "lat": 36.7371,
+   "lon": 127.5735,
+   "approx": false,
+   "via": "(다른 검색 결과) → 부연저수지 (PPL)"
+  },
+  {
+   "name": "충주시",
+   "fullName": "충청북도 충주시",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 36.9767,
+   "lon": 127.9287,
+   "approx": false,
+   "via": "충주 → 충주 (PPL)"
+  },
+  {
+   "name": "제천시",
+   "fullName": "충청북도 제천시",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 37.1361,
+   "lon": 128.2119,
+   "approx": false,
+   "via": "제천시 → 제천시 (PPL)"
+  },
+  {
+   "name": "보은군",
+   "fullName": "충청북도 보은군",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 36.4255,
+   "lon": 127.5674,
+   "approx": false,
+   "via": "(다른 검색 결과) → 용호리 (PPLL)"
+  },
+  {
+   "name": "옥천군",
+   "fullName": "충청북도 옥천군",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 36.3012,
+   "lon": 127.568,
+   "approx": false,
+   "via": "Okcheon → Okcheon (PPL)"
+  },
+  {
+   "name": "영동군",
+   "fullName": "충청북도 영동군",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 36.175,
+   "lon": 127.7764,
+   "approx": false,
+   "via": "Yeongdong → Yeongdong (PPLA2)"
+  },
+  {
+   "name": "증평군",
+   "fullName": "충청북도 증평군",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 36.7721,
+   "lon": 127.5895,
+   "approx": false,
+   "via": "(다른 검색 결과) → 내성동 (PPL)"
+  },
+  {
+   "name": "진천군",
+   "fullName": "충청북도 진천군",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 36.6424,
+   "lon": 127.489,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "괴산군",
+   "fullName": "충청북도 괴산군",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 36.8108,
+   "lon": 127.7947,
+   "approx": false,
+   "via": "Goesan → Koesan (PPL)"
+  },
+  {
+   "name": "음성군",
+   "fullName": "충청북도 음성군",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 36.9353,
+   "lon": 127.6897,
+   "approx": false,
+   "via": "음성 → 음성 (PPL)"
+  },
+  {
+   "name": "단양군",
+   "fullName": "충청북도 단양군",
+   "city": null,
+   "regionCode": "CHUNGBUK",
+   "lat": 36.9772,
+   "lon": 128.365,
+   "approx": false,
+   "via": "단양 → 단양 (PPL)"
+  },
+  {
+   "name": "천안시",
+   "fullName": "충청남도 천안시",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.8065,
+   "lon": 127.1522,
+   "approx": false,
+   "via": "천안시 → 천안시 (PPL)"
+  },
+  {
+   "name": "동남구",
+   "fullName": "충청남도 천안시 동남구",
+   "city": "천안시",
+   "regionCode": "CHUNGNAM",
+   "lat": 36.7525,
+   "lon": 127.2109,
+   "approx": false,
+   "via": "(다른 검색 결과) → 용산 (PPL)"
+  },
+  {
+   "name": "서북구",
+   "fullName": "충청남도 천안시 서북구",
+   "city": "천안시",
+   "regionCode": "CHUNGNAM",
+   "lat": 36.9533,
+   "lon": 127.1524,
+   "approx": false,
+   "via": "(다른 검색 결과) → Jamsil (PPL)"
+  },
+  {
+   "name": "공주시",
+   "fullName": "충청남도 공주시",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.4556,
+   "lon": 127.1247,
+   "approx": false,
+   "via": "공주시 → 공주시 (PPL)"
+  },
+  {
+   "name": "보령시",
+   "fullName": "충청남도 보령시",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.3493,
+   "lon": 126.5977,
+   "approx": false,
+   "via": "보령시 → 보령시 (PPLA2)"
+  },
+  {
+   "name": "아산시",
+   "fullName": "충청남도 아산시",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.7836,
+   "lon": 127.0042,
+   "approx": false,
+   "via": "아산시 → 아산시 (PPL)"
+  },
+  {
+   "name": "서산시",
+   "fullName": "충청남도 서산시",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.7817,
+   "lon": 126.4522,
+   "approx": false,
+   "via": "서산시 → 서산시 (PPL)"
+  },
+  {
+   "name": "논산시",
+   "fullName": "충청남도 논산시",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.2039,
+   "lon": 127.0847,
+   "approx": false,
+   "via": "논산시 → 논산시 (PPL)"
+  },
+  {
+   "name": "계룡시",
+   "fullName": "충청남도 계룡시",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.6588,
+   "lon": 126.6728,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "당진시",
+   "fullName": "충청남도 당진시",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.8944,
+   "lon": 126.6297,
+   "approx": false,
+   "via": "당진시 → 당진시 (PPL)"
+  },
+  {
+   "name": "금산군",
+   "fullName": "충청남도 금산군",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.1029,
+   "lon": 127.5274,
+   "approx": false,
+   "via": "(다른 검색 결과) → Kŏmdan (PPL)"
+  },
+  {
+   "name": "부여군",
+   "fullName": "충청남도 부여군",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.2747,
+   "lon": 126.9091,
+   "approx": false,
+   "via": "Buyeo → Buyeo (PPLA2)"
+  },
+  {
+   "name": "서천군",
+   "fullName": "충청남도 서천군",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.0577,
+   "lon": 126.7555,
+   "approx": false,
+   "via": "(다른 검색 결과) → 신내동 (PPL)"
+  },
+  {
+   "name": "청양군",
+   "fullName": "충청남도 청양군",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.4516,
+   "lon": 126.8037,
+   "approx": false,
+   "via": "Cheongyang → Cheongyang (PPLA2)"
+  },
+  {
+   "name": "홍성군",
+   "fullName": "충청남도 홍성군",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.6009,
+   "lon": 126.665,
+   "approx": false,
+   "via": "Hongseong → Hongseong (PPLA)"
+  },
+  {
+   "name": "예산군",
+   "fullName": "충청남도 예산군",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.6776,
+   "lon": 126.8427,
+   "approx": false,
+   "via": "예산군 → 예산군 (PPL)"
+  },
+  {
+   "name": "태안군",
+   "fullName": "충청남도 태안군",
+   "city": null,
+   "regionCode": "CHUNGNAM",
+   "lat": 36.5939,
+   "lon": 126.2967,
+   "approx": false,
+   "via": "Taean → Taean (AIRP)"
+  },
+  {
+   "name": "전주시",
+   "fullName": "전북특별자치도 전주시",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.8219,
+   "lon": 127.1489,
+   "approx": false,
+   "via": "전주시 → 전주시 (PPLA)"
+  },
+  {
+   "name": "완산구",
+   "fullName": "전북특별자치도 전주시 완산구",
+   "city": "전주시",
+   "regionCode": "JEONBUK",
+   "lat": 35.8043,
+   "lon": 127.1414,
+   "approx": false,
+   "via": "Wansan → Wansan-gongwon (PRK)"
+  },
+  {
+   "name": "덕진구",
+   "fullName": "전북특별자치도 전주시 덕진구",
+   "city": "전주시",
+   "regionCode": "JEONBUK",
+   "lat": 35.8451,
+   "lon": 127.1475,
+   "approx": false,
+   "via": "(다른 검색 결과) → 완주 (PPL)"
+  },
+  {
+   "name": "군산시",
+   "fullName": "전북특별자치도 군산시",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.9786,
+   "lon": 126.7114,
+   "approx": false,
+   "via": "군산시 → 군산시 (PPL)"
+  },
+  {
+   "name": "익산시",
+   "fullName": "전북특별자치도 익산시",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.9439,
+   "lon": 126.9544,
+   "approx": false,
+   "via": "익산시 → 익산시 (PPL)"
+  },
+  {
+   "name": "정읍시",
+   "fullName": "전북특별자치도 정읍시",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.6,
+   "lon": 126.917,
+   "approx": false,
+   "via": "정읍시 → 정읍시 (PPL)"
+  },
+  {
+   "name": "남원시",
+   "fullName": "전북특별자치도 남원시",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.4032,
+   "lon": 127.3926,
+   "approx": false,
+   "via": "Namwon → 남원랜드 (PRK)"
+  },
+  {
+   "name": "김제시",
+   "fullName": "전북특별자치도 김제시",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.7263,
+   "lon": 127.041,
+   "approx": false,
+   "via": "(다른 검색 결과) → Tonggu (PPL)"
+  },
+  {
+   "name": "완주군",
+   "fullName": "전북특별자치도 완주군",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.756,
+   "lon": 127.1684,
+   "approx": false,
+   "via": "(다른 검색 결과) → 화원 (PPL)"
+  },
+  {
+   "name": "진안군",
+   "fullName": "전북특별자치도 진안군",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.7917,
+   "lon": 127.4253,
+   "approx": false,
+   "via": "진안군 → 진안군 (PPL)"
+  },
+  {
+   "name": "무주군",
+   "fullName": "전북특별자치도 무주군",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 36.0151,
+   "lon": 127.7561,
+   "approx": false,
+   "via": "무주 → 무주 (PPL)"
+  },
+  {
+   "name": "장수군",
+   "fullName": "전북특별자치도 장수군",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.705,
+   "lon": 127.5654,
+   "approx": false,
+   "via": "(다른 검색 결과) → Myeongdong (PPL)"
+  },
+  {
+   "name": "임실군",
+   "fullName": "전북특별자치도 임실군",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.6073,
+   "lon": 127.2836,
+   "approx": false,
+   "via": "임실군 → 임실군생활체육공원 (PRK)"
+  },
+  {
+   "name": "순창군",
+   "fullName": "전북특별자치도 순창군",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.4302,
+   "lon": 127.072,
+   "approx": false,
+   "via": "(다른 검색 결과) → 자양동 (PPL)"
+  },
+  {
+   "name": "고창군",
+   "fullName": "전북특별자치도 고창군",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.4333,
+   "lon": 126.7,
+   "approx": false,
+   "via": "고창 → 고창 (PPL)"
+  },
+  {
+   "name": "부안군",
+   "fullName": "전북특별자치도 부안군",
+   "city": null,
+   "regionCode": "JEONBUK",
+   "lat": 35.7281,
+   "lon": 126.7319,
+   "approx": false,
+   "via": "Buan → Buan (PPL)"
+  },
+  {
+   "name": "목포시",
+   "fullName": "전라남도 목포시",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.8128,
+   "lon": 126.3918,
+   "approx": false,
+   "via": "목포 → 목포 (PPLA2)"
+  },
+  {
+   "name": "여수시",
+   "fullName": "전라남도 여수시",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.7606,
+   "lon": 127.6621,
+   "approx": false,
+   "via": "여수시 → 여수시 (PPLA2)"
+  },
+  {
+   "name": "순천시",
+   "fullName": "전라남도 순천시",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.9505,
+   "lon": 127.4878,
+   "approx": false,
+   "via": "Suncheon → Sunch’ŏn (PPLA2)"
+  },
+  {
+   "name": "나주시",
+   "fullName": "전라남도 나주시",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 35.0292,
+   "lon": 126.7175,
+   "approx": false,
+   "via": "나주시 → 나주시 (PPLA2)"
+  },
+  {
+   "name": "광양시",
+   "fullName": "전라남도 광양시",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.9414,
+   "lon": 127.6957,
+   "approx": false,
+   "via": "광양 → 광양 (PPLA2)"
+  },
+  {
+   "name": "담양군",
+   "fullName": "전라남도 담양군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 35.3189,
+   "lon": 126.9839,
+   "approx": false,
+   "via": "담양 → 담양 (PPLA2)"
+  },
+  {
+   "name": "곡성군",
+   "fullName": "전라남도 곡성군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 35.2333,
+   "lon": 127.1167,
+   "approx": false,
+   "via": "(다른 검색 결과) → Haman (PPL)"
+  },
+  {
+   "name": "구례군",
+   "fullName": "전라남도 구례군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 35.2094,
+   "lon": 127.4644,
+   "approx": false,
+   "via": "구례 → 구례 (PPL)"
+  },
+  {
+   "name": "고흥군",
+   "fullName": "전라남도 고흥군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.6101,
+   "lon": 127.2845,
+   "approx": false,
+   "via": "고흥 → 고흥 (PPL)"
+  },
+  {
+   "name": "보성군",
+   "fullName": "전라남도 보성군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.7715,
+   "lon": 127.08,
+   "approx": false,
+   "via": "보성 → 보성 (PPLA2)"
+  },
+  {
+   "name": "화순군",
+   "fullName": "전라남도 화순군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 35.0613,
+   "lon": 126.9875,
+   "approx": false,
+   "via": "화순 → 화순 (PPLA2)"
+  },
+  {
+   "name": "장흥군",
+   "fullName": "전라남도 장흥군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.6816,
+   "lon": 126.9069,
+   "approx": false,
+   "via": "장흥 → 장흥 (PPLA2)"
+  },
+  {
+   "name": "강진군",
+   "fullName": "전라남도 강진군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.6406,
+   "lon": 126.77,
+   "approx": false,
+   "via": "강진 → 강진 (PPL)"
+  },
+  {
+   "name": "해남군",
+   "fullName": "전라남도 해남군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.5711,
+   "lon": 126.5989,
+   "approx": false,
+   "via": "해남 → 해남 (PPL)"
+  },
+  {
+   "name": "영암군",
+   "fullName": "전라남도 영암군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.8006,
+   "lon": 126.6967,
+   "approx": false,
+   "via": "영암 → 영암 (PPLA2)"
+  },
+  {
+   "name": "무안군",
+   "fullName": "전라남도 무안군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.9901,
+   "lon": 126.479,
+   "approx": false,
+   "via": "Muan → Muan (PPLA)"
+  },
+  {
+   "name": "함평군",
+   "fullName": "전라남도 함평군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 35.135,
+   "lon": 126.5047,
+   "approx": false,
+   "via": "Hampyeong → 함평생태공원 (PRK)"
+  },
+  {
+   "name": "영광군",
+   "fullName": "전라남도 영광군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 35.2781,
+   "lon": 126.5118,
+   "approx": false,
+   "via": "영광 → 영광 (PPLA3)"
+  },
+  {
+   "name": "장성군",
+   "fullName": "전라남도 장성군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 35.2978,
+   "lon": 126.7844,
+   "approx": false,
+   "via": "장성 → 장성 (PPLA2)"
+  },
+  {
+   "name": "완도군",
+   "fullName": "전라남도 완도군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.1636,
+   "lon": 126.5583,
+   "approx": false,
+   "via": "(다른 검색 결과) → 화원 (PPL)"
+  },
+  {
+   "name": "진도군",
+   "fullName": "전라남도 진도군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.3945,
+   "lon": 126.15,
+   "approx": false,
+   "via": "(다른 검색 결과) → 동구 (PPL)"
+  },
+  {
+   "name": "신안군",
+   "fullName": "전라남도 신안군",
+   "city": null,
+   "regionCode": "JEONNAM",
+   "lat": 34.8339,
+   "lon": 126.3513,
+   "approx": false,
+   "via": "신안 → 신안 (PPLA2)"
+  },
+  {
+   "name": "포항시",
+   "fullName": "경상북도 포항시",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.0292,
+   "lon": 129.3648,
+   "approx": false,
+   "via": "포항 → 포항 (PPLA2)"
+  },
+  {
+   "name": "남구",
+   "fullName": "경상북도 포항시 남구",
+   "city": "포항시",
+   "regionCode": "GYEONGBUK",
+   "lat": 35.8811,
+   "lon": 129.5052,
+   "approx": false,
+   "via": "(다른 검색 결과) → 수성 (PPL)"
+  },
+  {
+   "name": "북구",
+   "fullName": "경상북도 포항시 북구",
+   "city": "포항시",
+   "regionCode": "GYEONGBUK",
+   "lat": 36.0292,
+   "lon": 129.3648,
+   "approx": false,
+   "via": "(다른 검색 결과) → 포항 (PPLA2)"
+  },
+  {
+   "name": "경주시",
+   "fullName": "경상북도 경주시",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 35.8428,
+   "lon": 129.2117,
+   "approx": false,
+   "via": "경주시 → 경주시 (PPL)"
+  },
+  {
+   "name": "김천시",
+   "fullName": "경상북도 김천시",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.1218,
+   "lon": 128.1198,
+   "approx": false,
+   "via": "김천 → 김천 (PPL)"
+  },
+  {
+   "name": "안동시",
+   "fullName": "경상북도 안동시",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.5664,
+   "lon": 128.7227,
+   "approx": false,
+   "via": "안동시 → 안동시 (PPLA)"
+  },
+  {
+   "name": "구미시",
+   "fullName": "경상북도 구미시",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.1136,
+   "lon": 128.336,
+   "approx": false,
+   "via": "구미시 → 구미시 (PPLA2)"
+  },
+  {
+   "name": "영주시",
+   "fullName": "경상북도 영주시",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.8217,
+   "lon": 128.6308,
+   "approx": false,
+   "via": "영주 → 영주 (PPL)"
+  },
+  {
+   "name": "영천시",
+   "fullName": "경상북도 영천시",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.576,
+   "lon": 128.5056,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "상주시",
+   "fullName": "경상북도 상주시",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.4153,
+   "lon": 128.1606,
+   "approx": false,
+   "via": "Sangju → Sangju (PPL)"
+  },
+  {
+   "name": "문경시",
+   "fullName": "경상북도 문경시",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.7353,
+   "lon": 128.1083,
+   "approx": false,
+   "via": "문경 → 문경 (PPLA3)"
+  },
+  {
+   "name": "경산시",
+   "fullName": "경상북도 경산시",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 35.8233,
+   "lon": 128.7378,
+   "approx": false,
+   "via": "경산시 → 경산시 (PPLA2)"
+  },
+  {
+   "name": "의성군",
+   "fullName": "경상북도 의성군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.474,
+   "lon": 128.3857,
+   "approx": false,
+   "via": "(다른 검색 결과) → Gimje (PPL)"
+  },
+  {
+   "name": "청송군",
+   "fullName": "경상북도 청송군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.4335,
+   "lon": 129.057,
+   "approx": false,
+   "via": "청송 → 청송 (PPL)"
+  },
+  {
+   "name": "영양군",
+   "fullName": "경상북도 영양군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.6648,
+   "lon": 129.1139,
+   "approx": false,
+   "via": "Yeongyang → Yeongyang Gun (PPL)"
+  },
+  {
+   "name": "영덕군",
+   "fullName": "경상북도 영덕군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.4137,
+   "lon": 129.37,
+   "approx": false,
+   "via": "영덕 → 영덕 (PPLA2)"
+  },
+  {
+   "name": "청도군",
+   "fullName": "경상북도 청도군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 35.6431,
+   "lon": 128.5568,
+   "approx": false,
+   "via": "(다른 검색 결과) → Seowon (PPL)"
+  },
+  {
+   "name": "고령군",
+   "fullName": "경상북도 고령군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 35.7294,
+   "lon": 128.2675,
+   "approx": false,
+   "via": "Goryeong → Koryŏng (PPL)"
+  },
+  {
+   "name": "성주군",
+   "fullName": "경상북도 성주군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 35.9178,
+   "lon": 128.2858,
+   "approx": false,
+   "via": "Seongju → Seongju (PPL)"
+  },
+  {
+   "name": "칠곡군",
+   "fullName": "경상북도 칠곡군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 35.9925,
+   "lon": 128.3978,
+   "approx": false,
+   "via": "Waegwan → Waegwan (PPLA3)"
+  },
+  {
+   "name": "예천군",
+   "fullName": "경상북도 예천군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.6574,
+   "lon": 128.4551,
+   "approx": false,
+   "via": "예천 → 예천 (PPLA2)"
+  },
+  {
+   "name": "봉화군",
+   "fullName": "경상북도 봉화군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.8881,
+   "lon": 128.7464,
+   "approx": false,
+   "via": "봉화 → 봉화 (PPL)"
+  },
+  {
+   "name": "울진군",
+   "fullName": "경상북도 울진군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 36.777,
+   "lon": 129.4618,
+   "approx": false,
+   "via": "Uljin → 울진비행장 (AIRF)"
+  },
+  {
+   "name": "울릉군",
+   "fullName": "경상북도 울릉군",
+   "city": null,
+   "regionCode": "GYEONGBUK",
+   "lat": 37.5006,
+   "lon": 130.8606,
+   "approx": false,
+   "via": "Ulleung → 울릉도 (ISL)"
+  },
+  {
+   "name": "창원시",
+   "fullName": "경상남도 창원시",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.2281,
+   "lon": 128.6811,
+   "approx": false,
+   "via": "창원시 → 창원시 (PPLA)"
+  },
+  {
+   "name": "의창구",
+   "fullName": "경상남도 창원시 의창구",
+   "city": "창원시",
+   "regionCode": "GYEONGNAM",
+   "lat": 35.2422,
+   "lon": 128.6844,
+   "approx": false,
+   "via": "(다른 검색 결과) → Yongho-dong (PPL)"
+  },
+  {
+   "name": "성산구",
+   "fullName": "경상남도 창원시 성산구",
+   "city": "창원시",
+   "regionCode": "GYEONGNAM",
+   "lat": 35.228,
+   "lon": 128.6811,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "마산합포구",
+   "fullName": "경상남도 창원시 마산합포구",
+   "city": "창원시",
+   "regionCode": "GYEONGNAM",
+   "lat": 35.1569,
+   "lon": 128.4341,
+   "approx": false,
+   "via": "(다른 검색 결과) → Yŏng-dong (PPL)"
+  },
+  {
+   "name": "마산회원구",
+   "fullName": "경상남도 창원시 마산회원구",
+   "city": "창원시",
+   "regionCode": "GYEONGNAM",
+   "lat": 35.228,
+   "lon": 128.6811,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "진해구",
+   "fullName": "경상남도 창원시 진해구",
+   "city": "창원시",
+   "regionCode": "GYEONGNAM",
+   "lat": 35.1412,
+   "lon": 128.696,
+   "approx": false,
+   "via": "Jinhae → 진해비행장 (AIRP)"
+  },
+  {
+   "name": "진주시",
+   "fullName": "경상남도 진주시",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.1928,
+   "lon": 128.0847,
+   "approx": false,
+   "via": "진주시 → 진주시 (PPL)"
+  },
+  {
+   "name": "통영시",
+   "fullName": "경상남도 통영시",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 34.8496,
+   "lon": 128.4278,
+   "approx": false,
+   "via": "Tongyeong → Tongyeong (PPL)"
+  },
+  {
+   "name": "사천시",
+   "fullName": "경상남도 사천시",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.0885,
+   "lon": 128.0704,
+   "approx": false,
+   "via": "Sacheon → 사천공항 (AIRP)"
+  },
+  {
+   "name": "김해시",
+   "fullName": "경상남도 김해시",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.2342,
+   "lon": 128.8811,
+   "approx": false,
+   "via": "김해시 → 김해시 (PPL)"
+  },
+  {
+   "name": "밀양시",
+   "fullName": "경상남도 밀양시",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.4933,
+   "lon": 128.7489,
+   "approx": false,
+   "via": "밀양시 → 밀양시 (PPL)"
+  },
+  {
+   "name": "거제시",
+   "fullName": "경상남도 거제시",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 34.8138,
+   "lon": 128.7056,
+   "approx": false,
+   "via": "거제 → 거제 (PPL)"
+  },
+  {
+   "name": "양산시",
+   "fullName": "경상남도 양산시",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.342,
+   "lon": 129.0336,
+   "approx": false,
+   "via": "양산 → 양산 (PPLA2)"
+  },
+  {
+   "name": "의령군",
+   "fullName": "경상남도 의령군",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.3639,
+   "lon": 128.4106,
+   "approx": false,
+   "via": "(다른 검색 결과) → Masan (PPL)"
+  },
+  {
+   "name": "함안군",
+   "fullName": "경상남도 함안군",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.241,
+   "lon": 128.4229,
+   "approx": false,
+   "via": "Haman → Haman (PPL)"
+  },
+  {
+   "name": "창녕군",
+   "fullName": "경상남도 창녕군",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.5414,
+   "lon": 128.4951,
+   "approx": false,
+   "via": "창녕 → 창녕 (PPL)"
+  },
+  {
+   "name": "고성군",
+   "fullName": "경상남도 고성군",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 34.9763,
+   "lon": 128.3236,
+   "approx": false,
+   "via": "Goseong → Goseong (PPL)"
+  },
+  {
+   "name": "남해군",
+   "fullName": "경상남도 남해군",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 34.8394,
+   "lon": 127.8944,
+   "approx": false,
+   "via": "Namhae → Namhae (PPL)"
+  },
+  {
+   "name": "하동군",
+   "fullName": "경상남도 하동군",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.068,
+   "lon": 127.7515,
+   "approx": false,
+   "via": "하동 → 하동 (PPLA2)"
+  },
+  {
+   "name": "산청군",
+   "fullName": "경상남도 산청군",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.228,
+   "lon": 128.6811,
+   "approx": true,
+   "via": null
+  },
+  {
+   "name": "함양군",
+   "fullName": "경상남도 함양군",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.5194,
+   "lon": 127.7277,
+   "approx": false,
+   "via": "Hamyang → Hamyang (PPL)"
+  },
+  {
+   "name": "거창군",
+   "fullName": "경상남도 거창군",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.6874,
+   "lon": 127.9114,
+   "approx": false,
+   "via": "거창 → 거창 (PPL)"
+  },
+  {
+   "name": "합천군",
+   "fullName": "경상남도 합천군",
+   "city": null,
+   "regionCode": "GYEONGNAM",
+   "lat": 35.6447,
+   "lon": 128.119,
+   "approx": false,
+   "via": "(다른 검색 결과) → Kwangsan (PPL)"
+  },
+  {
+   "name": "제주시",
+   "fullName": "제주특별자치도 제주시",
+   "city": null,
+   "regionCode": "JEJU",
+   "lat": 33.5097,
+   "lon": 126.5219,
+   "approx": false,
+   "via": "제주시 → 제주시 (PPLA)"
+  },
+  {
+   "name": "서귀포시",
+   "fullName": "제주특별자치도 서귀포시",
+   "city": null,
+   "regionCode": "JEJU",
+   "lat": 33.2533,
+   "lon": 126.5618,
+   "approx": false,
+   "via": "Seogwipo → Seogwipo (PPL)"
+  }
+ ]
+}

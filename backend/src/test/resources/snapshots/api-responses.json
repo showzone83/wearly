@@ -179,8 +179,12 @@
   "profile.get.default" : {
     "status" : 200,
     "body" : {
+      "ageRange" : null,
+      "bodyType" : null,
       "colors" : [ "navy", "beige", "white" ],
       "dressCodes" : [ "BIZ_CASUAL" ],
+      "fitPreference" : null,
+      "heightCm" : null,
       "moods" : [ "NEAT", "MINIMAL" ],
       "name" : "스냅A",
       "notify" : {
@@ -198,8 +202,12 @@
   "profile.put" : {
     "status" : 200,
     "body" : {
+      "ageRange" : null,
+      "bodyType" : null,
       "colors" : [ "navy", "white" ],
       "dressCodes" : [ "FORMAL", "CASUAL" ],
+      "fitPreference" : null,
+      "heightCm" : null,
       "moods" : [ "CLASSIC", "NEAT" ],
       "name" : "스냅에이",
       "notify" : {
@@ -217,8 +225,12 @@
   "profile.get" : {
     "status" : 200,
     "body" : {
+      "ageRange" : null,
+      "bodyType" : null,
       "colors" : [ "navy", "white" ],
       "dressCodes" : [ "FORMAL", "CASUAL" ],
+      "fitPreference" : null,
+      "heightCm" : null,
       "moods" : [ "CLASSIC", "NEAT" ],
       "name" : "스냅에이",
       "notify" : {
@@ -303,8 +315,12 @@
   "profile.put.notOnboarded" : {
     "status" : 200,
     "body" : {
+      "ageRange" : null,
+      "bodyType" : null,
       "colors" : [ "navy", "white" ],
       "dressCodes" : [ "FORMAL", "CASUAL" ],
+      "fitPreference" : null,
+      "heightCm" : null,
       "moods" : [ "CLASSIC", "NEAT" ],
       "name" : "스냅에이",
       "notify" : {
@@ -322,8 +338,12 @@
   "profile.put.restore" : {
     "status" : 200,
     "body" : {
+      "ageRange" : null,
+      "bodyType" : null,
       "colors" : [ "navy", "white" ],
       "dressCodes" : [ "FORMAL", "CASUAL" ],
+      "fitPreference" : null,
+      "heightCm" : null,
       "moods" : [ "CLASSIC", "NEAT" ],
       "name" : "스냅에이",
       "notify" : {
@@ -341,7 +361,7 @@
   "codes" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#124",
+      "version" : "<version>#140",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -1310,6 +1330,13 @@
         "group" : "SEASON",
         "name" : "계절",
         "codes" : [ {
+          "code" : "EARLY_SPRING",
+          "label" : "초봄",
+          "parent" : null,
+          "sortOrder" : 5,
+          "active" : true,
+          "attrs" : { }
+        }, {
           "code" : "SPRING",
           "label" : "봄",
           "parent" : null,
@@ -1317,10 +1344,24 @@
           "active" : true,
           "attrs" : { }
         }, {
+          "code" : "EARLY_SUMMER",
+          "label" : "초여름",
+          "parent" : null,
+          "sortOrder" : 15,
+          "active" : true,
+          "attrs" : { }
+        }, {
           "code" : "SUMMER",
           "label" : "여름",
           "parent" : null,
           "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "EARLY_FALL",
+          "label" : "초가을",
+          "parent" : null,
+          "sortOrder" : 25,
           "active" : true,
           "attrs" : { }
         }, {
@@ -1635,12 +1676,127 @@
             "lon" : 126.5312
           }
         } ]
+      }, {
+        "group" : "AGE_RANGE",
+        "name" : "연령대",
+        "codes" : [ {
+          "code" : "AGE_20_EARLY",
+          "label" : "20대 초반",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "AGE_20_LATE",
+          "label" : "20대 후반",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "AGE_30_EARLY",
+          "label" : "30대 초반",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "AGE_30_LATE",
+          "label" : "30대 후반",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "AGE_40",
+          "label" : "40대",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "AGE_50_PLUS",
+          "label" : "50대 이상",
+          "parent" : null,
+          "sortOrder" : 60,
+          "active" : true,
+          "attrs" : { }
+        } ]
+      }, {
+        "group" : "BODY_TYPE",
+        "name" : "체형",
+        "codes" : [ {
+          "code" : "STRAIGHT",
+          "label" : "스트레이트",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : {
+            "hint" : "상체에 볼륨이 있고 허리 위치가 높은 편이에요",
+            "description" : "탄탄하고 입체적인 몸. 심플한 정핏이 잘 어울려요"
+          }
+        }, {
+          "code" : "WAVE",
+          "label" : "웨이브",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : {
+            "hint" : "하체에 볼륨이 있고 어깨·윗몸이 얇은 편이에요",
+            "description" : "부드럽고 가녀린 몸. 허리를 살린 가벼운 옷이 잘 어울려요"
+          }
+        }, {
+          "code" : "NATURAL",
+          "label" : "내추럴",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : {
+            "hint" : "어깨가 넓고 쇄골·손목 같은 관절이 도드라진 편이에요",
+            "description" : "뼈대가 또렷한 몸. 여유 있는 핏과 자연스러운 소재가 잘 어울려요"
+          }
+        }, {
+          "code" : "UNKNOWN",
+          "label" : "잘 모르겠어요",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : {
+            "hint" : "나중에 언제든 고를 수 있어요",
+            "description" : "체형은 빼고 추천해요"
+          }
+        } ]
+      }, {
+        "group" : "FIT",
+        "name" : "핏 선호",
+        "codes" : [ {
+          "code" : "SLIM",
+          "label" : "슬림핏",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "REGULAR",
+          "label" : "레귤러핏",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "OVERSIZED",
+          "label" : "오버핏",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { }
+        } ]
       } ]
     }
   },
   "codes.notModified" : {
     "status" : 304,
-    "etag" : "<version>#124",
+    "etag" : "<version>#140",
     "cacheControl" : "no-cache"
   },
   "wardrobe.create" : {
@@ -1651,6 +1807,7 @@
       "category" : "TOP",
       "subType" : "KNIT",
       "color" : "navy",
+      "colors" : [ "navy" ],
       "pattern" : "SOLID",
       "seasons" : [ "FALL", "WINTER" ],
       "styles" : [ "NEAT" ],
@@ -1659,6 +1816,8 @@
       "brand" : "브랜드",
       "wornCount" : 4,
       "lastWornAt" : "<today>",
+      "purchasedAt" : "<today>",
+      "purchasedAtEstimated" : true,
       "createdAt" : "<instant>",
       "retiredAt" : null,
       "retireReason" : null,
@@ -1673,9 +1832,6 @@
       "code" : "VALIDATION_FAILED",
       "fieldErrors" : [ {
         "field" : "category",
-        "code" : "REQUIRED"
-      }, {
-        "field" : "color",
         "code" : "REQUIRED"
       }, {
         "field" : "formality",
@@ -1754,6 +1910,7 @@
         "category" : "TOP",
         "subType" : "SHIRT",
         "color" : "white",
+        "colors" : [ "white" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1762,6 +1919,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1773,6 +1932,7 @@
         "category" : "BOTTOM",
         "subType" : "SLACKS",
         "color" : "charcoal",
+        "colors" : [ "charcoal" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1781,6 +1941,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1792,6 +1954,7 @@
         "category" : "BOTTOM",
         "subType" : "WIDE",
         "color" : "beige",
+        "colors" : [ "beige" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1800,6 +1963,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1811,6 +1976,7 @@
         "category" : "DRESS",
         "subType" : "SHIRT_DRESS",
         "color" : "black",
+        "colors" : [ "black" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1819,6 +1985,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1830,6 +1998,7 @@
         "category" : "OUTER",
         "subType" : "BLAZER",
         "color" : "navy",
+        "colors" : [ "navy" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1838,6 +2007,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1849,6 +2020,7 @@
         "category" : "SHOES",
         "subType" : "LOAFER",
         "color" : "black",
+        "colors" : [ "black" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1857,6 +2029,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1868,6 +2042,7 @@
         "category" : "SHOES",
         "subType" : "SNEAKER",
         "color" : "white",
+        "colors" : [ "white" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1876,6 +2051,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1887,6 +2064,7 @@
         "category" : "BAG",
         "subType" : "TOTE",
         "color" : "brown",
+        "colors" : [ "brown" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1895,6 +2073,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1906,6 +2086,7 @@
         "category" : "TOP",
         "subType" : "BLOUSE",
         "color" : "pink",
+        "colors" : [ "pink" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1914,6 +2095,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : "2020-01-01",
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1955,6 +2138,7 @@
         "category" : "TOP",
         "subType" : "BLOUSE",
         "color" : "pink",
+        "colors" : [ "pink" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1963,6 +2147,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : "2020-01-01",
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1974,6 +2160,7 @@
         "category" : "BAG",
         "subType" : "TOTE",
         "color" : "brown",
+        "colors" : [ "brown" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -1982,6 +2169,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -1993,6 +2182,7 @@
         "category" : "SHOES",
         "subType" : "SNEAKER",
         "color" : "white",
+        "colors" : [ "white" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -2001,6 +2191,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2012,6 +2204,7 @@
         "category" : "SHOES",
         "subType" : "LOAFER",
         "color" : "black",
+        "colors" : [ "black" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -2020,6 +2213,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2031,6 +2226,7 @@
         "category" : "OUTER",
         "subType" : "BLAZER",
         "color" : "navy",
+        "colors" : [ "navy" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -2039,6 +2235,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2050,6 +2248,7 @@
         "category" : "DRESS",
         "subType" : "SHIRT_DRESS",
         "color" : "black",
+        "colors" : [ "black" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -2058,6 +2257,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2069,6 +2270,7 @@
         "category" : "BOTTOM",
         "subType" : "WIDE",
         "color" : "beige",
+        "colors" : [ "beige" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -2077,6 +2279,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2088,6 +2292,7 @@
         "category" : "BOTTOM",
         "subType" : "SLACKS",
         "color" : "charcoal",
+        "colors" : [ "charcoal" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -2096,6 +2301,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2107,6 +2314,7 @@
         "category" : "TOP",
         "subType" : "SHIRT",
         "color" : "white",
+        "colors" : [ "white" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -2115,6 +2323,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2126,6 +2336,7 @@
         "category" : "TOP",
         "subType" : "KNIT",
         "color" : "navy",
+        "colors" : [ "navy" ],
         "pattern" : "SOLID",
         "seasons" : [ "FALL", "WINTER" ],
         "styles" : [ "NEAT" ],
@@ -2134,6 +2345,8 @@
         "brand" : "브랜드",
         "wornCount" : 4,
         "lastWornAt" : "<today>",
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2151,6 +2364,7 @@
         "category" : "TOP",
         "subType" : "KNIT",
         "color" : "navy",
+        "colors" : [ "navy" ],
         "pattern" : "SOLID",
         "seasons" : [ "FALL", "WINTER" ],
         "styles" : [ "NEAT" ],
@@ -2159,6 +2373,8 @@
         "brand" : "브랜드",
         "wornCount" : 4,
         "lastWornAt" : "<today>",
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2170,6 +2386,7 @@
         "category" : "TOP",
         "subType" : "SHIRT",
         "color" : "white",
+        "colors" : [ "white" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -2178,6 +2395,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2195,6 +2414,7 @@
         "category" : "TOP",
         "subType" : "KNIT",
         "color" : "navy",
+        "colors" : [ "navy" ],
         "pattern" : "SOLID",
         "seasons" : [ "FALL", "WINTER" ],
         "styles" : [ "NEAT" ],
@@ -2203,6 +2423,8 @@
         "brand" : "브랜드",
         "wornCount" : 4,
         "lastWornAt" : "<today>",
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2214,6 +2436,7 @@
         "category" : "OUTER",
         "subType" : "BLAZER",
         "color" : "navy",
+        "colors" : [ "navy" ],
         "pattern" : "SOLID",
         "seasons" : [ "SPRING", "FALL" ],
         "styles" : [ "NEAT" ],
@@ -2222,6 +2445,8 @@
         "brand" : null,
         "wornCount" : 0,
         "lastWornAt" : null,
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2239,6 +2464,7 @@
         "category" : "TOP",
         "subType" : "KNIT",
         "color" : "navy",
+        "colors" : [ "navy" ],
         "pattern" : "SOLID",
         "seasons" : [ "FALL", "WINTER" ],
         "styles" : [ "NEAT" ],
@@ -2247,6 +2473,8 @@
         "brand" : "브랜드",
         "wornCount" : 4,
         "lastWornAt" : "<today>",
+        "purchasedAt" : "<today>",
+        "purchasedAtEstimated" : true,
         "createdAt" : "<instant>",
         "retiredAt" : null,
         "retireReason" : null,
@@ -2293,6 +2521,7 @@
       "category" : "TOP",
       "subType" : "KNIT",
       "color" : "navy",
+      "colors" : [ "navy" ],
       "pattern" : "SOLID",
       "seasons" : [ "FALL", "WINTER" ],
       "styles" : [ "NEAT" ],
@@ -2301,6 +2530,8 @@
       "brand" : "브랜드",
       "wornCount" : 4,
       "lastWornAt" : "<today>",
+      "purchasedAt" : "<today>",
+      "purchasedAtEstimated" : true,
       "createdAt" : "<instant>",
       "retiredAt" : null,
       "retireReason" : null,
@@ -2334,6 +2565,7 @@
       "category" : "TOP",
       "subType" : "KNIT",
       "color" : "navy",
+      "colors" : [ "navy" ],
       "pattern" : "SOLID",
       "seasons" : [ "WINTER" ],
       "styles" : [ "NEAT" ],
@@ -2342,6 +2574,8 @@
       "brand" : null,
       "wornCount" : 4,
       "lastWornAt" : "<today>",
+      "purchasedAt" : "<today>",
+      "purchasedAtEstimated" : true,
       "createdAt" : "<instant>",
       "retiredAt" : null,
       "retireReason" : null,
@@ -2533,8 +2767,9 @@
         "category" : "DRESS",
         "subType" : "KNIT_DRESS",
         "color" : "purple",
+        "colors" : [ "purple" ],
         "pattern" : "STRIPE",
-        "seasons" : [ "FALL", "WINTER" ],
+        "seasons" : [ "EARLY_FALL", "FALL" ],
         "styles" : [ "CASUAL", "FEMININE" ],
         "formality" : 3,
         "confidence" : 0.75
@@ -2552,8 +2787,9 @@
         "category" : "TOP",
         "subType" : "TEE",
         "color" : "beige",
+        "colors" : [ "beige" ],
         "pattern" : "ETC",
-        "seasons" : [ "SPRING" ],
+        "seasons" : [ "EARLY_SUMMER", "FALL" ],
         "styles" : [ "CLASSIC", "STREET" ],
         "formality" : 3,
         "confidence" : 0.61
@@ -2610,8 +2846,9 @@
         "category" : "TOP",
         "subType" : "KNIT",
         "color" : "camel",
+        "colors" : [ "camel" ],
         "pattern" : "DOT",
-        "seasons" : [ "SUMMER" ],
+        "seasons" : [ "EARLY_SPRING", "SUMMER" ],
         "styles" : [ "CASUAL", "FEMININE" ],
         "formality" : 1,
         "confidence" : 0.76
@@ -2998,7 +3235,12 @@
         "createdAt" : "<instant>",
         "itemCount" : 0,
         "retiredItemCount" : 0,
-        "aiToday" : 0
+        "aiToday" : 0,
+        "ageRange" : null,
+        "bodyType" : null,
+        "heightCm" : null,
+        "fitPreference" : null,
+        "mfaEnrolled" : false
       }, {
         "id" : "2",
         "email" : "snap-a@wearly.test",
@@ -3008,7 +3250,12 @@
         "createdAt" : "<instant>",
         "itemCount" : 10,
         "retiredItemCount" : 0,
-        "aiToday" : 3
+        "aiToday" : 3,
+        "ageRange" : null,
+        "bodyType" : null,
+        "heightCm" : null,
+        "fitPreference" : null,
+        "mfaEnrolled" : false
       }, {
         "id" : "1",
         "email" : "admin@snapshot.test",
@@ -3018,7 +3265,12 @@
         "createdAt" : "<instant>",
         "itemCount" : 0,
         "retiredItemCount" : 0,
-        "aiToday" : 0
+        "aiToday" : 0,
+        "ageRange" : null,
+        "bodyType" : null,
+        "heightCm" : null,
+        "fitPreference" : null,
+        "mfaEnrolled" : false
       } ],
       "page" : 0,
       "size" : 20,
@@ -3037,7 +3289,12 @@
         "createdAt" : "<instant>",
         "itemCount" : 10,
         "retiredItemCount" : 0,
-        "aiToday" : 3
+        "aiToday" : 3,
+        "ageRange" : null,
+        "bodyType" : null,
+        "heightCm" : null,
+        "fitPreference" : null,
+        "mfaEnrolled" : false
       } ],
       "page" : 1,
       "size" : 1,
@@ -3056,7 +3313,12 @@
         "createdAt" : "<instant>",
         "itemCount" : 0,
         "retiredItemCount" : 0,
-        "aiToday" : 0
+        "aiToday" : 0,
+        "ageRange" : null,
+        "bodyType" : null,
+        "heightCm" : null,
+        "fitPreference" : null,
+        "mfaEnrolled" : false
       } ],
       "page" : 0,
       "size" : 20,
@@ -3104,7 +3366,12 @@
       "createdAt" : "<instant>",
       "itemCount" : 0,
       "retiredItemCount" : 0,
-      "aiToday" : 0
+      "aiToday" : 0,
+      "ageRange" : null,
+      "bodyType" : null,
+      "heightCm" : null,
+      "fitPreference" : null,
+      "mfaEnrolled" : false
     }
   },
   "admin.users.patch.suspendedLogin" : {
@@ -3136,7 +3403,12 @@
       "createdAt" : "<instant>",
       "itemCount" : 0,
       "retiredItemCount" : 0,
-      "aiToday" : 0
+      "aiToday" : 0,
+      "ageRange" : null,
+      "bodyType" : null,
+      "heightCm" : null,
+      "fitPreference" : null,
+      "mfaEnrolled" : false
     }
   },
   "admin.users.patch.restoredOldToken" : {
@@ -3219,7 +3491,12 @@
       "createdAt" : "<instant>",
       "itemCount" : 0,
       "retiredItemCount" : 0,
-      "aiToday" : 0
+      "aiToday" : 0,
+      "ageRange" : null,
+      "bodyType" : null,
+      "heightCm" : null,
+      "fitPreference" : null,
+      "mfaEnrolled" : false
     }
   },
   "admin.users.patch.demote" : {
@@ -3233,7 +3510,21 @@
       "createdAt" : "<instant>",
       "itemCount" : 0,
       "retiredItemCount" : 0,
-      "aiToday" : 0
+      "aiToday" : 0,
+      "ageRange" : null,
+      "bodyType" : null,
+      "heightCm" : null,
+      "fitPreference" : null,
+      "mfaEnrolled" : false
+    }
+  },
+  "admin.users.patch.demotedOldToken" : {
+    "status" : 401,
+    "body" : {
+      "status" : 401,
+      "code" : "TOKEN_INVALID",
+      "fieldErrors" : [ ],
+      "traceId" : "<traceId>"
     }
   },
   "admin.forbidden" : {
@@ -3248,7 +3539,7 @@
   "admin.codes" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#124",
+      "version" : "<version>#140",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -4310,6 +4601,14 @@
         "name" : "계절",
         "description" : "attrs 없음",
         "codes" : [ {
+          "code" : "EARLY_SPRING",
+          "label" : "초봄",
+          "parent" : null,
+          "sortOrder" : 5,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
           "code" : "SPRING",
           "label" : "봄",
           "parent" : null,
@@ -4318,10 +4617,26 @@
           "attrs" : { },
           "usageCount" : 9
         }, {
+          "code" : "EARLY_SUMMER",
+          "label" : "초여름",
+          "parent" : null,
+          "sortOrder" : 15,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
           "code" : "SUMMER",
           "label" : "여름",
           "parent" : null,
           "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "EARLY_FALL",
+          "label" : "초가을",
+          "parent" : null,
+          "sortOrder" : 25,
           "active" : true,
           "attrs" : { },
           "usageCount" : 0
@@ -4675,6 +4990,137 @@
           },
           "usageCount" : 0
         } ]
+      }, {
+        "group" : "AGE_RANGE",
+        "name" : "연령대",
+        "description" : "프로필 나의 정보의 연령대(ageRange). attrs 없음",
+        "codes" : [ {
+          "code" : "AGE_20_EARLY",
+          "label" : "20대 초반",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "AGE_20_LATE",
+          "label" : "20대 후반",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "AGE_30_EARLY",
+          "label" : "30대 초반",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "AGE_30_LATE",
+          "label" : "30대 후반",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "AGE_40",
+          "label" : "40대",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "AGE_50_PLUS",
+          "label" : "50대 이상",
+          "parent" : null,
+          "sortOrder" : 60,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        } ]
+      }, {
+        "group" : "BODY_TYPE",
+        "name" : "체형",
+        "description" : "프로필 나의 정보의 체형(bodyType, 골격 유형). attrs.description(짧은 설명), hint(고르기를 돕는 한 줄 특징)",
+        "codes" : [ {
+          "code" : "STRAIGHT",
+          "label" : "스트레이트",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : {
+            "hint" : "상체에 볼륨이 있고 허리 위치가 높은 편이에요",
+            "description" : "탄탄하고 입체적인 몸. 심플한 정핏이 잘 어울려요"
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "WAVE",
+          "label" : "웨이브",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : {
+            "hint" : "하체에 볼륨이 있고 어깨·윗몸이 얇은 편이에요",
+            "description" : "부드럽고 가녀린 몸. 허리를 살린 가벼운 옷이 잘 어울려요"
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "NATURAL",
+          "label" : "내추럴",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : {
+            "hint" : "어깨가 넓고 쇄골·손목 같은 관절이 도드라진 편이에요",
+            "description" : "뼈대가 또렷한 몸. 여유 있는 핏과 자연스러운 소재가 잘 어울려요"
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "UNKNOWN",
+          "label" : "잘 모르겠어요",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : {
+            "hint" : "나중에 언제든 고를 수 있어요",
+            "description" : "체형은 빼고 추천해요"
+          },
+          "usageCount" : 0
+        } ]
+      }, {
+        "group" : "FIT",
+        "name" : "핏 선호",
+        "description" : "프로필 나의 정보의 핏 선호(fitPreference). attrs 없음",
+        "codes" : [ {
+          "code" : "SLIM",
+          "label" : "슬림핏",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "REGULAR",
+          "label" : "레귤러핏",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "OVERSIZED",
+          "label" : "오버핏",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        } ]
       } ]
     }
   },
@@ -4881,7 +5327,7 @@
   "admin.codes.reorder" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#126",
+      "version" : "<version>#142",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -5968,6 +6414,14 @@
         "name" : "계절",
         "description" : "attrs 없음",
         "codes" : [ {
+          "code" : "EARLY_SPRING",
+          "label" : "초봄",
+          "parent" : null,
+          "sortOrder" : 5,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
           "code" : "SPRING",
           "label" : "봄",
           "parent" : null,
@@ -5976,10 +6430,26 @@
           "attrs" : { },
           "usageCount" : 9
         }, {
+          "code" : "EARLY_SUMMER",
+          "label" : "초여름",
+          "parent" : null,
+          "sortOrder" : 15,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
           "code" : "SUMMER",
           "label" : "여름",
           "parent" : null,
           "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "EARLY_FALL",
+          "label" : "초가을",
+          "parent" : null,
+          "sortOrder" : 25,
           "active" : true,
           "attrs" : { },
           "usageCount" : 0
@@ -6333,6 +6803,137 @@
           },
           "usageCount" : 0
         } ]
+      }, {
+        "group" : "AGE_RANGE",
+        "name" : "연령대",
+        "description" : "프로필 나의 정보의 연령대(ageRange). attrs 없음",
+        "codes" : [ {
+          "code" : "AGE_20_EARLY",
+          "label" : "20대 초반",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "AGE_20_LATE",
+          "label" : "20대 후반",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "AGE_30_EARLY",
+          "label" : "30대 초반",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "AGE_30_LATE",
+          "label" : "30대 후반",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "AGE_40",
+          "label" : "40대",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "AGE_50_PLUS",
+          "label" : "50대 이상",
+          "parent" : null,
+          "sortOrder" : 60,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        } ]
+      }, {
+        "group" : "BODY_TYPE",
+        "name" : "체형",
+        "description" : "프로필 나의 정보의 체형(bodyType, 골격 유형). attrs.description(짧은 설명), hint(고르기를 돕는 한 줄 특징)",
+        "codes" : [ {
+          "code" : "STRAIGHT",
+          "label" : "스트레이트",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : {
+            "hint" : "상체에 볼륨이 있고 허리 위치가 높은 편이에요",
+            "description" : "탄탄하고 입체적인 몸. 심플한 정핏이 잘 어울려요"
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "WAVE",
+          "label" : "웨이브",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : {
+            "hint" : "하체에 볼륨이 있고 어깨·윗몸이 얇은 편이에요",
+            "description" : "부드럽고 가녀린 몸. 허리를 살린 가벼운 옷이 잘 어울려요"
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "NATURAL",
+          "label" : "내추럴",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : {
+            "hint" : "어깨가 넓고 쇄골·손목 같은 관절이 도드라진 편이에요",
+            "description" : "뼈대가 또렷한 몸. 여유 있는 핏과 자연스러운 소재가 잘 어울려요"
+          },
+          "usageCount" : 0
+        }, {
+          "code" : "UNKNOWN",
+          "label" : "잘 모르겠어요",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : {
+            "hint" : "나중에 언제든 고를 수 있어요",
+            "description" : "체형은 빼고 추천해요"
+          },
+          "usageCount" : 0
+        } ]
+      }, {
+        "group" : "FIT",
+        "name" : "핏 선호",
+        "description" : "프로필 나의 정보의 핏 선호(fitPreference). attrs 없음",
+        "codes" : [ {
+          "code" : "SLIM",
+          "label" : "슬림핏",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "REGULAR",
+          "label" : "레귤러핏",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        }, {
+          "code" : "OVERSIZED",
+          "label" : "오버핏",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { },
+          "usageCount" : 0
+        } ]
       } ]
     }
   },
@@ -6403,7 +7004,7 @@
   "codes.afterAdmin" : {
     "status" : 200,
     "body" : {
-      "version" : "<version>#125",
+      "version" : "<version>#141",
       "groups" : [ {
         "group" : "CATEGORY",
         "name" : "종류",
@@ -7383,6 +7984,13 @@
         "group" : "SEASON",
         "name" : "계절",
         "codes" : [ {
+          "code" : "EARLY_SPRING",
+          "label" : "초봄",
+          "parent" : null,
+          "sortOrder" : 5,
+          "active" : true,
+          "attrs" : { }
+        }, {
           "code" : "SPRING",
           "label" : "봄",
           "parent" : null,
@@ -7390,10 +7998,24 @@
           "active" : true,
           "attrs" : { }
         }, {
+          "code" : "EARLY_SUMMER",
+          "label" : "초여름",
+          "parent" : null,
+          "sortOrder" : 15,
+          "active" : true,
+          "attrs" : { }
+        }, {
           "code" : "SUMMER",
           "label" : "여름",
           "parent" : null,
           "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "EARLY_FALL",
+          "label" : "초가을",
+          "parent" : null,
+          "sortOrder" : 25,
           "active" : true,
           "attrs" : { }
         }, {
@@ -7708,6 +8330,121 @@
             "lon" : 126.5312
           }
         } ]
+      }, {
+        "group" : "AGE_RANGE",
+        "name" : "연령대",
+        "codes" : [ {
+          "code" : "AGE_20_EARLY",
+          "label" : "20대 초반",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "AGE_20_LATE",
+          "label" : "20대 후반",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "AGE_30_EARLY",
+          "label" : "30대 초반",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "AGE_30_LATE",
+          "label" : "30대 후반",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "AGE_40",
+          "label" : "40대",
+          "parent" : null,
+          "sortOrder" : 50,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "AGE_50_PLUS",
+          "label" : "50대 이상",
+          "parent" : null,
+          "sortOrder" : 60,
+          "active" : true,
+          "attrs" : { }
+        } ]
+      }, {
+        "group" : "BODY_TYPE",
+        "name" : "체형",
+        "codes" : [ {
+          "code" : "STRAIGHT",
+          "label" : "스트레이트",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : {
+            "hint" : "상체에 볼륨이 있고 허리 위치가 높은 편이에요",
+            "description" : "탄탄하고 입체적인 몸. 심플한 정핏이 잘 어울려요"
+          }
+        }, {
+          "code" : "WAVE",
+          "label" : "웨이브",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : {
+            "hint" : "하체에 볼륨이 있고 어깨·윗몸이 얇은 편이에요",
+            "description" : "부드럽고 가녀린 몸. 허리를 살린 가벼운 옷이 잘 어울려요"
+          }
+        }, {
+          "code" : "NATURAL",
+          "label" : "내추럴",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : {
+            "hint" : "어깨가 넓고 쇄골·손목 같은 관절이 도드라진 편이에요",
+            "description" : "뼈대가 또렷한 몸. 여유 있는 핏과 자연스러운 소재가 잘 어울려요"
+          }
+        }, {
+          "code" : "UNKNOWN",
+          "label" : "잘 모르겠어요",
+          "parent" : null,
+          "sortOrder" : 40,
+          "active" : true,
+          "attrs" : {
+            "hint" : "나중에 언제든 고를 수 있어요",
+            "description" : "체형은 빼고 추천해요"
+          }
+        } ]
+      }, {
+        "group" : "FIT",
+        "name" : "핏 선호",
+        "codes" : [ {
+          "code" : "SLIM",
+          "label" : "슬림핏",
+          "parent" : null,
+          "sortOrder" : 10,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "REGULAR",
+          "label" : "레귤러핏",
+          "parent" : null,
+          "sortOrder" : 20,
+          "active" : true,
+          "attrs" : { }
+        }, {
+          "code" : "OVERSIZED",
+          "label" : "오버핏",
+          "parent" : null,
+          "sortOrder" : 30,
+          "active" : true,
+          "attrs" : { }
+        } ]
       } ]
     }
   },
@@ -8003,8 +8740,8 @@
       "enabled" : true,
       "priority" : 8,
       "options" : {
-        "baseUrl" : "<fake>/v1",
-        "detail" : "low"
+        "detail" : "low",
+        "baseUrl" : "<fake>/v1"
       },
       "usable" : true,
       "today" : {
@@ -8728,6 +9465,7 @@
       "result" : {
         "name" : "스냅샷 니트",
         "color" : "navy",
+        "colors" : [ "navy" ],
         "styles" : [ "NEAT" ],
         "pattern" : "SOLID",
         "seasons" : [ "FALL", "WINTER" ],
@@ -9000,9 +9738,10 @@
       "result" : {
         "name" : "카멜 니트",
         "color" : "camel",
+        "colors" : [ "camel" ],
         "styles" : [ "CASUAL", "FEMININE" ],
         "pattern" : "DOT",
-        "seasons" : [ "SUMMER" ],
+        "seasons" : [ "EARLY_SPRING", "SUMMER" ],
         "subType" : "KNIT",
         "category" : "TOP",
         "formality" : 1,
@@ -9030,9 +9769,10 @@
       "result" : {
         "name" : "베이지 티셔츠",
         "color" : "beige",
+        "colors" : [ "beige" ],
         "styles" : [ "CLASSIC", "STREET" ],
         "pattern" : "ETC",
-        "seasons" : [ "SPRING" ],
+        "seasons" : [ "EARLY_SUMMER", "FALL" ],
         "subType" : "TEE",
         "category" : "TOP",
         "formality" : 3,
@@ -9060,9 +9800,10 @@
       "result" : {
         "name" : "퍼플 니트 원피스",
         "color" : "purple",
+        "colors" : [ "purple" ],
         "styles" : [ "CASUAL", "FEMININE" ],
         "pattern" : "STRIPE",
-        "seasons" : [ "FALL", "WINTER" ],
+        "seasons" : [ "EARLY_FALL", "FALL" ],
         "subType" : "KNIT_DRESS",
         "category" : "DRESS",
         "formality" : 3,
@@ -9374,7 +10115,7 @@
         "id" : "5",
         "adminUserId" : "1",
         "adminEmail" : "admin@snapshot.test",
-        "action" : "USER_UPDATE",
+        "action" : "USER_ROLE_CHANGE",
         "targetType" : "USER",
         "targetId" : "3",
         "before" : {
@@ -9392,7 +10133,7 @@
         "id" : "4",
         "adminUserId" : "1",
         "adminEmail" : "admin@snapshot.test",
-        "action" : "USER_UPDATE",
+        "action" : "USER_ROLE_CHANGE",
         "targetType" : "USER",
         "targetId" : "3",
         "before" : {

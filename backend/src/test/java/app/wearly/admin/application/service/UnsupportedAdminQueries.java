@@ -4,6 +4,7 @@ import app.wearly.admin.application.port.out.AdminQueryPort;
 import app.wearly.admin.application.port.out.dto.AiCountsDto;
 import app.wearly.admin.application.port.out.dto.AiLogRowDto;
 import app.wearly.admin.application.port.out.dto.AuditLogRowDto;
+import app.wearly.admin.application.port.out.dto.AuthEventLogRowDto;
 import app.wearly.admin.application.port.out.dto.AuthEventRowDto;
 import app.wearly.admin.application.port.out.dto.DashboardCountsDto;
 import app.wearly.admin.application.port.out.dto.ProviderStatDto;
@@ -74,6 +75,17 @@ class UnsupportedAdminQueries implements AdminQueryPort {
 
   @Override
   public List<AuthEventRowDto> findAuthEvents(long userId, int limit) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public List<AuthEventLogRowDto> findAdminAuthEvents(
+      AuthEventFilter filter, int limit, long offset) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public long countAdminAuthEvents(AuthEventFilter filter) {
     throw new UnsupportedOperationException();
   }
 }

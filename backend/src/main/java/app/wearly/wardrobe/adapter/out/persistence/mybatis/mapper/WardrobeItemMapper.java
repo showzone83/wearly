@@ -38,7 +38,7 @@ public interface WardrobeItemMapper {
 
   List<KeyCountDto> countRetiredByReason(@Param("userId") long userId);
 
-  /** 모든 회원의 아이템이 쓰는 코드별 개수 (코드 값을 담는 컬럼 8개, 사용 중지한 옷 포함) */
+  /** 모든 회원의 아이템이 쓰는 코드별 개수 (코드 값을 담는 컬럼 9개 — 보조 색 포함, 사용 중지한 옷 포함) */
   List<CodeCountDto> countByCode();
 
   /** 이 코드를 쓰는 아이템 수 (모든 회원, 사용 중지한 옷 포함) */

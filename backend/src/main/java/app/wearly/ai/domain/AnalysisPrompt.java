@@ -25,6 +25,7 @@ public final class AnalysisPrompt {
           "category",
           "subType",
           "color",
+          "colors",
           "pattern",
           "seasons",
           "styles",
@@ -38,9 +39,10 @@ public final class AnalysisPrompt {
       - name: 한국어 아이템 이름, 20자 이내 (예: "네이비 울 니트")
       - category와 subType: 반드시 아래 짝 중 하나 (종류: 세부 종류들)
       %s
-      - color: 가장 넓은 면적의 색 하나. %s
+      - color: 가장 넓은 면적의 색 하나(주 색상). %s
+      - colors: 옷에서 눈에 띄는 색 1~3개, 넓은 순서. 첫 번째는 color와 같다. 단색 옷은 color 하나만 넣는다. 허용 값은 color와 같다.
       - pattern: %s
-      - seasons: 입기 좋은 계절 1~4개. %s
+      - seasons: 입기 좋은 계절 1~5개. 초봄·초여름·초가을은 환절기에 입기 좋은 옷에 넣는다. %s
       - styles: 어울리는 스타일 1~2개. %s
       - formality: 1(편한 데일리), 2(비즈니스 캐주얼), 3(포멀)
       - confidence: 판단에 대한 확신 0~1
@@ -98,6 +100,7 @@ public final class AnalysisPrompt {
     props.put("category", enumOf(codes, CodeGroups.CATEGORY));
     props.put("subType", enumOf(codes, CodeGroups.SUB_TYPE));
     props.put("color", enumOf(codes, CodeGroups.COLOR));
+    props.put("colors", ordered("type", "array", "items", enumOf(codes, CodeGroups.COLOR)));
     props.put("pattern", enumOf(codes, CodeGroups.PATTERN));
     props.put("seasons", ordered("type", "array", "items", enumOf(codes, CodeGroups.SEASON)));
     props.put("styles", ordered("type", "array", "items", enumOf(codes, CodeGroups.STYLE)));

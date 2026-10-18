@@ -28,6 +28,7 @@
   - `20_오류_응답.md` — 오류 응답(코드값만, traceId), error-codes.json과 앱·관리자 문구 표, 새 코드 추가 순서
   - `21_예정_코디_저장.md` — 예정 코디 서버 저장(`/plans`), 앱 동기화 규칙
   - `22_관리자_계정_관리.md` — 관리자 계정 관리 결정: 현재 문제, IdP·SSO 방식, 1~3단계 계획
+- `CHANGELOG.md` — 변경 이력(Keep a Changelog, `[Unreleased]`). 새 작업을 합칠 때 항목을 추가한다.
 - `mobile/` — React Native(Expo SDK 57) 목업 앱. 백엔드 없이 기기 안에 데이터 저장. Expo 작업 규칙은 `mobile/AGENTS.md`를 따른다.
 
 git 저장소는 `wearly/` 루트 하나다 (원격: `github.com/showzone83/wearly`). `mobile/`은 별도 저장소가 아니다.

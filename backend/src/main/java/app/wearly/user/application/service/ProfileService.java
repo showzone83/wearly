@@ -46,7 +46,13 @@ public class ProfileService implements ProfileUseCase {
   public ProfileTasteDto taste(long userId) {
     ProfileDto p = get(userId);
     return new ProfileTasteDto(
-        p.dressCodes().stream().map(Enum::name).toList(), p.moods(), p.colors());
+        p.dressCodes().stream().map(Enum::name).toList(),
+        p.moods(),
+        p.colors(),
+        p.ageRange(),
+        p.bodyType(),
+        p.heightCm(),
+        p.fitPreference());
   }
 
   @Override
@@ -55,7 +61,7 @@ public class ProfileService implements ProfileUseCase {
     final User user = users.findById(userId).orElseThrow(BusinessException::notFound);
     Optional<UserProfile> saved = profiles.findByUserId(userId);
     UserProfile in = data.toProfile();
-    // 새로 고르는 색·취향은 활성 코드만. 이미 저장돼 있던 값은 비활성이어도 둔다
+    // 새로 고르는 색·취향·나의 정보는 활성 코드만. 이미 저장돼 있던 값은 비활성이어도 둔다
     CodeSnapshot codes = catalog.current();
     List<FieldError> errors = new ArrayList<>();
     CodeChecks.many(
@@ -71,6 +77,29 @@ public class ProfileService implements ProfileUseCase {
         "colors",
         in.colors(),
         saved.map(UserProfile::colors).orElse(null),
+        errors);
+    UserProfile.PersonalInfo me = in.personal();
+    Optional<UserProfile.PersonalInfo> before = saved.map(UserProfile::personal);
+    CodeChecks.one(
+        codes,
+        CodeGroups.AGE_RANGE,
+        "ageRange",
+        me.ageRange(),
+        before.map(UserProfile.PersonalInfo::ageRange).orElse(null),
+        errors);
+    CodeChecks.one(
+        codes,
+        CodeGroups.BODY_TYPE,
+        "bodyType",
+        me.bodyType(),
+        before.map(UserProfile.PersonalInfo::bodyType).orElse(null),
+        errors);
+    CodeChecks.one(
+        codes,
+        CodeGroups.FIT,
+        "fitPreference",
+        me.fitPreference(),
+        before.map(UserProfile.PersonalInfo::fitPreference).orElse(null),
         errors);
     BusinessException.throwIfAny(errors);
     user.rename(data.name().strip());

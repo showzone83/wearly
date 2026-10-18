@@ -1327,6 +1327,118 @@ details summary {
   margin: 4px 0 0;
 }
 
+/* 2단계 인증 화면(등록·복구 코드)은 QR이 있어 조금 넓다 */
+.login-card-wide {
+  max-width: 440px;
+}
+
+.login-links {
+  justify-content: space-between;
+}
+
+/* ───────── 2단계 인증 (components/Mfa, doc/22) ───────── */
+
+input.totp-input {
+  font-family: var(--mono);
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  text-align: center;
+  max-width: 220px;
+}
+
+.mfa-setup,
+.mfa-recovery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mfa-steps {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--sub);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mfa-qr {
+  align-self: center;
+  width: 208px;
+  height: 208px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  text-align: center;
+  padding: 8px;
+}
+
+.mfa-qr img {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.mfa-secret {
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  word-break: break-all;
+}
+
+.mfa-codes {
+  margin: 0;
+  padding: 12px 14px 12px 38px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 24px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.mfa-codes li {
+  font-size: 14px;
+}
+
+.mfa-code-tabs {
+  align-self: flex-start;
+}
+
+/* 화면 위 경고 띠 (복구 코드가 적게 남음) */
+.top-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.top-banner > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.w-form {
+  max-width: 420px;
+}
+
+a.btn {
+  text-decoration: none;
+}
+
+.sidebar-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 /* ───────── 유틸 ───────── */
 
 .row {
@@ -1743,6 +1855,113 @@ details summary {
   line-height: 26px;
   text-align: center;
   font-weight: 700;
+}
+
+/* 계절 테마 (이슈 #6): 앱 홈 인사 위 계절 인사 알약, 4계절 × 2테마 미리보기 */
+.tp-season {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--t-primarySoft);
+  color: var(--t-primary);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.tp-phone.tp-compact {
+  zoom: 0.78;
+}
+
+.season-modes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.season-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.season-row {
+  display: grid;
+  grid-template-columns: 72px repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.season-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.season-row-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.season-row-icon {
+  font-size: 22px;
+}
+
+.season-row-name {
+  font-weight: 700;
+}
+
+.season-cell {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  min-width: 0;
+}
+
+.season-cell-active {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px var(--green-soft);
+}
+
+.season-cell-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.season-swatches {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 4px 8px;
+  font-size: 10px;
+}
+
+.season-swatches li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.season-swatches .swatch-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+}
+
+@media (max-width: 700px) {
+  .season-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 900px) {

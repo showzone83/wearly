@@ -17,4 +17,7 @@ public interface CredentialPort {
   void create(LocalCredential credential);
 
   void markLogin(long credentialId, Instant at);
+
+  /** 비밀번호 해시를 바꾼다 */
+  void changePassword(long credentialId, String passwordHash);
 }

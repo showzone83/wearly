@@ -28,6 +28,8 @@ import type {
   PlanInput,
   PlanListResponse,
   PlanPatch,
+  PushTokenRequest,
+  PushTokenResponse,
   ProfileDto,
   RetireRequest,
   RNFile,
@@ -348,7 +350,7 @@ export function createApiClient(options: ApiClientOptions) {
     },
     app: {
       /**
-       * 앱 설정 (인증 불필요, doc/12 3장). 지금은 테마 ID. etag를 주면 If-None-Match로 보내고,
+       * 앱 설정 (인증 불필요, doc/12 3장). 테마 ID와 계절 모드. etag를 주면 If-None-Match로 보내고,
        * 서버가 304를 주면 `{ changed: false }`를 돌려준다.
        */
       async config(etag?: string | null): Promise<AppConfigResult> {
@@ -566,6 +568,21 @@ export function createApiClient(options: ApiClientOptions) {
         request<PlanDto>('PATCH', `/plans/${encodeURIComponent(id)}`, { auth: true, json: patch }),
       /** 지우기 (204). 오류: 404 NOT_FOUND(남의·없는 예정) */
       remove: (id: string): Promise<void> => request<void>('DELETE', `/plans/${encodeURIComponent(id)}`, { auth: true }),
+    },
+    push: {
+      /**
+       * 예정 D-1 알림 푸시 토큰 등록 (로그인 필요). 같은 기기면 바꾸고, 같은 토큰이 다른 계정에 있으면 이 계정으로 옮긴다.
+       * 응답의 serverPush가 true면 서버가 D-1 알림을 보내므로 앱은 로컬 알림을 끈다.
+       * 오류: 400 VALIDATION_FAILED(token·platform·deviceId). 이 API가 없는 예전 서버는 404
+       */
+      register: async (req: PushTokenRequest): Promise<PushTokenResponse> => {
+        const res = await request<PushTokenResponse>('PUT', '/me/push-token', { auth: true, json: req });
+        if (!res || typeof res.serverPush !== 'boolean') throw new ApiError(200, 'HTTP_ERROR', '푸시 등록 응답 형식이 달라요.');
+        return res;
+      },
+      /** 이 기기의 토큰 삭제 (로그아웃 전에). 없어도 204. 오류: 400 VALIDATION_FAILED(deviceId) */
+      remove: (deviceId: string): Promise<void> =>
+        request<void>('DELETE', '/me/push-token', { auth: true, query: { deviceId } }),
     },
     outfits: {
       /**

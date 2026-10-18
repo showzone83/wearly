@@ -25,6 +25,7 @@
       "@/*": ["./src/*"],
       "@garment-shapes": ["../mobile/src/data/garmentShapes.ts", "./src/lib/garmentShapesFallback.ts"],
       "@app-themes": ["../mobile/src/data/themes.ts"],
+      "@app-seasons": ["../mobile/src/data/seasons.ts"],
       "@app-mascots": ["../mobile/src/data/mascots/index.ts"]
     }
   },
