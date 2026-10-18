@@ -15,6 +15,10 @@
 >
 > **장소별 날씨(2026-10-18)**: 예정일 코디에서 다른 장소·먼 날짜의 날씨를 본다. `GET /api/v1/weather/day`·`GET /api/v1/weather/places`, 평년값, 오류 코드 `WEATHER_LIMIT`(`V13__place_weather.sql`) → [19_장소별_날씨.md](19_장소별_날씨.md). 날씨 수집·관리자 API는 [17_날씨.md](17_날씨.md).
 >
+> **오류 응답(2026-10-18)**: 오류 응답에서 `message`를 없애고 `{ status, code, params?, fieldErrors: [{ field, code, params? }], traceId }`로 바꿨다. 화면 문구는 앱·관리자가 코드별 표로 정한다 → [20_오류_응답.md](20_오류_응답.md). 오류 코드 표는 이 문서에서 없애고 20 문서·`error-codes.json`을 기준으로 한다.
+>
+> **예정 코디(2026-10-18)**: 예정 코디를 서버에 저장한다. `GET·POST·PATCH·DELETE /api/v1/plans`, `POST /api/v1/plans/bulk`, 오류 코드 `PLAN_LIMIT`(`V14__planned_outfit.sql`) → [21_예정_코디_저장.md](21_예정_코디_저장.md).
+>
 > **4차 변경**: AI 코디 추천 `POST /api/v1/outfits/recommendations`(`V5__outfit_recommend.sql`) → [09_AI_코디_추천.md](09_AI_코디_추천.md). 백엔드 코드 스타일(Google Java Style) → 08 문서 5장.
 
 ## 1. 범위
@@ -23,7 +27,7 @@
 |---|---|
 | 이메일·비밀번호 가입과 로그인, JWT Access 토큰, Refresh 토큰 회전 | 소셜 로그인 (카카오·애플·구글) |
 | 내 정보 조회, 회원 탈퇴 | ~~이미지 업로드·저장~~ → 사진 저장에서 포함 (18 문서). 게스트 사진은 기기에만 |
-| 취향·근무 패턴 프로필 조회·저장 | 코디 저장·피드백·예정일·착용 기록 API (테이블만 만든다) |
+| 취향·근무 패턴 프로필 조회·저장 | 코디 저장·피드백·착용 기록 API (테이블만 만든다). ~~예정일~~ → 예정 코디 API는 포함 (21 문서) |
 | 옷장 아이템 CRUD, 일괄 등록, 필터 목록, 통계 | 추천·진단의 서버 이전 (앱의 규칙 엔진 유지) |
 | AI 사진 분석 (기본 Claude, 목업은 명시할 때만) | 소셜 토큰 검증, App Check, Redis 요청 제한 |
 
@@ -53,6 +57,7 @@
 3차에서 더한 테이블: `tb_ai_provider_secret`(웹 입력 AI 키의 AES-256-GCM 암호문, 07 문서 6장).
 4차: `tb_ai_analysis_log.feature` CHECK에 `OUTFIT_RECOMMEND`(AI 코디 추천, 이미지 칸은 NULL)를 더하고, 한도 집계 인덱스를 `(user_id, feature, created_at) WHERE status = 'SUCCESS'`로 바꿨다 (09 문서).
 사진 저장(2026-10-18): `V12__item_image_storage.sql` — V1의 빈 `tb_item_image`를 지우고 다시 만든다(`purpose`·`status`·`declared_size`·`upload_key`·`deleted_at` 등, 아이템당 사진 하나의 부분 유니크 인덱스, 18 문서 4장). V11은 날씨(17 문서).
+예정 코디(2026-10-18): `V14__planned_outfit.sql` — V1의 빈 `tb_planned_outfit`을 지우고 다시 만든다(`client_id`·장소 4칸·`weather`/`outfit` JSONB·`forecast_ready`, `(user_id, client_id)` 부분 유니크, 21 문서 3장).
 장소별 날씨(2026-10-18): `V13__place_weather.sql` — `tb_weather_place_snapshot`(REGION 밖 좌표의 예보 캐시)·`tb_weather_climate`(격자·월별 평년값)를 더하고 `tb_weather_call_log`의 `run_id`·`region_code`를 NULL 허용으로 바꿨다(`call_kind` = `FORECAST`·`ON_DEMAND`·`SEARCH`·`CLIMATE`, 19 문서 7장).
 7차(2026-10-17): `V10__auth_session_valkey.sql` — `tb_refresh_token` 삭제(토큰·세션은 Valkey), `tb_auth_event`(로그인 이력: LOGIN·LOGOUT·REFRESH_REUSED·FORCED_LOGOUT, 16 문서 3장) 추가.
 6차(2026-10-17): `V8__app_setting.sql` — `tb_app_setting`(앱 전체 설정, 초기값 `theme` = `{"themeId":"nyang"}`, 12 문서 3장). `V9__wardrobe_item_retire.sql` — `tb_wardrobe_item`에 `retired_at`·`retire_reason`·`retire_memo`, 부분 인덱스 `ix_wardrobe_item_in_use (user_id) WHERE retired_at IS NULL`, CHECK `ck_wardrobe_item_retired`(사용 중지면 시각·이유가 함께 있다), 코드 그룹 `RETIRE_REASON` 5개(13 문서 2장).
@@ -72,7 +77,7 @@
 | `tb_item_image` | 옷 사진 메타데이터(V12에서 다시 만듦). `image_id` UUID, `item_id`(아이템당 하나), `status`(PENDING·READY·DELETED), 크기·가로·세로, 오브젝트 키. 파일은 오브젝트 스토리지(18 문서 4장) | O (18 문서) |
 | `tb_outfit` / `tb_outfit_item` | 코디 헤더(점수·`breakdown JSONB`·`context JSONB`) / 구성(`item_role` = 슬롯) | 테이블만 |
 | `tb_outfit_feedback` | LIKE·DISLIKE, `reasons JSONB` | 테이블만 |
-| `tb_planned_outfit` | 예정일 코디 | 테이블만 |
+| `tb_planned_outfit` | 예정 코디(V14에서 다시 만듦). 날짜·시간대·장소·날씨·코디(`outfit JSONB`), 앱 기기 id는 `client_id` | O (21 문서) |
 | `tb_daily_look` / `tb_daily_look_item` | 착용 기록, `UNIQUE(user_id, worn_date)` | 테이블만 |
 | `tb_look_diagnosis` | 진단 (`axes JSONB`, `swap JSONB`) | 테이블만 |
 | `tb_wardrobe_report` | 옷장 분석 리포트 (`report JSONB`) | 테이블만 |
@@ -91,37 +96,39 @@
 
 ### 오류 응답
 
+서버는 **문장을 보내지 않고 코드값만** 보낸다. 모양, 오류 분류, `traceId`, 코드 카탈로그, 앱·관리자 문구 표, 새 코드를 더하는 순서는 [20_오류_응답.md](20_오류_응답.md)에 있다.
+
 ```json
-{ "status": 401, "code": "TOKEN_EXPIRED", "message": "로그인이 만료됐어요.", "fieldErrors": [] }
+{ "status": 401, "code": "TOKEN_EXPIRED", "fieldErrors": [], "traceId": "5e4d6d86a1dd42a1800fd0fcb51335fd" }
 ```
 
-| HTTP | code | 상황 |
-|---|---|---|
-| 400 | `VALIDATION_FAILED` | 입력 검증 실패. `fieldErrors: [{ field, message }]` |
-| 401 | `UNAUTHORIZED` | 토큰 없음 |
-| 401 | `TOKEN_EXPIRED` | Access 토큰 만료 → 앱이 자동 갱신 |
-| 401 | `TOKEN_INVALID` | 서명·형식 오류, 탈퇴·정지한 회원, `sid`가 없는 옛 토큰, 세션이 끊김(로그아웃·관리자 강제 로그아웃·정지·탈퇴·재사용 감지, 7차) |
-| 401 | `INVALID_CREDENTIALS` | 이메일 또는 비밀번호 불일치 (어느 쪽인지 알리지 않음) |
-| 401 | `REFRESH_INVALID` | Refresh 토큰 없음·만료·폐기(세션이 끊김) |
-| 401 | `REFRESH_REUSED` | 이미 회전된 Refresh 토큰 재사용 → 그 세션 전체 끊기 |
-| 403 | `FORBIDDEN` | 권한 없음 (관리자 API에 일반 회원 등) |
-| 403 | `ACCOUNT_SUSPENDED` | 정지된 회원의 로그인 (비밀번호가 맞을 때만, 07 문서 2장) |
-| 403 | `REAUTH_FAILED` | AI 키 넣기·지우기에서 관리자 비밀번호(`currentPassword`) 재확인 실패 (07 문서 6장) |
-| 404 | `NOT_FOUND` | 없거나 남의 리소스 (남의 것도 404) |
-| 409 | `EMAIL_TAKEN` | 가입 이메일 중복 |
-| 409 | `CODE_EXISTS` · `CODE_IN_USE` · `PROVIDER_EXISTS` | 관리자 코드 중복·사용 중 삭제, AI 공급자 ID 중복 (07 문서 4장) |
-| 409 | `SECRET_KEY_MISSING` | 서버에 마스터 키(`wearly.secret-key` / 환경변수 `WEARLY_SECRET_KEY`)가 없어 AI 키를 웹에서 넣을 수 없음 (07 문서 6장) |
-| 400 | `API_KEY_INVALID` | 저장 전 키 확인(각 사 모델 목록 조회) 실패 (07 문서 6장) |
-| 400 | `WARDROBE_INSUFFICIENT` | AI 코디 추천에 쓸 옷이 모자람. `message`에 모자란 칸 코드 (예: `BOTTOM 또는 DRESS, SHOES`) (09 문서) |
-| 400 | `IMAGE_INVALID` | 사진 처리 실패(complete): 10MB 초과·JPEG/PNG 아님·디코딩 실패. 그 `imageId`는 버려진다 (18 문서 6장) |
-| 400 | `IMAGE_NOT_UPLOADED` | complete인데 올린 파일이 없음, 또는 올리기가 끝나지 않은(PENDING) 이미지를 아이템에 붙이거나 analyze함 (18 문서) |
-| 409 | `IMAGE_IN_USE` | 다른 아이템에 붙은 이미지를 붙이려 함 (18 문서) |
-| 429 | `IMAGE_UPLOAD_LIMIT` | 하루 사진 업로드 URL 발급 한도(기본 200) 초과 (18 문서) |
-| 413 | `IMAGE_TOO_LARGE` | 분석 이미지 10MB 초과 (multipart analyze) |
-| 429 | `WEATHER_LIMIT` | 장소 날씨 하루 한도 초과. `GET /weather/day`(좌표 방식)에서 회원 하루 한도(기본 30)를 넘어 공급자를 못 불렀고 예전 캐시도 평년값도 없을 때, `GET /weather/places`에서 하루 검색 한도(기본 100)를 넘었을 때 (19 문서 3·4·5장) |
-| 503 | `WEATHER_UNAVAILABLE` | 날씨를 받지 못함: `GET /weather`에서 그 지역을 한 번도 못 받음, `GET /weather/day`에서 예보도 평년값도 없음, 장소 검색을 쓸 수 없음 (17·19 문서) |
-| 429 | `AI_LIMIT_EXCEEDED` | AI 사진 분석·AI 코디 추천 일일 한도 초과 (기능별로 따로 센다) |
-| 502 | `AI_UNAVAILABLE` | AI 공급자 오류 |
+```ts
+interface ErrorBody {
+  status: number;                       // HTTP 상태와 같다
+  code: string;                         // ErrorCode 이름 (추가만 한다)
+  params?: Record<string, unknown>;     // 그 코드의 상세 값. 있을 때만 (예: WARDROBE_INSUFFICIENT { missing, alternatives })
+  fieldErrors: { field: string; code: string; params?: Record<string, unknown> }[];  // 입력 검증 사유 (VALIDATION_FAILED). 항상 배열
+  traceId: string;                      // 응답 헤더 X-Request-Id와 같다. 서버 로그에서 이 값으로 찾는다
+}
+```
+
+- `message` 필드는 없다. 앱·관리자는 `code`·`params`로 화면 문구를 정한다 (앱 `mobile/src/lib/errorText.ts`, 관리자 `admin/src/lib/errorText.ts`).
+- 서버 내부 정보(예외 메시지·SQL·클래스 이름·스택·공급자 응답 원문)는 응답에 나가지 않는다.
+- 시스템 오류(500 `INTERNAL_ERROR`, 503 `SERVICE_UNAVAILABLE`)는 화면에 "오류 번호 + traceId 앞 8자"를 보인다.
+- **오류 코드 표(코드·HTTP 상태·params·권장 문구)는 [`backend/src/main/resources/error-codes.json`](../backend/src/main/resources/error-codes.json)** 이 기준이다 (20 문서 5장, 자주 쓰는 params는 2장) (오류 코드 36개, 필드 오류 코드 21개). 이 문서에서는 코드별 상황을 각 엔드포인트 설명에 적는다.
+
+코드별 상황은 해당 기능 문서에 있다.
+
+| 코드 묶음 | 문서 |
+|---|---|
+| 인증·토큰: `UNAUTHORIZED`, `TOKEN_EXPIRED`, `TOKEN_INVALID`, `INVALID_CREDENTIALS`, `REFRESH_INVALID`, `REFRESH_REUSED`, `ACCOUNT_SUSPENDED`, `EMAIL_TAKEN` | 이 문서 5장, [16](16_세션_Valkey.md) |
+| 권한: `FORBIDDEN`, `REAUTH_FAILED` | [07](07_관리자_사이트.md) |
+| 관리자 코드·공급자: `CODE_EXISTS`, `CODE_IN_USE`, `PROVIDER_EXISTS`, `SECRET_KEY_MISSING`, `API_KEY_INVALID` | [06](06_코드_관리.md), [07](07_관리자_사이트.md) 4·6장 |
+| AI: `AI_LIMIT_EXCEEDED`, `AI_UNAVAILABLE`(`params.feature`), `WARDROBE_INSUFFICIENT` | 이 문서 7장, [09](09_AI_코디_추천.md) |
+| 사진: `IMAGE_INVALID`(`params.reason`), `IMAGE_NOT_UPLOADED`, `IMAGE_IN_USE`, `IMAGE_UPLOAD_LIMIT`, `IMAGE_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE` | [18](18_사진_저장.md) 6장 |
+| 날씨: `WEATHER_UNAVAILABLE`, `WEATHER_LIMIT`(`params.kind`), `WEATHER_REFRESH_RUNNING`, `WEATHER_NO_PROVIDER` | [17](17_날씨.md), [19](19_장소별_날씨.md) |
+| 예정 코디: `PLAN_LIMIT`(`params.max` = 500) | [21](21_예정_코디_저장.md) 2.2 |
+| 공통: `VALIDATION_FAILED`, `NOT_FOUND`(남의 것도 404), `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `CONFLICT`, `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE` | [20](20_오류_응답.md) 3장 |
 
 ## 5. 토큰
 
@@ -225,7 +232,7 @@ interface ImageCompleteResponse extends ImageRef { width: number; height: number
 
 앱은 서명 URL로 저장소에 직접 올리므로 `put`에는 토큰을 붙이지 않는다. 서명 URL은 받을 때마다 달라지니 `imageId`로 캐시한다. 처리 규칙(EXIF 제거·축소)과 오류 코드는 18 문서 6~7장.
 
-**사용하지 않는 옷** (6차, 계약 13 문서): `retire`의 `reason`은 활성 `RETIRE_REASON` 코드, `memo`는 앞뒤 공백을 지운 뒤 200자 이하(빈 메모는 `null`로 저장). 틀리면 400 `VALIDATION_FAILED`(`reason`·`memo`), 남의 옷·없는 옷은 입력보다 먼저 404. 사용 중지는 보유 상태(`status`)와 별개이고, 사용 중지한 옷도 단건 조회·PATCH·완전 삭제가 된다. 통계는 사용 중인 옷만 세고 `retired`·`retiredByReason`을 따로 준다. AI 코디 추천 후보에서 빠지며, 고정(`context.fixed`)·중심(`context.anchorItemId`)으로 주면 400 `VALIDATION_FAILED`("사용하지 않는 옷이에요."). 코드 삭제 가드(`CODE_IN_USE`)는 사용 중지한 옷도 센다.
+**사용하지 않는 옷** (6차, 계약 13 문서): `retire`의 `reason`은 활성 `RETIRE_REASON` 코드, `memo`는 앞뒤 공백을 지운 뒤 200자 이하(빈 메모는 `null`로 저장). 틀리면 400 `VALIDATION_FAILED`(`reason`·`memo`), 남의 옷·없는 옷은 입력보다 먼저 404. 사용 중지는 보유 상태(`status`)와 별개이고, 사용 중지한 옷도 단건 조회·PATCH·완전 삭제가 된다. 통계는 사용 중인 옷만 세고 `retired`·`retiredByReason`을 따로 준다. AI 코디 추천 후보에서 빠지며, 고정(`context.fixed`)·중심(`context.anchorItemId`)으로 주면 400 `VALIDATION_FAILED`(필드 오류 `ITEM_RETIRED`). 코드 삭제 가드(`CODE_IN_USE`)는 사용 중지한 옷도 센다.
 
 2차부터 `Category`·`SubType`·`ColorKey`·`Pattern`·`Season`·`StyleTag`·보유 상태는 **코드 문자열**이다. 허용 값·검증 규칙(새 값은 활성 코드만, PATCH에서 안 바꾼 비활성 값은 통과, subType의 parent = category)은 06 문서 4장을 따른다. `WardrobeStats.byCategory`·`byStatus`의 키는 활성 코드 전부 + 아이템이 있는 비활성 코드다.
 
@@ -312,8 +319,21 @@ interface AnalyzeResponse {
 | GET | `/weather/places?q=` | 로그인 | 장소 검색 `{ items: [{ label, region, country, lat, lon, regionCode }] }`, 최대 10개 |
 
 - `date`는 한국 날짜 `YYYY-MM-DD`, 오늘부터 1년 안. 응답 키 7개(`place`·`date`·`source`·`day`·`forecastUntil`·`fetchedAt`·`climate`)가 항상 있다. 좌표 응답의 `place.regionCode`는 `null`이다. 자세한 모양·검증·오류는 [19_장소별_날씨.md](19_장소별_날씨.md) 3·4장.
-- 오류: 400 `VALIDATION_FAILED`(`date`·`region`·`lat`·`lon`·`q`), 401 `UNAUTHORIZED`, 429 `WEATHER_LIMIT`, 503 `WEATHER_UNAVAILABLE`.
+- 오류: 400 `VALIDATION_FAILED`(`date`·`region`·`lat`·`lon`·`q`), 401 `UNAUTHORIZED`, 429 `WEATHER_LIMIT`(`params.kind`: `ON_DEMAND`·`SEARCH`), 503 `WEATHER_UNAVAILABLE`(`params.kind: SEARCH`이면 장소 검색을 쓸 수 없음, 없으면 날씨 자체).
 - 관리자 날씨 API(`/admin/weather/**`)는 17 문서 6장.
+
+### 예정 코디 (21 문서)
+
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| GET | `/plans` | 쿼리 `from`·`to` (`YYYY-MM-DD`, 양 끝 포함, 선택) | 200 `{ items: PlanDto[] }` 날짜 → 시간대 순 |
+| POST | `/plans` | `PlanInput` | 201 `PlanDto`. 같은 `clientId`의 예정이 있으면 그것을 고치고 200 |
+| POST | `/plans/bulk` | `{ items: PlanInput[] }` (최대 100, `clientId` 필수) | 200 `{ items, created, updated }` 요청 순서대로, 하나라도 틀리면 하나도 저장 안 함 |
+| PATCH | `/plans/{id}` | `Partial<PlanInput>` (보낸 필드만, `null`은 비움) | 200 `PlanDto` |
+| DELETE | `/plans/{id}` | — | 204 |
+
+- 모두 로그인 필요. 남의·없는 예정은 404. 회원당 500개, 넘으면 409 `PLAN_LIMIT`(`params.max`). 날짜는 오늘(한국) 앞뒤 1년.
+- 응답 `PlanDto`에 `missingItemIds`(코디의 아이템 중 지금 옷장에 없는 id)가 있다. 필드·검증 표·동기화 규칙은 [21_예정_코디_저장.md](21_예정_코디_저장.md).
 
 ## 7. AI 분석
 
@@ -340,7 +360,7 @@ interface AnalyzeResponse {
 | 파일 | 내용 |
 |---|---|
 | `types.ts` | 위 DTO 타입 전부, `ApiErrorBody` |
-| `errors.ts` | `class ApiError extends Error { status; code; fieldErrors }`, 네트워크 실패는 `code: 'NETWORK'`, 서명 URL로 올리기(PUT) 실패는 앱이 만드는 `code: 'UPLOAD_FAILED'`(저장소 응답은 서버 오류 형식이 아니다) |
+| `errors.ts` | `class ApiError extends Error { status; code; fieldErrors; params; traceId? }`. 서버가 `message`를 안 주므로 `message` 자리에 `code`를 담고, `fieldErrors`는 `{ field, code, params?, message }`(`message` = 서버 값이 없으면 `code`), `params`는 오류 `params`(없으면 빈 객체), `traceId`는 본문 `traceId`. 화면 문구는 `src/lib/errorText.ts`의 `errorText(e)`로 만든다. 네트워크 실패는 `code: 'NETWORK'`, 서명 URL로 올리기(PUT) 실패는 앱이 만드는 `code: 'UPLOAD_FAILED'`(저장소 응답은 서버 오류 형식이 아니다) |
 | `tokenStore.ts` | `interface TokenStore { get(): Promise<Tokens \| null>; set(t: Tokens): Promise<void>; clear(): Promise<void> }`, `Tokens = { accessToken, refreshToken }`, `createMemoryTokenStore()` |
 | `client.ts` | `createApiClient({ baseUrl, tokenStore, onAuthLost? })` |
 
@@ -358,6 +378,8 @@ api.wardrobe.analyzeImage({ imageId })       // 서버에 올린 사진으로 �
 api.images.uploadUrl(req) / put(target, body) / complete(imageId)   // 사진 올리기 3단계 (put은 서명 URL로 직접, 토큰 없음)
 api.weather.day({ region } | { lat, lon }, date)   // 한 장소·한 날짜의 날씨. region은 토큰 없이, 좌표는 로그인 (19 문서)
 api.weather.places(q)                              // 장소 검색 (로그인)
+api.plans.list({ from?, to? }) / create(input) / bulk(inputs)   // 예정 코디 (로그인, 21 문서)
+api.plans.patch(id, patch) / remove(id)
 ```
 
 - `TOKEN_EXPIRED`를 받으면 Refresh로 한 번 갱신하고 원래 요청을 한 번 다시 보낸다. 동시에 여러 요청이 만료돼도 갱신 요청은 **하나만** 보낸다 (single-flight).
@@ -371,4 +393,5 @@ api.weather.places(q)                              // 장소 검색 (로그인)
 - 시나리오는 `mobile/src/api/client.ts`를 그대로 import해 앱과 같은 코드로 서버를 부른다.
 - 사진 저장 시나리오(43~46)는 앱 모듈을 거치지 않고 원시 HTTP로 서명 URL까지 실제로 PUT·GET한다. 하네스 전용 버킷 `wearly-images-harness`(compose의 MinIO)를 쓴다 (18 문서 2장, `harness/README.md`).
 - 장소별 날씨 시나리오(47~49)는 앱 모듈을 거치지 않고 원시 HTTP로 `GET /weather/day`·`/weather/places`를 확인한다. 하네스 백엔드는 목업 날씨·목업 평년값으로 돈다 (19 문서, `harness/README.md`).
+- 시나리오 50(관리자 날씨 호출 이력 `callKind` 필터)은 원시 HTTP로, 예정 코디 시나리오(51~53)도 원시 HTTP로 `/plans`를 확인한다 (21 문서, `harness/README.md`). 오류 본문 형식 검사(`checkErrorBody`)는 `message`가 없고 `traceId`가 `X-Request-Id` 헤더와 같은지 본다 (20 문서).
 - 6차의 앱 설정·옷 사용 중지 시나리오(30~37)는 앱 모듈을 거치지 않고 원시 HTTP로만 서버 계약을 확인한다 (`harness/README.md`).
