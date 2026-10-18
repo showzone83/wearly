@@ -19,6 +19,10 @@
 >
 > **예정 코디(2026-10-18)**: 예정 코디를 서버에 저장한다. `GET·POST·PATCH·DELETE /api/v1/plans`, `POST /api/v1/plans/bulk`, 오류 코드 `PLAN_LIMIT`(`V14__planned_outfit.sql`) → [21_예정_코디_저장.md](21_예정_코디_저장.md).
 >
+> **관리자 계정 보완(2026-10-18)**: 관리자 사이트 로그인에 2단계 인증(TOTP)이 붙었다. `POST /auth/login`이 토큰 대신 MFA 대기 토큰을 줄 수 있고, `POST /auth/mfa/setup`·`/auth/mfa/verify`, `POST /admin/me/password`, `/admin/me/mfa/*`, `GET /admin/auth-events`, 새 오류 코드 8개(`V15`·`V16`) → [22_관리자_계정_관리.md](22_관리자_계정_관리.md) 4.1.
+>
+> **이슈 #4·#5·#6, D-1 알림, 프롬프트 캐싱(2026-10-18)**: 옷 색 1~3개·구입일·초봄/초여름/초가을 계절(`V20`, 6장 "옷장"), 나의 정보 연령대·체형·키·핏(`V21`, 6장 "회원·프로필"), 계절 테마 `seasonMode`(6장 "앱 설정", [12](12_디자인_테마.md) 7장), 푸시 토큰 `PUT·DELETE /me/push-token`(`V17`, [23](23_D-1_알림.md)), AI 프롬프트 캐싱(7장).
+>
 > **4차 변경**: AI 코디 추천 `POST /api/v1/outfits/recommendations`(`V5__outfit_recommend.sql`) → [09_AI_코디_추천.md](09_AI_코디_추천.md). 백엔드 코드 스타일(Google Java Style) → 08 문서 5장.
 
 ## 1. 범위
@@ -56,6 +60,11 @@
 2차에서 더한 테이블: `tb_code_group`·`tb_code`(06 문서 2장), `tb_ai_provider`·`tb_admin_audit_log`, `tb_user.role`(07 문서 2·3장).
 3차에서 더한 테이블: `tb_ai_provider_secret`(웹 입력 AI 키의 AES-256-GCM 암호문, 07 문서 6장).
 4차: `tb_ai_analysis_log.feature` CHECK에 `OUTFIT_RECOMMEND`(AI 코디 추천, 이미지 칸은 NULL)를 더하고, 한도 집계 인덱스를 `(user_id, feature, created_at) WHERE status = 'SUCCESS'`로 바꿨다 (09 문서).
+관리자 계정 보완(2026-10-18, 22 문서 4.1): `V15__admin_mfa.sql` — `tb_user_mfa`(TOTP 비밀 암호문·nonce·`last_used_step`)·`tb_user_mfa_recovery_code`(복구 코드 SHA-256), `V16__auth_event_mfa.sql` — `tb_auth_event.type`에 `LOGIN_FAILED`·`MFA_SUCCESS`·`MFA_FAILED`·`MFA_LOCKED`를 더하고 최신순 인덱스.
+D-1 알림(2026-10-18, 이 문서 6장 "푸시 토큰", [23](23_D-1_알림.md)): `V17__push_token.sql` — `tb_push_token`(Expo 푸시 토큰, 회원·기기당 하나)·`tb_push_send_log`(D-1 발송 기록, 같은 예정은 하루 한 번).
+이슈 #4(2026-10-18): `V20__item_colors_purchase.sql` — `tb_wardrobe_item`에 `sub_colors TEXT[]`(보조 색 0~2개)·`purchased_at DATE NOT NULL`·`purchased_at_estimated`, 기존 행은 구입일 = 등록일(서울)·추정 표시, 코드 SEASON에 `EARLY_SPRING`·`EARLY_SUMMER`·`EARLY_FALL` 3개 (06 문서).
+이슈 #5(2026-10-18): `V21__user_personal_info.sql` — `tb_user_profile`에 `age_range`·`body_type`·`height_cm`(130~210)·`fit_preference`(모두 NULL 허용), 코드 그룹 `AGE_RANGE`·`BODY_TYPE`·`FIT` (06 문서).
+Flyway 번호는 V1~V17, V20, V21이다. AI 호출 기록(`tb_ai_analysis_log`)에 캐시 토큰 칸을 더하는 마이그레이션은 아직 없다(V19 예정, 아래 7장 "프롬프트 캐싱").
 사진 저장(2026-10-18): `V12__item_image_storage.sql` — V1의 빈 `tb_item_image`를 지우고 다시 만든다(`purpose`·`status`·`declared_size`·`upload_key`·`deleted_at` 등, 아이템당 사진 하나의 부분 유니크 인덱스, 18 문서 4장). V11은 날씨(17 문서).
 예정 코디(2026-10-18): `V14__planned_outfit.sql` — V1의 빈 `tb_planned_outfit`을 지우고 다시 만든다(`client_id`·장소 4칸·`weather`/`outfit` JSONB·`forecast_ready`, `(user_id, client_id)` 부분 유니크, 21 문서 3장).
 장소별 날씨(2026-10-18): `V13__place_weather.sql` — `tb_weather_place_snapshot`(REGION 밖 좌표의 예보 캐시)·`tb_weather_climate`(격자·월별 평년값)를 더하고 `tb_weather_call_log`의 `run_id`·`region_code`를 NULL 허용으로 바꿨다(`call_kind` = `FORECAST`·`ON_DEMAND`·`SEARCH`·`CLIMATE`, 19 문서 7장).
@@ -70,10 +79,12 @@
 | `tb_user_local_credential` | 이메일·비밀번호 (임시). `email` 소문자 UNIQUE, `password_hash` | O |
 | `tb_user_social` | 소셜 계정 (D5 설계 그대로, `UNIQUE(provider, provider_user_id)`) | 테이블만 |
 | ~~`tb_refresh_token`~~ | 7차에 삭제. Refresh 토큰·세션은 Valkey `wearly:rt:*`·`wearly:session:*` (16 문서 3장) | — |
-| `tb_auth_event` | 7차. 로그인 이력: `type`(LOGIN·LOGOUT·REFRESH_REUSED·FORCED_LOGOUT), `session_id`, `client`, `ip`, `user_agent` | O (16 문서) |
-| `tb_user_profile` | 앱 `Profile` + `onboarded`. 배열은 `TEXT[]`/`SMALLINT[]`, 알림은 `JSONB` | O |
+| `tb_auth_event` | 7차. 로그인 이력: `type`(LOGIN·LOGOUT·REFRESH_REUSED·FORCED_LOGOUT, V16에서 LOGIN_FAILED·MFA_SUCCESS·MFA_FAILED·MFA_LOCKED 추가), `session_id`, `client`, `ip`, `user_agent` | O (16 문서, 22 문서) |
+| `tb_user_mfa` / `tb_user_mfa_recovery_code` | V15. 관리자 TOTP 비밀(AES-256-GCM 암호문, AAD `mfa:{user_id}`)·마지막 사용 단계 / 복구 코드 해시 10개(`used_at`) | O (22 문서 4.1.4) |
+| `tb_push_token` / `tb_push_send_log` | V17. 앱이 등록한 Expo 푸시 토큰(회원·기기당 하나, 같은 토큰은 한 행) / D-1 알림 발송 기록(`UNIQUE(예정, 종류, 발송일)`, 30일 보관) | O ([23](23_D-1_알림.md)) |
+| `tb_user_profile` | 앱 `Profile` + `onboarded`. 배열은 `TEXT[]`/`SMALLINT[]`, 알림은 `JSONB`. 나의 정보 `age_range`·`body_type`·`height_cm`·`fit_preference`(V21) | O |
 | `tb_user_style` | 취향 학습 점수 (`style_code`, `preference_score`) | 테이블만 |
-| `tb_wardrobe_item` | 옷장 아이템. `seasons`·`styles`는 `TEXT[]`, `ai_suggestion JSONB`. 사용 중지는 `retired_at`(NULL이면 사용 중)·`retire_reason`·`retire_memo` | O |
+| `tb_wardrobe_item` | 옷장 아이템. `seasons`·`styles`는 `TEXT[]`, `ai_suggestion JSONB`. 색은 주 색상 `color` + 보조 색 `sub_colors TEXT[]`(0~2개), 구입일 `purchased_at`·`purchased_at_estimated`(V20). 사용 중지는 `retired_at`(NULL이면 사용 중)·`retire_reason`·`retire_memo` | O |
 | `tb_item_image` | 옷 사진 메타데이터(V12에서 다시 만듦). `image_id` UUID, `item_id`(아이템당 하나), `status`(PENDING·READY·DELETED), 크기·가로·세로, 오브젝트 키. 파일은 오브젝트 스토리지(18 문서 4장) | O (18 문서) |
 | `tb_outfit` / `tb_outfit_item` | 코디 헤더(점수·`breakdown JSONB`·`context JSONB`) / 구성(`item_role` = 슬롯) | 테이블만 |
 | `tb_outfit_feedback` | LIKE·DISLIKE, `reasons JSONB` | 테이블만 |
@@ -115,7 +126,7 @@ interface ErrorBody {
 - `message` 필드는 없다. 앱·관리자는 `code`·`params`로 화면 문구를 정한다 (앱 `mobile/src/lib/errorText.ts`, 관리자 `admin/src/lib/errorText.ts`).
 - 서버 내부 정보(예외 메시지·SQL·클래스 이름·스택·공급자 응답 원문)는 응답에 나가지 않는다.
 - 시스템 오류(500 `INTERNAL_ERROR`, 503 `SERVICE_UNAVAILABLE`)는 화면에 "오류 번호 + traceId 앞 8자"를 보인다.
-- **오류 코드 표(코드·HTTP 상태·params·권장 문구)는 [`backend/src/main/resources/error-codes.json`](../backend/src/main/resources/error-codes.json)** 이 기준이다 (20 문서 5장, 자주 쓰는 params는 2장) (오류 코드 36개, 필드 오류 코드 21개). 이 문서에서는 코드별 상황을 각 엔드포인트 설명에 적는다.
+- **오류 코드 표(코드·HTTP 상태·params·권장 문구)는 [`backend/src/main/resources/error-codes.json`](../backend/src/main/resources/error-codes.json)** 이 기준이다 (20 문서 5장, 자주 쓰는 params는 2장) (오류 코드 44개, 필드 오류 코드 21개). 이 문서에서는 코드별 상황을 각 엔드포인트 설명에 적는다.
 
 코드별 상황은 해당 기능 문서에 있다.
 
@@ -123,6 +134,7 @@ interface ErrorBody {
 |---|---|
 | 인증·토큰: `UNAUTHORIZED`, `TOKEN_EXPIRED`, `TOKEN_INVALID`, `INVALID_CREDENTIALS`, `REFRESH_INVALID`, `REFRESH_REUSED`, `ACCOUNT_SUSPENDED`, `EMAIL_TAKEN` | 이 문서 5장, [16](16_세션_Valkey.md) |
 | 권한: `FORBIDDEN`, `REAUTH_FAILED` | [07](07_관리자_사이트.md) |
+| 관리자 계정·2단계 인증: `LAST_ADMIN`, `MFA_REQUIRED`, `MFA_TOKEN_INVALID`, `MFA_CODE_INVALID`(`params.remainingAttempts`), `MFA_LOCKED`(`params.retryAfterSeconds`), `MFA_SETUP_REQUIRED`, `MFA_ALREADY_ENROLLED`, `MFA_NOT_ENROLLED` | [22](22_관리자_계정_관리.md) 4.1.8 |
 | 관리자 코드·공급자: `CODE_EXISTS`, `CODE_IN_USE`, `PROVIDER_EXISTS`, `SECRET_KEY_MISSING`, `API_KEY_INVALID` | [06](06_코드_관리.md), [07](07_관리자_사이트.md) 4·6장 |
 | AI: `AI_LIMIT_EXCEEDED`, `AI_UNAVAILABLE`(`params.feature`), `WARDROBE_INSUFFICIENT` | 이 문서 7장, [09](09_AI_코디_추천.md) |
 | 사진: `IMAGE_INVALID`(`params.reason`), `IMAGE_NOT_UPLOADED`, `IMAGE_IN_USE`, `IMAGE_UPLOAD_LIMIT`, `IMAGE_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE` | [18](18_사진_저장.md) 6장 |
@@ -150,9 +162,11 @@ interface ErrorBody {
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
 | POST | `/auth/signup` | `{ email, password, name }` | 201 `AuthResponse` |
-| POST | `/auth/login` | `{ email, password }` | 200 `AuthResponse` |
+| POST | `/auth/login` | `{ email, password }` | 200 `AuthResponse`. **관리자 사이트 로그인(`X-Wearly-Client: admin`)에서 2단계 인증이 필요하면** 200 `MfaChallenge`(아래) |
 | POST | `/auth/refresh` | `{ refreshToken }` | 200 `AuthResponse` |
 | POST | `/auth/logout` | `{ refreshToken }` | 204 (없는 토큰이어도 204) |
+| POST | `/auth/mfa/setup` | `{ mfaToken }` | 200 `{ secret, otpauthUrl }`. 관리자 2단계 인증을 아직 등록하지 않았을 때 (22 문서) |
+| POST | `/auth/mfa/verify` | `{ mfaToken, code }` 또는 `{ mfaToken, recoveryCode }` | 200 `AuthResponse` + `recoveryCodes?`(처음 등록할 때만 10개)·`recoveryCodesLeft` |
 
 ```ts
 interface AuthResponse {
@@ -165,7 +179,16 @@ interface AuthResponse {
 interface UserDto { id: string; email: string | null; name: string; role: 'USER' | 'ADMIN'; createdAt: string } // role은 2차
 ```
 
-`name`은 1~20자. `email`은 소문자로 바꿔 저장한다.
+```ts
+// 관리자 2단계 인증 대기 (22 문서 4.1.4). 앱(일반 회원)은 받지 않는다
+interface MfaChallenge {
+  mfa: { required: true; enrolled: boolean };   // enrolled=false면 /auth/mfa/setup 먼저, true면 바로 /auth/mfa/verify
+  mfaToken: string;                             // 5분짜리 대기 토큰. 관리자 API에는 쓸 수 없다
+  mfaTokenExpiresIn: number;                    // 300
+}
+```
+
+`name`은 1~20자. `email`은 소문자로 바꿔 저장한다. 대기 토큰이 없거나 만료되면 401 `MFA_TOKEN_INVALID`, 코드가 틀리면 400 `MFA_CODE_INVALID`, 5번 틀리면 429 `MFA_LOCKED`. 일반 회원과 `X-Wearly-Client`가 `admin`이 아닌 로그인은 늘 `AuthResponse`다.
 
 ### 회원·프로필
 
@@ -189,10 +212,15 @@ interface ProfileDto {
   offRule: boolean;
   notify: { morning: boolean; evening: boolean; dMinus1: boolean };
   onboarded: boolean;
+  // 나의 정보 (이슈 #5, 모두 선택). PUT은 전체 교체라 빠지거나 null이면 비운다
+  ageRange?: string | null;       // AGE_RANGE 코드 (AGE_20_EARLY ... AGE_50_PLUS)
+  bodyType?: string | null;       // BODY_TYPE 코드 (STRAIGHT, WAVE, NATURAL, UNKNOWN)
+  heightCm?: number | null;       // 130~210
+  fitPreference?: string | null;  // FIT 코드 (SLIM, REGULAR, OVERSIZED)
 }
 ```
 
-기본값은 앱 `DEFAULT_PROFILE`(`mobile/src/data/seed.ts`)과 같게 한다. `PUT`의 `name`은 `tb_user.name`도 함께 바꾼다.
+기본값은 앱 `DEFAULT_PROFILE`(`mobile/src/data/seed.ts`)과 같게 한다. `PUT`의 `name`은 `tb_user.name`도 함께 바꾼다. 나의 정보 네 칸은 코드 테이블로 검증한다(활성 코드만, 틀리면 400 `VALIDATION_FAILED`, `heightCm`는 130~210이 아니면 `OUT_OF_RANGE`). 코디 추천 AI의 사용자 메시지에 "회원 정보" 한 줄로 들어간다 (09 문서 3장). 코드 값과 체형 설명은 06 문서.
 
 ### 옷장
 
@@ -243,22 +271,37 @@ interface ItemDto {
   name: string;
   category: Category;
   subType: SubType;
-  color: ColorKey;
+  color: ColorKey;             // 주 색상. 늘 colors[0]과 같다 (예전 앱 호환)
+  colors: ColorKey[];          // 이슈 #4: 1~3개, 첫 번째가 주 색상, 중복 없음
   pattern: Pattern;
-  seasons: Season[];
+  seasons: Season[];           // EARLY_SPRING, SPRING, EARLY_SUMMER, SUMMER, EARLY_FALL, FALL, WINTER
   styles: StyleTag[];
   formality: 1 | 2 | 3;
   status: 'OWNED' | 'LAUNDRY' | 'REPAIR';
   brand?: string | null;
   wornCount: number;
   lastWornAt?: string | null;  // YYYY-MM-DD
+  purchasedAt: string;          // 이슈 #4: 구입일 YYYY-MM-DD. 늘 값이 있다
+  purchasedAtEstimated: boolean; // true면 사용자가 모른다고 해서 등록일(서울)을 넣은 값
   createdAt: string;
   retiredAt: string | null;     // 6차: 사용 중지 시각 (ISO). null이면 사용 중
   retireReason: string | null;  // RETIRE_REASON 코드
   retireMemo: string | null;
   image: ImageRef | null;       // 사진 저장: 서버에 저장한 대표 사진, 없으면 null
 }
-type ItemInput = Omit<ItemDto, 'id' | 'createdAt' | 'retiredAt' | 'retireReason' | 'retireMemo' | 'image'> & { wornCount?: number; lastWornAt?: string | null; imageId?: string | null };
+type ItemInput = Omit<ItemDto, 'id' | 'createdAt' | 'retiredAt' | 'retireReason' | 'retireMemo' | 'image' | 'color' | 'colors' | 'purchasedAt' | 'purchasedAtEstimated'> & {
+  colors?: ColorKey[];           // 1~3개. 또는 예전 color 하나. 둘 다 오면 colors를 쓰고, 둘 다 없으면 colors 필수 오류
+  color?: ColorKey;
+  purchasedAt?: string | null;   // 1990-01-01 ~ 오늘. 비우면 등록일(서울)로 넣고 purchasedAtEstimated=true
+  wornCount?: number; lastWornAt?: string | null; imageId?: string | null;
+};
+
+// 이슈 #4 색·구입일 규칙
+//  - colors는 1~3개 (4개 이상 400 colors TOO_MANY{max:3}), 중복 400 DUPLICATE, 각 값은 활성 COLOR 코드.
+//  - PATCH에서 colors를 보내면 통째로 바꾼다. 예전 color만 보내면 주 색상만 바꾸고 보조 색은 그대로 둔다.
+//  - PATCH purchasedAt: 날짜면 estimated=false, null이면 등록일로 되돌리고 estimated=true, 보내지 않으면 그대로.
+//  - 범위 밖 구입일은 400 purchasedAt OUT_OF_RANGE{min:'1990-01-01', max: 오늘}.
+//  - 목록 color 필터는 보조 색까지 맞고, 통계 byColor는 주 색상 기준, 코드 사용 수(CODE_IN_USE)는 보조 색도 센다.
 
 // retired·retiredByReason 말고는 사용 중인 옷만 센다 (6차)
 interface WardrobeStats {
@@ -280,6 +323,7 @@ interface AnalyzeResponse {
     category: Category;
     subType: SubType;
     color: ColorKey;
+    colors: ColorKey[];       // 이슈 #4: 눈에 띄는 색 1~3개, 넓은 순. 첫 번째는 color와 같다
     pattern: Pattern;
     seasons: Season[];
     styles: StyleTag[];
@@ -298,11 +342,12 @@ interface AnalyzeResponse {
 
 | 메서드 | 경로 | 권한 | 요청 | 응답 |
 |---|---|---|---|---|
-| GET | `/app/config` | 공개 | — | `{ themeId, version }`. `ETag: "<version>"`, `Cache-Control: no-cache`, `If-None-Match`가 같으면 304 (코드 API와 같음) |
-| GET | `/admin/app/theme` | ADMIN | — | `{ themeId, updatedAt, updatedBy }` |
-| PUT | `/admin/app/theme` | ADMIN | `{ themeId }` | 위와 같은 모양. 변경 이력 `APP_THEME_UPDATE` |
+| GET | `/app/config` | 공개 | — | `{ themeId, seasonMode, version }`. `ETag: "<version>"`, `Cache-Control: no-cache`, `If-None-Match`가 같으면 304 (코드 API와 같음) |
+| GET | `/admin/app/theme` | ADMIN | — | `{ themeId, seasonMode, updatedAt, updatedBy }` |
+| PUT | `/admin/app/theme` | ADMIN | `{ themeId?, seasonMode? }` (보낸 것만 바꾼다) | 위와 같은 모양. 변경 이력 `APP_THEME_UPDATE` (바뀐 필드만 남김) |
 
 - `themeId`는 `nyang`·`closeta`. 그 밖(빈 값·대소문자 다름 포함)은 400 `VALIDATION_FAILED`(`themeId`).
+- `seasonMode`(이슈 #6, 12 문서 7장)는 `OFF`(기본)·`AUTO`·`SPRING`·`SUMMER`·`FALL`·`WINTER`. 그 밖은 400(`seasonMode`). 서버는 모드만 저장하고 AUTO의 지금 계절은 앱이 날짜로 계산한다.
 - `version`은 마지막으로 바꾼 시각(ISO-8601 UTC, 밀리초, = `updatedAt`). **바꾼 적이 없으면 `"initial"`**.
 - 처음 상태에서 `updatedAt`·`updatedBy`는 `null`. `updatedBy`는 바꾼 관리자 이메일(탈퇴하면 `null`).
 - 지금과 같은 테마로 PUT하면 아무것도 바꾸지 않고(시각·관리자 그대로, 이력 없음) 지금 상태를 200으로 돌려준다.
@@ -316,7 +361,7 @@ interface AnalyzeResponse {
 | GET | `/weather?region=` | 공개 | 서버에 저장된 지역 날씨(현재 + 오늘부터 예보). ETag/304. 17 문서 5장 |
 | GET | `/weather/day?region=&date=` | 공개 | 한 지역·한 날짜의 날씨. 틀린 토큰은 무시. `source` = `FORECAST`·`CLIMATE` |
 | GET | `/weather/day?lat=&lon=&date=` | 로그인 | REGION 밖 좌표의 날씨(격자 캐시·회원 한도). 토큰 없으면 401 `UNAUTHORIZED` |
-| GET | `/weather/places?q=` | 로그인 | 장소 검색 `{ items: [{ label, region, country, lat, lon, regionCode }] }`, 최대 10개 |
+| GET | `/weather/places?q=` | 로그인 | 장소 검색 `{ items: [{ label, region, country, lat, lon, regionCode, parentRegionCode }] }`, 최대 10개. 전국 시·군·구(268곳)에 맞으면 `regionCode`는 `null`, 상위 시·도는 `parentRegionCode` (19 문서 4장) |
 
 - `date`는 한국 날짜 `YYYY-MM-DD`, 오늘부터 1년 안. 응답 키 7개(`place`·`date`·`source`·`day`·`forecastUntil`·`fetchedAt`·`climate`)가 항상 있다. 좌표 응답의 `place.regionCode`는 `null`이다. 자세한 모양·검증·오류는 [19_장소별_날씨.md](19_장소별_날씨.md) 3·4장.
 - 오류: 400 `VALIDATION_FAILED`(`date`·`region`·`lat`·`lon`·`q`), 401 `UNAUTHORIZED`, 429 `WEATHER_LIMIT`(`params.kind`: `ON_DEMAND`·`SEARCH`), 503 `WEATHER_UNAVAILABLE`(`params.kind: SEARCH`이면 장소 검색을 쓸 수 없음, 없으면 날씨 자체).
@@ -335,6 +380,17 @@ interface AnalyzeResponse {
 - 모두 로그인 필요. 남의·없는 예정은 404. 회원당 500개, 넘으면 409 `PLAN_LIMIT`(`params.max`). 날짜는 오늘(한국) 앞뒤 1년.
 - 응답 `PlanDto`에 `missingItemIds`(코디의 아이템 중 지금 옷장에 없는 id)가 있다. 필드·검증 표·동기화 규칙은 [21_예정_코디_저장.md](21_예정_코디_저장.md).
 
+### 푸시 토큰 (D-1 알림, 23 문서 4장)
+
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| PUT | `/me/push-token` | `{ token, platform, deviceId }` | 200 `{ deviceId, platform, serverPush, dayBeforeTime }`. 같은 기기면 바꾼다 |
+| DELETE | `/me/push-token?deviceId=` | - | 204 (없어도 204). `deviceId`가 없으면 400 |
+
+- 로그인 필요. `token`은 Expo 푸시 토큰 `ExponentPushToken[...]`(255자까지), `platform`은 `ios`·`android`, `deviceId`는 앱이 처음 실행할 때 만든 기기 ID(1~64자, 영문·숫자·`.` `_` `:` `-`). 틀리면 400 `VALIDATION_FAILED`(`token` `INVALID_FORMAT{format}`, `platform` `NOT_ALLOWED`, `deviceId`).
+- `serverPush`가 `true`(서버 설정 `wearly.notify.push.enabled=true`이고 `provider=expo`)이면 서버가 이 기기에 D-1 알림을 보내므로 앱은 **로컬 D-1 알림을 끈다.** 기본은 `false`(토큰만 받아 둠)다. `dayBeforeTime`은 서버 D-1 작업 시각 `HH:mm`(한국 시간, 기본 `19:30`).
+- 같은 토큰은 한 행만 둔다(기기에서 다른 계정으로 로그인하면 새 계정으로 옮긴다). 앱은 로그아웃 전에 지운다. 탈퇴하면 함께 지워지고, Expo가 `DeviceNotRegistered`로 답한 토큰은 서버가 지운다.
+
 ## 7. AI 분석
 
 > 2차에서 공급자 선택이 DB 기반으로 바뀌었다. **공급자 선택·실패 처리·관리는 07 문서 3장을 따른다.** 아래는 요약이다.
@@ -347,6 +403,8 @@ interface AnalyzeResponse {
   - 쓸 수 있는 공급자가 없으면 502 `AI_UNAVAILABLE`. **목업으로 대신하지 않는다.** 서버는 이때도 시작하고 WARN을 남긴다 (1차의 "키 없으면 시작 실패"는 없어졌다).
 - 세 공급자 모두 이미지와 함께 **활성 코드**로 만든 허용 값 목록(코드+한국어 라벨, 세부 종류는 종류별)과 JSON 스키마를 주고 구조화 출력으로 받는다. 허용 목록 밖 값·짝 불일치는 서버가 거부하고 다음 공급자로 넘어간다 (06 문서 4장).
 - 목업은 이미지 바이트의 SHA-256으로 활성 코드 중에서 값을 정한다 (같은 사진 + 같은 코드 = 같은 결과).
+- 분석 결과 `colors`(1~3개, 이슈 #4): 허용 값은 `color`와 같은 활성 COLOR 코드, 첫 번째는 `color`와 같아야 하고 중복이 없어야 한다. 어긋나면 서버가 검증에서 거부하고 다음 공급자로 넘어간다.
+- **프롬프트 캐싱** (2026-10-18, `5c457da`): 사진 분석과 코디 추천의 고정 지시문(지시·허용 값 목록·점수 기준)을 요청마다 바뀌는 사용자 메시지(사진 + 짧은 요청 문장)에서 떼어 system(OpenAI `instructions`, Gemini `systemInstruction`)으로 보낸다. Claude는 이 고정 부분 끝에 `cache_control`(ephemeral, 5분)을 붙인다. 설정은 `wearly.ai.prompt-cache.enabled`(`WEARLY_AI_PROMPT_CACHE_ENABLED`, 기본 `true`). OpenAI·Gemini는 같은 앞부분을 공급자가 자동으로 캐시하므로 이 설정과 상관없다. 스키마 객체는 모두 순서가 고정된 맵으로 만들어 요청마다 같은 바이트가 나가게 한다. `tb_ai_analysis_log`의 입력 토큰은 **캐시 읽기·쓰기를 포함한 입력 전체**로 공급자마다 같게 기록한다. 호출이 성공하면 INFO 한 줄 `AI {feature} 성공 provider=... model=... ms=... input=... output=... cacheRead=... cacheWrite=...`을 남긴다(공급자가 주지 않은 값은 `null`). 실측과 DB에 캐시 토큰 칸이 아직 없는 점은 [18](18_사진_저장.md) 13장.
 - 일일 한도 `WEARLY_AI_DAILY_LIMIT` (기본 10). 성공한 사진 분석(`feature='ITEM_ANALYZE'`)만 센다. 4차 AI 코디 추천은 `WEARLY_AI_OUTFIT_DAILY_LIMIT`(기본 20)로 따로 센다(`feature='OUTFIT_RECOMMEND'`, 09 문서). 관리자 시험 분석(`ADMIN_TEST`)은 세지 않는다. 집계는 `tb_ai_analysis_log`를 MyBatis로 센다 (Asia/Seoul 날짜 기준).
 - multipart로 보낸 이미지는 저장하지 않는다. `{ imageId }`로 분석할 때는 서버에 저장한 original을 읽어 같은 흐름에 넣는다(18 문서 7.4). 로그에는 결과 JSON과 메타만 남긴다. 키 값은 어떤 응답·로그·변경 이력에도 내보내지 않는다 (3차: 관리자 응답의 `keyLast4`(웹 입력 키의 끝 4자)만 예외, 07 문서 6장).
 
@@ -380,6 +438,7 @@ api.weather.day({ region } | { lat, lon }, date)   // 한 장소·한 날짜의 
 api.weather.places(q)                              // 장소 검색 (로그인)
 api.plans.list({ from?, to? }) / create(input) / bulk(inputs)   // 예정 코디 (로그인, 21 문서)
 api.plans.patch(id, patch) / remove(id)
+api.push.register({ token, platform, deviceId }) / remove(deviceId)   // 푸시 토큰 (로그인, D-1 알림)
 ```
 
 - `TOKEN_EXPIRED`를 받으면 Refresh로 한 번 갱신하고 원래 요청을 한 번 다시 보낸다. 동시에 여러 요청이 만료돼도 갱신 요청은 **하나만** 보낸다 (single-flight).
@@ -391,7 +450,9 @@ api.plans.patch(id, patch) / remove(id)
 - 짧은 Access 수명(`WEARLY_ACCESS_TTL=PT3S`)과 낮은 AI 한도(`WEARLY_AI_DAILY_LIMIT=3`), `WEARLY_AI_PROVIDER=mock`으로 띄워 만료·갱신·한도를 실제로 확인한다.
 - 개발용 `backend/config/application-local.yml`(실제 AI 키·관리자 계정·마스터 키)은 읽지 않는다 (`WEARLY_LOCAL_CONFIG`를 없는 경로로 준다). DB는 compose의 `db`(`wearly-postgres`)를 쓴다.
 - 시나리오는 `mobile/src/api/client.ts`를 그대로 import해 앱과 같은 코드로 서버를 부른다.
-- 사진 저장 시나리오(43~46)는 앱 모듈을 거치지 않고 원시 HTTP로 서명 URL까지 실제로 PUT·GET한다. 하네스 전용 버킷 `wearly-images-harness`(compose의 MinIO)를 쓴다 (18 문서 2장, `harness/README.md`).
-- 장소별 날씨 시나리오(47~49)는 앱 모듈을 거치지 않고 원시 HTTP로 `GET /weather/day`·`/weather/places`를 확인한다. 하네스 백엔드는 목업 날씨·목업 평년값으로 돈다 (19 문서, `harness/README.md`).
-- 시나리오 50(관리자 날씨 호출 이력 `callKind` 필터)은 원시 HTTP로, 예정 코디 시나리오(51~53)도 원시 HTTP로 `/plans`를 확인한다 (21 문서, `harness/README.md`). 오류 본문 형식 검사(`checkErrorBody`)는 `message`가 없고 `traceId`가 `X-Request-Id` 헤더와 같은지 본다 (20 문서).
-- 6차의 앱 설정·옷 사용 중지 시나리오(30~37)는 앱 모듈을 거치지 않고 원시 HTTP로만 서버 계약을 확인한다 (`harness/README.md`).
+- 사진 저장 시나리오(46~49)는 앱 모듈을 거치지 않고 원시 HTTP로 서명 URL까지 실제로 PUT·GET한다. 하네스 전용 버킷 `wearly-images-harness`(compose의 MinIO)를 쓴다 (18 문서 2장, `harness/README.md`).
+- 장소별 날씨 시나리오(50~52)는 앱 모듈을 거치지 않고 원시 HTTP로 `GET /weather/day`·`/weather/places`를 확인한다. 하네스 백엔드는 목업 날씨·목업 평년값으로 돈다 (19 문서, `harness/README.md`).
+- 시나리오 53(관리자 날씨 호출 이력 `callKind` 필터)은 원시 HTTP로, 예정 코디 시나리오(54~56)도 원시 HTTP로 `/plans`를 확인한다 (21 문서, `harness/README.md`). 오류 본문 형식 검사(`checkErrorBody`)는 `message`가 없고 `traceId`가 `X-Request-Id` 헤더와 같은지 본다 (20 문서).
+- 6차의 앱 설정·옷 사용 중지 시나리오(32~40)는 앱 모듈을 거치지 않고 원시 HTTP로만 서버 계약을 확인한다 (`harness/README.md`). 계절 모드(이슈 #6)는 시나리오 34.
+- 관리자 2단계 인증 시나리오(45)는 지정한 관리자가 TOTP를 등록하고 대기 토큰으로 로그인하는 과정을 확인한다. `harness/run.sh`는 `WEARLY_ADMIN_MFA_REQUIRED=false`와 고정 마스터 키로 백엔드를 띄워, 시나리오가 따로 등록한 관리자 말고는 비밀번호만으로 들어온다 (22 문서).
+- 나의 정보 시나리오(9), 푸시 토큰 시나리오(57)도 있다. 번호는 `./run.sh --list` 기준(지금 57개).
