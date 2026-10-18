@@ -30,6 +30,7 @@
 | [20_오류_응답.md](20_오류_응답.md) | 오류 응답: 문장 없이 코드값만(`status`·`code`·`params`·`fieldErrors`·`traceId`), 오류 분류, traceId로 로그 찾기, `error-codes.json`과 앱·관리자 문구 표 일치 검사, 새 코드 추가 순서, 시스템 오류만 오류 번호 |
 | [21_예정_코디_저장.md](21_예정_코디_저장.md) | 예정 코디 서버 저장: `/plans` API(목록·만들기·bulk·PATCH·삭제)·검증·`PLAN_LIMIT` 500개·`missingItemIds`, V14 `tb_planned_outfit`, 앱 동기화(`clientId`·합치기·대기열·지우기 기록·지운 옷) |
 | [22_관리자_계정_관리.md](22_관리자_계정_관리.md) | 관리자 계정 관리 결정: 지금 구현의 문제(자동 승격 등), 일반 방식 3가지(앱 DB·IdP SSO·네트워크 차단), 1~3단계 계획(보완·OIDC/Keycloak·접근 프록시), IdP 확인 목록, 용어 |
+| [../CHANGELOG.md](../CHANGELOG.md) | 변경 이력: 날짜별 추가·변경·수정·보안·문서, 진행 중 작업 |
 
 ## 빠른 실행
 
