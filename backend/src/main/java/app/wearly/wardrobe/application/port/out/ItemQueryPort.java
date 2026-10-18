@@ -37,7 +37,7 @@ public interface ItemQueryPort {
   /** 사용 중지한 옷의 이유별 수. 많은 순, 같으면 이유 코드 순 */
   List<KeyCountDto> countRetiredByReason(long userId);
 
-  /** 모든 회원의 아이템이 쓰는 코드별 개수 (코드 값을 담는 컬럼 8개 전부, 사용 중지한 옷 포함) */
+  /** 모든 회원의 아이템이 쓰는 코드별 개수 (코드 값을 담는 컬럼 9개 전부 — 보조 색 포함, 사용 중지한 옷 포함) */
   List<CodeCountDto> countByCode();
 
   /** 이 코드를 쓰는 아이템 수 (모든 회원, 사용 중지한 옷 포함). 아이템이 쓰지 않는 그룹이면 0 */

@@ -96,6 +96,7 @@ public class OutfitRecommendService implements RecommendOutfitUseCase {
                         v.category(),
                         v.subType(),
                         v.color(),
+                        v.colors().subList(1, v.colors().size()),
                         v.pattern(),
                         v.seasons(),
                         v.styles(),

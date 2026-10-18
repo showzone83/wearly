@@ -3,6 +3,7 @@ import type * as Api from '@/api/types';
 import type { ItemDraft } from '@/components/ItemForm';
 import type * as App from '@/data/types';
 import { activeCodes, defaultStatus, isActiveCode, parentOf, subTypesOf } from './codes';
+import { itemColors, normalizeColors } from './itemAttrs';
 
 // 두 곳에 따로 정의한 타입이 어긋나면 여기서 타입 오류가 난다 (옷 속성은 양쪽 모두 코드 문자열)
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -27,13 +28,16 @@ export function itemFromDto(dto: Api.ItemDto, imageUri?: string): App.WardrobeIt
     name: dto.name,
     category: dto.category,
     subType: dto.subType,
-    color: dto.color,
+    ...colorsFromDto(dto),
     pattern: dto.pattern,
     seasons: dto.seasons ?? [],
     styles: dto.styles ?? [],
     formality: dto.formality,
     status: dto.status,
     brand: dto.brand ?? undefined,
+    // 예전 서버는 구입일을 보내지 않는다 → 비워 두고 화면이 등록일을 "모름"으로 보여 준다
+    purchasedAt: dto.purchasedAt || undefined,
+    purchasedAtEstimated: dto.purchasedAt ? dto.purchasedAtEstimated === true : undefined,
     wornCount: dto.wornCount ?? 0,
     lastWornAt: dto.lastWornAt ?? undefined,
     createdAt: dto.createdAt,
@@ -42,6 +46,15 @@ export function itemFromDto(dto: Api.ItemDto, imageUri?: string): App.WardrobeIt
     ...retireFromDto(dto),
   };
 }
+
+/**
+ * 주 색상·색 목록. 예전 서버(colors 없음)는 [color]. 주 색상은 colors[0]을 따른다
+ * (서버는 늘 color == colors[0]이지만 어긋나도 색 목록이 기준)
+ */
+export const colorsFromDto = (dto: Pick<Api.ItemDto, 'color' | 'colors'>): Pick<App.WardrobeItem, 'color' | 'colors'> => {
+  const colors = normalizeColors(dto.colors, dto.color);
+  return { color: colors[0], colors };
+};
 
 /** 서버 사진 참조. 예전 서버(필드 없음)·사진 없음(null)·주소가 빈 응답은 undefined */
 export const imageFromDto = (image: Api.ImageRef | null | undefined): App.IItemImage | undefined =>
@@ -63,11 +76,16 @@ export const retireFromDto = (
  * 서버 사진(imageId)은 바꿀 때만 부르는 쪽(account.createItem·saveItem)이 따로 넣는다
  */
 export function inputFromDraft(d: ItemDraft): Api.ItemInput {
+  const colors = normalizeColors(d.colors, d.color);
   return {
     name: d.name,
     category: d.category,
     subType: d.subType,
-    color: d.color,
+    // 예전 서버는 color만 안다. 새 서버는 둘 다 오면 colors를 쓴다
+    color: colors[0],
+    colors,
+    // 모름(undefined) → null: 서버가 등록일로 저장하고 estimated = true
+    purchasedAt: d.purchasedAt ?? null,
     pattern: d.pattern,
     seasons: d.seasons,
     styles: d.styles,
@@ -79,7 +97,8 @@ export function inputFromDraft(d: ItemDraft): Api.ItemInput {
 
 /** 샘플 옷장(착용 횟수·마지막 착용일 포함) → 서버 입력 */
 export function inputFromItem(i: App.WardrobeItem): Api.ItemInput {
-  return { ...inputFromDraft(i), wornCount: i.wornCount, lastWornAt: i.lastWornAt ?? null };
+  const draft: ItemDraft = { ...i, colors: itemColors(i), purchasedAt: i.purchasedAtEstimated ? undefined : i.purchasedAt };
+  return { ...inputFromDraft(draft), wornCount: i.wornCount, lastWornAt: i.lastWornAt ?? null };
 }
 
 export function profileFromDto(dto: Api.ProfileDto): App.Profile {
@@ -128,11 +147,14 @@ export function fixCategoryPair(category: string, subType: string): { category: 
 /** AI 분석 제안 → 등록 폼 값. 종류·세부 종류 짝은 코드 기준으로 맞춘다 */
 export function draftFromSuggestion(s: Api.AnalyzeSuggestion, imageUri: string, image?: App.IItemImage): ItemDraft {
   const { category, subType } = fixCategoryPair(s.category, s.subType);
+  // 앱 캐시에 없는(또는 비활성) 색은 뺀다. 남는 게 없으면 주 색상 하나 (예전 서버는 colors가 없다)
+  const colors = normalizeColors((s.colors ?? [s.color]).filter((c) => isActiveCode('COLOR', c)), s.color);
   return {
     name: s.name,
     category,
     subType,
-    color: s.color,
+    color: colors[0],
+    colors,
     pattern: s.pattern,
     seasons: s.seasons,
     styles: s.styles,

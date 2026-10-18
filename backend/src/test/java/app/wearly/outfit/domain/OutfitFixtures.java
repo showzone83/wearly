@@ -22,12 +22,24 @@ final class OutfitFixtures {
   }
 
   static OutfitItem item(String id, String category, String subType, String color, String status) {
+    return item(id, category, subType, color, List.of(), status);
+  }
+
+  /** 보조 색이 있는 옷 (이슈 #4) */
+  static OutfitItem item(
+      String id,
+      String category,
+      String subType,
+      String color,
+      List<String> subColors,
+      String status) {
     return OutfitItem.of(
         id,
         "옷" + id,
         category,
         subType,
         color,
+        subColors,
         "SOLID",
         List.of("SPRING", "FALL"),
         List.of("NEAT"),

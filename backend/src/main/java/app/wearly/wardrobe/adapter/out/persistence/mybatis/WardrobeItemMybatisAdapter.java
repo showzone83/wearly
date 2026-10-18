@@ -99,6 +99,7 @@ class WardrobeItemMybatisAdapter implements ItemQueryPort, ItemExistencePort {
         r.getCategory(),
         r.getSubType(),
         r.getColor(),
+        r.getSubColors(),
         r.getPattern(),
         r.getSeasons(),
         r.getStyles(),
@@ -107,6 +108,8 @@ class WardrobeItemMybatisAdapter implements ItemQueryPort, ItemExistencePort {
         r.getBrand(),
         r.getWornCount(),
         r.getLastWornAt(),
+        r.getPurchasedAt(),
+        r.isPurchasedAtEstimated(),
         r.getCreatedAt(),
         r.getRetiredAt() == null
             ? null

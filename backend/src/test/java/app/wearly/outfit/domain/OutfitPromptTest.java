@@ -136,6 +136,42 @@ class OutfitPromptTest {
   }
 
   @Test
+  void 보조_색은_옷_목록과_색_짝에_들어가고_피하고_싶은_색은_주_색상으로_본다() {
+    List<OutfitItem> items = new java.util.ArrayList<>(wardrobe());
+    items.add(item("12", "TOP", "SHIRT", "gray", List.of("lavender", "white"), "OWNED"));
+    items.add(item("13", "TOP", "KNIT", "beige", List.of("navy"), "OWNED"));
+    OutfitPool pool = OutfitPool.of(request(Map.of(), null, Set.of(), List.of("navy"), 3), items);
+    String prompt = OutfitPrompt.prompt(pool, taste, CODES);
+    assertThat(prompt)
+        .contains("- id 12 | \"옷12\" | 셔츠(SHIRT) | 색 gray(그레이, 뉴트럴, 밝기 ")
+        .contains(") + 보조 lavender(라벤더), white(화이트) | ")
+        // 보조 색도 내 옷의 색이라 색 짝에 들어간다
+        .contains("- gray: black, lavender, navy");
+    // 주 색상이 navy인 옷(2)만 빠지고, navy를 보조 색으로 가진 옷(13)은 남는다
+    assertThat(pool.eligible(OutfitCodes.TOP)).extracting(OutfitItem::id).contains("13");
+    assertThat(pool.eligible(OutfitCodes.TOP)).extracting(OutfitItem::id).doesNotContain("2");
+    assertThat(OutfitPrompt.instructions()).contains("보조 색은 주 색상보다 약하게 보되");
+  }
+
+  @Test
+  void 기온에_맞는_계절에_초봄_초여름_초가을이_더해진다() {
+    assertThat(weather(24).seasons()).containsExactly("SUMMER", "EARLY_SUMMER");
+    assertThat(weather(23.9).seasons())
+        .containsExactly("SPRING", "FALL", "SUMMER", "EARLY_SUMMER", "EARLY_FALL");
+    assertThat(weather(17).seasons())
+        .containsExactly("SPRING", "FALL", "SUMMER", "EARLY_SUMMER", "EARLY_FALL");
+    assertThat(weather(16.9).seasons()).containsExactly("SPRING", "FALL", "EARLY_SPRING");
+    assertThat(weather(9).seasons()).containsExactly("SPRING", "FALL", "EARLY_SPRING");
+    assertThat(weather(8.9).seasons()).containsExactly("FALL", "WINTER", "EARLY_SPRING");
+    assertThat(weather(4).seasons()).containsExactly("FALL", "WINTER", "EARLY_SPRING");
+    assertThat(weather(3.9).seasons()).containsExactly("WINTER");
+  }
+
+  private static OutfitRequest.Weather weather(double temp) {
+    return new OutfitRequest.Weather(temp, temp - 5, temp + 5, 0, "SUNNY");
+  }
+
+  @Test
   void 시스템_지시는_회원_요청과_상관없이_같고_스키마는_순서가_고정된_맵이다() {
     // 시스템 지시(Claude 캐시 앞부분)는 상수: 요청·옷장 값이 들어가지 않는다
     String instructions = OutfitPrompt.instructions();

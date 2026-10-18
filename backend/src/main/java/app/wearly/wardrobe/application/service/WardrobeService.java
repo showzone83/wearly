@@ -2,6 +2,7 @@ package app.wearly.wardrobe.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.Zones;
 import app.wearly.common.error.BusinessException;
 import app.wearly.image.application.port.in.ItemImageUseCase;
 import app.wearly.image.application.port.in.dto.ItemImageRefDto;
@@ -22,6 +23,7 @@ import app.wearly.wardrobe.domain.ItemRules;
 import app.wearly.wardrobe.domain.RetireRules;
 import app.wearly.wardrobe.domain.WardrobeItem;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -97,11 +99,12 @@ public class WardrobeService implements WardrobeUseCase {
   @Transactional
   public ItemDto create(long userId, CreateItemDto dto) {
     ItemInput input = dto.toInput();
-    BusinessException.throwIfAny(ItemRules.validate(input, ""));
+    LocalDate today = Zones.today(clock);
+    BusinessException.throwIfAny(ItemRules.validate(input, "", today));
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, null, "", errors);
     BusinessException.throwIfAny(errors);
-    return saveNew(userId, input, dto.imageId());
+    return saveNew(userId, input, dto.imageId(), today);
   }
 
   @Override
@@ -109,9 +112,10 @@ public class WardrobeService implements WardrobeUseCase {
   public List<ItemDto> bulkCreate(long userId, List<CreateItemDto> dtos) {
     List<ItemInput> inputs = dtos.stream().map(CreateItemDto::toInput).toList();
     CodeSnapshot codes = catalog.current();
+    LocalDate today = Zones.today(clock);
     List<FieldError> invalid = new ArrayList<>();
     for (int i = 0; i < inputs.size(); i++) {
-      invalid.addAll(ItemRules.validate(inputs.get(i), "items[" + i + "]."));
+      invalid.addAll(ItemRules.validate(inputs.get(i), "items[" + i + "].", today));
     }
     BusinessException.throwIfAny(invalid);
     List<FieldError> errors = new ArrayList<>();
@@ -121,7 +125,7 @@ public class WardrobeService implements WardrobeUseCase {
     BusinessException.throwIfAny(errors);
     List<ItemDto> created = new ArrayList<>(inputs.size());
     for (int i = 0; i < inputs.size(); i++) {
-      created.add(saveNew(userId, inputs.get(i), dtos.get(i).imageId()));
+      created.add(saveNew(userId, inputs.get(i), dtos.get(i).imageId(), today));
     }
     return created;
   }
@@ -132,12 +136,19 @@ public class WardrobeService implements WardrobeUseCase {
     WardrobeItem item = find(userId, itemId);
     BusinessException.throwIfAny(patch.inputErrors());
     ItemInput previous = item.toInput();
+    // 색: colors가 오면 전체를, 예전 color만 오면 주 색상만 바꾼다 (이슈 #4)
+    boolean legacyColor = !patch.colors().present() && patch.color().present();
+    List<String> colors =
+        legacyColor
+            ? withPrimary(patch.color().value(), previous.colors())
+            : patch.colors().orElse(previous.colors());
     ItemInput input =
         new ItemInput(
             patch.name().orElse(previous.name()),
             patch.category().orElse(previous.category()),
             patch.subType().orElse(previous.subType()),
-            patch.color().orElse(previous.color()),
+            colors,
+            legacyColor,
             patch.pattern().orElse(previous.pattern()),
             patch.seasons().orElse(previous.seasons()),
             patch.styles().orElse(previous.styles()),
@@ -145,12 +156,14 @@ public class WardrobeService implements WardrobeUseCase {
             patch.status().orElse(previous.status()),
             patch.brand().orElse(previous.brand()),
             patch.wornCount().orElse(previous.wornCount()),
-            patch.lastWornAt().orElse(previous.lastWornAt()));
-    BusinessException.throwIfAny(ItemRules.validate(input, ""));
+            patch.lastWornAt().orElse(previous.lastWornAt()),
+            patch.purchasedAt().orElse(previous.purchasedAt()));
+    LocalDate today = Zones.today(clock);
+    BusinessException.throwIfAny(ItemRules.validate(input, "", today));
     List<FieldError> errors = new ArrayList<>();
     ItemCodeValidator.validate(catalog.current(), input, previous, "", errors);
     BusinessException.throwIfAny(errors);
-    item.apply(input);
+    item.apply(input, today);
     WardrobeItem saved = items.save(item);
     if (patch.imageId().present()) {
       String imageId = patch.imageId().value();
@@ -195,12 +208,28 @@ public class WardrobeService implements WardrobeUseCase {
   }
 
   /** 새 아이템을 저장하고 사진이 있으면 붙인다 (붙이기가 실패하면 트랜잭션째 되돌린다) */
-  private ItemDto saveNew(long userId, ItemInput input, String imageId) {
-    WardrobeItem saved = items.save(WardrobeItem.create(userId, input));
+  private ItemDto saveNew(long userId, ItemInput input, String imageId, LocalDate today) {
+    WardrobeItem saved = items.save(WardrobeItem.create(userId, input, today));
     if (imageId == null) {
       return ItemDto.from(saved, null);
     }
     return ItemDto.from(saved, images.attach(userId, saved.id(), imageId));
+  }
+
+  /**
+   * 예전 color PATCH: 주 색상만 바꾸고 보조 색은 둔다 (같은 색이 보조 색에 있으면 뺀다). color가 null이면 null (필수 오류는 ItemRules가
+   * color 필드로 알린다)
+   */
+  static List<String> withPrimary(String color, List<String> previous) {
+    if (color == null) {
+      return null;
+    }
+    List<String> out = new ArrayList<>();
+    out.add(color);
+    if (previous != null) {
+      previous.stream().skip(1).filter(c -> !color.equals(c)).forEach(out::add);
+    }
+    return out;
   }
 
   private ItemDto withImage(long userId, WardrobeItem item) {

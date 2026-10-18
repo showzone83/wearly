@@ -8,6 +8,7 @@ import { ApiError, isApiError } from '@/api/errors';
 import { useStore, type AccountUser } from '@/store/useStore';
 import { api, setAuthLostHandler, tokenStore } from './api';
 import { newId } from './context';
+import { purchaseFields } from './itemAttrs';
 import { keepPhotoLocally } from './photoUpload';
 import { syncPlans } from './planSync';
 import { RETIRE_MEMO_MAX } from './retire';
@@ -262,7 +263,9 @@ export async function createItem(draft: ItemDraft): Promise<WardrobeItem> {
   if (s.authMode !== 'account') {
     const id = newId('item');
     const imageUri = await keepPhotoLocally(form.imageUri, id);
-    const item: WardrobeItem = { ...form, imageUri, id, wornCount: 0, createdAt: new Date().toISOString() };
+    const createdAt = new Date().toISOString();
+    // 구입일을 모르면 등록일(오늘, 기기 날짜)을 넣고 estimated (서버와 같은 규칙)
+    const item: WardrobeItem = { ...form, ...purchaseFields(form.purchasedAt, createdAt), imageUri, id, wornCount: 0, createdAt };
     s.addItem(item);
     return item;
   }
@@ -294,7 +297,9 @@ export async function saveItem(id: string, draft: ItemDraft): Promise<boolean> {
   const photoChanged = form.imageUri !== current?.imageUri;
   if (s.authMode !== 'account') {
     const imageUri = photoChanged ? await keepPhotoLocally(form.imageUri, id) : form.imageUri;
-    useStore.getState().updateItem(id, { ...form, imageUri });
+    // 모름이면 등록일로 되돌린다 (서버 PATCH purchasedAt: null과 같다)
+    const purchase = purchaseFields(form.purchasedAt, current?.createdAt ?? new Date().toISOString());
+    useStore.getState().updateItem(id, { ...form, ...purchase, imageUri });
     return true;
   }
   try {

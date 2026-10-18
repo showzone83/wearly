@@ -16,8 +16,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * tb_wardrobe_item JPA 엔티티 (쓰기·단건 조회). seasons·styles는 TEXT[], 사용 중지는
- * retired_at·retire_reason·retire_memo
+ * tb_wardrobe_item JPA 엔티티 (쓰기·단건 조회). seasons·styles·sub_colors는 TEXT[], 사용 중지는
+ * retired_at·retire_reason·retire_memo, 구입일은 purchased_at·purchased_at_estimated (이슈 #4)
  */
 @Entity
 @Table(name = "tb_wardrobe_item")
@@ -42,6 +42,11 @@ public class WardrobeItemEntity {
 
   @Column(name = "color", nullable = false, length = 30)
   private String color;
+
+  /** 보조 색 0~2개 (이슈 #4) */
+  @JdbcTypeCode(SqlTypes.ARRAY)
+  @Column(name = "sub_colors", nullable = false)
+  private List<String> subColors;
 
   @Column(name = "pattern", nullable = false, length = 30)
   private String pattern;
@@ -68,6 +73,12 @@ public class WardrobeItemEntity {
 
   @Column(name = "last_worn_at")
   private LocalDate lastWornAt;
+
+  @Column(name = "purchased_at", nullable = false)
+  private LocalDate purchasedAt;
+
+  @Column(name = "purchased_at_estimated", nullable = false)
+  private boolean purchasedAtEstimated;
 
   @Column(name = "retired_at")
   private Instant retiredAt;
@@ -107,6 +118,7 @@ public class WardrobeItemEntity {
       String category,
       String subType,
       String color,
+      List<String> subColors,
       String pattern,
       List<String> seasons,
       List<String> styles,
@@ -114,11 +126,14 @@ public class WardrobeItemEntity {
       String status,
       String brand,
       int wornCount,
-      LocalDate lastWornAt) {
+      LocalDate lastWornAt,
+      LocalDate purchasedAt,
+      boolean purchasedAtEstimated) {
     this.name = name;
     this.category = category;
     this.subType = subType;
     this.color = color;
+    this.subColors = subColors;
     this.pattern = pattern;
     this.seasons = seasons;
     this.styles = styles;
@@ -127,6 +142,8 @@ public class WardrobeItemEntity {
     this.brand = brand;
     this.wornCount = wornCount;
     this.lastWornAt = lastWornAt;
+    this.purchasedAt = purchasedAt;
+    this.purchasedAtEstimated = purchasedAtEstimated;
   }
 
   /** 사용 중지 상태 (13 문서). 사용 중이면 세 값 모두 null */
@@ -172,6 +189,10 @@ public class WardrobeItemEntity {
     return color;
   }
 
+  public List<String> getSubColors() {
+    return subColors;
+  }
+
   public String getPattern() {
     return pattern;
   }
@@ -202,6 +223,14 @@ public class WardrobeItemEntity {
 
   public LocalDate getLastWornAt() {
     return lastWornAt;
+  }
+
+  public LocalDate getPurchasedAt() {
+    return purchasedAt;
+  }
+
+  public boolean isPurchasedAtEstimated() {
+    return purchasedAtEstimated;
   }
 
   public Instant getCreatedAt() {

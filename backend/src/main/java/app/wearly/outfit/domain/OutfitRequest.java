@@ -60,19 +60,23 @@ public record OutfitRequest(
       return temp < 17 || (max - min >= 10 && min < 16);
     }
 
-    /** 기온에 맞는 계절 (SEASON 코드) */
+    /**
+     * 기온에 맞는 계절 (SEASON 코드, 앱 recommend.ts seasonsFor와 같다). 초봄·초여름·초가을(이슈 #4)은 기존 목록 뒤에 덧붙여 기존 판단을
+     * 바꾸지 않는다: 초여름은 17°C 이상(서울 6월 평균 약 22°C), 초가을은 17~24°C(9월 평균 약 21°C), 초봄은 4~17°C(3월 평균 약 6°C).
+     */
     public List<String> seasons() {
       if (temp >= 24) {
-        return List.of(Seasons.SUMMER);
+        return List.of(Seasons.SUMMER, Seasons.EARLY_SUMMER);
       }
       if (temp >= 17) {
-        return List.of(Seasons.SPRING, Seasons.FALL, Seasons.SUMMER);
+        return List.of(
+            Seasons.SPRING, Seasons.FALL, Seasons.SUMMER, Seasons.EARLY_SUMMER, Seasons.EARLY_FALL);
       }
       if (temp >= 9) {
-        return List.of(Seasons.SPRING, Seasons.FALL);
+        return List.of(Seasons.SPRING, Seasons.FALL, Seasons.EARLY_SPRING);
       }
       if (temp >= 4) {
-        return List.of(Seasons.FALL, Seasons.WINTER);
+        return List.of(Seasons.FALL, Seasons.WINTER, Seasons.EARLY_SPRING);
       }
       return List.of(Seasons.WINTER);
     }

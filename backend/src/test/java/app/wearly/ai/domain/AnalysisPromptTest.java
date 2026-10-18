@@ -40,6 +40,10 @@ class AnalysisPromptTest {
         .contains("- formality: 1(편한 데일리), 2(비즈니스 캐주얼), 3(포멀)")
         .doesNotContain("%s");
     assertThat(instructions.indexOf("SPRING(")).isLessThan(instructions.indexOf("WINTER("));
+    // 이슈 #4: 색 1~3개(colors)와 새 계절 코드 (초봄·봄·초여름·여름·초가을·가을·겨울 순)
+    assertThat(instructions)
+        .contains("- colors: 옷에서 눈에 띄는 색 1~3개")
+        .contains("EARLY_SPRING(초봄), SPRING(봄), EARLY_SUMMER(초여름), SUMMER(여름), EARLY_FALL(초가을)");
   }
 
   @Test
@@ -48,7 +52,11 @@ class AnalysisPromptTest {
     OrderedMaps.assertOrdered(schema, "schema");
     // 직렬화 순서: 객체마다 type이 먼저
     assertThat(JSON.writeValueAsString(schema.get("properties")))
-        .contains("\"seasons\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"enum\":[");
+        .contains("\"seasons\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"enum\":[")
+        .contains(
+            "\"colors\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"enum\":[\"navy\"");
+    assertThat(AnalysisPrompt.FIELDS).contains("color", "colors");
+    assertThat(schema.get("required")).isEqualTo(AnalysisPrompt.FIELDS);
   }
 
   @Test

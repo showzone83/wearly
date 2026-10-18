@@ -80,13 +80,20 @@ export interface ItemDto {
   name: string;
   category: Category;
   subType: SubType;
+  /** 주 색상. 항상 colors[0]과 같다 (colors가 없는 예전 서버도 보낸다) */
   color: ColorKey;
+  /** 색 1~3개, 첫 번째가 주 색상, 중복 없음. 예전 서버는 보내지 않는다 → [color]로 본다 */
+  colors?: ColorKey[];
   pattern: Pattern;
   seasons: Season[];
   styles: StyleTag[];
   formality: 1 | 2 | 3;
   status: ItemStatus;
   brand?: string | null;
+  /** 구입일 YYYY-MM-DD. 늘 값이 있다(모르면 등록일, 서울 기준). 예전 서버는 보내지 않는다 */
+  purchasedAt?: string;
+  /** true면 사용자가 모른다고 해서 등록일을 넣은 값 ("모름(등록일)"로 표시). 예전 서버는 보내지 않는다 */
+  purchasedAtEstimated?: boolean;
   wornCount: number;
   /** YYYY-MM-DD */
   lastWornAt?: string | null;
@@ -103,8 +110,27 @@ export interface ItemDto {
 
 export type ItemInput = Omit<
   ItemDto,
-  'id' | 'createdAt' | 'wornCount' | 'lastWornAt' | 'retiredAt' | 'retireReason' | 'retireMemo' | 'image'
+  | 'id'
+  | 'createdAt'
+  | 'wornCount'
+  | 'lastWornAt'
+  | 'retiredAt'
+  | 'retireReason'
+  | 'retireMemo'
+  | 'image'
+  | 'purchasedAt'
+  | 'purchasedAtEstimated'
 > & {
+  /**
+   * 색 1~3개(중복 금지, 활성 COLOR 코드), 첫 번째가 주 색상. color와 둘 다 오면 서버는 colors를 쓴다.
+   * 앱은 예전 서버 호환을 위해 color = colors[0]도 함께 보낸다
+   */
+  colors?: ColorKey[];
+  /**
+   * 구입일 YYYY-MM-DD (1990-01-01 ~ 오늘, 서울 기준). null·없음 → 등록일로 저장하고 estimated=true.
+   * PATCH: null이면 등록일로 되돌리고 estimated=true, 날짜면 estimated=false, 보내지 않으면 그대로
+   */
+  purchasedAt?: string | null;
   wornCount?: number;
   lastWornAt?: string | null;
   /**
@@ -123,6 +149,7 @@ export type ItemSort = 'recent' | 'worn' | 'name';
 export interface ItemFilter {
   category?: Category;
   status?: ItemStatus;
+  /** 주 색상이나 보조 색(colors) 중 하나라도 같으면 맞는다 */
   color?: ColorKey;
   /** 이름·브랜드 부분 일치 */
   q?: string;
@@ -143,6 +170,7 @@ export interface WardrobeStats {
   total: number;
   /** 활성 CATEGORY 코드 전부 (0 포함) + 아이템이 있는 비활성 코드 */
   byCategory: Record<Category, number>;
+  /** 주 색상(color) 기준 */
   byColor: { color: ColorKey; count: number }[];
   byStyle: { style: StyleTag; count: number }[];
   byStatus: Record<ItemStatus, number>;
@@ -212,7 +240,10 @@ export interface AnalyzeSuggestion {
   name: string;
   category: Category;
   subType: SubType;
+  /** 주 색상 (colors[0]과 같다) */
   color: ColorKey;
+  /** 색 1~3개, 주 색상 먼저. 예전 서버는 보내지 않는다 → [color]로 본다 */
+  colors?: ColorKey[];
   pattern: Pattern;
   seasons: Season[];
   styles: StyleTag[];

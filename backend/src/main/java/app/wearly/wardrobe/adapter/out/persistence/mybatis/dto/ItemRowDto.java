@@ -12,6 +12,7 @@ public class ItemRowDto {
   private String category;
   private String subType;
   private String color;
+  private List<String> subColors;
   private String pattern;
   private List<String> seasons;
   private List<String> styles;
@@ -20,6 +21,8 @@ public class ItemRowDto {
   private String brand;
   private int wornCount;
   private LocalDate lastWornAt;
+  private LocalDate purchasedAt;
+  private boolean purchasedAtEstimated;
   private Instant createdAt;
   private Instant retiredAt;
   private String retireReason;
@@ -63,6 +66,14 @@ public class ItemRowDto {
 
   public void setColor(String color) {
     this.color = color;
+  }
+
+  public List<String> getSubColors() {
+    return subColors;
+  }
+
+  public void setSubColors(List<String> subColors) {
+    this.subColors = subColors;
   }
 
   public String getPattern() {
@@ -127,6 +138,22 @@ public class ItemRowDto {
 
   public void setLastWornAt(LocalDate lastWornAt) {
     this.lastWornAt = lastWornAt;
+  }
+
+  public LocalDate getPurchasedAt() {
+    return purchasedAt;
+  }
+
+  public void setPurchasedAt(LocalDate purchasedAt) {
+    this.purchasedAt = purchasedAt;
+  }
+
+  public boolean isPurchasedAtEstimated() {
+    return purchasedAtEstimated;
+  }
+
+  public void setPurchasedAtEstimated(boolean purchasedAtEstimated) {
+    this.purchasedAtEstimated = purchasedAtEstimated;
   }
 
   public Instant getCreatedAt() {
