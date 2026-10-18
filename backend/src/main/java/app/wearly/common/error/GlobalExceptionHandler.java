@@ -59,7 +59,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(DomainValidationException.class)
   ResponseEntity<Map<String, Object>> handleDomain(
       DomainValidationException e, HttpServletRequest req) {
-    logBusiness(req, ErrorCode.VALIDATION_FAILED, e);
+    logValidation(req, e.errors());
     return validation(e.errors());
   }
 
@@ -68,14 +68,14 @@ public class GlobalExceptionHandler {
    */
   @ExceptionHandler(BindException.class)
   ResponseEntity<Map<String, Object>> handleBind(BindException e, HttpServletRequest req) {
-    logBusiness(req, ErrorCode.VALIDATION_FAILED, e);
-    return validation(fieldErrors(e));
+    List<FieldError> errors = fieldErrors(e);
+    logValidation(req, errors);
+    return validation(errors);
   }
 
   @ExceptionHandler(HandlerMethodValidationException.class)
   ResponseEntity<Map<String, Object>> handleMethodValidation(
       HandlerMethodValidationException e, HttpServletRequest req) {
-    logBusiness(req, ErrorCode.VALIDATION_FAILED, e);
     List<FieldError> errors = new ArrayList<>();
     e.getParameterValidationResults()
         .forEach(
@@ -95,17 +95,18 @@ public class GlobalExceptionHandler {
                                 : ConstraintCodes.of(name, v));
                       });
             });
+    logValidation(req, errors);
     return validation(errors);
   }
 
   @ExceptionHandler(ConstraintViolationException.class)
   ResponseEntity<Map<String, Object>> handleConstraint(
       ConstraintViolationException e, HttpServletRequest req) {
-    logBusiness(req, ErrorCode.VALIDATION_FAILED, e);
     List<FieldError> errors =
         e.getConstraintViolations().stream()
             .map(v -> ConstraintCodes.of(leaf(ConstraintCodes.path(v)), v))
             .toList();
+    logValidation(req, errors);
     return validation(errors);
   }
 
@@ -311,16 +312,41 @@ public class GlobalExceptionHandler {
         e.getMessage());
   }
 
-  /** 기본 오류: Jackson·Spring 메시지 원문은 여기(로그)에만 */
-  private static void logClient(HttpServletRequest req, ErrorCode code, Exception e) {
+  /**
+   * 입력 검증 실패: 필드 이름과 필드 코드만 남긴다. Spring·Bean Validation 메시지 원문에는 거부된 값(비밀번호 등)이 그대로 들어 있어 로그에도 남기지
+   * 않는다.
+   */
+  private static void logValidation(HttpServletRequest req, List<FieldError> errors) {
+    StringBuilder fields = new StringBuilder();
+    for (FieldError f : errors) {
+      if (!fields.isEmpty()) {
+        fields.append(',');
+      }
+      fields.append(f.field()).append(':').append(f.code());
+    }
     log.warn(
-        "요청 오류 code={} {} {} userId={} cause={}: {}",
+        "입력 오류 code={} {} {} userId={} fields=[{}]",
+        ErrorCode.VALIDATION_FAILED,
+        req.getMethod(),
+        req.getRequestURI(),
+        TraceIds.currentUser(),
+        fields);
+  }
+
+  /** 기본 오류: 예외 종류만 남긴다. Jackson·Spring 메시지 원문에는 요청에 들어 있던 값(비밀번호 등)이 섞일 수 있어 로그에도 남기지 않는다. */
+  private static void logClient(HttpServletRequest req, ErrorCode code, Exception e) {
+    Throwable root = e;
+    while (root.getCause() != null && root.getCause() != root) {
+      root = root.getCause();
+    }
+    log.warn(
+        "요청 오류 code={} {} {} userId={} cause={} root={}",
         code,
         req.getMethod(),
         req.getRequestURI(),
         TraceIds.currentUser(),
         e.getClass().getName(),
-        e.getMessage());
+        root.getClass().getName());
   }
 
   private static void logExpectedSystem(HttpServletRequest req, ErrorCode code, Exception e) {

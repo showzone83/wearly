@@ -1,5 +1,5 @@
 // 예정 코디 서버 저장 (doc/19 "다음 단계"): GET/POST/PATCH/DELETE /plans, POST /plans/bulk.
-// 앱 API 모듈(mobile/src/api)은 아직 이 API를 모르므로 원시 HTTP(raw)로만 확인한다.
+// 서버 계약 자체를 확인하려고 앱 API 모듈(mobile/src/api의 api.plans) 대신 원시 HTTP(raw)로 부른다.
 import { eq, isIsoDateTime, ok } from '../lib/assert';
 import { checkErrorBody, raw, type RawResponse } from '../lib/http';
 import { rawSignup } from '../lib/rawUser';

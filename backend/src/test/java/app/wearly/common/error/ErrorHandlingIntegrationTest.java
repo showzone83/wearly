@@ -152,10 +152,25 @@ class ErrorHandlingIntegrationTest extends IntegrationTestBase {
     assertThat(fieldCodes(r)).containsExactly("body=INVALID_FORMAT");
     assertThat(r.body().get("fieldErrors").get(0).get("params").get("format").asString())
         .isEqualTo("json");
-    // 로그에는 Jackson 원문이 남는다
+    // 로그에는 예외 종류만 남는다 (원문에 요청 값이 섞일 수 있다)
     assertThat(lineWith(output.getOut(), "요청 오류 code=VALIDATION_FAILED"))
         .contains("HttpMessageNotReadableException")
         .contains("traceId=" + r.body().get("traceId").asString());
+  }
+
+  @Test
+  void 입력_검증_실패_로그에_입력한_값이_남지_않는다(CapturedOutput output) {
+    String password = "pw" + SECRET;
+    Resp r =
+        api()
+            .post(
+                "/api/v1/auth/signup",
+                null,
+                "{\"email\": \"not-an-email\", \"password\": \"" + password + "\", \"name\": \"\"}")
+            .expectError(400, "VALIDATION_FAILED");
+    String line = lineWith(output.getOut(), "입력 오류 code=VALIDATION_FAILED");
+    assertThat(line).contains("traceId=" + r.body().get("traceId").asString()).contains("email:");
+    assertThat(output.getOut()).doesNotContain(password).doesNotContain("not-an-email");
   }
 
   @Test
