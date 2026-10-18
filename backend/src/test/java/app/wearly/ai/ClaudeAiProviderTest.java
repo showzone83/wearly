@@ -6,8 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import app.wearly.ai.adapter.out.ai.JsonObjectParser;
 import app.wearly.ai.adapter.out.ai.claude.ClaudeAiProvider;
 import app.wearly.ai.domain.AiImage;
+import app.wearly.ai.domain.AiJsonPrompt;
+import app.wearly.ai.domain.AiJsonResult;
 import app.wearly.ai.domain.AiProviderException;
 import app.wearly.ai.domain.AiResult;
+import app.wearly.ai.domain.AnalysisPrompt;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.support.TestCodes;
 import com.anthropic.client.AnthropicClient;
@@ -20,6 +23,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,8 +107,12 @@ class ClaudeAiProviderTest {
     assertThat(Base64.getDecoder().decode(content.get(0).get("source").get("data").asString()))
         .isEqualTo(PHOTO);
     assertThat(content.get(1).get("type").asString()).isEqualTo("text");
-    // 허용 값은 활성 코드에서: 코드와 한국어 라벨, 세부 종류는 종류별로 묶는다
-    assertThat(content.get(1).get("text").asString())
+    assertThat(content.get(1).get("text").asString()).isEqualTo(AnalysisPrompt.REQUEST);
+    // 허용 값은 활성 코드에서: 코드와 한국어 라벨, 세부 종류는 종류별로 묶는다. 고정 지시문이라 system에 있다
+    JsonNode system = req.get("system");
+    assertThat(system.size()).isEqualTo(1);
+    assertThat(system.get(0).get("type").asString()).isEqualTo("text");
+    assertThat(system.get(0).get("text").asString())
         .contains(
             "TOP(상의): TEE(티셔츠), LONG_TEE(긴소매 티셔츠)",
             "DRESS(원피스): DRESS(원피스), SHIRT_DRESS(셔츠 원피스)",
@@ -162,6 +170,94 @@ class ClaudeAiProviderTest {
     assertThat(result.model()).isEqualTo("claude-opus-5-5");
     assertThat(result.inputTokens()).isEqualTo(1500);
     assertThat(result.outputTokens()).isEqualTo(80);
+  }
+
+  @Test
+  void 고정_지시문_끝에_cache_control을_붙이고_사진만_다른_두_요청의_앞부분은_같다() {
+    responseBody = message(validSuggestion(), "end_turn");
+    provider.analyze(new AiImage(PHOTO, "image/jpeg", "a".repeat(64)), codes);
+    JsonNode first = JSON.readTree(requestBody.get());
+    // 코드 스냅샷을 새로 만들어도(서버 재시작·다른 인스턴스) 같은 바이트여야 한다
+    byte[] other = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 9, 9, 9};
+    provider.analyze(new AiImage(other, "image/jpeg", "b".repeat(64)), TestCodes.withInactive());
+    JsonNode second = JSON.readTree(requestBody.get());
+
+    JsonNode block = first.get("system").get(0);
+    assertThat(block.get("cache_control").get("type").asString()).isEqualTo("ephemeral");
+    // TTL은 기본(5분): ttl을 보내지 않는다
+    assertThat(block.get("cache_control").has("ttl")).isFalse();
+    // 캐시 지점은 system 한 곳뿐 (사진·사용자 메시지에는 없다)
+    assertThat(first.get("messages").toString()).doesNotContain("cache_control");
+    assertThat(first.has("cache_control")).isFalse();
+
+    // 앞부분(system)과 스키마(output_config)는 바이트 단위로 같고, 사진만 다르다
+    assertThat(second.get("system").toString()).isEqualTo(first.get("system").toString());
+    assertThat(second.get("output_config").toString())
+        .isEqualTo(first.get("output_config").toString());
+    assertThat(second.get("messages").toString()).isNotEqualTo(first.get("messages").toString());
+  }
+
+  @Test
+  void 사진_없는_생성_코디_추천도_지시문_끝에_cache_control을_붙인다() {
+    responseBody = textMessage("{\"ok\":true}", "end_turn");
+    provider.generateJson(
+        new AiJsonPrompt("plan", "고정 지시", "회원마다 다른 조건", Map.of("type", "object"), null));
+    JsonNode req = JSON.readTree(requestBody.get());
+    assertThat(req.get("system").get(0).get("text").asString()).isEqualTo("고정 지시");
+    assertThat(req.get("system").get(0).get("cache_control").get("type").asString())
+        .isEqualTo("ephemeral");
+    JsonNode user = req.get("messages").get(0);
+    assertThat(user.toString()).contains("회원마다 다른 조건").doesNotContain("cache_control");
+  }
+
+  @Test
+  void 설정으로_끄면_cache_control_없이_system_문자열로_보낸다() {
+    AnthropicClient client =
+        AnthropicOkHttpClient.builder()
+            .apiKey("test-key")
+            .baseUrl("http://127.0.0.1:" + server.getAddress().getPort())
+            .maxRetries(0)
+            .build();
+    ClaudeAiProvider off =
+        new ClaudeAiProvider(
+            "claude",
+            client,
+            "claude-opus-5-5",
+            "medium",
+            16000,
+            new JsonObjectParser(JSON),
+            "test-key",
+            false);
+    responseBody = message(validSuggestion(), "end_turn");
+    off.analyze(image(), codes);
+
+    assertThat(requestBody.get()).doesNotContain("cache_control");
+    JsonNode system = JSON.readTree(requestBody.get()).get("system");
+    assertThat(system.isString()).isTrue();
+    assertThat(system.asString()).isEqualTo(AnalysisPrompt.instructions(codes));
+  }
+
+  @Test
+  void 캐시_읽기_쓰기_토큰을_읽고_입력은_전체로_센다() {
+    responseBody = cachedMessage(validSuggestion(), 2600, 0);
+    AiJsonResult hit = provider.generateJson(AnalysisPrompt.request(image(), codes), image());
+    assertThat(hit.inputTokens()).isEqualTo(20 + 2600);
+    assertThat(hit.outputTokens()).isEqualTo(80);
+    assertThat(hit.cacheReadTokens()).isEqualTo(2600);
+    assertThat(hit.cacheWriteTokens()).isEqualTo(0);
+
+    responseBody = cachedMessage(validSuggestion(), 0, 2600);
+    AiJsonResult miss = provider.generateJson(AnalysisPrompt.request(image(), codes), image());
+    assertThat(miss.inputTokens()).isEqualTo(20 + 2600);
+    assertThat(miss.cacheReadTokens()).isEqualTo(0);
+    assertThat(miss.cacheWriteTokens()).isEqualTo(2600);
+
+    // 캐시 필드가 없는 응답이면 null
+    responseBody = message(validSuggestion(), "end_turn");
+    AiJsonResult none = provider.generateJson(AnalysisPrompt.request(image(), codes), image());
+    assertThat(none.inputTokens()).isEqualTo(1500);
+    assertThat(none.cacheReadTokens()).isNull();
+    assertThat(none.cacheWriteTokens()).isNull();
   }
 
   @Test
@@ -297,6 +393,18 @@ class ClaudeAiProviderTest {
     m.put("stop_reason", stopReason);
     m.putNull("stop_sequence");
     m.putObject("usage").put("input_tokens", 1500).put("output_tokens", 80);
+    return JSON.writeValueAsString(m);
+  }
+
+  /** 캐시를 읽고 쓴 응답 (Messages API usage 형식) */
+  private static String cachedMessage(JsonNode suggestion, long read, long write) {
+    ObjectNode m = JSON.readValue(message(suggestion, "end_turn"), ObjectNode.class);
+    ObjectNode usage = m.putObject("usage");
+    usage.put("input_tokens", 20);
+    usage.put("output_tokens", 80);
+    usage.put("cache_read_input_tokens", read);
+    usage.put("cache_creation_input_tokens", write);
+    usage.putObject("cache_creation").put("ephemeral_5m_input_tokens", write);
     return JSON.writeValueAsString(m);
   }
 

@@ -7,9 +7,15 @@ import java.util.Map;
 
 /**
  * 공급자 행의 options를 클라이언트 설정 값으로 읽는다. timeoutSeconds가 없으면 WEARLY_AI_TIMEOUT, baseUrl은
- * WEARLY_AI_ALLOW_BASE_URL=true일 때만 쓴다.
+ * WEARLY_AI_ALLOW_BASE_URL=true일 때만 쓴다. promptCache는 wearly.ai.prompt-cache.enabled (Claude만 쓴다).
  */
-public record ProviderOptions(Map<String, Object> raw, Duration timeout, String baseUrl) {
+public record ProviderOptions(
+    Map<String, Object> raw, Duration timeout, String baseUrl, boolean promptCache) {
+
+  /** 프롬프트 캐싱 켜짐(기본값)으로 만든다 */
+  public ProviderOptions(Map<String, Object> raw, Duration timeout, String baseUrl) {
+    this(raw, timeout, baseUrl, true);
+  }
 
   public static ProviderOptions of(AiProviderSetting s, WearlyProperties.Ai props) {
     Map<String, Object> o = s.options();
@@ -18,7 +24,7 @@ public record ProviderOptions(Map<String, Object> raw, Duration timeout, String 
             ? Duration.ofSeconds(n.longValue())
             : props.timeout();
     String baseUrl = props.allowBaseUrl() && o.get("baseUrl") instanceof String u ? u : null;
-    return new ProviderOptions(o, timeout, baseUrl);
+    return new ProviderOptions(o, timeout, baseUrl, props.promptCache().enabled());
   }
 
   public Integer integer(String name) {

@@ -7,10 +7,12 @@ import static app.wearly.outfit.domain.OutfitFixtures.wardrobe;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.wearly.common.domain.FieldErrorCode;
+import app.wearly.support.OrderedMaps;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 /** 프롬프트·스키마 (공급자와 무관, Spring 없음) */
 class OutfitPromptTest {
@@ -131,6 +133,24 @@ class OutfitPromptTest {
         .contains("개인 취향 15%")
         .contains("다양성 10%")
         .contains("신발(SHOES)은 반드시");
+  }
+
+  @Test
+  void 시스템_지시는_회원_요청과_상관없이_같고_스키마는_순서가_고정된_맵이다() {
+    // 시스템 지시(Claude 캐시 앞부분)는 상수: 요청·옷장 값이 들어가지 않는다
+    String instructions = OutfitPrompt.instructions();
+    assertThat(instructions).isSameAs(OutfitPrompt.instructions()).doesNotContain("%s");
+
+    Map<String, Object> schema = OutfitPrompt.schema(pinnedPool());
+    OrderedMaps.assertOrdered(schema, "schema");
+    // 같은 입력이면 같은 바이트 (같은 회원이 5분 안에 다시 받을 때 캐시를 읽는 조건)
+    JsonMapper json = JsonMapper.builder().build();
+    assertThat(json.writeValueAsString(OutfitPrompt.schema(pinnedPool())))
+        .isEqualTo(json.writeValueAsString(schema));
+  }
+
+  private static OutfitPool pinnedPool() {
+    return OutfitPool.of(request(Map.of("TOP", "2"), null, Set.of(), List.of(), 3), wardrobe());
   }
 
   @Test
