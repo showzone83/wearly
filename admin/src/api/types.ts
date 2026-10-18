@@ -580,9 +580,11 @@ export interface IWeatherRunQuery extends IPageQuery {
   status?: string;
 }
 
-/** GET /admin/weather/calls 필터. 서버에 호출 종류(callKind) 필터는 없다 — 화면이 받은 페이지 안에서 거른다 */
+/** GET /admin/weather/calls 필터. callKind는 서버가 거른다 */
 export interface IWeatherCallQuery extends IPageQuery {
   providerCode?: string;
+  /** FORECAST · ON_DEMAND · SEARCH · CLIMATE */
+  callKind?: string;
   regionCode?: string;
   /** 'true' | 'false' */
   success?: string;
@@ -596,6 +598,8 @@ export interface IWeatherCallQuery extends IPageQuery {
 export interface IWeatherCallSummary {
   today: { calls: number; failures: number; fallbacks: number; avgDurationMs: number | null };
   months: { providerCode: string; displayName: string; used: number; quota: number | null }[];
+  /** 공급자 표 밖 보조 공급자(OPEN_METEO·OPEN_METEO_GEO)의 이번 달 호출 수. 0이어도 항상 온다 */
+  auxiliaryMonths?: { providerCode: string; displayName: string; used: number }[];
 }
 
 export interface IWeatherSnapshot {

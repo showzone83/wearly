@@ -5,17 +5,30 @@ import { Fragment, useState } from 'react';
 import { api, isApiError } from '@/api';
 import type { IWeatherProvider, IWeatherTestResult } from '@/api';
 
-import { Badge, Button, Card, Drawer, Empty, ErrorBox, Field, JsonView, Loading, Notice, PageHeader, Switch } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  Drawer,
+  Empty,
+  ErrorBox,
+  Field,
+  JsonView,
+  Loading,
+  Notice,
+  PageHeader,
+  Switch,
+} from '@/components/ui';
 import { CurrentLine, DaysTable, WeatherTabs } from '@/pages/weather/WeatherParts';
 
 import { useToastStore } from '@/stores/useToastStore';
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 
 import { fieldErrorOf } from '@/lib/errorText';
 import { fmtDateTime, fmtMs, fmtNum } from '@/lib/format';
-import { useCodeBook, useResetWeatherProvider, useUpdateWeatherProvider, useWeatherProviders } from '@/lib/queries';
+import { qk, useCodeBook, useResetWeatherProvider, useUpdateWeatherProvider, useWeatherProviders } from '@/lib/queries';
 import {
   AUX_PROVIDERS,
   ERROR_TEXT,
@@ -107,7 +120,9 @@ const ProviderCard = ({ p, onEdit }: { p: IWeatherProvider; onEdit: (p: IWeather
         <dt>서버 설정 키</dt>
         <dd className="mono">wearly.weather.keys.{p.keyName}</dd>
         <dt>최대 예보 일수</dt>
-        <dd>{p.maxForecastDays}일 (한 지역에 {p.callsPerFetch}회 호출)</dd>
+        <dd>
+          {p.maxForecastDays}일 (한 지역에 {p.callsPerFetch}회 호출)
+        </dd>
         <dt>연속 실패</dt>
         <dd>{p.consecutiveFailures}회</dd>
         <dt>마지막 성공</dt>
@@ -165,13 +180,33 @@ const EditDrawer = ({ p, onClose }: { p: IWeatherProvider; onClose: () => void }
       }
     >
       <div className="form">
-        <Field label="월 호출 한도" hint="가입한 플랜의 월 한도. 비우면 한도 없음 (실패한 호출도 셉니다)" error={fieldError('monthlyQuota')}>
-          <input type="number" min={0} value={quota} onChange={(e) => setQuota(e.target.value)} placeholder="한도 없음" />
+        <Field
+          label="월 호출 한도"
+          hint="가입한 플랜의 월 한도. 비우면 한도 없음 (실패한 호출도 셉니다)"
+          error={fieldError('monthlyQuota')}
+        >
+          <input
+            type="number"
+            min={0}
+            value={quota}
+            onChange={(e) => setQuota(e.target.value)}
+            placeholder="한도 없음"
+          />
         </Field>
-        <Field label="최대 예보 일수" hint="WeatherAPI.com 무료 플랜은 3일" error={fieldError('maxForecastDays')} required>
+        <Field
+          label="최대 예보 일수"
+          hint="WeatherAPI.com 무료 플랜은 3일"
+          error={fieldError('maxForecastDays')}
+          required
+        >
           <input type="number" min={1} max={14} value={days} onChange={(e) => setDays(e.target.value)} />
         </Field>
-        <Field label="우선순위" hint="작을수록 먼저 부릅니다 (예비 공급자를 붙이면 의미가 생깁니다)" error={fieldError('priority')} required>
+        <Field
+          label="우선순위"
+          hint="작을수록 먼저 부릅니다 (예비 공급자를 붙이면 의미가 생깁니다)"
+          error={fieldError('priority')}
+          required
+        >
           <input type="number" min={0} max={10000} value={priority} onChange={(e) => setPriority(e.target.value)} />
         </Field>
         {update.error && !isApiError(update.error) ? <ErrorBox error={update.error} /> : null}
@@ -192,8 +227,8 @@ const TestCard = ({ providers }: { providers: IWeatherProvider[] }) => {
   return (
     <Card title="시험 호출" className="mt-md">
       <p className="muted small">
-        공급자 하나로 한 지역을 불러 봅니다. 저장된 날씨와 공급자 상태는 바뀌지 않고, 호출 이력에는 &quot;시험 호출&quot;로 남습니다.
-        사용 여부·차단과 상관없이 부르므로 키를 고친 뒤 확인할 때 씁니다.
+        공급자 하나로 한 지역을 불러 봅니다. 저장된 날씨와 공급자 상태는 바뀌지 않고, 호출 이력에는 &quot;시험
+        호출&quot;로 남습니다. 사용 여부·차단과 상관없이 부르므로 키를 고친 뒤 확인할 때 씁니다.
       </p>
       <div className="row gap-sm wrap">
         <select value={code} onChange={(e) => setCode(e.target.value)} aria-label="공급자">
@@ -257,11 +292,17 @@ const TestCard = ({ providers }: { providers: IWeatherProvider[] }) => {
 
 /** 공급자 표 밖의 고정 보조 공급자 (Open-Meteo: 평년값·장소 검색, doc/19). 켜고 끄기·우선순위·월 한도·차단이 없다 */
 const AuxProvidersCard = () => {
+  const summary = useQuery({ queryKey: qk.weatherSummary, queryFn: () => api.weather.callSummary() });
+
+  const used = Object.fromEntries((summary.data?.auxiliaryMonths ?? []).map((m) => [m.providerCode, m.used]));
+
   return (
     <Card title="Open-Meteo (보조 공급자)">
       <p className="small">
-        평년값(예보 밖 날짜)과 장소 검색에 서버가 고정으로 씁니다. 위 공급자 순서·차단·월 한도와 따로 움직이고, 키가 없고
-        <strong> 월 한도도 없습니다</strong>. 지오코딩이 실패하거나 꺼져 있으면 검색을 지원하는 위 날씨 공급자(WeatherAPI)로 검색하고, 그 호출은 위 공급자의 월 사용량에 들어갑니다.
+        평년값(예보 밖 날짜)과 장소 검색에 서버가 고정으로 씁니다. 위 공급자 순서·차단·월 한도와 따로 움직이고, 키가
+        없고
+        <strong> 월 한도도 없습니다</strong>. 지오코딩이 실패하거나 꺼져 있으면 검색을 지원하는 위 날씨
+        공급자(WeatherAPI)로 검색하고, 그 호출은 위 공급자의 월 사용량에 들어갑니다.
       </p>
       <dl className="kv mt-sm">
         {Object.entries(AUX_PROVIDERS).map(([code, a]) => (
@@ -269,6 +310,11 @@ const AuxProvidersCard = () => {
             <dt>{a.use}</dt>
             <dd>
               {a.label} <span className="mono muted small">{code}</span>{' '}
+              {used[code] !== undefined ? (
+                <span className="small">
+                  이번 달 <strong>{fmtNum(used[code])}</strong>회{' '}
+                </span>
+              ) : null}
               <Link className="link-btn small" to={`/weather/calls?providerCode=${code}`}>
                 호출 이력 보기
               </Link>

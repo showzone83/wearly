@@ -6,19 +6,7 @@ import type { FormEvent } from 'react';
 import { api } from '@/api';
 import type { IWeatherCall, IWeatherCallQuery } from '@/api';
 
-import {
-  Badge,
-  Button,
-  Card,
-  Drawer,
-  Empty,
-  ErrorBox,
-  Loading,
-  Notice,
-  PageHeader,
-  Pagination,
-  Stat,
-} from '@/components/ui';
+import { Badge, Button, Card, Drawer, Empty, ErrorBox, Loading, PageHeader, Pagination, Stat } from '@/components/ui';
 import { RunDetailDrawer, WeatherTabs } from '@/pages/weather/WeatherParts';
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -44,9 +32,17 @@ import type { TCallKind } from '@/lib/weather';
 
 const PAGE_SIZE = 30;
 /** 서버로 보내는 필터 */
-const FILTER_KEYS = ['providerCode', 'regionCode', 'success', 'fallback', 'errorCode', 'from', 'to'] as const;
-/** URL에 남기는 필터. kind(호출 종류)는 서버 API에 없어 받은 페이지 안에서만 거른다 */
-const URL_KEYS = [...FILTER_KEYS, 'kind'] as const;
+const FILTER_KEYS = [
+  'providerCode',
+  'callKind',
+  'regionCode',
+  'success',
+  'fallback',
+  'errorCode',
+  'from',
+  'to',
+] as const;
+const URL_KEYS = FILTER_KEYS;
 type TFilterKey = (typeof URL_KEYS)[number];
 
 const emptyDraft = (): Record<TFilterKey, string> => {
@@ -92,9 +88,7 @@ export const WeatherCallsPage = () => {
   });
 
   const today = summary.data?.today;
-  const kind = params.get('kind') ?? '';
-  // 서버에 종류 필터가 없어 받은 페이지 안에서만 거른다
-  const rows = data ? (kind ? data.items.filter((c) => callKindOf(c) === kind) : data.items) : [];
+  const rows = data?.items ?? [];
   const providerNames = Object.fromEntries((providers.data ?? []).map((p) => [p.code, p.displayName]));
   const auxProviders = Object.entries(AUX_PROVIDERS).filter(([code]) => !providerNames[code]);
 
@@ -145,11 +139,22 @@ export const WeatherCallsPage = () => {
               }
             />
           ))}
-          <Stat
-            label="Open-Meteo (평년값·장소 검색)"
-            value="월 한도 없음"
-            sub="키 없음 · 공급자 표 밖 · 사용량은 호출 이력에서"
-          />
+          {summary.data?.auxiliaryMonths?.length ? (
+            summary.data.auxiliaryMonths.map((m) => (
+              <Stat
+                key={m.providerCode}
+                label={`${m.displayName} 이번 달`}
+                value={fmtNum(m.used)}
+                sub={`월 한도 없음 · 키 없음 · ${AUX_PROVIDERS[m.providerCode]?.use ?? '보조'}`}
+              />
+            ))
+          ) : (
+            <Stat
+              label="Open-Meteo (평년값·장소 검색)"
+              value="월 한도 없음"
+              sub="키 없음 · 공급자 표 밖 · 사용량은 호출 이력에서"
+            />
+          )}
         </div>
       ) : null}
       {today ? <p className="muted small mt-sm">Open-Meteo: {OPEN_METEO_TERMS}</p> : null}
@@ -174,7 +179,7 @@ export const WeatherCallsPage = () => {
           </label>
           <label>
             <span className="field-label">종류</span>
-            <select value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value })}>
+            <select value={draft.callKind} onChange={(e) => setDraft({ ...draft, callKind: e.target.value })}>
               <option value="">전체</option>
               {CALL_KINDS.map((k) => (
                 <option key={k} value={k}>
@@ -248,16 +253,8 @@ export const WeatherCallsPage = () => {
       {isLoading ? <Loading /> : null}
       {data ? (
         <Card className={isFetching ? 'is-fetching' : ''}>
-          {kind ? (
-            <Notice tone="info">
-              종류 필터는 서버 API에 없어 이 페이지에서 받은 {fmtNum(data.items.length)}건 안에서만 거릅니다 (
-              {fmtNum(rows.length)}건). 다른 페이지에도 더 있을 수 있어요.
-            </Notice>
-          ) : null}
           {rows.length === 0 ? (
-            <Empty>
-              {kind && data.items.length ? '이 페이지에는 그 종류의 호출이 없습니다.' : '조건에 맞는 호출이 없습니다.'}
-            </Empty>
+            <Empty>조건에 맞는 호출이 없습니다.</Empty>
           ) : (
             <div className="table-wrap">
               <table className="table table-hover">

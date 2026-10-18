@@ -125,9 +125,10 @@ const USAGE_KIND_TEXT: Record<string, (n: number) => string> = {
   ITEM: (n) => `옷 ${n.toLocaleString('ko-KR')}개`,
   PROFILE: (n) => `회원 프로필 ${n.toLocaleString('ko-KR')}개`,
   SUB_TYPE: (n) => `세부 종류 ${n.toLocaleString('ko-KR')}개`,
+  PLAN: (n) => `예정 코디 ${n.toLocaleString('ko-KR')}개`,
 };
 
-/** CODE_IN_USE.usages: [{ kind: ITEM|PROFILE|SUB_TYPE, count }] → "옷 12개 · 회원 프로필 3개". 없으면 빈 문자열 */
+/** CODE_IN_USE.usages: [{ kind: ITEM|PROFILE|SUB_TYPE|PLAN, count }] → "옷 12개 · 회원 프로필 3개". 없으면 빈 문자열 */
 export const codeUsagesText = (usages: unknown): string => {
   if (!Array.isArray(usages)) return '';
   return usages
@@ -237,6 +238,7 @@ export const SERVER_ERROR_TEXT: Record<string, TText | null> = {
   IMAGE_UPLOAD_LIMIT: null, // 앱 사진 올리기
   IMAGE_TOO_LARGE: '사진이 너무 커요. 10MB 이하 사진을 올려 주세요.',
   UNSUPPORTED_MEDIA_TYPE: '지원하지 않는 형식이에요. JPEG·PNG·WebP·HEIC 사진을 올려 주세요.',
+  PLAN_LIMIT: null, // 앱 예정 코디 개수 한도
   AI_LIMIT_EXCEEDED: null, // 앱 회원 일일 한도 (관리자 시험 분석은 한도에 세지 않는다)
   AI_UNAVAILABLE: (p) =>
     `AI ${featureText(p.feature)}을(를) 지금 할 수 없어요. AI 공급자의 사용 여부·키·오늘 실패를 확인해 주세요.`,

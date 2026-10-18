@@ -18,7 +18,7 @@ export type TApiErrorCode =
   | 'REFRESH_REUSED'
   | 'NOT_FOUND'
   | 'CODE_EXISTS'
-  /** params.usages: [{ kind: ITEM|PROFILE|SUB_TYPE, count }] */
+  /** params.usages: [{ kind: ITEM|PROFILE|SUB_TYPE|PLAN, count }] */
   | 'CODE_IN_USE'
   | 'PROVIDER_EXISTS'
   | 'IMAGE_TOO_LARGE'
