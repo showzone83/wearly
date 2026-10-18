@@ -483,6 +483,8 @@ export interface PlaceSearchItem {
   lon: number;
   /** 국내 결과가 REGION 좌표 30km 안이면 그 코드 */
   regionCode?: string | null;
+  /** 시·군·구 결과의 상위 시·도 코드 (regionCode는 null이라 날씨는 좌표 방식으로 받는다) */
+  parentRegionCode?: string | null;
 }
 
 export interface PlaceSearchResponse {
