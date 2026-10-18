@@ -10,6 +10,7 @@ import { Button, Card, notify, Row, Screen, SectionHead, Title } from '@/compone
 import { router } from 'expo-router';
 
 import { OCCASION_LABEL, DISLIKE_REASONS, WEEKDAY_SHORT } from '@/data/constants';
+import { SEASON_INFO } from '@/data/seasons';
 import type { Outfit, OutfitItems, Slot, Weather } from '@/data/types';
 import { dayContext, isWorkDay } from '@/lib/context';
 import { addDays, diffDays, fromKey, longLabel, todayKey } from '@/lib/date';
@@ -18,6 +19,7 @@ import { activeItems } from '@/lib/retire';
 import { COND_LABEL, currentWeather, forecast, weatherNotice } from '@/lib/weather';
 import { regionLabel } from '@/lib/weatherSync';
 import { engineInput, useStore } from '@/store/useStore';
+import { useThemeStore } from '@/store/useThemeStore';
 import { useWeatherStore } from '@/store/useWeatherStore';
 import { cardBase, makeStyles, useColors } from '@/theme';
 
@@ -42,6 +44,8 @@ export default function Home() {
   const regionCode = useWeatherStore((s) => s.regionCode);
   const saveDayOutfit = useStore((s) => s.saveDayOutfit);
   const setFeedback = useStore((s) => s.setFeedback);
+  // 계절 테마가 켜져 있으면 인사 위에 작은 계절 인사 (이슈 #6)
+  const season = useThemeStore((s) => s.season);
   const s = useStyles();
   const c = useColors();
 
@@ -100,7 +104,14 @@ export default function Home() {
     <Screen>
       {/* 인사 + 마스코트 (보드 홈 맨 위) */}
       <View style={s.greet}>
-        <View style={{ flex: 1, paddingTop: 18 }}>
+        <View style={{ flex: 1, paddingTop: season ? 6 : 18 }}>
+          {season && (
+            <View style={s.seasonPill}>
+              <Text style={s.seasonText}>
+                {SEASON_INFO[season].icon} {SEASON_INFO[season].greeting}
+              </Text>
+            </View>
+          )}
           <Title style={s.hello}>안녕하세요{greetingName ? `,\n${greetingName}!` : '!'}</Title>
           <Text style={s.helloSub}>
             {offset === 0 ? '오늘은 어떤 스타일이' : `${DAY_NAMES[offset]}은 어떤 스타일이`}
@@ -381,6 +392,15 @@ const StatCard = ({ icon, label, value, unit, onPress }: IStatCardProps) => {
 const useStyles = makeStyles((t) => ({
   greet: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 },
   hello: { fontSize: 26, lineHeight: 34 },
+  seasonPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: t.colors.primarySoft,
+    borderRadius: t.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+  seasonText: { fontSize: 12, fontWeight: '700', color: t.colors.primary },
   helloSub: { fontSize: 15, color: t.colors.textSub, marginTop: 8, lineHeight: 22 },
   bell: { position: 'absolute', top: 0, right: 0 },
   days: { flexDirection: 'row', gap: 8, marginTop: 10 },

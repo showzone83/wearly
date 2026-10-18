@@ -4,8 +4,8 @@
 //    simple-import-sort는 type import 경로 끝에 \u0000을, 부수 효과 import(import './x.css') 앞에 \u0000을 붙여 비교한다.
 //    한 import가 여러 정규식에 맞으면 가장 길게 맞은 것, 길이가 같으면 앞 그룹이 이긴다.
 const END = '(?=/|\\u0000|$)'; // 경로 조각 경계
-// 앱(mobile/src/data)의 순수 TS 데이터 별칭: 옷 일러스트 모양, 디자인 테마 값, 마스코트 그림
-const APP_DATA = `@(?:garment-shapes|app-themes|app-mascots)${END}`;
+// 앱(mobile/src/data)의 순수 TS 데이터 별칭: 옷 일러스트 모양, 디자인 테마 값, 계절 색, 마스코트 그림
+const APP_DATA = `@(?:garment-shapes|app-themes|app-seasons|app-mascots)${END}`;
 const importGroup = (prefix) => [`${prefix}[^\\u0000]*$`, `${prefix}[^\\u0000]*\\u0000$`];
 export const IMPORT_GROUPS = [
   importGroup(`^react(?:-dom)?${END}`), // ① react: react, react-dom, react/*, react-dom/*

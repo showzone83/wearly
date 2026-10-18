@@ -6,15 +6,17 @@ import { rawAdmin, rawSignup } from '../lib/rawUser';
 import type { Scenario } from '../scenario';
 
 const THEMES = ['nyang', 'closeta'];
+const SEASON_MODES = ['OFF', 'AUTO', 'SPRING', 'SUMMER', 'FALL', 'WINTER'];
 
 const publicConfig: Scenario = {
   group: '앱 설정',
-  name: 'GET /app/config: 토큰 없이(틀린 토큰도) 200, { themeId, version }, ETag·Cache-Control no-cache, If-None-Match → 304',
+  name: 'GET /app/config: 토큰 없이(틀린 토큰도) 200, { themeId, seasonMode, version }, ETag·Cache-Control no-cache, If-None-Match → 304',
   async run(ctx) {
     const res = await raw('GET', '/app/config');
     eq(res.status, 200, '토큰 없이 200');
-    eq(Object.keys(res.json).sort(), ['themeId', 'version'], '응답 키는 themeId·version뿐');
+    eq(Object.keys(res.json).sort(), ['seasonMode', 'themeId', 'version'], '응답 키는 themeId·seasonMode·version뿐 (season 없음)');
     ok(THEMES.includes(res.json.themeId), 'themeId는 nyang 또는 closeta', res.json.themeId);
+    ok(SEASON_MODES.includes(res.json.seasonMode), 'seasonMode는 허용 값', res.json.seasonMode);
     ok(typeof res.json.version === 'string' && res.json.version.length > 0, 'version은 비어 있지 않은 문자열', res.json.version);
     const etag = res.headers.get('etag');
     eq(etag, `"${res.json.version}"`, 'ETag = "version"');
@@ -48,7 +50,7 @@ const adminTheme: Scenario = {
 
     const before = await admin.call('GET', '/admin/app/theme');
     eq(before.status, 200, '관리자 GET 200');
-    eq(Object.keys(before.json).sort(), ['themeId', 'updatedAt', 'updatedBy'], '응답 키');
+    eq(Object.keys(before.json).sort(), ['seasonMode', 'themeId', 'updatedAt', 'updatedBy'], '응답 키');
     if (before.json.updatedAt === null) {
       eq(before.json.updatedBy, null, '바꾼 적이 없으면 updatedBy도 null');
       ctx.note('처음 상태: updatedAt·updatedBy = null');
@@ -106,4 +108,53 @@ const adminTheme: Scenario = {
   },
 };
 
-export const appSettingScenarios: Scenario[] = [publicConfig, adminTheme];
+const adminSeason: Scenario = {
+  group: '앱 설정',
+  name: '계절 모드(이슈 #6): PUT { seasonMode }만 보내면 테마는 그대로, /app/config seasonMode·ETag 변경, 400(seasonMode), 이력에 seasonMode만',
+  needs: ['admin'],
+  async run(ctx) {
+    const admin = await rawAdmin();
+    const before = await admin.call('GET', '/admin/app/theme');
+    eq(before.status, 200, '관리자 GET 200');
+    const fromMode: string = before.json.seasonMode;
+    const toMode = fromMode === 'AUTO' ? 'WINTER' : 'AUTO';
+    const cfg0 = await raw('GET', '/app/config');
+    eq(cfg0.json.seasonMode, fromMode, '/app/config와 관리자 GET의 seasonMode가 같음');
+
+    for (const [body, label, fields] of [
+      [{ seasonMode: 'auto' }, '소문자', ['seasonMode']],
+      [{ seasonMode: 'AUTUMN' }, '없는 모드', ['seasonMode']],
+      [{ seasonMode: '' }, '빈 값', ['seasonMode']],
+      [{ themeId: 'dark', seasonMode: 'X' }, '둘 다 틀림', ['themeId', 'seasonMode']],
+    ] as const) {
+      const bad = await admin.call('PUT', '/admin/app/theme', { body });
+      checkErrorBody(bad, 400, 'VALIDATION_FAILED', label);
+      eq(bad.json.fieldErrors.map((e: { field: string }) => e.field), fields, `${label}: fieldErrors`);
+    }
+
+    const changed = await admin.call('PUT', '/admin/app/theme', { body: { seasonMode: toMode } });
+    eq(changed.status, 200, `PUT seasonMode ${toMode} 200`);
+    eq([changed.json.themeId, changed.json.seasonMode], [before.json.themeId, toMode], '테마는 그대로, 계절 모드만 바뀜');
+
+    const cfg1 = await raw('GET', '/app/config', { headers: { 'If-None-Match': cfg0.headers.get('etag')! } });
+    eq(cfg1.status, 200, '바뀐 뒤 옛 ETag로 부르면 200');
+    eq(cfg1.json.seasonMode, toMode, '/app/config에 새 계절 모드');
+    eq(cfg1.json.version, changed.json.updatedAt, 'version = 바꾼 시각');
+    eq((await raw('GET', '/app/config', { headers: { 'If-None-Match': cfg1.headers.get('etag')! } })).status, 304, '새 ETag → 304');
+
+    const audit = await admin.call('GET', '/admin/audit-logs?targetType=APP_SETTING&size=50');
+    const mine = audit.json.items.filter(
+      (a: { action: string; after: { seasonMode?: string } | null; before: { seasonMode?: string } | null }) =>
+        a.action === 'APP_THEME_UPDATE' && a.before?.seasonMode === fromMode && a.after?.seasonMode === toMode,
+    );
+    ok(mine.length >= 1, `변경 이력: APP_THEME_UPDATE seasonMode ${fromMode} → ${toMode}`, audit.json.items);
+    eq(mine[0].before, { seasonMode: fromMode }, '이력 before에는 바뀐 필드만');
+    eq(mine[0].after, { seasonMode: toMode }, '이력 after에는 바뀐 필드만');
+
+    const back = await admin.call('PUT', '/admin/app/theme', { body: { seasonMode: fromMode } });
+    eq(back.json.seasonMode, fromMode, `원래 계절 모드(${fromMode})로 되돌림`);
+    ctx.note(`계절 모드 ${fromMode} → ${toMode} → ${fromMode}`);
+  },
+};
+
+export const appSettingScenarios: Scenario[] = [publicConfig, adminTheme, adminSeason];

@@ -6,6 +6,7 @@ import { Mascot } from '@/components/Mascot';
 import { Badge, confirm, notify, PageTitle, Row, Screen } from '@/components/ui';
 import { router } from 'expo-router';
 
+import { SEASON_INFO, SEASON_MODE_LABELS, SEASON_MODES } from '@/data/seasons';
 import { THEME_IDS, THEMES } from '@/data/themes';
 import { deleteAccount, logout, saveProfile } from '@/lib/account';
 import { API_BASE_URL, errorAlertMessage } from '@/lib/api';
@@ -30,6 +31,9 @@ export default function My() {
   const isAccount = useStore((s) => s.authMode === 'account');
   const user = useStore((s) => s.user);
   const themeId = useThemeStore((s) => s.themeId);
+  const seasonMode = useThemeStore((s) => s.seasonMode);
+  const seasonPref = useThemeStore((s) => s.seasonPref);
+  const season = useThemeStore((s) => s.season);
   const regionCode = useWeatherStore((s) => s.regionCode);
   const [busy, setBusy] = useState(false);
   const s = useStyles();
@@ -39,6 +43,12 @@ export default function My() {
   const inUse = activeItems(items);
   const active = inUse.filter((i) => i.lastWornAt && diffDays(today, i.lastWornAt) <= 30).length;
   const usage = inUse.length ? Math.round((active / inUse.length) * 100) : 0;
+  const seasonSub =
+    seasonPref === 'off'
+      ? '꺼 둠 · 기본 색으로 보여요'
+      : season
+        ? `${SEASON_INFO[season].icon} 지금 ${SEASON_INFO[season].label} 색으로 보여요`
+        : '계절 이벤트가 열리면 화면 색이 바뀌어요';
 
   // 바로 바꿔 보여 주고, 계정 모드면 서버에 저장한다. 실패하면 되돌린다
   const toggle = async (key: keyof typeof profile.notify) => {
@@ -166,6 +176,19 @@ export default function My() {
         />
       </MenuCard>
 
+      {/* 계절 테마 (이슈 #6): 서버 설정을 따를지 이 기기에서 끌지만 고른다 */}
+      <Text style={s.section}>화면</Text>
+      <MenuCard>
+        <ToggleRow
+          icon="palette"
+          label="계절 테마"
+          sub={seasonSub}
+          value={seasonPref === 'follow'}
+          onChange={() => useThemeStore.getState().setSeasonPref(seasonPref === 'follow' ? 'off' : 'follow')}
+          last
+        />
+      </MenuCard>
+
       {MOCK_MODE && (
         <>
           <Text style={s.section}>테마 바꾸기 (개발용)</Text>
@@ -179,6 +202,20 @@ export default function My() {
                 right={themeId === id ? <Icon name="check" size={18} /> : undefined}
                 last={i === THEME_IDS.length - 1}
                 onPress={() => useThemeStore.getState().setThemeId(id)}
+              />
+            ))}
+          </MenuCard>
+          <Text style={s.section}>계절 모드 (개발용 · 서버 설정 대신)</Text>
+          <MenuCard>
+            {SEASON_MODES.map((mode, i) => (
+              <MenuRow
+                key={mode}
+                icon="sparkle"
+                label={SEASON_MODE_LABELS[mode]}
+                value={seasonMode === mode ? '사용 중' : undefined}
+                right={seasonMode === mode ? <Icon name="check" size={18} /> : undefined}
+                last={i === SEASON_MODES.length - 1}
+                onPress={() => useThemeStore.getState().setSeasonMode(mode)}
               />
             ))}
           </MenuCard>
