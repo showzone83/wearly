@@ -8,6 +8,10 @@ export interface ITokens {
 
 const TOKENS_KEY = 'wearly-admin-tokens';
 const USER_KEY = 'wearly-admin-user';
+/** 회사 계정(SSO)으로 로그인한 공급자 ID. 로그아웃할 때 IdP 로그아웃으로도 보낸다 (doc/22 4.2) */
+const SSO_KEY = 'wearly-admin-sso';
+/** SSO 시작 ~ 콜백 사이에 들고 있는 공급자 ID (IdP로 갔다 오는 동안 페이지가 새로 열린다) */
+const SSO_PENDING_KEY = 'wearly-admin-sso-pending';
 
 const read = <T>(key: string): T | null => {
   try {
@@ -41,11 +45,27 @@ export const tokenStore = {
     memoryTokens = null;
     write(TOKENS_KEY, null);
     write(USER_KEY, null);
+    write(SSO_KEY, null);
   },
   getUser: (): IUserDto | null => {
     return read<IUserDto>(USER_KEY);
   },
   setUser: (user: IUserDto): void => {
     write(USER_KEY, user);
+  },
+  getSsoProvider: (): string | null => {
+    return read<string>(SSO_KEY);
+  },
+  setSsoProvider: (providerId: string | null): void => {
+    write(SSO_KEY, providerId);
+  },
+  /** SSO 시작 때 공급자를 적어 두고, 콜백에서 꺼낸다(한 번만) */
+  setSsoPending: (providerId: string | null): void => {
+    write(SSO_PENDING_KEY, providerId);
+  },
+  takeSsoPending: (): string | null => {
+    const v = read<string>(SSO_PENDING_KEY);
+    write(SSO_PENDING_KEY, null);
+    return v;
   },
 };

@@ -138,6 +138,21 @@ export interface IMfaEnableResponse {
   recoveryCodes: string[];
 }
 
+// ───────── 회사 계정 로그인 (SSO, doc/22 4.2) ─────────
+
+/** 로그인 화면의 회사 계정 버튼 하나 (`GET /auth/sso/providers`) */
+export interface ISsoProvider {
+  /** 경로에 쓰는 공급자 ID (keycloak 등) */
+  id: string;
+  displayName: string;
+}
+
+/** `GET /auth/sso/providers`. SSO가 꺼져 있으면 enabled false, providers 빈 목록 */
+export interface ISsoProvidersResponse {
+  enabled: boolean;
+  providers: ISsoProvider[];
+}
+
 // ───────── 대시보드 ─────────
 
 export interface IProviderStat7d {
@@ -480,6 +495,10 @@ export type TAuthEventType =
   | 'MFA_SUCCESS'
   | 'MFA_FAILED'
   | 'MFA_LOCKED'
+  /** 회사 계정(SSO)으로 로그인 (doc/22 4.2) */
+  | 'SSO_LOGIN'
+  /** IdP 인증은 됐지만 관리자 그룹이 아니라 거부 (연결된 회원만) */
+  | 'SSO_DENIED'
   | (string & {});
 
 /** 회원별 최근 로그인 이력 (`tb_auth_event`) */
@@ -490,6 +509,10 @@ export interface IAuthEvent {
   ip: string | null;
   userAgent: string | null;
   createdAt: string;
+  /** SSO 로그인·거부의 공급자 ID (그 밖은 null, 예전 서버도 null) */
+  ssoProvider: string | null;
+  /** SSO 로그인 때 IdP가 알려 준 인증 방법 amr (예: pwd,otp). 없으면 null */
+  ssoAmr: string | null;
 }
 
 /** `GET /admin/users/{id}/sessions` */

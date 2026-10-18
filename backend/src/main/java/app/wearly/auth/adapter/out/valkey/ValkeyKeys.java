@@ -10,6 +10,8 @@ package app.wearly.auth.adapter.out.valkey;
  *       createdAt, lastRefreshAt, lastSeenAt, mfa(2단계 인증을 확인한 세션이면 "1"). TTL = 마지막 회전 + Refresh 수명
  *   <li>{@code wearly:mfa:pending:*}·{@code wearly:mfa:setup:*}·{@code wearly:mfa:fail:*}·{@code
  *       wearly:mfa:lock:*}: 관리자 2단계 인증 (22 문서, ValkeyMfaStoreAdapter)
+ *   <li>{@code wearly:sso:state:*}·{@code wearly:sso:grant:*}: 관리자 사이트 SSO (22 문서 4.2,
+ *       ValkeySsoStoreAdapter)
  *   <li>{@code wearly:user:{userId}:sessions} 집합: sessionId. TTL = 가장 늦은 세션 만료
  *   <li>{@code wearly:sessions} 정렬 집합: sessionId, score = lastSeenAt (관리자 목록 정렬·페이징)
  *   <li>{@code wearly:sessions:expiry} 정렬 집합: sessionId, score = 세션 만료 시각 (읽을 때 만료된 멤버를 두 인덱스에서
@@ -49,6 +51,16 @@ final class ValkeyKeys {
   /** 틀린 횟수 (INCR). TTL = 마지막 실패에서 15분 */
   static String mfaFailures(long userId) {
     return PREFIX + "mfa:fail:" + userId;
+  }
+
+  /** SSO 시작 → 콜백 값 (문자열, form 인코딩). TTL 5분, GETDEL로 한 번만 꺼낸다 */
+  static String ssoState(String stateHash) {
+    return PREFIX + "sso:state:" + stateHash;
+  }
+
+  /** SSO 콜백 → 교환 코드 값 (문자열, form 인코딩). TTL 1분, GETDEL로 한 번만 꺼낸다 */
+  static String ssoGrant(String codeHash) {
+    return PREFIX + "sso:grant:" + codeHash;
   }
 
   /** 잠금 표시. TTL 15분 */

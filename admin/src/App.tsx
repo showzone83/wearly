@@ -11,6 +11,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { MyAccountPage } from '@/pages/MyAccountPage';
 import { ProvidersPage } from '@/pages/providers/ProvidersPage';
 import { SessionsPage } from '@/pages/SessionsPage';
+import { SsoCallbackPage } from '@/pages/SsoCallbackPage';
 import { UsersPage } from '@/pages/UsersPage';
 import { WeatherCallsPage } from '@/pages/weather/WeatherCallsPage';
 import { WeatherProvidersPage } from '@/pages/weather/WeatherProvidersPage';
@@ -32,6 +33,8 @@ export const App = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* 회사 계정(SSO) 로그인 콜백 (doc/22 4.2): 로그인 전에 열리므로 RequireAdmin 밖에 둔다 */}
+      <Route path="/sso/callback" element={<SsoCallbackPage />} />
       <Route
         element={
           <RequireAdmin>

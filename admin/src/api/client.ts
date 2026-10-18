@@ -43,6 +43,8 @@ import type {
   IProviderTestResult,
   IProviderTypeSpec,
   ISessionQuery,
+  ISsoProvider,
+  ISsoProvidersResponse,
   IUserDto,
   IUserPatch,
   IUserQuery,
@@ -214,6 +216,8 @@ const toAuthEvent = (r: Record<string, unknown>): IAuthEvent => {
     ip: str(r.ip),
     userAgent: str(r.userAgent),
     createdAt: String(r.createdAt ?? ''),
+    ssoProvider: str(r.ssoProvider),
+    ssoAmr: str(r.ssoAmr),
   };
 };
 
@@ -239,6 +243,15 @@ const toAdminUser = (r: Record<string, unknown>): IAdminUser => {
 /** 로그인 응답이 2단계 인증 대기인가 (토큰 대신 mfaToken이 온다) */
 const isMfaPending = (raw: TLoginResponse): raw is IMfaPendingResponse => {
   return typeof (raw as Partial<IMfaPendingResponse>).mfaToken === 'string';
+};
+
+/** 회사 계정(SSO) 공급자 목록 응답 → 버튼 목록 (id 없는 항목은 뺀다) */
+const toSsoProviders = (raw: unknown): ISsoProvider[] => {
+  const list = (raw as Partial<ISsoProvidersResponse> | null)?.providers;
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((p) => ({ id: String(p?.id ?? ''), displayName: String(p?.displayName ?? p?.id ?? '') }))
+    .filter((p) => p.id);
 };
 
 /** 내 2단계 인증 상태 */
@@ -511,6 +524,20 @@ export const createAdminApi = (options: IAdminApiOptions) => {
     tokenStore.setUser(auth.user);
   };
 
+  /** 로그인·SSO 교환 응답 → 결과. 2단계 인증 대기면 토큰을 저장하지 않는다 */
+  const toLoginResult = async (raw: TLoginResponse): Promise<TLoginResult> => {
+    if (isMfaPending(raw)) {
+      return {
+        kind: 'mfa',
+        mfaToken: raw.mfaToken,
+        enrolled: raw.mfa?.enrolled === true,
+        expiresIn: num(raw.mfaTokenExpiresIn) ?? 300,
+      };
+    }
+    await acceptAuth(raw);
+    return { kind: 'signedIn', auth: raw };
+  };
+
   return {
     auth: {
       /**
@@ -519,17 +546,31 @@ export const createAdminApi = (options: IAdminApiOptions) => {
        * 오류: 401 INVALID_CREDENTIALS · 403 ACCOUNT_SUSPENDED · 429 MFA_LOCKED(retryAfterSeconds)
        */
       login: async (req: ILoginRequest): Promise<TLoginResult> => {
-        const raw = await request<TLoginResponse>('POST', '/auth/login', { json: req });
-        if (isMfaPending(raw)) {
-          return {
-            kind: 'mfa',
-            mfaToken: raw.mfaToken,
-            enrolled: raw.mfa?.enrolled === true,
-            expiresIn: num(raw.mfaTokenExpiresIn) ?? 300,
-          };
+        return toLoginResult(await request<TLoginResponse>('POST', '/auth/login', { json: req }));
+      },
+      /** 회사 계정 버튼 (doc/22 4.2). SSO가 꺼져 있거나 예전 서버(404)면 빈 목록 */
+      ssoProviders: async (): Promise<ISsoProvider[]> => {
+        try {
+          return toSsoProviders(await request<unknown>('GET', '/auth/sso/providers'));
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 404) return [];
+          throw e;
         }
-        await acceptAuth(raw);
-        return { kind: 'signedIn', auth: raw };
+      },
+      /** 브라우저가 이동할 SSO 시작 주소. redirect = 이 사이트의 /sso/callback (서버 허용 목록과 같아야 한다) */
+      ssoStartUrl: (providerId: string, redirect: string): string => {
+        return `${base}/auth/sso/${enc(providerId)}/start${buildQuery({ redirect })}`;
+      },
+      /** IdP 로그아웃 주소. 끝나면 redirect(이 사이트의 /login)로 돌아온다 */
+      ssoLogoutUrl: (providerId: string, redirect: string): string => {
+        return `${base}/auth/sso/${enc(providerId)}/logout${buildQuery({ redirect })}`;
+      },
+      /**
+       * 콜백의 한 번만 쓰는 교환 코드 → 토큰 (또는 2단계 인증 대기: 서버 wearly.sso.trust-idp-mfa=false일 때).
+       * 오류: 401 SSO_EXCHANGE_INVALID · 403 SSO_NOT_ADMIN · 403 ACCOUNT_SUSPENDED · 404(SSO 꺼짐)
+       */
+      ssoExchange: async (code: string): Promise<TLoginResult> => {
+        return toLoginResult(await request<TLoginResponse>('POST', '/auth/sso/exchange', { json: { code } }));
       },
       /**
        * TOTP 등록 시작 (대기 토큰, Authorization 없음). 다시 부르면 새 비밀이 나온다(앞의 것 무효).

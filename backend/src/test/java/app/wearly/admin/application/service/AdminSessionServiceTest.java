@@ -50,7 +50,8 @@ class AdminSessionServiceTest {
         @Override
         public List<AuthEventRowDto> findAuthEvents(long userId, int limit) {
           return List.of(
-              new AuthEventRowDto(1L, "LOGIN", "s-member-app", "APP", "10.0.0.1", "ua", T0));
+              new AuthEventRowDto(
+                  1L, "LOGIN", "s-member-app", "APP", "10.0.0.1", "ua", T0, null, null));
         }
       };
 

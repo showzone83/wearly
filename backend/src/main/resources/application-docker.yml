@@ -15,3 +15,10 @@ wearly:
     # 백엔드 → MinIO는 compose 네트워크 안의 minio:9000. 앱이 받는 서명 URL은 public-endpoint가 비어 있으므로
     # 요청 Host 이름 + 9000 (시뮬레이터 http://localhost:9000, 실제 휴대폰 http://<Mac LAN IP>:9000)
     endpoint: http://minio:9000
+  # 관리자 SSO (doc/22 4.2): 브라우저는 Keycloak을 localhost:8180으로 보지만 컨테이너 안의 백엔드는 닿지 못한다.
+  # 서버끼리 부르는 주소(discovery·token·JWKS)만 compose 네트워크 안의 keycloak:8080으로 바꾼다.
+  # 토큰의 iss는 KC_HOSTNAME(http://localhost:8180)으로 고정돼 있어 설정의 issuer-uri(localhost:8180)와 맞는다
+  sso:
+    backchannel-rewrites:
+      - from: http://localhost:8180
+        to: http://keycloak:8080

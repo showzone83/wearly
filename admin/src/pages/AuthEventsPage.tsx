@@ -209,6 +209,15 @@ export const AuthEventsPage = () => {
                       </td>
                       <td>
                         <AuthEventBadge type={ev.type} />
+                        {ev.ssoProvider ? (
+                          <div
+                            className="small muted"
+                            title={ev.ssoAmr ? `IdP 인증 방법(amr): ${ev.ssoAmr}` : undefined}
+                          >
+                            {ev.ssoProvider}
+                            {ev.ssoAmr ? ` · ${ev.ssoAmr}` : ''}
+                          </div>
+                        ) : null}
                       </td>
                       <td>
                         <ClientBadge client={ev.client} />

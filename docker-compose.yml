@@ -1,9 +1,11 @@
 # Wearly 로컬 개발 환경: DB · Valkey · MinIO(옷 사진) · 백엔드 · 관리자 사이트 (앱은 Mac에서 cd mobile && npx expo start로 따로 띄운다)
+# 관리자 SSO 시험용 Keycloak은 profile sso로만 뜬다 (아래 keycloak 서비스).
 #
 #   docker compose up -d --build          전체 빌드·실행
 #   docker compose up -d db valkey minio minio-init   DB·Valkey·사진 저장소만 (백엔드를 Mac에서 ./gradlew bootRun으로 돌릴 때)
 #   docker compose up -d --build backend  백엔드만 다시 빌드·재시작
 #   docker compose logs -f backend        로그 보기
+#   docker compose --profile sso up -d keycloak   관리자 SSO 시험용 Keycloak (8180)
 #   docker compose down                   중지 (DB 데이터는 wearly-pgdata, 세션은 wearly-valkeydata, 사진은 wearly-miniodata 볼륨에 남는다)
 #
 # 호스트 포트: DB 5433(다른 프로젝트의 postgres와 겹치지 않게), Valkey 6380(다른 Redis와 겹치지 않게),
@@ -116,6 +118,44 @@ services:
       timeout: 5s
       retries: 6
       start_period: 60s
+
+  # 관리자 사이트 SSO 시험용 IdP (doc/22 4.2, 범용 OIDC). 무거워서 기본 실행에는 넣지 않는다 (profile sso):
+  #   docker compose --profile sso up -d keycloak     http://localhost:8180 (관리 콘솔 admin / wearly-keycloak-local)
+  # dev 모드라 별도 DB 없이 컨테이너 안(H2)에 둔다. 시작할 때 infra/keycloak/wearly-realm.json을 들여온다(이미 있으면 건너뜀).
+  # 처음 상태로 되돌리기: docker compose --profile sso rm -sf keycloak 후 다시 up.
+  # KC_HOSTNAME을 브라우저가 보는 주소로 고정해 토큰 iss가 늘 http://localhost:8180/realms/wearly다.
+  # 컨테이너 안의 backend는 서버끼리 부를 때만 keycloak:8080을 쓴다 (application-docker.yml backchannel-rewrites).
+  # backend는 keycloak을 기다리지 않는다 (SSO는 선택 기능). 계정·비밀번호는 모두 로컬 전용 시험 값이다
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    container_name: wearly-keycloak
+    profiles: ["sso"]
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: wearly-keycloak-local
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_PORT: "8080"
+      KC_HEALTH_ENABLED: "true"
+      TZ: Asia/Seoul
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./infra/keycloak:/opt/keycloak/data/import:ro
+    healthcheck:
+      # 이미지에 curl이 없어 bash /dev/tcp로 관리 포트(9000, 호스트에 열지 않음)의 /health/ready를 본다
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"UP"' <&3
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   admin:
     build:

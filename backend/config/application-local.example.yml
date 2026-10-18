@@ -55,6 +55,56 @@ wearly:
     # mfa:
     #   required: false
 
+  # 관리자 사이트 회사 계정 로그인 SSO (doc/22 4.2, 범용 OIDC). 기본은 꺼짐. 켜도 위 admin 계정(비밀번호 + TOTP)은 비상 계정으로 남는다.
+  # 관리자 사이트 로그인 화면에 공급자마다 "<display-name> 로그인" 버튼이 생긴다. IdP에 등록할 redirect URI(백엔드 콜백):
+  #   http(s)://<백엔드 주소>/api/v1/auth/sso/<공급자 ID>/callback   (로컬: http://localhost:8080/api/v1/auth/sso/keycloak/callback)
+  # redirect-allowlist에는 관리자 사이트의 /sso/callback(로그인 뒤)과 /login(IdP 로그아웃 뒤) 주소를 정확히 적는다.
+  # sso:
+  #   enabled: true
+  #   trust-idp-mfa: true            # true(기본): IdP가 MFA를 맡는다고 보고 앱 TOTP를 묻지 않는다
+  #   providers:
+  #     # ① 로컬 Keycloak (docker compose --profile sso up -d keycloak). 아래 값은 infra/keycloak/wearly-realm.json의 로컬 전용 시험 값이다.
+  #     #    시험 계정: admin@wearly.local / WearlyAdmin1! (wearly-admins), viewer@wearly.local / WearlyViewer1! (wearly-viewers → 거부)
+  #     keycloak:
+  #       display-name: "회사 계정 (Keycloak)"
+  #       issuer-uri: http://localhost:8180/realms/wearly
+  #       client-id: wearly-admin
+  #       client-secret: "wearly-admin-local-secret"
+  #       admin-groups: [wearly-admins]
+  #       redirect-allowlist:
+  #         - http://localhost:5173/sso/callback
+  #         - http://localhost:5173/login
+  #
+  #     # ② Microsoft Entra ID (단일 테넌트). 앱 등록 → 인증: 웹 redirect URI = 백엔드 콜백, 인증서 및 비밀 → 클라이언트 비밀.
+  #     #    권한은 앱 역할(App roles, 예: Wearly.Admin)을 만들어 사용자·그룹에 할당하고 roles 클레임으로 받는 것을 권한다
+  #     #    (groups 클레임은 이름이 아니라 그룹 개체 ID(GUID)가 온다 — groups를 쓰려면 admin-groups에 GUID를 적는다).
+  #     #    Entra는 email_verified를 주지 않으므로 같은 이메일의 기존 관리자와 처음 연결하려면 assume-email-verified: true
+  #     #    (회사 테넌트에서 관리하는 이메일일 때만). 로그인 이메일을 받으려면 토큰 구성에서 email 선택적 클레임을 더한다.
+  #     entra:
+  #       display-name: "Microsoft 회사 계정"
+  #       issuer-uri: https://login.microsoftonline.com/<테넌트 ID>/v2.0
+  #       client-id: "<애플리케이션(클라이언트) ID>"
+  #       client-secret: ""
+  #       roles-claim: roles
+  #       admin-groups: [Wearly.Admin]
+  #       assume-email-verified: true
+  #       redirect-allowlist: [https://admin.wearly.app/sso/callback, https://admin.wearly.app/login]
+  #
+  #     # ③ Google Workspace. Google Cloud 콘솔 → OAuth 클라이언트(웹 애플리케이션), 승인된 리디렉션 URI = 백엔드 콜백.
+  #     #    Google ID 토큰에는 그룹 클레임이 없다 → admin-emails(검증된 이메일 목록)로 관리자를 정한다.
+  #     #    Google은 end_session_endpoint가 없어 로그아웃은 이 사이트에서만 된다.
+  #     google:
+  #       display-name: "Google 회사 계정"
+  #       issuer-uri: https://accounts.google.com
+  #       client-id: "<클라이언트 ID>.apps.googleusercontent.com"
+  #       client-secret: ""
+  #       admin-emails: [admin@yourcompany.com]
+  #       redirect-allowlist: [https://admin.wearly.app/sso/callback, https://admin.wearly.app/login]
+  #
+  #   그 밖의 키: discovery-uri(기본 issuer-uri + /.well-known/openid-configuration), scopes(기본 openid profile email),
+  #   callback-uri(프록시 뒤라 요청 주소가 실제 주소와 다를 때 IdP에 등록한 콜백 주소를 그대로), enabled(공급자 하나만 끄기)
+  #   비밀은 환경변수로도 줄 수 있다: WEARLY_SSO_ENABLED=true, WEARLY_SSO_PROVIDERS_KEYCLOAK_CLIENTSECRET=... (Spring 규칙: 점은 _, 하이픈은 뺀다)
+
   # JWT 서명 키 (HS256, 32바이트 이상). 비워 두면 개발용 고정값. 운영(prod 프로필)에서는 필수
   # jwt:
   #   secret: ""

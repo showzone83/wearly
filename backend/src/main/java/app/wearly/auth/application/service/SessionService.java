@@ -60,13 +60,33 @@ public class SessionService implements SessionUseCase {
   @Transactional(propagation = Propagation.MANDATORY)
   public Issued start(long userId, ClientInfo client, boolean mfaVerified) {
     Instant now = clock.instant();
+    Issued issued = create(userId, client, mfaVerified, now);
+    events.record(AuthEvent.of(userId, AuthEvent.Type.LOGIN, issued.sessionId(), client, now));
+    return issued;
+  }
+
+  /**
+   * 회사 계정(SSO) 로그인 세션 (22 문서 4.2): LOGIN 대신 SSO_LOGIN과 공급자·amr을 남긴다. idpMfa면 2단계 인증을 거친 세션으로 본다 (설정
+   * wearly.sso.trust-idp-mfa).
+   */
+  @Transactional(propagation = Propagation.MANDATORY)
+  public Issued startSso(
+      long userId, ClientInfo client, boolean idpMfa, String providerId, String amr) {
+    Instant now = clock.instant();
+    Issued issued = create(userId, client, idpMfa, now);
+    events.record(
+        AuthEvent.sso(
+            userId, AuthEvent.Type.SSO_LOGIN, issued.sessionId(), client, now, providerId, amr));
+    return issued;
+  }
+
+  private Issued create(long userId, ClientInfo client, boolean mfaVerified, Instant now) {
     LoginSession session = LoginSession.start(userId, client, now, mfaVerified);
     String raw = RefreshTokens.newRawToken();
     store.create(
         session,
         RefreshToken.issue(RefreshTokens.hash(raw), userId, session.id(), now),
         policy.refreshTtl());
-    events.record(AuthEvent.of(userId, AuthEvent.Type.LOGIN, session.id(), client, now));
     return new Issued(raw, session.id());
   }
 

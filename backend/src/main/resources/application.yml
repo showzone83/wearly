@@ -188,6 +188,15 @@ wearly:
     mfa:
       required: ${WEARLY_ADMIN_MFA_REQUIRED:true}
       issuer: ${WEARLY_ADMIN_MFA_ISSUER:Wearly}
+  # 관리자 사이트 회사 계정 로그인 SSO (doc/22 4.2, 범용 OIDC Authorization Code + PKCE). 기본은 꺼짐.
+  # 공급자(issuer·client-id·client-secret·관리자 그룹·허용 주소)는 config/application-local.yml에 적는다 (견본: application-local.example.yml).
+  # 로컬 Keycloak: docker compose --profile sso up -d keycloak (infra/keycloak/wearly-realm.json)
+  sso:
+    enabled: ${WEARLY_SSO_ENABLED:false}
+    # true: SSO 세션은 IdP가 MFA를 맡은 것으로 보고 앱 TOTP를 묻지 않는다. false: 비밀번호 로그인처럼 앱 TOTP를 거친다
+    trust-idp-mfa: ${WEARLY_SSO_TRUST_IDP_MFA:true}
+    # IdP(discovery·token·JWKS) 호출 제한 시간
+    http-timeout: ${WEARLY_SSO_HTTP_TIMEOUT:PT10S}
   # 옷 사진 저장소 (S3 호환, 18 문서). 로컬 기본은 compose의 MinIO(wearly-minio, 호스트 9000).
   # 계정 wearly / wearly-minio-local은 로컬 전용 값이다 (DB 비밀번호와 같은 취급). 운영 예시: backend/config/application-cloud.example.yml
   storage:

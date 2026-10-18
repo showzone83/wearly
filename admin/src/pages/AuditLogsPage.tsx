@@ -34,6 +34,9 @@ const TARGET_TYPES: { value: string; label: string }[] = [
 const ACTION_LABELS: Record<string, string> = {
   // 관리자 계정 (doc/22)
   USER_ROLE_CHANGE: '역할 변경',
+  // 회사 계정 로그인 (SSO, doc/22 4.2). 관리자 칸이 비어 있으면 시스템(SSO)이 한 일
+  SSO_ACCOUNT_CREATE: '회사 계정으로 관리자 생성',
+  SSO_ACCOUNT_LINK: '회사 계정 연결',
   ADMIN_PASSWORD_CHANGE: '내 비밀번호 변경',
   ADMIN_MFA_ENROLL: '2단계 인증 등록',
   ADMIN_MFA_RESET: '내 2단계 인증 초기화',
@@ -156,7 +159,13 @@ export const AuditLogsPage = () => {
                         <tr className="clickable" onClick={() => setOpen(isOpen ? null : r.id)}>
                           <td className="nowrap small">{fmtDateTime(r.createdAt)}</td>
                           <td className="small">
-                            {r.adminEmail ?? r.adminName ?? (r.adminUserId ? `#${r.adminUserId}` : '—')}
+                            {r.adminEmail ??
+                              r.adminName ??
+                              (r.adminUserId
+                                ? `#${r.adminUserId}`
+                                : (r.after as { source?: unknown } | null)?.source === 'SSO'
+                                  ? '시스템 (회사 계정)'
+                                  : '—')}
                           </td>
                           <td>
                             <Badge tone={actionTone(r.action)} title={r.action}>

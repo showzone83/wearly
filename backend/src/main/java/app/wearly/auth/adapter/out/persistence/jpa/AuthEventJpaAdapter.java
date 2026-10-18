@@ -23,6 +23,8 @@ class AuthEventJpaAdapter implements AuthEventPort {
         e.client() == null ? null : e.client().name(),
         e.ip(),
         e.userAgent(),
-        e.createdAt());
+        e.createdAt(),
+        e.ssoProvider(),
+        e.ssoAmr());
   }
 }

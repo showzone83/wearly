@@ -14,4 +14,6 @@ public record AuthEventLogRowDto(
     String client,
     String ip,
     String userAgent,
-    Instant createdAt) {}
+    Instant createdAt,
+    String ssoProvider,
+    String ssoAmr) {}
