@@ -11,7 +11,10 @@ import java.util.Locale;
  */
 public record WeatherOptions(boolean mock, boolean schedulerEnabled, int logRetentionDays) {
 
-  /** 실행 잠금 유지 시간. 실행이 멈춰도 이 시간이 지나면 풀린다 (17개 지역 × 시간 초과 10초보다 길게) */
+  /**
+   * 실행 잠금 유지 시간. 실행이 멈춰도 이 시간이 지나면 풀린다. 잠금은 연장하지 않으므로 가장 느린 실행보다 길어야 한다: 지금은 17개 지역 × (연결 5초 + 읽기
+   * 10초) = 255초. 예비 공급자를 붙이거나 지역·시간 초과를 늘리면 함께 늘린다.
+   */
   public static final Duration LOCK_TTL = Duration.ofMinutes(5);
 
   /** 서버 시작 뒤 첫 실행까지 기다리는 시간 */

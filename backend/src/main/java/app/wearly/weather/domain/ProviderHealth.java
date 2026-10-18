@@ -57,6 +57,7 @@ public record ProviderHealth(
     if (FetchErrors.AUTH.equals(errorCode)) {
       return new ProviderHealth(failures, AUTH, null, lastSuccessAt, now, error);
     }
+    // 쿨다운 뒤 시험 호출이 실패하면 연속 실패 기준과 상관없이 바로 다시 차단한다
     boolean trialFailed = status(now) == ProviderStatus.HALF_OPEN;
     if (trialFailed || failures >= threshold) {
       return new ProviderHealth(failures, FAILURES, now.plus(cooldown), lastSuccessAt, now, error);

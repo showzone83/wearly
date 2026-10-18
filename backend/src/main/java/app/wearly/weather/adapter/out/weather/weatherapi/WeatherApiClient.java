@@ -96,6 +96,7 @@ public final class WeatherApiClient {
                       "days",
                       days))
               .accept(MediaType.APPLICATION_JSON)
+              // exchange는 4xx·5xx에도 예외 없이 본문을 준다. 상태 코드는 아래에서 직접 나눈다
               .exchange(
                   (req, r) ->
                       new Response(

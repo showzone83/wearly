@@ -43,7 +43,8 @@ public record WearlyProperties(
       // db(기본): 관리자 공급자 설정(tb_weather_provider)대로 부른다. mock: 공급자 대신 목업 날씨
       String provider,
       Duration timeout,
-      // 실행·호출 이력 보관 일수 (매일 04:00에 지난 이력을 지운다)
+      // 실행·호출 이력 보관 일수 (매일 04:00에 지난 이력을 지운다).
+      // 월 한도를 호출 이력으로 세므로 31일보다 짧으면 한도를 적게 센다
       @Min(0) int logRetentionDays,
       // false면 주기 실행·시작 실행·이력 정리를 하지 않는다 (테스트용). 관리자 "지금 실행"은 그대로 된다
       boolean schedulerEnabled,

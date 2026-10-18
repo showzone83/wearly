@@ -60,6 +60,7 @@ public class WeatherScheduleService implements WeatherScheduleUseCase {
     WeatherSetting setting = runner.setting();
     RunTrigger trigger = startup ? RunTrigger.STARTUP : RunTrigger.SCHEDULE;
     if (startup) {
+      // LOCK_TTL보다 최근에 시작한 RUNNING은 다른 서버가 아직 돌리는 중일 수 있어 두고, 그보다 오래된 것만 닫는다
       int closed = runs.closeAbandoned(now.minus(WeatherOptions.LOCK_TTL), now);
       if (closed > 0) {
         log.warn("서버가 멈춰 끝나지 않은 날씨 실행 {}건을 FAILED로 닫았어요", closed);
@@ -74,6 +75,7 @@ public class WeatherScheduleService implements WeatherScheduleUseCase {
       runs.create(RefreshRun.skipped(trigger, SkipReason.DISABLED, now));
       return;
     }
+    // 잠금 전 검사라 그 사이 공급자 상태가 바뀔 수 있지만, 실행이 지역마다 다시 확인하므로 괜찮다
     if (!runner.anyUsable()) {
       log.warn("부를 수 있는 날씨 공급자가 없어 건너뛰어요 (사용 여부·키·차단·월 한도 확인)");
       runs.create(RefreshRun.skipped(trigger, SkipReason.NO_PROVIDER, now));

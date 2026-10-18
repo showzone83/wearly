@@ -31,6 +31,7 @@ class ValkeyRefreshLockAdapter implements RefreshLockPort {
     this.redis = redis;
   }
 
+  /** SET NX PX 한 번. 실행 중에 ttl을 연장하지 않으므로 ttl은 실행 시간보다 길어야 한다 (WeatherOptions.LOCK_TTL) */
   @Override
   public boolean tryAcquire(String owner, Duration ttl) {
     return Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(KEY, owner, ttl));

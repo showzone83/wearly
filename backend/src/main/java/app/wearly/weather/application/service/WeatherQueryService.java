@@ -59,6 +59,7 @@ public class WeatherQueryService implements WeatherQueryUseCase {
     LocalDate today = Zones.today(clock);
     WeatherSetting setting = settings.load().orElseGet(WeatherSetting::defaults);
     boolean stale = setting.stale(snapshot.fetchedAt(), now);
+    // ETag. 오늘 날짜가 들어가 날짜가 바뀌면(지난 예보를 빼야 하므로) 같은 저장값이어도 304가 아니다. stale이 바뀔 때도 같다
     String version =
         code + "-" + snapshot.fetchedAt().toEpochMilli() + "-" + today + (stale ? "-stale" : "");
     return new WeatherViewDto(
