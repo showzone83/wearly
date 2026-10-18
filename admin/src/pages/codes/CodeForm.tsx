@@ -2,8 +2,8 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { api, isApiError } from '@/api';
-import type { IAdminCode, IAdminCodeGroup, ICodeAttrs, IFieldError, TSlot } from '@/api';
+import { api, errorMessage, isApiError } from '@/api';
+import type { IAdminCode, IAdminCodeGroup, ICodeAttrs, TSlot } from '@/api';
 
 import { ColorChip, GarmentPreview } from '@/components/Garment';
 import { Button, Drawer, Field, Notice, Segmented, Switch } from '@/components/ui';
@@ -12,6 +12,7 @@ import { useToastStore } from '@/stores/useToastStore';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { codeUsagesText, errorText, errorTextWithTrace, fieldErrorMap, fieldErrorsLine } from '@/lib/errorText';
 import { HAS_APP_SHAPES, isKnownShape, lightnessOf, resolveShape, SHAPE_KEYS } from '@/lib/garment';
 import { qk } from '@/lib/queries';
 import type { ICodeBook } from '@/lib/queries';
@@ -78,13 +79,6 @@ const initialAttrs = (group: string): ICodeAttrs => {
   }
 };
 
-/** 서버 fieldErrors를 입력칸별로. `attrs.pairs[0]`처럼 하위 경로도 `attrs.pairs`에 붙인다 */
-const errorsByField = (list: IFieldError[]): Map<string, string> => {
-  const m = new Map<string, string>();
-  for (const f of list) if (!m.has(f.field)) m.set(f.field, f.message);
-  return m;
-};
-
 const KNOWN_FIELDS = [
   'code',
   'label',
@@ -139,7 +133,7 @@ export const CodeForm = ({
   }));
   const [errors, setErrors] = useState<Map<string, string>>(new Map());
   const [formError, setFormError] = useState<string | null>(null);
-  const [inUse, setInUse] = useState(false);
+  const [inUse, setInUse] = useState<{ usages: string } | null>(null);
 
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
@@ -181,19 +175,19 @@ export const CodeForm = ({
     onError: (e) => {
       if (isApiError(e)) {
         if (e.code === 'CODE_EXISTS') {
-          setErrors(new Map([['code', '이미 있는 코드입니다.']]));
+          setErrors(new Map([['code', errorText(e)]]));
           setFormError(null);
           return;
         }
         if (e.fieldErrors.length) {
-          const m = errorsByField(e.fieldErrors.map((f) => ({ ...f, field: baseField(f.field) })));
-          setErrors(m);
+          // 서버 fieldErrors를 입력칸별로 (code·params → 문구). `attrs.pairs[0]`처럼 하위 경로도 `attrs.pairs`에 붙인다
+          setErrors(fieldErrorMap(e.fieldErrors, baseField));
           const unknown = e.fieldErrors.filter((f) => !KNOWN_FIELDS.includes(baseField(f.field)));
-          setFormError(unknown.length ? unknown.map((f) => `${f.field}: ${f.message}`).join(' / ') : null);
+          setFormError(unknown.length ? fieldErrorsLine(unknown) : null);
           return;
         }
       }
-      setFormError(e instanceof Error ? e.message : '저장하지 못했습니다.');
+      setFormError(isApiError(e) ? errorTextWithTrace(e) : errorMessage(e));
     },
   });
 
@@ -206,8 +200,9 @@ export const CodeForm = ({
       onClose();
     },
     onError: (e) => {
-      if (isApiError(e) && e.code === 'CODE_IN_USE') setInUse(true);
-      else setFormError(e instanceof Error ? e.message : '삭제하지 못했습니다.');
+      // usages(옷·프로필·세부 종류 수)를 안내에 넣는다
+      if (isApiError(e) && e.code === 'CODE_IN_USE') setInUse({ usages: codeUsagesText(e.params.usages) });
+      else setFormError(isApiError(e) ? errorTextWithTrace(e) : errorMessage(e));
     },
   });
 
@@ -293,7 +288,7 @@ export const CodeForm = ({
   const onDelete = () => {
     if (!original) return;
     if (!window.confirm(`${original.label}(${original.code}) 코드를 삭제할까요? 되돌릴 수 없습니다.`)) return;
-    setInUse(false);
+    setInUse(null);
     remove.mutate();
   };
 
@@ -323,8 +318,8 @@ export const CodeForm = ({
         {inUse && original ? (
           <Notice tone="warn">
             <div>
-              이 코드를 쓰는 아이템이나 프로필이 있어 삭제할 수 없습니다. 대신 <strong>비활성화</strong>하면 새로 고를
-              수 없게 되고, 이미 저장된 값의 이름은 그대로 보입니다.
+              이 코드를 쓰는 곳이 있어 삭제할 수 없습니다{inUse.usages ? ` (${inUse.usages})` : ''}. 대신{' '}
+              <strong>비활성화</strong>하면 새로 고를 수 없게 되고, 이미 저장된 값의 이름은 그대로 보입니다.
             </div>
             {original.active && onDeactivateInstead ? (
               <Button size="sm" variant="primary" onClick={() => onDeactivateInstead(original)}>

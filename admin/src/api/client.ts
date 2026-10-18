@@ -70,6 +70,8 @@ interface IRequestOptions {
 const API_PREFIX = '/api/v1';
 /** 서버가 로그인 세션의 종류(APP·ADMIN·WEB)를 정하는 헤더 (doc/16 4장). 모든 요청에 붙인다 */
 const CLIENT_HEADER = { 'X-Wearly-Client': 'admin' } as const;
+/** 요청 추적 ID 헤더. 오류 본문 traceId와 같다 (CORS exposedHeaders에 있음) */
+const TRACE_HEADER = 'X-Request-Id';
 const DEFAULT_TIMEOUT = 15_000;
 /** 시험 분석은 실제 AI를 부르므로 넉넉히 */
 const TEST_TIMEOUT = 120_000;
@@ -351,12 +353,15 @@ export const createAdminApi = (options: IAdminApiOptions) => {
     } catch (e) {
       throw networkError(e);
     }
-    if (!res.ok) throw errorFromResponse(res.status, text);
+    if (!res.ok) throw errorFromResponse(res.status, text, res.headers.get(TRACE_HEADER));
     if (res.status === 204 || !text) return undefined as T;
     try {
       return JSON.parse(text) as T;
     } catch {
-      throw new ApiError(res.status, 'HTTP_ERROR', '서버 응답을 읽지 못했어요.');
+      throw new ApiError(res.status, 'HTTP_ERROR', {
+        params: { reason: 'PARSE' },
+        traceId: res.headers.get(TRACE_HEADER),
+      });
     }
   };
 
@@ -371,12 +376,12 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       refreshing = (async () => {
         const current = tokenStore.get();
         try {
-          if (!current?.refreshToken) throw new ApiError(401, 'REFRESH_INVALID', '로그인이 만료됐어요.');
+          if (!current?.refreshToken) throw new ApiError(401, 'REFRESH_INVALID');
           const auth = await readBody<IAuthResponse>(
             await send('POST', '/auth/refresh', { json: { refreshToken: current.refreshToken } }),
           );
           if (auth.user?.role && auth.user.role !== 'ADMIN') {
-            throw new ApiError(403, 'NOT_ADMIN', '관리자 계정이 아닙니다.');
+            throw new ApiError(403, 'NOT_ADMIN');
           }
           const next = { accessToken: auth.accessToken, refreshToken: auth.refreshToken };
           tokenStore.set(next);
@@ -385,7 +390,7 @@ export const createAdminApi = (options: IAdminApiOptions) => {
         } catch (e) {
           // 네트워크 실패는 Refresh가 아직 유효할 수 있으므로 로그인 상태를 지우지 않는다
           if (!(e instanceof ApiError && e.code === 'NETWORK')) {
-            lose(e instanceof ApiError ? e : new ApiError(401, 'REFRESH_INVALID', '로그인이 만료됐어요.'));
+            lose(e instanceof ApiError ? e : new ApiError(401, 'REFRESH_INVALID'));
           }
           throw e;
         }
@@ -402,7 +407,7 @@ export const createAdminApi = (options: IAdminApiOptions) => {
     if (refreshing) await refreshing.catch(() => undefined);
     const used = tokenStore.get()?.accessToken;
     if (!used) {
-      const err = new ApiError(401, 'UNAUTHORIZED', '로그인이 필요해요.');
+      const err = new ApiError(401, 'UNAUTHORIZED');
       lose(err);
       throw err;
     }
@@ -455,7 +460,7 @@ export const createAdminApi = (options: IAdminApiOptions) => {
           await request<void>('POST', '/auth/logout', { json: { refreshToken: auth.refreshToken } }).catch(
             () => undefined,
           );
-          throw new ApiError(403, 'NOT_ADMIN', '관리자 계정이 아닙니다.');
+          throw new ApiError(403, 'NOT_ADMIN');
         }
         tokenStore.set({ accessToken: auth.accessToken, refreshToken: auth.refreshToken });
         tokenStore.setUser(auth.user);

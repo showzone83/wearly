@@ -1,11 +1,24 @@
 // 날씨 > 호출 이력: 공급자 HTTP 호출 한 번이 한 줄. 요약 칩 → 필터(URL 쿼리) → 표 → 행 상세 (doc/17 6장)
+// 실행 밖 호출(다른 장소 날씨·장소 검색·평년값, doc/19)은 runId·trigger가 없어 '종류' 칸으로 구분한다.
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { api } from '@/api';
 import type { IWeatherCall, IWeatherCallQuery } from '@/api';
 
-import { Badge, Button, Card, Drawer, Empty, ErrorBox, Loading, PageHeader, Pagination, Stat } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  Drawer,
+  Empty,
+  ErrorBox,
+  Loading,
+  Notice,
+  PageHeader,
+  Pagination,
+  Stat,
+} from '@/components/ui';
 import { RunDetailDrawer, WeatherTabs } from '@/pages/weather/WeatherParts';
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -13,14 +26,44 @@ import { useSearchParams } from 'react-router';
 
 import { fmtBytes, fmtDateTime, fmtMs, fmtNum, todaySeoul } from '@/lib/format';
 import { qk, useCodeBook, useWeatherProviders } from '@/lib/queries';
-import { ERROR_TEXT, TRIGGER_TEXT, usageLevel } from '@/lib/weather';
+import {
+  AUX_PROVIDERS,
+  CALL_KIND_DESC,
+  CALL_KIND_TEXT,
+  CALL_KINDS,
+  callKindOf,
+  callKindText,
+  callRegionText,
+  ERROR_TEXT,
+  gridKeyText,
+  OPEN_METEO_TERMS,
+  TRIGGER_TEXT,
+  usageLevel,
+} from '@/lib/weather';
+import type { TCallKind } from '@/lib/weather';
 
 const PAGE_SIZE = 30;
+/** 서버로 보내는 필터 */
 const FILTER_KEYS = ['providerCode', 'regionCode', 'success', 'fallback', 'errorCode', 'from', 'to'] as const;
-type TFilterKey = (typeof FILTER_KEYS)[number];
+/** URL에 남기는 필터. kind(호출 종류)는 서버 API에 없어 받은 페이지 안에서만 거른다 */
+const URL_KEYS = [...FILTER_KEYS, 'kind'] as const;
+type TFilterKey = (typeof URL_KEYS)[number];
 
 const emptyDraft = (): Record<TFilterKey, string> => {
-  return Object.fromEntries(FILTER_KEYS.map((k) => [k, ''])) as Record<TFilterKey, string>;
+  return Object.fromEntries(URL_KEYS.map((k) => [k, ''])) as Record<TFilterKey, string>;
+};
+
+/** 종류 칸: 실행 호출이면 트리거(주기·지금 실행…)를 작게 붙인다 */
+const KindCell = ({ c }: { c: IWeatherCall }) => {
+  const kind = callKindOf(c);
+  return (
+    <span className="nowrap" title={CALL_KIND_DESC[kind as TCallKind]}>
+      {callKindText(kind)}
+      {kind === 'FORECAST' && c.trigger ? (
+        <span className="muted small"> · {TRIGGER_TEXT[c.trigger] ?? c.trigger}</span>
+      ) : null}
+    </span>
+  );
 };
 
 export const WeatherCallsPage = () => {
@@ -28,7 +71,7 @@ export const WeatherCallsPage = () => {
   const [params, setParams] = useSearchParams();
 
   const [draft, setDraft] = useState(
-    () => Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? ''])) as Record<TFilterKey, string>,
+    () => Object.fromEntries(URL_KEYS.map((k) => [k, params.get(k) ?? ''])) as Record<TFilterKey, string>,
   );
   const [open, setOpen] = useState<IWeatherCall | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
@@ -49,11 +92,16 @@ export const WeatherCallsPage = () => {
   });
 
   const today = summary.data?.today;
+  const kind = params.get('kind') ?? '';
+  // 서버에 종류 필터가 없어 받은 페이지 안에서만 거른다
+  const rows = data ? (kind ? data.items.filter((c) => callKindOf(c) === kind) : data.items) : [];
+  const providerNames = Object.fromEntries((providers.data ?? []).map((p) => [p.code, p.displayName]));
+  const auxProviders = Object.entries(AUX_PROVIDERS).filter(([code]) => !providerNames[code]);
 
   const apply = (e?: FormEvent) => {
     e?.preventDefault();
     const next = new URLSearchParams();
-    for (const k of FILTER_KEYS) if (draft[k]) next.set(k, draft[k]);
+    for (const k of URL_KEYS) if (draft[k]) next.set(k, draft[k]);
     setParams(next);
   };
   const reset = () => {
@@ -69,12 +117,19 @@ export const WeatherCallsPage = () => {
 
   return (
     <>
-      <PageHeader title="날씨" desc="공급자 HTTP 호출 기록. 오류 문구에 키는 남지 않습니다. 보관 기간이 지나면 매일 04:00에 지웁니다." />
+      <PageHeader
+        title="날씨"
+        desc="공급자 HTTP 호출 기록. 오류 문구에 키는 남지 않습니다. 보관 기간이 지나면 매일 04:00에 지웁니다."
+      />
       <WeatherTabs />
       <ErrorBox error={summary.error} onRetry={() => void summary.refetch()} />
       {today ? (
         <div className="stats">
-          <Stat label="오늘 호출" value={fmtNum(today.calls)} sub={`실패 ${fmtNum(today.failures)}`} />
+          <Stat
+            label="오늘 호출"
+            value={fmtNum(today.calls)}
+            sub={`실패 ${fmtNum(today.failures)} · 실행 밖 호출(다른 장소·검색·평년값) 포함`}
+          />
           <Stat label="오늘 예비 전환" value={fmtNum(today.fallbacks)} sub="1순위가 아닌 공급자로 받은 호출" />
           <Stat label="오늘 평균 소요" value={fmtMs(today.avgDurationMs)} />
           {summary.data?.months.map((m) => (
@@ -83,14 +138,21 @@ export const WeatherCallsPage = () => {
               label={`${m.displayName} 이번 달`}
               value={fmtNum(m.used)}
               sub={
-                m.quota === null
+                (m.quota === null
                   ? '한도 없음'
-                  : `한도 ${fmtNum(m.quota)}회${usageLevel(m.used, m.quota) === 'over' ? ' · 도달' : ''}`
+                  : `한도 ${fmtNum(m.quota)}회${usageLevel(m.used, m.quota) === 'over' ? ' · 도달' : ''}`) +
+                ' · 다른 장소·검색 포함'
               }
             />
           ))}
+          <Stat
+            label="Open-Meteo (평년값·장소 검색)"
+            value="월 한도 없음"
+            sub="키 없음 · 공급자 표 밖 · 사용량은 호출 이력에서"
+          />
         </div>
       ) : null}
+      {today ? <p className="muted small mt-sm">Open-Meteo: {OPEN_METEO_TERMS}</p> : null}
 
       <Card className="mt-md">
         <form className="filters" onSubmit={apply}>
@@ -101,6 +163,22 @@ export const WeatherCallsPage = () => {
               {(providers.data ?? []).map((p) => (
                 <option key={p.code} value={p.code}>
                   {p.displayName}
+                </option>
+              ))}
+              {auxProviders.map(([code, a]) => (
+                <option key={code} value={code}>
+                  {a.label} ({a.use})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="field-label">종류</span>
+            <select value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value })}>
+              <option value="">전체</option>
+              {CALL_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {CALL_KIND_TEXT[k]}
                 </option>
               ))}
             </select>
@@ -170,8 +248,16 @@ export const WeatherCallsPage = () => {
       {isLoading ? <Loading /> : null}
       {data ? (
         <Card className={isFetching ? 'is-fetching' : ''}>
-          {data.items.length === 0 ? (
-            <Empty>조건에 맞는 호출이 없습니다.</Empty>
+          {kind ? (
+            <Notice tone="info">
+              종류 필터는 서버 API에 없어 이 페이지에서 받은 {fmtNum(data.items.length)}건 안에서만 거릅니다 (
+              {fmtNum(rows.length)}건). 다른 페이지에도 더 있을 수 있어요.
+            </Notice>
+          ) : null}
+          {rows.length === 0 ? (
+            <Empty>
+              {kind && data.items.length ? '이 페이지에는 그 종류의 호출이 없습니다.' : '조건에 맞는 호출이 없습니다.'}
+            </Empty>
           ) : (
             <div className="table-wrap">
               <table className="table table-hover">
@@ -180,7 +266,7 @@ export const WeatherCallsPage = () => {
                     <th>시각</th>
                     <th>지역</th>
                     <th>공급자</th>
-                    <th>트리거</th>
+                    <th>종류</th>
                     <th className="num">HTTP</th>
                     <th>결과</th>
                     <th className="num">소요</th>
@@ -189,20 +275,26 @@ export const WeatherCallsPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.items.map((c) => (
+                  {rows.map((c) => (
                     <tr key={c.id} className="clickable" onClick={() => setOpen(c)}>
                       <td className="nowrap small">{fmtDateTime(c.calledAt)}</td>
-                      <td className="small">{codes.label('REGION', c.regionCode)}</td>
+                      <td className="small nowrap">{callRegionText(c, (code) => codes.label('REGION', code))}</td>
                       <td className="mono small">
                         {c.providerCode} {c.fallback ? <Badge tone="beige">예비</Badge> : null}
                       </td>
-                      <td className="small">{TRIGGER_TEXT[c.trigger] ?? c.trigger}</td>
+                      <td className="small">
+                        <KindCell c={c} />
+                      </td>
                       <td className="num small">{c.httpStatus ?? '—'}</td>
                       <td>{c.success ? <Badge tone="green">성공</Badge> : <Badge tone="red">실패</Badge>}</td>
                       <td className="num small">{fmtMs(c.durationMs)}</td>
                       <td className="num small">{fmtBytes(c.responseBytes)}</td>
                       <td className="small ellipsis">
-                        {c.errorCode ? <span className="text-danger">{ERROR_TEXT[c.errorCode] ?? c.errorCode}</span> : '—'}
+                        {c.errorCode ? (
+                          <span className="text-danger">{ERROR_TEXT[c.errorCode] ?? c.errorCode}</span>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -219,16 +311,31 @@ export const WeatherCallsPage = () => {
           <dl className="kv">
             <dt>시각</dt>
             <dd>{fmtDateTime(open.calledAt)}</dd>
+            <dt>종류</dt>
+            <dd>
+              {callKindText(callKindOf(open))} <span className="mono muted small">{open.callKind}</span>
+              {CALL_KIND_DESC[callKindOf(open) as TCallKind] ? (
+                <div className="muted small">{CALL_KIND_DESC[callKindOf(open) as TCallKind]}</div>
+              ) : null}
+            </dd>
             <dt>지역</dt>
             <dd>
-              {codes.label('REGION', open.regionCode)} <span className="mono muted small">{open.regionCode}</span>
+              {callRegionText(open, (code) => codes.label('REGION', code))}{' '}
+              {open.regionCode && !gridKeyText(open.regionCode) ? (
+                <span className="mono muted small">{open.regionCode}</span>
+              ) : null}
+              {gridKeyText(open.regionCode) ? (
+                <div className="muted small">격자 키(소수 첫째 자리, 약 11km)</div>
+              ) : null}
             </dd>
             <dt>공급자</dt>
-            <dd className="mono">
-              {open.providerCode} {open.fallback ? <Badge tone="beige">예비</Badge> : null}
+            <dd>
+              <span className="mono">{open.providerCode}</span>{' '}
+              {AUX_PROVIDERS[open.providerCode] ? (
+                <span className="muted small">{AUX_PROVIDERS[open.providerCode].label} · 월 한도 없음</span>
+              ) : null}
+              {open.fallback ? <Badge tone="beige">예비</Badge> : null}
             </dd>
-            <dt>종류</dt>
-            <dd className="mono">{open.callKind}</dd>
             <dt>결과</dt>
             <dd>
               {open.success ? <Badge tone="green">성공</Badge> : <Badge tone="red">실패</Badge>} HTTP{' '}
@@ -245,9 +352,13 @@ export const WeatherCallsPage = () => {
             ) : null}
             <dt>실행</dt>
             <dd>
-              <button type="button" className="link-btn" onClick={() => setRunId(open.runId)}>
-                실행 #{open.runId} ({TRIGGER_TEXT[open.trigger] ?? open.trigger}) 열기
-              </button>
+              {open.runId ? (
+                <button type="button" className="link-btn" onClick={() => setRunId(open.runId)}>
+                  실행 #{open.runId} ({open.trigger ? (TRIGGER_TEXT[open.trigger] ?? open.trigger) : '—'}) 열기
+                </button>
+              ) : (
+                <span className="muted">없음 (앱 요청 때 부른 실행 밖 호출)</span>
+              )}
             </dd>
           </dl>
         </Drawer>

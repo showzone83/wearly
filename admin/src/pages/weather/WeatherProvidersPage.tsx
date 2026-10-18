@@ -1,6 +1,6 @@
 // 날씨 > 공급자: 사용 여부·월 한도·최대 예보 일수, 상태(정상·차단·키 확인 필요), 이번 달 사용량, 차단 해제, 시험 호출 (doc/17 4·6장).
 // 지금은 WeatherAPI.com 하나다. 예비 공급자(OpenWeatherMap)는 다음 단계에서 같은 목록에 붙는다.
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 
 import { api, isApiError } from '@/api';
 import type { IWeatherProvider, IWeatherTestResult } from '@/api';
@@ -11,12 +11,16 @@ import { CurrentLine, DaysTable, WeatherTabs } from '@/pages/weather/WeatherPart
 import { useToastStore } from '@/stores/useToastStore';
 
 import { useMutation } from '@tanstack/react-query';
+import { Link } from 'react-router';
 
+import { fieldErrorOf } from '@/lib/errorText';
 import { fmtDateTime, fmtMs, fmtNum } from '@/lib/format';
 import { useCodeBook, useResetWeatherProvider, useUpdateWeatherProvider, useWeatherProviders } from '@/lib/queries';
 import {
+  AUX_PROVIDERS,
   ERROR_TEXT,
   KEY_TEXT,
+  OPEN_METEO_TERMS,
   STATUS_TEXT,
   STATUS_TONE,
   statusDetail,
@@ -37,6 +41,7 @@ const UsageBar = ({ used, quota }: { used: number; quota: number | null }) => {
           <div className={`usage-fill usage-${level}`} style={{ width: `${usagePercent(used, quota)}%` }} />
         </div>
       ) : null}
+      <div className="muted small">정기·수동 실행에 앱의 다른 장소 날씨·장소 검색 호출까지 더한 수 (실패 포함)</div>
     </div>
   );
 };
@@ -45,6 +50,7 @@ const ProviderCard = ({ p, onEdit }: { p: IWeatherProvider; onEdit: (p: IWeather
   const update = useUpdateWeatherProvider();
   const reset = useResetWeatherProvider();
   const toast = useToastStore((s) => s.show);
+  const toastError = useToastStore((s) => s.showError);
 
   const detail = statusDetail(p.status, p.keyState, p.circuitOpenUntil ? fmtDateTime(p.circuitOpenUntil) : null);
 
@@ -53,14 +59,14 @@ const ProviderCard = ({ p, onEdit }: { p: IWeatherProvider; onEdit: (p: IWeather
       { code: p.code, patch: { enabled } },
       {
         onSuccess: () => toast(`${p.displayName}을(를) ${enabled ? '켰어요' : '껐어요'}.`),
-        onError: (e) => toast(isApiError(e) ? e.message : '저장하지 못했어요.', 'error'),
+        onError: (e) => toastError(e, '저장하지 못했어요'),
       },
     );
   };
   const unblock = () => {
     reset.mutate(p.code, {
       onSuccess: () => toast(`${p.displayName} 차단을 풀었어요. 다음 실행부터 다시 부릅니다.`),
-      onError: (e) => toast(isApiError(e) ? e.message : '차단을 풀지 못했어요.', 'error'),
+      onError: (e) => toastError(e, '차단을 풀지 못했어요'),
     });
   };
 
@@ -125,7 +131,7 @@ const EditDrawer = ({ p, onClose }: { p: IWeatherProvider; onClose: () => void }
   const toast = useToastStore((s) => s.show);
 
   const fieldError = (name: string) =>
-    isApiError(update.error) ? update.error.fieldErrors.find((f) => f.field === name)?.message : undefined;
+    isApiError(update.error) ? fieldErrorOf(update.error.fieldErrors, name) : undefined;
   const submit = () => {
     update.mutate(
       {
@@ -249,6 +255,32 @@ const TestCard = ({ providers }: { providers: IWeatherProvider[] }) => {
   );
 };
 
+/** 공급자 표 밖의 고정 보조 공급자 (Open-Meteo: 평년값·장소 검색, doc/19). 켜고 끄기·우선순위·월 한도·차단이 없다 */
+const AuxProvidersCard = () => {
+  return (
+    <Card title="Open-Meteo (보조 공급자)">
+      <p className="small">
+        평년값(예보 밖 날짜)과 장소 검색에 서버가 고정으로 씁니다. 위 공급자 순서·차단·월 한도와 따로 움직이고, 키가 없고
+        <strong> 월 한도도 없습니다</strong>. 지오코딩이 실패하거나 꺼져 있으면 검색을 지원하는 위 날씨 공급자(WeatherAPI)로 검색하고, 그 호출은 위 공급자의 월 사용량에 들어갑니다.
+      </p>
+      <dl className="kv mt-sm">
+        {Object.entries(AUX_PROVIDERS).map(([code, a]) => (
+          <Fragment key={code}>
+            <dt>{a.use}</dt>
+            <dd>
+              {a.label} <span className="mono muted small">{code}</span>{' '}
+              <Link className="link-btn small" to={`/weather/calls?providerCode=${code}`}>
+                호출 이력 보기
+              </Link>
+            </dd>
+          </Fragment>
+        ))}
+      </dl>
+      <p className="muted small mt-sm">{OPEN_METEO_TERMS}</p>
+    </Card>
+  );
+};
+
 export const WeatherProvidersPage = () => {
   const [editing, setEditing] = useState<IWeatherProvider | null>(null);
 
@@ -270,6 +302,7 @@ export const WeatherProvidersPage = () => {
           붙입니다.
         </Notice>
       ) : null}
+      {data ? <AuxProvidersCard /> : null}
       {data && data.length > 0 ? <TestCard providers={data} /> : null}
       {editing ? <EditDrawer p={editing} onClose={() => setEditing(null)} /> : null}
     </>

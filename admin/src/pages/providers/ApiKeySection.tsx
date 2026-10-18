@@ -6,7 +6,7 @@
 // - 읽은 값은 mutation 변수로만 서버에 보낸다(JSON 본문). URL·쿼리 문자열·sessionStorage·localStorage·쿼리 캐시 키에 넣지 않는다.
 // - mutation은 gcTime 0 + 끝나면 reset()이라 MutationCache에도 변수가 남지 않는다.
 // - 입력칸에 name을 붙이지 않는다. 만에 하나 스크립트가 멈춰 브라우저가 폼을 기본 제출(GET)해도 쿼리 문자열에 실리지 않게.
-// - 오류를 로그로 남기지 않는다(console 금지). 화면에는 서버 오류 메시지만 보여 준다(서버가 키 조각을 지운 문구).
+// - 오류를 로그로 남기지 않는다(console 금지). 화면 문구는 서버 오류 코드·params로 정한다(lib/errorText.ts, 서버는 문장을 보내지 않는다).
 import { useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 
@@ -20,6 +20,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 
+import { apiKeyReasonText, errorText, errorTextWithTrace, fieldErrorOf, fieldErrorsLine } from '@/lib/errorText';
 import { fmtDateTime } from '@/lib/format';
 import { qk, useProviders } from '@/lib/queries';
 
@@ -49,34 +50,30 @@ interface IKeyFormErrors {
   form?: ReactNode;
 }
 
-/** 서버 오류 → 입력칸별 안내 (07 6장 오류 코드) */
+/** 서버 오류 → 입력칸별 안내 (07 6장 오류 코드, 문구는 lib/errorText.ts) */
 const toKeyErrors = (e: unknown): IKeyFormErrors => {
   if (!isApiError(e)) return { form: errorMessage(e) };
   switch (e.code) {
     case 'REAUTH_FAILED':
-      return { currentPassword: '비밀번호가 맞지 않아요. 다시 입력해 주세요.' };
+      return { currentPassword: errorText(e) };
     case 'API_KEY_INVALID':
-      return { apiKey: `키가 유효하지 않아요. ${e.message}` };
+      // params.reason: API_401 · API_403 · API_429 · TIMEOUT · API_CLIENT … (제공사 모델 목록 조회 결과)
+      return { apiKey: `키가 유효하지 않아요. ${apiKeyReasonText(e.params.reason)}` };
     case 'SECRET_KEY_MISSING':
-      return {
-        form: `${SECRET_MISSING_TEXT}. 서버 관리자에게 마스터 키 설정을 요청하거나, 서버 설정 키를 쓰세요.`,
-      };
+      return { form: errorText(e) };
     case 'VALIDATION_FAILED': {
       const out: IKeyFormErrors = {};
-      const rest: string[] = [];
-      for (const f of e.fieldErrors) {
-        if (f.field === 'apiKey') out.apiKey = f.message;
-        else if (f.field === 'currentPassword') out.currentPassword = f.message;
-        else rest.push(`${f.field}: ${f.message}`);
-      }
-      if (rest.length) out.form = rest.join(' / ');
-      if (!out.apiKey && !out.currentPassword && !out.form) out.form = e.message;
+      const rest = e.fieldErrors.filter((f) => f.field !== 'apiKey' && f.field !== 'currentPassword');
+      out.apiKey = fieldErrorOf(e.fieldErrors, 'apiKey');
+      out.currentPassword = fieldErrorOf(e.fieldErrors, 'currentPassword');
+      if (rest.length) out.form = fieldErrorsLine(rest);
+      if (!out.apiKey && !out.currentPassword && !out.form) out.form = errorText(e);
       return out;
     }
     case 'NOT_FOUND':
       return { form: '공급자를 찾을 수 없어요. 삭제됐거나, 서버가 아직 웹 키 입력을 지원하지 않아요.' };
     default:
-      return { form: `${e.message} (${e.code})` };
+      return { form: `${errorTextWithTrace(e)} (${e.code})` };
   }
 };
 

@@ -134,3 +134,78 @@ export const runDurationMs = (startedAt: string, finishedAt: string | null): num
   const ms = new Date(finishedAt).getTime() - new Date(startedAt).getTime();
   return Number.isNaN(ms) ? null : Math.max(0, ms);
 };
+
+// ───────── 호출 종류 (doc/19: 실행 밖 호출) ─────────
+
+/**
+ * tb_weather_call_log.call_kind. FORECAST만 실행(runId·trigger)이 있고, 나머지는 앱 요청 때 생긴 실행 밖 호출이다.
+ * - ON_DEMAND: REGION 밖 좌표의 예보 (regionCode = 격자 키 "35.7,139.7")
+ * - SEARCH: 장소 검색 (regionCode 없음, 공급자 OPEN_METEO_GEO 또는 WEATHERAPI)
+ * - CLIMATE: 평년값 계산용 과거 자료 (공급자 OPEN_METEO, regionCode = 격자 키)
+ */
+export type TCallKind = 'FORECAST' | 'ON_DEMAND' | 'SEARCH' | 'CLIMATE';
+
+export const CALL_KINDS: readonly TCallKind[] = ['FORECAST', 'ON_DEMAND', 'SEARCH', 'CLIMATE'];
+
+export const CALL_KIND_TEXT: Record<TCallKind, string> = {
+  FORECAST: '정기·수동 실행',
+  ON_DEMAND: '다른 장소 날씨',
+  SEARCH: '장소 검색',
+  CLIMATE: '평년값',
+};
+
+export const CALL_KIND_DESC: Record<TCallKind, string> = {
+  FORECAST: '스케줄·지금 실행·서버 시작·시험 호출에서 지역(REGION)별 예보를 받은 호출',
+  ON_DEMAND: '앱이 지역 목록 밖 장소(좌표)의 날씨를 물어 공급자를 바로 부른 호출. 격자(약 11km)별로 캐시한다',
+  SEARCH: '앱의 장소 검색. 지역이 없다',
+  CLIMATE: '예보 밖 날짜에 쓸 평년값을 계산하려고 Open-Meteo 과거 기상 자료를 받은 호출',
+};
+
+/** 호출 종류. 예전 행처럼 callKind가 비어 있으면 실행이 있으면 FORECAST로 본다. 모르는 값은 그대로 */
+export const callKindOf = (c: { callKind?: string | null; runId?: string | null }): string => {
+  if (c.callKind) return c.callKind;
+  return c.runId ? 'FORECAST' : '';
+};
+
+export const callKindText = (kind: string): string => CALL_KIND_TEXT[kind as TCallKind] ?? (kind || '—');
+
+/** 격자 키 "35.7,139.7" → { lat, lon }. 격자 키가 아니면 null */
+export const parseGridKey = (key: string | null | undefined): { lat: number; lon: number } | null => {
+  const m = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(key ?? '');
+  if (!m) return null;
+  const lat = Number(m[1]);
+  const lon = Number(m[2]);
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { lat, lon };
+};
+
+/** 격자 키 → "좌표 35.7, 139.7" (격자 키가 아니면 null) */
+export const gridKeyText = (key: string | null | undefined): string | null => {
+  if (!key || !parseGridKey(key)) return null;
+  // 서버 값의 자릿수("127.0")를 그대로 보여 준다
+  const [lat, lon] = key.split(',').map((s) => s.trim());
+  return `좌표 ${lat}, ${lon}`;
+};
+
+/**
+ * 호출 이력의 지역 칸. SEARCH·지역 없음은 "—", 격자 키는 "좌표 35.7, 139.7", REGION 코드는 regionLabel(코드 → 이름).
+ */
+export const callRegionText = (
+  c: { callKind?: string | null; runId?: string | null; regionCode?: string | null },
+  regionLabel: (code: string) => string,
+): string => {
+  if (callKindOf(c) === 'SEARCH' || !c.regionCode) return '—';
+  return gridKeyText(c.regionCode) ?? regionLabel(c.regionCode);
+};
+
+/**
+ * 공급자 표에 없는(tb_weather_provider 밖) 고정 보조 공급자. 키·월 한도·차단·우선순위가 없다.
+ * 무료 API 조건: 비상업 용도, 하루 1만 회 이하 (상용이면 유료 플랜 — API 키·전용 주소).
+ */
+export const AUX_PROVIDERS: Record<string, { label: string; use: string }> = {
+  OPEN_METEO: { label: 'Open-Meteo', use: '평년값' },
+  OPEN_METEO_GEO: { label: 'Open-Meteo 지오코딩', use: '장소 검색' },
+};
+
+export const OPEN_METEO_TERMS =
+  '무료 API는 비상업 용도만 허용(하루 1만 회 이하). 상용 출시 전에는 유료 플랜이 필요해요.';

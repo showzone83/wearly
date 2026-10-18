@@ -1,7 +1,7 @@
 // AI 공급자: 목록(키 출처·사용 가능·오늘 호출), 추가·수정(+ API 키 웹 입력), 사용 켜기/끄기, 우선순위, 시험 분석
 import { useState } from 'react';
 
-import { api, errorMessage } from '@/api';
+import { api } from '@/api';
 import type { IAiProvider } from '@/api';
 
 import { Badge, Button, Card, Empty, ErrorBox, Loading, PageHeader, Switch } from '@/components/ui';
@@ -36,6 +36,7 @@ export const ProvidersPage = () => {
   });
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
+  const toastError = useToastStore((s) => s.showError);
   // 순서 예외: 아래 swap의 onSuccess 옵션이 렌더 중에 invalidate를 바로 읽는다
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: qk.providers });
@@ -48,7 +49,7 @@ export const ProvidersPage = () => {
       await invalidate();
       toast(`${p.displayName}: ${p.enabled ? '사용 끔' : '사용 켬'}`);
     },
-    onError: (e) => toast(errorMessage(e), 'error'),
+    onError: (e) => toastError(e),
   });
 
   const swap = useMutation({
@@ -60,7 +61,7 @@ export const ProvidersPage = () => {
     },
     onSuccess: invalidate,
     onError: async (e) => {
-      toast(`우선순위를 바꾸지 못했습니다: ${errorMessage(e)}`, 'error');
+      toastError(e, '우선순위를 바꾸지 못했습니다');
       await invalidate();
     },
   });
@@ -71,7 +72,7 @@ export const ProvidersPage = () => {
       await invalidate();
       toast(`${p.providerId} 공급자를 삭제했습니다.`);
     },
-    onError: (e) => toast(errorMessage(e), 'error'),
+    onError: (e) => toastError(e),
   });
 
   const providers = (data ?? [])

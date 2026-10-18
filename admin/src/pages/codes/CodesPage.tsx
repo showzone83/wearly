@@ -1,7 +1,7 @@
 // 코드 관리: 그룹 탭 → 표(코드·라벨·상위·순서·사용 여부·사용 수) → 추가·수정 패널
 import { useMemo, useState } from 'react';
 
-import { api, errorMessage } from '@/api';
+import { api } from '@/api';
 import type { IAdminCode, IAdminCodeGroup } from '@/api';
 
 import { ColorChip, GarmentPreview } from '@/components/Garment';
@@ -37,6 +37,7 @@ export const CodesPage = () => {
   const book = useCodeBook();
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
+  const toastError = useToastStore((s) => s.showError);
   const reorder = useMutation({
     mutationFn: (codes: string[]) => api.codes.reorder(g, codes),
     onMutate: async (codes) => {
@@ -59,7 +60,7 @@ export const CodesPage = () => {
     },
     onError: (e, _v, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(qk.codes, ctx.prev);
-      toast(`순서를 바꾸지 못했습니다: ${errorMessage(e)}`, 'error');
+      toastError(e, '순서를 바꾸지 못했습니다');
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: qk.codes });
@@ -74,7 +75,7 @@ export const CodesPage = () => {
       void queryClient.invalidateQueries({ queryKey: ['audit'] });
       toast(`${c.label}: ${c.active ? '비활성화' : '사용'}로 바꿨습니다.`);
     },
-    onError: (e) => toast(errorMessage(e), 'error'),
+    onError: (e) => toastError(e),
   });
 
   const groups = data?.groups ?? [];

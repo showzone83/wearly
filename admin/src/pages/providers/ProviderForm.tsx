@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { api, isApiError } from '@/api';
+import { api, errorMessage, isApiError } from '@/api';
 import type { IAiProvider, IProviderOptionSpec, IProviderTypeSpec } from '@/api';
 
 import { Badge, Button, Drawer, Field, Notice, Switch } from '@/components/ui';
@@ -14,6 +14,7 @@ import { useToastStore } from '@/stores/useToastStore';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { errorText, errorTextWithTrace, fieldErrorMap, fieldErrorsLine } from '@/lib/errorText';
 import { DEFAULT_KEY_ENV, FALLBACK_TYPES } from '@/lib/providerTypes';
 import { qk } from '@/lib/queries';
 
@@ -113,16 +114,14 @@ export const ProviderForm = ({
     },
     onError: (e) => {
       if (isApiError(e) && e.fieldErrors.length) {
-        const m = new Map<string, string>();
-        e.fieldErrors.forEach((f) => m.set(f.field, f.message));
-        setErrors(m);
+        setErrors(fieldErrorMap(e.fieldErrors));
         const known = ['providerId', 'type', 'displayName', 'model', 'apiKeyEnv', 'priority', 'enabled', 'options'];
         const rest = e.fieldErrors.filter((f) => !known.includes(f.field) && !f.field.startsWith('options.'));
-        setFormError(rest.length ? rest.map((f) => `${f.field}: ${f.message}`).join(' / ') : null);
-      } else if (isApiError(e) && e.status === 409) {
-        setErrors(new Map([['providerId', '이미 있는 공급자 ID입니다.']]));
+        setFormError(rest.length ? fieldErrorsLine(rest) : null);
+      } else if (isApiError(e) && e.code === 'PROVIDER_EXISTS') {
+        setErrors(new Map([['providerId', errorText(e)]]));
       } else {
-        setFormError(e instanceof Error ? e.message : '저장하지 못했습니다.');
+        setFormError(isApiError(e) ? errorTextWithTrace(e) : errorMessage(e));
       }
     },
   });

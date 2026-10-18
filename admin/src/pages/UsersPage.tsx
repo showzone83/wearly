@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 
-import { api, errorMessage } from '@/api';
+import { api } from '@/api';
 import type { IAdminUser, IUserPatch, IUserQuery } from '@/api';
 
 import { Badge, Button, Card, Empty, ErrorBox, Loading, PageHeader, Pagination } from '@/components/ui';
@@ -38,6 +38,7 @@ export const UsersPage = () => {
   const me = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
+  const toastError = useToastStore((s) => s.showError);
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: qk.users(query),
     queryFn: () => api.users.list(query),
@@ -59,7 +60,7 @@ export const UsersPage = () => {
           : '관리자에서 해제했습니다';
       toast(`${user.email ?? user.name}: ${what}.`);
     },
-    onError: (e) => toast(errorMessage(e), 'error'),
+    onError: (e) => toastError(e),
   });
 
   const setFilter = (key: string, value: string) => {

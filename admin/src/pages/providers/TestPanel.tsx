@@ -9,6 +9,7 @@ import { Badge, Button, Card, Notice } from '@/components/ui';
 
 import { useQueryClient } from '@tanstack/react-query';
 
+import { errorTextWithTrace } from '@/lib/errorText';
 import { fmtBytes, fmtMs, fmtNum } from '@/lib/format';
 import { useCodeBook } from '@/lib/queries';
 
@@ -122,7 +123,7 @@ export const TestPanel = ({ providers }: { providers: IAiProvider[] }) => {
             [id]: {
               state: 'error',
               code: isApiError(e) ? e.code : 'ERROR',
-              message: errorMessage(e),
+              message: isApiError(e) ? errorTextWithTrace(e) : errorMessage(e),
               elapsedMs: performance.now() - startedAt,
             },
           }));

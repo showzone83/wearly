@@ -9,20 +9,17 @@ import { useAuthStore } from '@/stores/useAuthStore';
 
 import { Navigate, useLocation } from 'react-router';
 
+import { errorTextWithTrace, fieldErrorText } from '@/lib/errorText';
+
+const FIELD_NAME: Record<string, string> = { email: '이메일', password: '비밀번호' };
+
+/** 로그인 오류 문구. 문구는 코드로 정하고(lib/errorText.ts), 입력 오류는 "이메일: 형식이 올바르지 않아요." */
 const loginErrorText = (e: unknown): string => {
-  if (!isApiError(e)) return errorMessage(e);
-  switch (e.code) {
-    case 'INVALID_CREDENTIALS':
-      return '이메일 또는 비밀번호가 맞지 않습니다.';
-    case 'ACCOUNT_SUSPENDED':
-      return '정지된 계정입니다.';
-    case 'NOT_ADMIN':
-      return '관리자 계정이 아닙니다.';
-    case 'VALIDATION_FAILED':
-      return e.fieldErrors[0]?.message ?? e.message;
-    default:
-      return errorMessage(e);
+  if (isApiError(e) && e.code === 'VALIDATION_FAILED' && e.fieldErrors.length) {
+    const f = e.fieldErrors[0];
+    return `${FIELD_NAME[f.field] ?? f.field}: ${fieldErrorText(f)}`;
   }
+  return isApiError(e) ? errorTextWithTrace(e) : errorMessage(e);
 };
 
 export const LoginPage = () => {
