@@ -18,6 +18,7 @@ import { canRecommend, isCandidate, slotOf } from '@/lib/recommend';
 import { COND_LABEL, FEEL_PRESETS, forecast, hasForecast, manualWeather } from '@/lib/weather';
 import { useCodesVersion } from '@/store/useCodes';
 import { useStore } from '@/store/useStore';
+import { useWeatherStore } from '@/store/useWeatherStore';
 import { inputBase, makeStyles, useColors } from '@/theme';
 
 type Mode = 'TODAY' | 'PLAN';
@@ -86,6 +87,8 @@ export default function Coordi() {
   const [feel, setFeel] = useState(FEEL_PRESETS[2].temp);
   const [rain, setRain] = useState(false);
   const [memo, setMemo] = useState('');
+  // 서버 날씨가 도착하면 예보·예보 기간이 바뀌므로 다시 그린다 (lib/weather.ts가 스토어 값을 읽는다)
+  useWeatherStore((s) => s.weather);
 
   const ready = canRecommend(items);
   const auto = hasForecast(planDate);
@@ -286,7 +289,7 @@ export default function Coordi() {
               </View>
             ) : (
               <View style={{ gap: 10 }}>
-                <Text style={s.switchSub}>예보 기간(10일) 이후라 기온을 직접 골라 주세요. D-1에 최신 예보로 다시 확인해요.</Text>
+                <Text style={s.switchSub}>예보 기간 밖이라 기온을 직접 골라 주세요. D-1에 최신 예보로 다시 확인해요.</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {FEEL_PRESETS.map((p) => (
                     <Chip key={p.label} label={`${p.label} ${p.temp}°`} selected={feel === p.temp} onPress={() => setFeel(p.temp)} small />

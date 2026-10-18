@@ -37,7 +37,16 @@
           "cameraPermission": "옷을 촬영해 등록하려면 카메라 접근이 필요해요."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "가까운 날씨 지역을 고르려면 위치가 필요해요. 위치는 기기 안에서만 쓰고 서버로 보내지 않아요.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "motionUsagePermission": false
+        }
+      ]
     ],
     "scheme": "wearly"
   }

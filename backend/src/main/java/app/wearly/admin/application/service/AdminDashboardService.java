@@ -28,7 +28,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -106,8 +105,8 @@ public class AdminDashboardService implements AdminDashboardUseCase {
             st,
             email,
             ft,
-            time("from", search.from(), false),
-            time("to", search.to(), true));
+            SearchTimes.parse("from", search.from(), false),
+            SearchTimes.parse("to", search.to(), true));
     List<AiLogDto> items =
         queries.findAiLogs(filter, paging.size(), paging.offset()).stream()
             .map(AdminDashboardService::toView)
@@ -183,21 +182,5 @@ public class AdminDashboardService implements AdminDashboardUseCase {
         r.before(),
         r.after(),
         r.createdAt());
-  }
-
-  private static Instant time(String field, String raw, boolean end) {
-    String v = SearchText.blankToNull(raw);
-    if (v == null) {
-      return null;
-    }
-    try {
-      if (v.length() == 10) {
-        LocalDate d = LocalDate.parse(v);
-        return Zones.startOf(end ? d.plusDays(1) : d);
-      }
-      return Instant.parse(v);
-    } catch (DateTimeParseException e) {
-      throw ApiException.validation(field, "YYYY-MM-DD 또는 ISO-8601 시각이어야 해요.");
-    }
   }
 }

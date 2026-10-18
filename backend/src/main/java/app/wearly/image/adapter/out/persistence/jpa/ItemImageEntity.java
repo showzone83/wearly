@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
-/** tb_item_image JPA 엔티티 (V11). image_id는 서버가 만든 UUID */
+/** tb_item_image JPA 엔티티 (V12). image_id는 서버가 만든 UUID */
 @Entity
 @Table(name = "tb_item_image")
 public class ItemImageEntity {

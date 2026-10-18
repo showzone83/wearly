@@ -1917,3 +1917,49 @@ details summary {
   align-items: center;
   gap: 4px 10px;
 }
+
+/* ───────── 날씨 (doc/17 6장) ───────── */
+
+.mb-md {
+  margin-bottom: 16px;
+}
+
+.weather-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.usage {
+  margin-top: 12px;
+}
+
+.usage-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.usage-track {
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--tile);
+  overflow: hidden;
+}
+
+.usage-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--green);
+}
+
+.usage-fill.usage-warn {
+  background: #d08a2e;
+}
+
+.usage-fill.usage-over {
+  background: var(--danger);
+}

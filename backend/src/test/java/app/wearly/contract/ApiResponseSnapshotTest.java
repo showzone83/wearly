@@ -65,6 +65,9 @@ import tools.jackson.databind.node.ObjectNode;
       "SNAPSHOT_FAKE_API_KEY=snapshot-fake-key-value-0001",
       // 웹 키 입력을 켠다 (고정 마스터 키, 테스트 전용)
       "wearly.secret-key=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      // 날씨 주기 실행은 끈다 (실제 공급자를 부르지 않게)
+      "wearly.weather.provider=mock",
+      "wearly.weather.scheduler-enabled=false",
     })
 class ApiResponseSnapshotTest {
 

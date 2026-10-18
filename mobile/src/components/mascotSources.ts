@@ -9,4 +9,8 @@ export const MASCOT_SOURCES: Record<string, number> = {
   'nyang/cheer.png': require('../../assets/mascots/nyang/cheer.png'),
   'closeta/splash.png': require('../../assets/mascots/closeta/splash.png'),
   'closeta/hello.png': require('../../assets/mascots/closeta/hello.png'),
+  'closeta/style.png': require('../../assets/mascots/closeta/style.png'),
+  'closeta/camera.png': require('../../assets/mascots/closeta/camera.png'),
+  'closeta/closet.png': require('../../assets/mascots/closeta/closet.png'),
+  'closeta/cheer.png': require('../../assets/mascots/closeta/cheer.png'),
 };

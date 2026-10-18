@@ -12,6 +12,8 @@ const MENU = [
   { to: '/users', label: '회원', icon: '◔' },
   // 지금 로그인돼 있는 세션과 강제 로그아웃 (doc/16 5장)
   { to: '/sessions', label: '로그인 사용자', icon: '◉' },
+  // 서버가 주기적으로 받아 두는 날씨: 스케줄·공급자·호출 이력·저장된 날씨 (doc/17 6장)
+  { to: '/weather', label: '날씨', icon: '☁' },
   // 앱 설정: 지금은 테마 하나 (doc/12 6장)
   { to: '/app/theme', label: '앱 설정', icon: '◐' },
   { to: '/audit', label: '변경 이력', icon: '↺' },

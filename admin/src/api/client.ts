@@ -37,9 +37,21 @@ import type {
   IUserPatch,
   IUserQuery,
   IUserSessions,
+  IWeatherCall,
+  IWeatherCallQuery,
+  IWeatherCallSummary,
+  IWeatherProvider,
+  IWeatherProviderPatch,
+  IWeatherRun,
+  IWeatherRunDetail,
+  IWeatherRunQuery,
+  IWeatherSchedule,
+  IWeatherSnapshot,
+  IWeatherTestResult,
   TAiLogDetail,
   TKeySource,
   TProviderPatch,
+  TWeatherSettingUpdate,
 } from '@/api/types';
 
 type TMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -596,6 +608,63 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       /** 앱 테마 바꾸기. 허용 값 밖이면 400 VALIDATION_FAILED(themeId) */
       setTheme: async (body: IAppThemeUpdate): Promise<IAppTheme> => {
         return toAppTheme(await request<unknown>('PUT', '/admin/app/theme', { auth: true, json: body }));
+      },
+    },
+
+    /** 날씨 (doc/17 6장). 서버가 주기적으로 받아 저장하고, 앱은 저장값만 읽는다 */
+    weather: {
+      schedule: (): Promise<IWeatherSchedule> => {
+        return get<IWeatherSchedule>('/admin/weather/settings');
+      },
+      /** 범위를 벗어나면 400 VALIDATION_FAILED(fieldErrors) */
+      updateSetting: (body: TWeatherSettingUpdate): Promise<IWeatherSchedule> => {
+        return request<IWeatherSchedule>('PUT', '/admin/weather/settings', { auth: true, json: body });
+      },
+      providers: async (): Promise<IWeatherProvider[]> => {
+        return toArray<IWeatherProvider>(await get<unknown>('/admin/weather/providers'));
+      },
+      updateProvider: (code: string, patch: IWeatherProviderPatch): Promise<IWeatherProvider> => {
+        return request<IWeatherProvider>('PATCH', `/admin/weather/providers/${enc(code)}`, {
+          auth: true,
+          json: patch,
+        });
+      },
+      /** 차단 해제 (연속 실패·차단을 비운다) */
+      resetProvider: (code: string): Promise<IWeatherProvider> => {
+        return request<IWeatherProvider>('POST', `/admin/weather/providers/${enc(code)}/reset`, { auth: true });
+      },
+      /** 그 공급자로 한 지역을 불러 본다. 저장된 날씨·공급자 상태는 바뀌지 않는다 */
+      test: (code: string, regionCode: string): Promise<IWeatherTestResult> => {
+        return request<IWeatherTestResult>('POST', `/admin/weather/providers/${enc(code)}/test`, {
+          auth: true,
+          json: { regionCode },
+          timeoutMs: TEST_TIMEOUT,
+        });
+      },
+      /** 지금 실행 (202 + runId). 실행 중이면 409 WEATHER_REFRESH_RUNNING, 공급자가 없으면 409 WEATHER_NO_PROVIDER */
+      refresh: (regionCode?: string): Promise<{ runId: string }> => {
+        return request<{ runId: string }>('POST', '/admin/weather/refresh', {
+          auth: true,
+          json: regionCode ? { regionCode } : {},
+        });
+      },
+      runs: async (q: IWeatherRunQuery): Promise<IPage<IWeatherRun>> => {
+        return toPage<IWeatherRun>(await get<unknown>('/admin/weather/runs', { ...q }), q);
+      },
+      run: (runId: string): Promise<IWeatherRunDetail> => {
+        return get<IWeatherRunDetail>(`/admin/weather/runs/${enc(runId)}`);
+      },
+      calls: async (q: IWeatherCallQuery): Promise<IPage<IWeatherCall>> => {
+        return toPage<IWeatherCall>(await get<unknown>('/admin/weather/calls', { ...q }), q);
+      },
+      callSummary: (): Promise<IWeatherCallSummary> => {
+        return get<IWeatherCallSummary>('/admin/weather/calls/summary');
+      },
+      snapshots: async (): Promise<IWeatherSnapshot[]> => {
+        return toArray<IWeatherSnapshot>(await get<unknown>('/admin/weather/snapshots'));
+      },
+      snapshot: (regionCode: string): Promise<IWeatherSnapshot> => {
+        return get<IWeatherSnapshot>(`/admin/weather/snapshots/${enc(regionCode)}`);
       },
     },
 

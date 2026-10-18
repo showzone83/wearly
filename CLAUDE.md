@@ -22,6 +22,7 @@
   - `14_DB_명령.md` — 로컬 DB 접속·조회·수정·백업 명령
   - `15_터미널_명령.md` — 서버·앱·관리자·하네스 실행 명령과 포트
   - `16_세션_Valkey.md` — Refresh 토큰·세션을 Valkey로, 관리자 강제 로그아웃
+  - `17_날씨.md` — 날씨: 서버가 WeatherAPI.com에서 지역별로 주기적으로 받아 저장, 앱은 저장값만 조회, 관리자 날씨 메뉴
 - `mobile/` — React Native(Expo SDK 57) 목업 앱. 백엔드 없이 기기 안에 데이터 저장. Expo 작업 규칙은 `mobile/AGENTS.md`를 따른다.
 
 git 저장소는 `wearly/` 루트 하나다 (원격: `github.com/showzone83/wearly`). `mobile/`은 별도 저장소가 아니다.
@@ -83,7 +84,7 @@ docker compose down                       # 중지 (DB 데이터는 wearly-pgdat
 - 진단·처방: `mobile/src/lib/diagnose.ts` — 5개 항목, 강점·개선점, 내 옷장 교체 처방
 - 상태 저장: `mobile/src/store/useStore.ts` — zustand + AsyncStorage (`wearly-store-v1`)
 - 화면: `mobile/src/app/` (expo-router). 탭은 홈·내 옷장·AI 코디·캘린더·마이
-- 목업 처리: 날씨(가짜 예보), AI 사진 분석(가짜 제안값), 푸시·바로 진단(안내 문구만), 소셜 로그인(제외)
+- 목업 처리: 날씨(서버 날씨가 없을 때만 가짜 예보, doc/17), AI 사진 분석(가짜 제안값), 푸시·바로 진단(안내 문구만), 소셜 로그인(제외)
 
 ## 관리자 사이트 코드 규칙 (`admin/`, ESLint로 강제)
 

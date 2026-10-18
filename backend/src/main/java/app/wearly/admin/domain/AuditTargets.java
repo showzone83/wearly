@@ -15,10 +15,30 @@ public final class AuditTargets {
   /** 로그인 세션 (16 문서 4장). targetId는 세션 ID. 회원 전체 끊기는 USER(targetId = 회원 ID) */
   public static final String SESSION = "SESSION";
 
-  public static final Set<String> ALL = Set.of(CODE, AI_PROVIDER, USER, APP_SETTING, SESSION);
+  /** 날씨 스케줄 설정 (17 문서 6장). targetId는 default */
+  public static final String WEATHER_SETTING = "WEATHER_SETTING";
+
+  /** 날씨 공급자 설정·차단 해제. targetId는 공급자 코드 (WEATHERAPI) */
+  public static final String WEATHER_PROVIDER = "WEATHER_PROVIDER";
+
+  /** 날씨 지금 실행. targetId는 실행 ID */
+  public static final String WEATHER_REFRESH = "WEATHER_REFRESH";
+
+  public static final Set<String> ALL =
+      Set.of(
+          CODE,
+          AI_PROVIDER,
+          USER,
+          APP_SETTING,
+          SESSION,
+          WEATHER_SETTING,
+          WEATHER_PROVIDER,
+          WEATHER_REFRESH);
 
   /** 허용 값 오류 문구 */
-  public static final String NAMES = "CODE, AI_PROVIDER, USER, APP_SETTING, SESSION";
+  public static final String NAMES =
+      "CODE, AI_PROVIDER, USER, APP_SETTING, SESSION, WEATHER_SETTING, WEATHER_PROVIDER,"
+          + " WEATHER_REFRESH";
 
   private AuditTargets() {}
 }

@@ -1,0 +1,76 @@
+{
+  "location": {
+    "name": "Seoul",
+    "region": "",
+    "country": "South Korea",
+    "lat": 37.57,
+    "lon": 126.98,
+    "tz_id": "Asia/Seoul",
+    "localtime_epoch": 1792209600,
+    "localtime": "2026-10-17 12:00"
+  },
+  "current": {
+    "last_updated_epoch": 1792209300,
+    "last_updated": "2026-10-17 11:55",
+    "temp_c": 18.3,
+    "temp_f": 64.9,
+    "is_day": 1,
+    "condition": { "text": "맑음", "icon": "//cdn.weatherapi.com/weather/64x64/day/113.png", "code": 1000 },
+    "wind_kph": 9.0,
+    "humidity": 45,
+    "feelslike_c": 17.64,
+    "uv": 4.0
+  },
+  "forecast": {
+    "forecastday": [
+      {
+        "date": "2026-10-17",
+        "date_epoch": 1792195200,
+        "day": {
+          "maxtemp_c": 21.4,
+          "mintemp_c": 10.2,
+          "avgtemp_c": 15.86,
+          "daily_will_it_rain": 0,
+          "daily_chance_of_rain": 0,
+          "daily_will_it_snow": 0,
+          "daily_chance_of_snow": 0,
+          "condition": { "text": "맑음", "icon": "//cdn.weatherapi.com/weather/64x64/day/113.png", "code": 1000 }
+        },
+        "astro": { "sunrise": "06:41 AM", "sunset": "05:55 PM" },
+        "hour": [ { "time": "2026-10-17 00:00", "temp_c": 12.1 }, { "time": "2026-10-17 01:00", "temp_c": 11.8 } ]
+      },
+      {
+        "date": "2026-10-18",
+        "date_epoch": 1792281600,
+        "day": {
+          "maxtemp_c": 17.0,
+          "mintemp_c": 12.5,
+          "avgtemp_c": 14.2,
+          "daily_will_it_rain": 1,
+          "daily_chance_of_rain": 87,
+          "daily_will_it_snow": 0,
+          "daily_chance_of_snow": 0,
+          "condition": { "text": "근처 곳곳에 비", "icon": "//cdn.weatherapi.com/weather/64x64/day/176.png", "code": 1063 }
+        },
+        "astro": { "sunrise": "06:42 AM", "sunset": "05:54 PM" },
+        "hour": [ { "time": "2026-10-18 00:00", "temp_c": 13.0 } ]
+      },
+      {
+        "date": "2026-10-19",
+        "date_epoch": 1792368000,
+        "day": {
+          "maxtemp_c": 19.9,
+          "mintemp_c": 9.0,
+          "avgtemp_c": 14.0,
+          "daily_will_it_rain": 0,
+          "daily_chance_of_rain": 20,
+          "daily_will_it_snow": 0,
+          "daily_chance_of_snow": 0,
+          "condition": { "text": "흐린", "icon": "//cdn.weatherapi.com/weather/64x64/day/122.png", "code": 1009 }
+        },
+        "astro": { "sunrise": "06:43 AM", "sunset": "05:53 PM" },
+        "hour": []
+      }
+    ]
+  }
+}

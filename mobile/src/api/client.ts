@@ -30,6 +30,8 @@ import type {
   UploadUrlResponse,
   UserDto,
   WardrobeStats,
+  WeatherDto,
+  WeatherResult,
 } from './types';
 
 export interface ApiClientOptions {
@@ -350,6 +352,22 @@ export function createApiClient(options: ApiClientOptions) {
         // 웹(CORS)에서는 ETag 헤더를 읽지 못할 수 있으니 본문의 version으로 같은 값을 만든다
         const header = res.headers?.get?.('ETag');
         return { changed: true, config, etag: header || `"${config.version}"` };
+      },
+    },
+    weather: {
+      /**
+       * 서버에 저장된 날씨 (인증 불필요, doc/17 5장). region이 없으면 서울. etag를 주면 If-None-Match로 보내고,
+       * 서버가 304를 주면 `{ changed: false }`를 돌려준다. 한 번도 받지 못한 지역은 503 WEATHER_UNAVAILABLE
+       */
+      async current(region?: string | null, etag?: string | null): Promise<WeatherResult> {
+        const query = region ? `?region=${encodeURIComponent(region)}` : '';
+        const res = await send('GET', `/weather${query}`, { headers: etag ? { 'If-None-Match': etag } : undefined });
+        if (res.status === 304) return { changed: false };
+        const weather = await readBody<WeatherDto>(res);
+        if (!weather || !weather.current || !Array.isArray(weather.days)) {
+          throw new ApiError(res.status, 'HTTP_ERROR', '날씨 응답 형식이 달라요.');
+        }
+        return { changed: true, weather, etag: res.headers?.get?.('ETag') ?? null };
       },
     },
     auth: {

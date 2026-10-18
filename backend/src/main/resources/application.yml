@@ -97,6 +97,20 @@ wearly:
           recommended: true
         - id: claude-haiku-5-5
           display-name: Claude Haiku 5.5
+  # 날씨 정보 (doc/17_날씨.md). 서버가 주기적으로 받아 DB에 두고 앱에는 저장한 값만 준다.
+  # 주기·예보 일수·공급자 사용 여부·월 한도는 DB(tb_weather_setting·tb_weather_provider)와 관리자 화면에서 바꾼다
+  weather:
+    # db(기본): 관리자 공급자 설정대로 부른다. mock: 공급자 대신 목업 날씨 (키 없이 화면 확인용)
+    provider: ${WEARLY_WEATHER_PROVIDER:db}
+    timeout: ${WEARLY_WEATHER_TIMEOUT:PT10S}
+    log-retention-days: ${WEARLY_WEATHER_LOG_RETENTION_DAYS:90}
+    # false면 주기 실행·시작 실행·이력 정리를 끈다 (테스트용). 관리자 "지금 실행"은 그대로 된다
+    scheduler-enabled: ${WEARLY_WEATHER_SCHEDULER_ENABLED:true}
+    base-urls:
+      WEATHERAPI: https://api.weatherapi.com/v1
+    # 공급자 행의 키 이름(key_name) → 키 값. 실제 값은 config/application-local.yml에 적는다 (없으면 같은 이름의 OS 환경변수)
+    keys:
+      WEATHERAPI_KEY: ${WEATHERAPI_KEY:}
   # 웹에서 넣은 AI 키를 암호화하는 마스터 키 (base64 32바이트, openssl rand -base64 32). 없으면 웹 키 입력이 꺼진다
   secret-key: ${WEARLY_SECRET_KEY:}
   admin:

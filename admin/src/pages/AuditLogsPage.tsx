@@ -24,12 +24,20 @@ const TARGET_TYPES: { value: string; label: string }[] = [
   { value: 'APP_SETTING', label: '앱 설정' },
   // 강제 로그아웃(doc/16 3장). 회원 단위(USER_SESSIONS_REVOKE)는 서버가 USER로 남길 수도 있다
   { value: 'SESSION', label: '로그인 세션' },
+  // 날씨 (doc/17 6장)
+  { value: 'WEATHER_SETTING', label: '날씨 스케줄' },
+  { value: 'WEATHER_PROVIDER', label: '날씨 공급자' },
+  { value: 'WEATHER_REFRESH', label: '날씨 지금 실행' },
 ];
 
 /** 동작 라벨. 없는 동작은 원문(SESSION_REVOKE 같은 값) 그대로 보여 준다 */
 const ACTION_LABELS: Record<string, string> = {
   SESSION_REVOKE: '세션 로그아웃',
   USER_SESSIONS_REVOKE: '모든 기기 로그아웃',
+  WEATHER_SETTING_UPDATE: '날씨 스케줄 변경',
+  WEATHER_PROVIDER_UPDATE: '날씨 공급자 변경',
+  WEATHER_PROVIDER_RESET: '날씨 공급자 차단 해제',
+  WEATHER_REFRESH: '날씨 지금 실행',
 };
 
 const actionTone = (action: string): 'red' | 'green' | 'gray' => {

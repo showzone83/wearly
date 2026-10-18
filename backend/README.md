@@ -126,6 +126,11 @@ wearly:
 | `WEARLY_ADMIN_NAME` | `wearly.admin.name` | `관리자` | 새로 만들 때의 이름 |
 | `WEARLY_SECRET_KEY` | `wearly.secret-key` | (없음) | 웹에서 넣은 AI 키를 암호화하는 마스터 키. **base64로 인코딩한 32바이트** (`openssl rand -base64 32`). 없으면 웹 키 입력이 꺼진다 |
 | `WEARLY_LOCAL_CONFIG` | — | `./config/application-local.yml` | 로컬 비밀 설정 파일 경로 |
+| `WEATHERAPI_KEY` | `wearly.weather.keys.WEATHERAPI_KEY` | (없음) | WeatherAPI.com 키 (17 문서). 없으면 날씨 공급자는 "키 없음"으로 건너뛴다 |
+| `WEARLY_WEATHER_PROVIDER` | `wearly.weather.provider` | `db` | `db`(관리자 날씨 공급자 설정) · `mock`(키 없이 목업 날씨). 그 밖은 시작 실패 |
+| `WEARLY_WEATHER_TIMEOUT` | `wearly.weather.timeout` | `PT10S` | 날씨 공급자 호출 제한 시간 |
+| `WEARLY_WEATHER_LOG_RETENTION_DAYS` | `wearly.weather.log-retention-days` | `90` | 날씨 실행·호출 이력 보관 일수 (매일 04:00 정리) |
+| `WEARLY_WEATHER_SCHEDULER_ENABLED` | `wearly.weather.scheduler-enabled` | `true` | `false`면 날씨 주기 실행·시작 실행·이력 정리를 끈다 (테스트용). 주기·예보 일수 등 운영값은 DB와 관리자 화면에 있다 |
 
 - 1차의 `WEARLY_AI_MODEL`·`WEARLY_AI_EFFORT`는 없어졌다. 모델·effort는 관리자 화면(`tb_ai_provider.model`·`options.effort`)에서 바꾼다.
 - 공급자 행의 `api_key_env`는 **서버 설정 키 이름**이다 (관리자 화면의 '서버 설정 키'). 서버는 `wearly.ai.keys.<이름>` → 같은 이름의 환경변수 순으로 키를 찾는다. 다른 서버 비밀(DB 비밀번호·JWT 키)이 공급자에게 가지 않도록 이름은 `*_API_KEY` 형식만 허용한다.
@@ -249,6 +254,19 @@ LC_ALL=C.UTF-8 ./gradlew check   # spotlessCheck + checkstyleMain + checkstyleTe
 - 아이템 응답에 `retiredAt`(ISO 또는 null)·`retireReason`·`retireMemo`가 늘었다. 사용 중지한 옷도 단건 조회·PATCH가 된다. bulk 등록은 사용 중으로만 만든다.
 - `/wardrobe/stats`의 기존 숫자는 사용 중인 옷만 센다. 새 필드 `retired`(수), `retiredByReason: [{ reason, count }]`(많은 순, 같으면 코드 순).
 - AI 코디 추천 후보에서 빠지고, 고정·중심으로 주면 400 `VALIDATION_FAILED`("사용하지 않는 옷이에요."). 코드 삭제 가드(`CODE_IN_USE`)는 사용 중지한 옷도 센다(`retire_reason` 포함).
+
+### 날씨 (17 문서, 8차)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/v1/weather?region=` | 인증 불필요. 서버에 저장된 지역 날씨(현재 + 오늘부터 예보). ETag/304. 없는 지역 400, 받은 적 없으면 503 `WEATHER_UNAVAILABLE` |
+| GET·PUT | `/api/v1/admin/weather/settings` | 스케줄 설정 (켜기·주기·예보 일수·차단 기준·차단 시간) + 다음 실행·마지막 실행 |
+| GET·PATCH | `/api/v1/admin/weather/providers[/{code}]` | 공급자 설정·상태·이번 달 사용량. `POST …/reset` 차단 해제, `POST …/test` 시험 호출 |
+| POST | `/api/v1/admin/weather/refresh` | 지금 실행 (202 `{runId}`). 409 `WEATHER_REFRESH_RUNNING`·`WEATHER_NO_PROVIDER` |
+| GET | `/api/v1/admin/weather/runs[/{runId}]`, `/calls`, `/calls/summary`, `/snapshots[/{region}]` | 실행·호출 이력, 요약, 저장된 날씨 |
+
+- 서버가 활성 REGION 지역의 날씨를 주기적으로 받아 `tb_weather_snapshot`에 둔다. 앱 요청은 외부 API를 부르지 않는다. 실행은 Valkey 잠금(`wearly:weather:refresh:lock`)으로 한 번에 하나만 돈다.
+- 키 없이 화면을 보려면 `WEARLY_WEATHER_PROVIDER=mock ./gradlew bootRun`.
 
 ## 테스트
 

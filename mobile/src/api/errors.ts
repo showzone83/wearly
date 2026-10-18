@@ -26,6 +26,8 @@ export type ApiErrorCode =
   | 'IMAGE_UPLOAD_LIMIT'
   /** 서명 주소로 올리기(PUT) 실패. 오브젝트 스토리지 응답이라 서버 오류 형식이 아니다 (앱이 만든다) */
   | 'UPLOAD_FAILED'
+  /** 서버가 그 지역 날씨를 아직 한 번도 받지 못함 (doc/17 5장) */
+  | 'WEATHER_UNAVAILABLE'
   /** 서버에 닿지 못함 (연결 실패·시간 초과) */
   | 'NETWORK'
   /** 응답이 계약 형식이 아님 (JSON이 아닌 오류 본문 등) */

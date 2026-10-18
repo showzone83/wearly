@@ -15,8 +15,10 @@ import { dayContext, isWorkDay } from '@/lib/context';
 import { addDays, diffDays, fromKey, longLabel, todayKey } from '@/lib/date';
 import { canRecommend, recommend } from '@/lib/recommend';
 import { activeItems } from '@/lib/retire';
-import { COND_LABEL, forecast, weatherNotice } from '@/lib/weather';
+import { COND_LABEL, currentWeather, forecast, weatherNotice } from '@/lib/weather';
+import { regionLabel } from '@/lib/weatherSync';
 import { engineInput, useStore } from '@/store/useStore';
+import { useWeatherStore } from '@/store/useWeatherStore';
 import { cardBase, makeStyles, useColors } from '@/theme';
 
 const DAY_NAMES = ['오늘', '내일', '모레'];
@@ -35,6 +37,9 @@ export default function Home() {
   const dayOutfits = useStore((s) => s.dayOutfits);
   const looks = useStore((s) => s.looks);
   const plans = useStore((s) => s.plans);
+  // 서버 날씨가 도착하면 예보·추천을 다시 계산한다 (lib/weather.ts가 스토어 값을 읽는다)
+  const serverWeather = useWeatherStore((s) => s.weather);
+  const regionCode = useWeatherStore((s) => s.regionCode);
   const saveDayOutfit = useStore((s) => s.saveDayOutfit);
   const setFeedback = useStore((s) => s.setFeedback);
   const s = useStyles();
@@ -59,7 +64,7 @@ export default function Home() {
     setDislikeOpen(false);
   }, [date]);
 
-  const ctx = useMemo(() => dayContext(date, profile), [date, profile]);
+  const ctx = useMemo(() => dayContext(date, profile), [date, profile, serverWeather]);
   // items·affinity 등이 바뀌면 engineInput이 스토어에서 새 값을 읽도록 의존성에 둔다
   const input = useMemo(() => engineInput({ ...ctx, fixed }), [ctx, fixed, items, affinity, dayOutfits, looks]);
   const candidates = useMemo(() => recommend(input, 3), [input]);
@@ -70,6 +75,7 @@ export default function Home() {
 
   const weather = forecast(date);
   const notice = weatherNotice(weather);
+  const now = offset === 0 ? currentWeather() : null;
   const work = isWorkDay(date, profile);
   const plan = plans.find((p) => p.date === date);
   const ready = canRecommend(items);
@@ -159,8 +165,14 @@ export default function Home() {
             최고 {weather.max}° <Text style={{ color: c.border }}>|</Text> {COND_LABEL[weather.cond]}
             <Text style={{ color: c.border }}> |</Text> 강수 {weather.rainProb}%
           </Text>
+          {now ? (
+            <Text style={s.weatherMeta}>
+              지금 {now.temp}°{now.condText ? ` ${now.condText}` : ''}
+              {now.stale ? ' · 업데이트 지연' : ''}
+            </Text>
+          ) : null}
           <Text style={s.weatherMeta}>
-            {longLabel(date)} · 서울 · {work ? '근무일' : '휴무일'} ·{' '}
+            {longLabel(date)} · {regionLabel(regionCode)} · {work ? '근무일' : '휴무일'} ·{' '}
             {ctx.occasion === 'COMMUTE' ? '출근 코디로 추천해요' : `${OCCASION_LABEL[ctx.occasion]} 코디로 추천해요`}
             {offset > 0 ? ' · 예보 기반 미리보기' : ''}
           </Text>

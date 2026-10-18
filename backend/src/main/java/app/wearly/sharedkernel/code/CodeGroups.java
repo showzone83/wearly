@@ -16,8 +16,12 @@ public final class CodeGroups {
   /** 옷을 사용하지 않는 옷으로 옮긴 이유 (13 문서 2장). attrs 없음 */
   public static final String RETIRE_REASON = "RETIRE_REASON";
 
+  /** 날씨를 받아 두는 지역 (17 문서 2장). attrs.lat·lon */
+  public static final String REGION = "REGION";
+
   public static final List<String> ALL =
-      List.of(CATEGORY, SUB_TYPE, COLOR, PATTERN, SEASON, STYLE, ITEM_STATUS, RETIRE_REASON);
+      List.of(
+          CATEGORY, SUB_TYPE, COLOR, PATTERN, SEASON, STYLE, ITEM_STATUS, RETIRE_REASON, REGION);
 
   private CodeGroups() {}
 }

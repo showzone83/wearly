@@ -32,6 +32,9 @@ public enum ErrorCode {
   UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 형식이에요."),
   AI_LIMIT_EXCEEDED(429, "오늘 AI 분석 횟수를 모두 썼어요."),
   AI_UNAVAILABLE(502, "AI 분석을 지금 할 수 없어요. 잠시 후 다시 시도해 주세요."),
+  WEATHER_UNAVAILABLE(503, "날씨 정보를 아직 받지 못했어요. 잠시 후 다시 시도해 주세요."),
+  WEATHER_REFRESH_RUNNING(409, "날씨를 이미 받고 있어요. 끝난 뒤 다시 시도해 주세요."),
+  WEATHER_NO_PROVIDER(409, "쓸 수 있는 날씨 공급자가 없어요. 공급자 사용 여부·키·차단 상태·월 한도를 확인해 주세요."),
   INTERNAL_ERROR(500, "일시적인 오류가 발생했어요.");
 
   private final int status;

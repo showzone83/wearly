@@ -43,6 +43,7 @@ public class SecurityConfig {
   static final String AUTH_PATH_PREFIX = "/api/v1/auth/";
   static final String CODES_PATH = "/api/v1/codes";
   static final String APP_CONFIG_PATH = "/api/v1/app/config";
+  static final String WEATHER_PATH = "/api/v1/weather";
 
   @Bean
   SecurityFilterChain securityFilterChain(
@@ -65,7 +66,7 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/api/v1/auth/**")
                     .permitAll()
-                    .requestMatchers(HttpMethod.GET, CODES_PATH, APP_CONFIG_PATH)
+                    .requestMatchers(HttpMethod.GET, CODES_PATH, APP_CONFIG_PATH, WEATHER_PATH)
                     .permitAll()
                     .requestMatchers("/api/v1/admin/**")
                     .hasRole("ADMIN")
@@ -96,7 +97,8 @@ public class SecurityConfig {
   }
 
   /**
-   * 공개 경로(/api/v1/auth/**, /api/v1/codes, /api/v1/app/config)에서는 만료된 Authorization 헤더가 같이 와도 무시한다.
+   * 공개 경로(/api/v1/auth/**, /api/v1/codes, /api/v1/app/config, /api/v1/weather)에서는 만료된 Authorization
+   * 헤더가 같이 와도 무시한다.
    */
   static BearerTokenResolver bearerTokenResolver() {
     DefaultBearerTokenResolver delegate = new DefaultBearerTokenResolver();
@@ -104,7 +106,8 @@ public class SecurityConfig {
       String path = request.getRequestURI().substring(request.getContextPath().length());
       if (path.startsWith(AUTH_PATH_PREFIX)
           || path.equals(CODES_PATH)
-          || path.equals(APP_CONFIG_PATH)) {
+          || path.equals(APP_CONFIG_PATH)
+          || path.equals(WEATHER_PATH)) {
         return null;
       }
       return delegate.resolve(request);

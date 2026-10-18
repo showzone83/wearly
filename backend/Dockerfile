@@ -9,6 +9,8 @@ ENV GRADLE_USER_HOME=/gradle-home
 # 의존성만 먼저 받아 두면 소스만 바뀌었을 때 이 층을 다시 쓴다. Gradle 캐시는 BuildKit 캐시 마운트에 둔다
 COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle gradle
+# Windows에서 autocrlf로 받은 gradlew는 CRLF라 셸이 못 읽는다 (exit 127). 줄바꿈을 LF로 맞춘다
+RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 RUN --mount=type=cache,target=/gradle-home \
     ./gradlew --no-daemon --console=plain dependencies --configuration runtimeClasspath > /dev/null
 COPY src src

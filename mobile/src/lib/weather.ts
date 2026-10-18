@@ -1,11 +1,13 @@
 import type { Weather } from '@/data/types';
+import { currentServerWeather } from '@/store/useWeatherStore';
 import { diffDays, fromKey, todayKey } from './date';
 
-// 목업 날씨: 실제 API 대신 서울 월평균 기온에 날짜별 고정 난수를 더한다.
-// 같은 날짜는 항상 같은 값을 돌려주므로 화면 간 결과가 일관된다.
+// 날씨: 서버가 받아 둔 예보(GET /weather, doc/17)가 있으면 그 값을 쓰고,
+// 없으면(목업 실행·서버에 닿지 못함·아직 받은 적 없음) 목업 날씨를 쓴다.
+// 목업은 서울 월평균 기온에 날짜별 고정 난수를 더한다. 같은 날짜는 항상 같은 값을 돌려주므로 화면 간 결과가 일관된다.
 const SEOUL_MONTHLY_AVG = [-2, 1, 6, 13, 18, 23, 26, 26, 22, 15, 8, 1];
 
-/** 예보를 제공하는 기간(일). 이후 날짜는 직접 입력 */
+/** 서버 예보가 없을 때 목업 예보를 주는 기간(일). 이후 날짜는 직접 입력 */
 export const FORECAST_DAYS = 10;
 
 function seeded(key: string, salt: number): number {
@@ -17,7 +19,7 @@ function seeded(key: string, salt: number): number {
   return ((h >>> 0) % 10000) / 10000;
 }
 
-export function forecast(key: string): Weather {
+function mockForecast(key: string): Weather {
   const d = fromKey(key);
   const avg = SEOUL_MONTHLY_AVG[d.getMonth()];
   const temp = Math.round(avg + (seeded(key, 1) - 0.5) * 8);
@@ -34,9 +36,44 @@ export function forecast(key: string): Weather {
   };
 }
 
+/** 서버 예보에서 그 날짜 (없으면 null). 기온은 앱 규칙대로 정수로 반올림한다 */
+function serverForecast(key: string): Weather | null {
+  const day = currentServerWeather()?.days.find((d) => d.date === key);
+  if (!day) return null;
+  return {
+    temp: Math.round(day.temp),
+    min: Math.round(day.min),
+    max: Math.round(day.max),
+    rainProb: day.rainProb,
+    cond: day.cond,
+  };
+}
+
+export function forecast(key: string): Weather {
+  return serverForecast(key) ?? mockForecast(key);
+}
+
+/**
+ * 예보가 있는 날짜인지. 서버 예보를 받았으면 서버가 준 날짜만(공급자가 주는 기간, 보통 3일),
+ * 아니면 목업 기간(오늘부터 FORECAST_DAYS일). 그 밖의 날짜는 체감 온도를 직접 고른다.
+ */
 export function hasForecast(key: string): boolean {
+  const server = currentServerWeather();
+  if (server) return server.days.some((d) => d.date === key);
   const n = diffDays(key, todayKey());
   return n >= 0 && n < FORECAST_DAYS;
+}
+
+/** 홈 화면의 "지금" 날씨. 서버 값이 없으면 null (오늘 예보만 보여 준다) */
+export function currentWeather(): { temp: number; condText: string | null; stale: boolean; region: string } | null {
+  const server = currentServerWeather();
+  if (!server) return null;
+  return {
+    temp: Math.round(server.current.temp),
+    condText: server.current.condText,
+    stale: server.stale,
+    region: server.region.label,
+  };
 }
 
 export const COND_LABEL: Record<Weather['cond'], string> = {

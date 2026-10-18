@@ -32,6 +32,10 @@ import org.testcontainers.utility.DockerImageName;
       "TEST_CRUD_API_KEY=test-crud-key-value",
       // 웹 키 마스터 키도 개발자 PC 값이 섞이지 않게 비워 둔다 (켜는 테스트는 따로 넣는다)
       "WEARLY_SECRET_KEY=",
+      // 날씨: 실제 공급자를 부르지 않게 목업으로 두고, 주기 실행은 끈다 (관리자 "지금 실행"으로만 받는다)
+      "wearly.weather.provider=mock",
+      "wearly.weather.scheduler-enabled=false",
+      "wearly.weather.keys.WEATHERAPI_KEY=",
     })
 public abstract class IntegrationTestBase {
 
