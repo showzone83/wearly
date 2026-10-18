@@ -11,6 +11,7 @@ import { API_BASE_URL } from '@/lib/api';
 import { syncAppConfig } from '@/lib/appConfig';
 import { onAppActive, startPhotoMaintenance } from '@/lib/photoSync';
 import { recheckPlans } from '@/lib/placeWeather';
+import { syncPlans } from '@/lib/planSync';
 import { syncWeather } from '@/lib/weatherSync';
 import { bootstrapCodes, useCodes } from '@/store/useCodes';
 import { usePlaceStore } from '@/store/usePlaceStore';
@@ -140,6 +141,21 @@ const usePlanWeatherRecheck = (ready: boolean) => {
   }, [ready]);
 };
 
+/**
+ * 예정 코디 서버 동기화 (계정 모드): 세션 확인이 끝나면 한 번, 앱이 다시 활성이 될 때마다(30초 간격 이상) 한 번.
+ * 게스트·목업 실행·서버에 API가 없으면 아무것도 하지 않는다. 화면을 막지 않는다.
+ */
+const usePlanSync = (sessionChecked: boolean) => {
+  useEffect(() => {
+    if (!sessionChecked) return;
+    void syncPlans();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void syncPlans();
+    });
+    return () => sub.remove();
+  }, [sessionChecked]);
+};
+
 /** 계정 모드에서 로그인이 풀리면(Refresh 실패) 로그인 화면으로 보낸다 */
 function AuthWatcher() {
   const lost = useStore((s) => s.authMode === 'account' && s.authLost);
@@ -163,6 +179,7 @@ export default function RootLayout() {
   const codes = useCodesReady(codesHydrated);
   useAppConfigSync(themeHydrated);
   usePhotoMaintenance(sessionChecked);
+  usePlanSync(sessionChecked);
   useWeatherSync(weatherHydrated);
   usePlanWeatherRecheck(sessionChecked && weatherHydrated && placeHydrated && codes.phase === 'ready');
   // 저장된 테마로 첫 화면을 그리도록 테마 복원을 기다린다 (제목은 시스템 산세리프라 글꼴 로딩은 없다)

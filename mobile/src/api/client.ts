@@ -22,6 +22,12 @@ import type {
   OutfitRecommendRequest,
   OutfitRecommendResponse,
   PlaceSearchResponse,
+  PlanBulkResponse,
+  PlanDto,
+  PlanFilter,
+  PlanInput,
+  PlanListResponse,
+  PlanPatch,
   ProfileDto,
   RetireRequest,
   RNFile,
@@ -523,6 +529,43 @@ export function createApiClient(options: ApiClientOptions) {
           auth: true,
           timeoutMs: uploadTimeout,
         }),
+    },
+    plans: {
+      /**
+       * 예정 코디 목록 (로그인 필요). from·to(YYYY-MM-DD, 양 끝 포함)는 선택. 날짜 → 시간대 → id 순.
+       * 오류: 400 VALIDATION_FAILED(from·to). 이 API가 없는 예전 서버는 404
+       */
+      list: async (filter: PlanFilter = {}): Promise<PlanListResponse> => {
+        const res = await request<PlanListResponse>('GET', '/plans', {
+          auth: true,
+          query: { from: filter.from, to: filter.to },
+        });
+        if (!res || !Array.isArray(res.items)) throw new ApiError(200, 'HTTP_ERROR', '예정 목록 응답 형식이 달라요.');
+        return res;
+      },
+      /**
+       * 예정 만들기. 새로 만들면 201, 같은 clientId의 예정이 있으면 그것을 고치고 200 (응답 모양은 같다).
+       * 오류: 400 VALIDATION_FAILED · 409 PLAN_LIMIT(회원당 500개, params.max)
+       */
+      create: (input: PlanInput): Promise<PlanDto> => request<PlanDto>('POST', '/plans', { auth: true, json: input }),
+      /**
+       * 기기에 있던 예정을 한 번에 (최대 100개, 항목마다 clientId 필수). 같은 clientId면 고친다.
+       * 하나라도 틀리면 하나도 저장하지 않는다 (필드 이름은 items[i].title 꼴).
+       * 오류: 400 VALIDATION_FAILED · 409 PLAN_LIMIT
+       */
+      bulk: async (items: PlanInput[]): Promise<PlanBulkResponse> => {
+        const res = await request<PlanBulkResponse>('POST', '/plans/bulk', { auth: true, json: { items } });
+        if (!res || !Array.isArray(res.items)) throw new ApiError(200, 'HTTP_ERROR', '예정 올리기 응답 형식이 달라요.');
+        return res;
+      },
+      /**
+       * 보낸 필드만 바꾼다. memo·place·outfit·weatherSource·weatherCheckedAt은 null이면 비운다. clientId는 무시한다.
+       * 오류: 400 VALIDATION_FAILED · 404 NOT_FOUND(남의·없는 예정)
+       */
+      patch: (id: string, patch: PlanPatch): Promise<PlanDto> =>
+        request<PlanDto>('PATCH', `/plans/${encodeURIComponent(id)}`, { auth: true, json: patch }),
+      /** 지우기 (204). 오류: 404 NOT_FOUND(남의·없는 예정) */
+      remove: (id: string): Promise<void> => request<void>('DELETE', `/plans/${encodeURIComponent(id)}`, { auth: true }),
     },
     outfits: {
       /**

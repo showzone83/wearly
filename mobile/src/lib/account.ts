@@ -9,6 +9,7 @@ import { useStore, type AccountUser } from '@/store/useStore';
 import { api, setAuthLostHandler, tokenStore } from './api';
 import { newId } from './context';
 import { keepPhotoLocally } from './photoUpload';
+import { syncPlans } from './planSync';
 import { RETIRE_MEMO_MAX } from './retire';
 import {
   imageFromDto,
@@ -102,6 +103,8 @@ export async function enterAccount(user: UserDto): Promise<'home' | 'onboarding'
     onboarded: profileDto.onboarded,
   });
   if (list) applyServerItems(list.items);
+  // 예정 코디: 기기 예정을 올리고 서버 예정과 합친다 (화면을 막지 않는다)
+  if (profileDto.onboarded) void syncPlans({ force: true });
   return profileDto.onboarded ? 'home' : 'onboarding';
 }
 
@@ -225,6 +228,8 @@ export async function finishAccountOnboarding(profile: Profile, withSample: bool
   // 샘플 기록(착용·예정일)은 서버가 준 id로 만든다
   s.completeOnboarding(profileFromDto(saved), seeded, items);
   if (s.user) useStore.setState({ user: { ...s.user, name: saved.name } });
+  // 샘플 예정(서버 아이템 id로 만든 것)을 올리고, 다른 기기에서 만든 예정이 있으면 받는다
+  void syncPlans({ force: true });
 }
 
 // ── 프로필 ──

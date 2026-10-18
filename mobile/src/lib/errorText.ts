@@ -102,7 +102,7 @@ const dateRangeParts = (min: unknown, max: unknown): [string, string] => {
   return [fmt(a, min), fmt(b, max)];
 };
 
-// ── 서버 오류 코드 (error-codes.json errorCodes, 32개) ──
+// ── 서버 오류 코드 (error-codes.json errorCodes, 36개) ──
 
 const AI_FEATURE: Record<string, string> = { ITEM_ANALYZE: 'AI 사진 분석', OUTFIT_RECOMMEND: 'AI 코디 추천' };
 
@@ -189,6 +189,7 @@ export const SERVER_TEXT: Record<string, TText> = {
     if (reason === 'NOT_IMPLEMENTED') return '서버에 이 날씨 공급자 구현이 없어요.';
     return '쓸 수 있는 날씨 공급자가 없어요. 공급자 사용 여부·키·차단 상태·월 한도를 확인해 주세요.';
   },
+  PLAN_LIMIT: (p) => `예정은 ${has(p, 'max') ? str(p.max) : '500'}개까지 저장할 수 있어요. 지난 예정을 지워 주세요.`,
   INTERNAL_ERROR: '일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.',
   NOT_ACCEPTABLE: '지원하지 않는 응답 형식이에요.',
   CONFLICT: '다른 요청과 겹쳐 처리하지 못했어요. 다시 시도해 주세요.',
@@ -334,6 +335,25 @@ const FIELD_LABEL: Record<string, string> = {
   items: '옷 목록',
   apiKey: 'API 키',
   model: '모델',
+  // 예정 코디 (POST·PATCH /plans, bulk는 items[i]. 를 앞에 붙인다)
+  title: '제목',
+  timeOfDay: '시간대',
+  occasion: '상황',
+  concepts: '컨셉',
+  weather: '날씨',
+  'weather.temp': '기온',
+  'weather.min': '최저 기온',
+  'weather.max': '최고 기온',
+  'weather.rainProb': '강수 확률',
+  'weather.cond': '날씨 상태',
+  'place.label': '장소 이름',
+  weatherSource: '날씨 출처',
+  weatherCheckedAt: '날씨 확인 시각',
+  clientId: '예정 ID',
+  outfit: '코디',
+  'outfit.items': '코디 아이템',
+  from: '시작 날짜',
+  to: '끝 날짜',
 };
 
 const normalizeField = (field: string): string => field.replace(/\[\d+\]/g, '');
@@ -341,7 +361,10 @@ const normalizeField = (field: string): string => field.replace(/\[\d+\]/g, '');
 export const fieldLabel = (field: string): string | null => {
   const f = normalizeField(field);
   if (FIELD_LABEL[f]) return FIELD_LABEL[f];
+  // bulk 항목(items[3].weather.min)은 앞의 items. 를 떼고 다시 찾는다
+  if (f.startsWith('items.') && FIELD_LABEL[f.slice(6)]) return FIELD_LABEL[f.slice(6)];
   if (f.startsWith('context.fixed')) return FIELD_LABEL['context.fixed'];
+  if (f.startsWith('outfit.items') || f.startsWith('items.outfit.items')) return FIELD_LABEL['outfit.items'];
   const last = f.split('.').pop() ?? f;
   return FIELD_LABEL[last] ?? null;
 };

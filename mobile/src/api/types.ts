@@ -470,6 +470,103 @@ export interface PlaceSearchResponse {
   items: PlaceSearchItem[];
 }
 
+// ── 예정 코디 (서버 저장) ──
+
+/** 예정일 날씨 출처: 예보 · 평년값 · 체감 온도 직접 고르기 (앱 TWeatherSource와 같다) */
+export type PlanWeatherSource = 'FORECAST' | 'CLIMATE' | 'MANUAL';
+
+/** 예정일 날씨 (앱 Weather 모양). 기온 -60~60, rainProb 0~100. 응답 숫자는 20.0처럼 올 수 있다 */
+export interface PlanWeatherDto {
+  temp: number;
+  min: number;
+  max: number;
+  rainProb: number;
+  cond: WeatherCondDto;
+  /** 응답은 항상 true·false */
+  manual?: boolean;
+}
+
+/**
+ * 예정에 붙은 코디. 서버는 앱 Outfit 모양을 그대로 저장하고(JSON 16384자 이하) items만 본다.
+ * items 칸은 TOP·BOTTOM·DRESS·OUTER·SHOES·BAG, 값은 1~64자 아이템 id
+ */
+export interface PlanOutfitDto {
+  items: OutfitSlotItems;
+  [key: string]: unknown;
+}
+
+/**
+ * POST /plans 본문과 bulk 항목 (앱 PlannedEvent에서 id 대신 clientId).
+ * 규칙: date 오늘 앞뒤 1년, title 1~50자, memo 500자, concepts STYLE 코드 10개까지, weather 필수
+ */
+export interface PlanInput {
+  /** 앱이 정한 id (1~64자 영문·숫자·._:-). bulk는 필수. 같은 clientId로 다시 보내면 그 예정을 고친다 */
+  clientId?: string;
+  /** YYYY-MM-DD */
+  date: string;
+  timeOfDay: OutfitTimeOfDay;
+  title: string;
+  occasion: OutfitOccasion;
+  concepts: StyleTag[];
+  /** 앞뒤 공백은 서버가 지우고, 빈 메모는 null로 저장한다 */
+  memo?: string | null;
+  /** 없으면 내 지역 */
+  place?: Place | null;
+  weather: PlanWeatherDto;
+  weatherSource?: PlanWeatherSource | null;
+  /** ISO-8601 시각 */
+  weatherCheckedAt?: string | null;
+  forecastReady?: boolean;
+  outfit?: PlanOutfitDto | null;
+}
+
+/** PATCH /plans/{id}: 보낸 필드만 바꾼다. memo·place·outfit·weatherSource·weatherCheckedAt은 null이면 비운다. clientId는 바꿀 수 없다 */
+export type PlanPatch = Partial<Omit<PlanInput, 'clientId'>>;
+
+/** 예정 응답. 키 17개를 항상 보낸다 (없는 값은 null) */
+export interface PlanDto {
+  /** 서버 id (숫자 문자열) */
+  id: string;
+  /** 앱이 보낸 clientId. 없이 만들었으면 null */
+  clientId: string | null;
+  date: string;
+  timeOfDay: OutfitTimeOfDay;
+  title: string;
+  occasion: OutfitOccasion;
+  concepts: StyleTag[];
+  memo: string | null;
+  /** regionCode는 null일 수 있다 */
+  place: Place | null;
+  weather: PlanWeatherDto & { manual: boolean };
+  weatherSource: PlanWeatherSource | null;
+  /** ISO 시각 (UTC, 예: 2026-10-18T00:00:00Z) */
+  weatherCheckedAt: string | null;
+  forecastReady: boolean;
+  outfit: PlanOutfitDto | null;
+  /** outfit.items 중 지금 옷장에 없는 아이템 id (지운 옷·기기에서 만든 id). 코디는 그대로 둔다 */
+  missingItemIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** GET /plans 조건 (YYYY-MM-DD, 양 끝 포함) */
+export interface PlanFilter {
+  from?: string;
+  to?: string;
+}
+
+/** GET /plans 응답: 날짜 → 시간대(AM·PM·EVENING) → id 순 */
+export interface PlanListResponse {
+  items: PlanDto[];
+}
+
+/** POST /plans/bulk 응답: items는 요청 순서 */
+export interface PlanBulkResponse {
+  items: PlanDto[];
+  created: number;
+  updated: number;
+}
+
 export type AppConfigResult =
   | { changed: true; config: AppConfigDto; /** 다음 요청의 If-None-Match에 그대로 넣을 값 */ etag: string }
   | { changed: false };

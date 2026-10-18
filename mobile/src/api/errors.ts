@@ -30,6 +30,8 @@ export type ApiErrorCode =
   | 'WEATHER_UNAVAILABLE'
   /** 장소 날씨 하루 한도 초과 (doc/19). params.kind: ON_DEMAND(좌표 날씨, 캐시·평년값도 없음) · SEARCH(장소 검색) */
   | 'WEATHER_LIMIT'
+  /** 예정 코디 저장 개수 상한 초과 (409, params.max = 500). POST /plans·/plans/bulk */
+  | 'PLAN_LIMIT'
   /** 서버에 닿지 못함 (연결 실패·시간 초과) */
   | 'NETWORK'
   /** 응답이 계약 형식이 아님 (JSON이 아닌 오류 본문 등) */

@@ -10,9 +10,11 @@ import { router } from 'expo-router';
 import { FORMALITY_LABEL, MOOD_LABEL, OCCASION_LABEL, SLOTS } from '@/data/constants';
 import type { Outfit, ScoreBreakdown, WardrobeItem } from '@/data/types';
 import { providerLabel, type RecommendSource } from '@/lib/aiOutfits';
+import { errorAlertMessage } from '@/lib/api';
 import { styleLabel } from '@/lib/codes';
 import { newId } from '@/lib/context';
 import { longLabel, todayKey } from '@/lib/date';
+import { savePlan } from '@/lib/planSync';
 import { WEIGHTS } from '@/lib/recommend';
 import { engineInput, useStore } from '@/store/useStore';
 import { cardBase, makeStyles, useColors } from '@/theme';
@@ -30,7 +32,6 @@ export default function Result() {
   const draft = useStore((s) => s.draft);
   const allItems = useStore((s) => s.items);
   const saveDayOutfit = useStore((s) => s.saveDayOutfit);
-  const addPlan = useStore((s) => s.addPlan);
   const [outfits, setOutfits] = useState<Outfit[]>(draft?.outfits ?? []);
   const [index, setIndex] = useState(0);
   const s = useStyles();
@@ -60,7 +61,12 @@ export default function Result() {
 
   const save = () => {
     if (isPlan) {
-      addPlan({ ...draft.plan!, id: draft.planId ?? newId('plan'), outfit: current });
+      // 기기에 먼저 저장하고 서버로 보낸다 (계정 모드). 오프라인 등은 다음 동기화 때 다시 보낸다
+      void savePlan({ ...draft.plan!, id: draft.planId ?? newId('plan'), outfit: current }).then((out) => {
+        if (out.kind === 'limit' || out.kind === 'invalid') {
+          notify('예정을 서버에 저장하지 못했어요', `${errorAlertMessage(out.error)}\n이 예정은 이 기기에만 있어요.`);
+        }
+      });
       router.dismissTo('/calendar');
     } else {
       saveDayOutfit(todayKey(), current);

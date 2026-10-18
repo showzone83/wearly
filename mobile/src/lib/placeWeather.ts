@@ -13,6 +13,7 @@ import { api, errorMessage } from './api';
 import { todayKey } from './date';
 import { systemTraceId } from './errorText';
 import { MOCK_MODE } from './mode';
+import { pushPlan } from './planSync';
 import {
   applyRecheck,
   DEFAULT_FORECAST_SPAN,
@@ -167,6 +168,7 @@ export const recheckPlans = (): Promise<void> => {
               weatherCheckedAt: new Date().toISOString(),
               forecastReady: plan.forecastReady,
             });
+            void pushPlan(plan.id); // 계정 모드: 서버 예정에도 (게스트·목업은 아무것도 안 한다)
           }
           continue;
         }
@@ -178,6 +180,7 @@ export const recheckPlans = (): Promise<void> => {
           weatherCheckedAt: next.weatherCheckedAt,
           forecastReady: next.forecastReady,
         });
+        void pushPlan(plan.id);
         if (__DEV__) console.log('[place-weather] 예정 다시 확인', plan.date, kind);
       }
     })()

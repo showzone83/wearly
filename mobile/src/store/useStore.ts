@@ -6,6 +6,7 @@ import { DEFAULT_PROFILE, seedItems } from '@/data/seed';
 import type {
   DailyLook,
   FeedbackType,
+  IPlanTombstone,
   Outfit,
   OutfitItems,
   PlannedEvent,
@@ -63,6 +64,8 @@ interface State {
   items: WardrobeItem[];
   dayOutfits: Record<string, SavedOutfit>;
   plans: PlannedEvent[];
+  /** 계정 모드: 기기에서 지웠지만 아직 서버에서 지우지 못한 예정 (lib/planSync.ts). 예전 데이터에는 없다 */
+  planDeletes: IPlanTombstone[];
   looks: DailyLook[];
   affinity: Record<string, number>;
   draft: Draft | null;
@@ -80,6 +83,7 @@ interface State {
   saveDayOutfit: (date: string, outfit: Outfit) => void;
   setFeedback: (date: string, type: FeedbackType, reasons?: string[]) => void;
   bumpAffinity: (ids: (string | undefined)[], delta: number) => void;
+  /** 예정 저장(같은 id면 바꿈). 서버 id는 이어받고, 서버에 보낼 변경으로 표시한다. 서버 전송은 lib/planSync.ts savePlan */
   addPlan: (plan: PlannedEvent) => void;
   deletePlan: (id: string) => void;
   /** 예정의 날씨 칸만 바꾼다 (다시 확인, doc/19). 그사이 지워진 예정이면 아무것도 안 한다 */
@@ -102,10 +106,21 @@ const EMPTY = {
   items: [] as WardrobeItem[],
   dayOutfits: {} as Record<string, SavedOutfit>,
   plans: [] as PlannedEvent[],
+  planDeletes: [] as IPlanTombstone[],
   looks: [] as DailyLook[],
   affinity: {} as Record<string, number>,
   draft: null as Draft | null,
 };
+
+/** 계정 모드는 옷을 지워도 예정 코디에서 빼지 않는다: 서버가 예정을 그대로 두고 missingItemIds로 알려 주므로 "지운 옷"으로 보여 준다 */
+const keepPlanRefs = (s: { authMode: AuthMode }): boolean => s.authMode === 'account';
+
+/** 기기에서 예정을 고쳤다는 표시 (서버 동기화 대상) */
+const touched = (): Pick<PlannedEvent, 'updatedAt' | 'pending' | 'syncBlocked'> => ({
+  updatedAt: new Date().toISOString(),
+  pending: true,
+  syncBlocked: undefined,
+});
 
 function removeItemRefs(items: OutfitItems, id: string): OutfitItems {
   const next = { ...items };
@@ -138,6 +153,7 @@ export const useStore = create<State>()(
             next[k] = { ...v, outfit: { ...v.outfit, items: removeItemRefs(v.outfit.items, id) } };
           }
           dayOutfits = next;
+          if (keepPlanRefs(s)) continue;
           plans = plans.map((p) => (p.outfit ? { ...p, outfit: { ...p.outfit, items: removeItemRefs(p.outfit.items, id) } } : p));
         }
         const photos = { ...s.photos };
@@ -185,9 +201,11 @@ export const useStore = create<State>()(
           photos,
           photoSync,
           dayOutfits,
-          plans: s.plans.map((p) =>
-            p.outfit ? { ...p, outfit: { ...p.outfit, items: removeItemRefs(p.outfit.items, id) } } : p,
-          ),
+          plans: keepPlanRefs(s)
+            ? s.plans
+            : s.plans.map((p) =>
+                p.outfit ? { ...p, outfit: { ...p.outfit, items: removeItemRefs(p.outfit.items, id) } } : p,
+              ),
         });
       },
 
@@ -207,15 +225,19 @@ export const useStore = create<State>()(
         set({ affinity });
       },
 
-      addPlan: (plan) =>
-        set({ plans: [...get().plans.filter((p) => p.id !== plan.id), plan].sort((a, b) => a.date.localeCompare(b.date)) }),
+      addPlan: (plan) => {
+        const prev = get().plans.find((p) => p.id === plan.id);
+        // 새 코디는 지금 옷장으로 고른 것이라 예전 missingItemIds는 버린다 (서버가 다시 알려 준다)
+        const next: PlannedEvent = { ...plan, serverId: plan.serverId ?? prev?.serverId, missingItemIds: undefined, ...touched() };
+        set({ plans: [...get().plans.filter((p) => p.id !== plan.id), next].sort((a, b) => a.date.localeCompare(b.date)) });
+      },
 
       deletePlan: (id) => set({ plans: get().plans.filter((p) => p.id !== id) }),
 
       updatePlanWeather: (id, patch) => {
         const plans = get().plans;
         if (!plans.some((p) => p.id === id)) return;
-        set({ plans: plans.map((p) => (p.id === id ? { ...p, ...patch } : p)) });
+        set({ plans: plans.map((p) => (p.id === id ? { ...p, ...patch, ...touched() } : p)) });
       },
 
       addLook: (look) => {

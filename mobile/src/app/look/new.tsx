@@ -18,6 +18,14 @@ import { engineInput, useStore } from '@/store/useStore';
 import { inputBase, makeStyles, useColors } from '@/theme';
 
 // 목업 ⑤ 착장 기록 (p.17 · p.18): 입은 옷 + 나의 만족도 + 주변 반응 → AI 진단
+/** 옷장에 있는 아이템만 남긴다 */
+const ownedOnly = (items: OutfitItems, all: { id: string }[]): OutfitItems => {
+  const owned = new Set(all.map((i) => i.id));
+  const out: OutfitItems = {};
+  for (const [slot, id] of Object.entries(items) as [Slot, string | undefined][]) if (id && owned.has(id)) out[slot] = id;
+  return out;
+};
+
 export default function NewLook() {
   const params = useLocalSearchParams<{ date?: string }>();
   const date = params.date ?? todayKey();
@@ -29,7 +37,8 @@ export default function NewLook() {
   const s = useStyles();
   const colors = useColors();
 
-  const initial = saved?.outfit.items ?? plan?.outfit?.items ?? {};
+  // 계정 모드 예정 코디에는 지운 옷 id가 남아 있을 수 있다 → 옷장에 있는 것만
+  const initial = saved?.outfit.items ?? ownedOnly(plan?.outfit?.items ?? {}, allItems);
   const [items, setItems] = useState<OutfitItems>(initial);
   const [self, setSelf] = useState(4);
   const [emotions, setEmotions] = useState<Emotion[]>([]);

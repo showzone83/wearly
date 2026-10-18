@@ -10,6 +10,8 @@ import type { PlannedEvent } from '@/data/types';
 import { styleLabel } from '@/lib/codes';
 import { addDays, diffDays, fromKey, shortLabel, todayKey, weekStart, weekTitle } from '@/lib/date';
 import { myPlace, recheckPlans } from '@/lib/placeWeather';
+import { removePlan } from '@/lib/planSync';
+import { goneItemIds } from '@/lib/planSyncRules';
 import { planSource, samePlace, SOURCE_LABEL } from '@/lib/planWeather';
 import { upcomingPlans, useStore } from '@/store/useStore';
 import { useWeatherStore } from '@/store/useWeatherStore';
@@ -40,7 +42,7 @@ export default function Calendar() {
   const dayOutfits = useStore((s) => s.dayOutfits);
   const looks = useStore((s) => s.looks);
   const plans = useStore((s) => s.plans);
-  const deletePlan = useStore((s) => s.deletePlan);
+  const items = useStore((s) => s.items);
   const regionCode = useWeatherStore((s) => s.regionCode);
   const s = useStyles();
   const colors = useColors();
@@ -55,6 +57,9 @@ export default function Calendar() {
   const past = selected <= today;
   const upcoming = upcomingPlans(plans);
   const history = [...looks].sort((a, b) => b.date.localeCompare(a.date));
+  /** 예정 코디의 지운 옷 (계정 모드: 서버 missingItemIds + 옷장에 없는 아이템) */
+  const ownedIds = new Set(items.map((i) => i.id));
+  const goneOf = (p: PlannedEvent) => goneItemIds(p, ownedIds);
 
   // 캘린더에 들어올 때마다 평년값 예정의 예보가 나왔는지 확인한다 (하루 한 번, doc/19)
   useFocusEffect(
@@ -159,7 +164,7 @@ export default function Calendar() {
               ]
                 .filter(Boolean)
                 .join(' · ')}{' '}
-              {plan.outfit ? '(코디 저장됨)' : '(추천 대기)'}
+              {plan.outfit ? (goneOf(plan).length ? `(코디 저장됨 · 지운 옷 ${goneOf(plan).length}벌)` : '(코디 저장됨)') : '(추천 대기)'}
             </Text>
             {plan.forecastReady && <ForecastReadyBadge plan={plan} />}
           </View>
@@ -188,14 +193,14 @@ export default function Calendar() {
                 {[...p.concepts.map(styleLabel), `${p.weather.temp}°C (${SOURCE_LABEL[planSource(p)]})`].join(' · ')}
               </Text>
               {p.forecastReady && <ForecastReadyBadge plan={p} />}
-              {p.outfit ? <OutfitMini items={p.outfit.items} size={38} /> : <Text style={s.cardSub}>추천 대기</Text>}
+              {p.outfit ? <OutfitMini items={p.outfit.items} size={38} gone={goneOf(p)} /> : <Text style={s.cardSub}>추천 대기</Text>}
               <Row style={{ gap: 12, marginTop: 4 }}>
                 {!p.outfit && (
                   <Pressable onPress={() => openPlan(p)}>
                     <Text style={s.link}>추천 받기 ›</Text>
                   </Pressable>
                 )}
-                <Pressable onPress={() => confirm('예정을 삭제할까요?', p.title, () => deletePlan(p.id), '삭제')}>
+                <Pressable onPress={() => confirm('예정을 삭제할까요?', p.title, () => removePlan(p.id), '삭제')}>
                   <Text style={[s.link, { color: colors.textMuted }]}>삭제</Text>
                 </Pressable>
               </Row>

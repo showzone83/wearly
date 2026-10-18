@@ -157,6 +157,27 @@ export interface PlannedEvent {
   weatherCheckedAt?: string;
   /** 평년값으로 고른 코디인데 예보가 나와 날씨가 달라졌다 → "예보가 나왔어요 · 다시 추천" 배지 */
   forecastReady?: boolean;
+
+  // ── 계정 모드 서버 동기화 (lib/planSync.ts). 게스트·목업 실행은 쓰지 않는다. 예전 데이터에는 없다 ──
+
+  /** 서버 예정 id. 없으면 아직 서버에 올리지 않은 예정 (올릴 때 clientId = id) */
+  serverId?: string;
+  /** 기기에서 마지막으로 고친 시각(ISO). 서버에서 받은 예정은 서버 updatedAt. 서버 updatedAt과 비교해 최신을 쓴다 */
+  updatedAt?: string;
+  /** 기기에서 고쳤는데 아직 서버에 보내지 못했다 (오프라인 등). 다음 동기화 때 다시 보낸다 */
+  pending?: boolean;
+  /** 서버가 입력 오류로 거절해 다시 보내지 않는다 (기기에만 있다). 다시 고치면 풀린다 */
+  syncBlocked?: boolean;
+  /** 서버 기준 코디 아이템 중 지금 옷장에 없는 id ("지운 옷"으로 흐리게 표시) */
+  missingItemIds?: string[];
+}
+
+/** 지운 예정을 서버에서도 지울 때까지 남기는 기록 (lib/planSync.ts) */
+export interface IPlanTombstone {
+  /** 기기 예정 id (= 서버 clientId) */
+  clientId: string;
+  /** 서버 예정 id. 없으면 서버 목록에서 clientId로 찾는다 */
+  serverId?: string;
 }
 
 export type { Place };
