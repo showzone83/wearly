@@ -24,6 +24,7 @@
   - `16_세션_Valkey.md` — Refresh 토큰·세션을 Valkey로, 관리자 강제 로그아웃
   - `17_날씨.md` — 날씨: 서버가 WeatherAPI.com에서 지역별로 주기적으로 받아 저장, 앱은 저장값만 조회, 관리자 날씨 메뉴
   - `18_사진_저장.md` — 옷 사진 서버 저장: S3 호환 저장소(로컬 MinIO), 서명 URL로 올리고 받기, EXIF 제거·축소, 앱 흐름, AWS S3·R2·NCP 전환
+  - `19_장소별_날씨.md` — (제안, 아직 구현 전) 예정일 코디에 장소 선택, 예보 범위 밖은 평년 기온, 17개 시·도 밖 장소의 요청 시점 조회
 - `mobile/` — React Native(Expo SDK 57) 목업 앱. 백엔드 없이 기기 안에 데이터 저장. Expo 작업 규칙은 `mobile/AGENTS.md`를 따른다.
 
 git 저장소는 `wearly/` 루트 하나다 (원격: `github.com/showzone83/wearly`). `mobile/`은 별도 저장소가 아니다.
@@ -69,6 +70,7 @@ cd mobile && npm run typecheck && npx expo-doctor
 DB·Valkey(로그인 세션)·MinIO(옷 사진)·백엔드·관리자 사이트는 저장소 루트의 `docker-compose.yml`로 한 번에 띄운다. 앱(Expo)은 넣지 않는다 — 시뮬레이터·휴대폰이 Mac의 Metro에 붙어야 하므로 `cd mobile && npx expo start`를 따로 띄운다.
 
 ```bash
+./dev.sh                                  # compose 실행 + 백엔드 로그·DB 실시간 로그·Expo 창을 한 번에 (--no-build · --no-expo · --ios · logs · stop, doc/15)
 docker compose up -d --build              # 전체 빌드·실행: db(5433) · valkey(6380) · minio(9000·9001) · backend(8080) · admin(5173)
 docker compose logs -f backend            # 로그 보기 (admin, db, valkey, minio도 같은 방식)
 docker compose up -d --build backend      # 백엔드만 다시 빌드·재시작 (코드 수정 후)
