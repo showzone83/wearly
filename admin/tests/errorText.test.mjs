@@ -12,6 +12,7 @@ import {
   errorTextWithTrace,
   FIELD_ERROR_TEXT,
   fieldErrorText,
+  MFA_SECRET_KEY_MISSING_TEXT,
   remainingAttemptsText,
   retryAfterMinutes,
   SERVER_ERROR_TEXT,
@@ -86,6 +87,13 @@ test('SECRET_KEY_MISSING은 설정 키 이름까지 알려 준다', () => {
   const t = errorText({ status: 409, code: 'SECRET_KEY_MISSING' });
   assert.match(t, /WEARLY_SECRET_KEY/);
   assert.match(t, /wearly\.ai\.keys/);
+});
+
+test('2단계 인증 화면의 SECRET_KEY_MISSING은 AI 키가 아니라 마스터 키 형식을 안내한다', () => {
+  assert.match(MFA_SECRET_KEY_MISSING_TEXT, /2단계 인증/);
+  assert.match(MFA_SECRET_KEY_MISSING_TEXT, /WEARLY_SECRET_KEY/);
+  assert.match(MFA_SECRET_KEY_MISSING_TEXT, /openssl rand -base64 32/);
+  assert.doesNotMatch(MFA_SECRET_KEY_MISSING_TEXT, /API 키/);
 });
 
 test('API_KEY_INVALID.reason 해석', () => {

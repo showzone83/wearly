@@ -219,6 +219,14 @@ const rangeText = (field: string, p: TErrorParams): string => {
  * error-codes.json의 errorCodes 전부. 값이 null이면 관리자 화면과 무관한 코드(앱 전용)라
  * HTTP 상태별 기본 문구를 쓴다 — 그래도 표에는 명시적으로 둔다(카탈로그 일치 테스트).
  */
+/**
+ * 로그인·2단계 인증 화면의 SECRET_KEY_MISSING. TOTP 비밀도 AI 키와 같은 마스터 키로 암호화하므로 같은 코드가 오지만,
+ * 표의 문구(AI 키 웹 입력 안내)는 이 화면에 맞지 않는다. 키가 없을 때뿐 아니라 형식이 틀려도(base64 32바이트가 아님) 서버는 없다고 본다.
+ */
+export const MFA_SECRET_KEY_MISSING_TEXT =
+  '서버 마스터 키(wearly.secret-key / WEARLY_SECRET_KEY)가 없거나 형식이 틀려 2단계 인증을 쓸 수 없어요. ' +
+  '서버에 openssl rand -base64 32로 만든 값(44자)을 넣고 다시 시작해 주세요.';
+
 export const SERVER_ERROR_TEXT: Record<string, TText | null> = {
   VALIDATION_FAILED: '입력값을 확인해 주세요.',
   UNAUTHORIZED: '로그인이 필요해요.',

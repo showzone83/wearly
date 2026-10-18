@@ -13,7 +13,7 @@ import type { IMfaChallenge } from '@/stores/useAuthStore';
 
 import { Navigate, useLocation } from 'react-router';
 
-import { errorTextWithTrace, fieldErrorText } from '@/lib/errorText';
+import { errorTextWithTrace, fieldErrorText, MFA_SECRET_KEY_MISSING_TEXT } from '@/lib/errorText';
 import { isTotpCode, normalizeRecoveryCode } from '@/lib/mfa';
 
 const FIELD_NAME: Record<string, string> = {
@@ -29,6 +29,8 @@ const loginErrorText = (e: unknown): string => {
     const f = e.fieldErrors[0];
     return `${FIELD_NAME[f.field] ?? f.field}: ${fieldErrorText(f)}`;
   }
+  // 표의 SECRET_KEY_MISSING 문구는 AI 키 화면용이라 2단계 인증 문구로 바꾼다
+  if (isApiError(e) && e.code === 'SECRET_KEY_MISSING') return MFA_SECRET_KEY_MISSING_TEXT;
   return isApiError(e) ? errorTextWithTrace(e) : errorMessage(e);
 };
 
