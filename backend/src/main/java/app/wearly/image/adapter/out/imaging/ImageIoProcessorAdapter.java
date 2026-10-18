@@ -68,7 +68,7 @@ class ImageIoProcessorAdapter implements ImageProcessorPort {
   public ProcessedImage process(byte[] bytes) {
     String format =
         ImageFormats.sniff(bytes)
-            .orElseThrow(() -> new InvalidImageException("JPEG·PNG 사진만 올릴 수 있어요."));
+            .orElseThrow(() -> new InvalidImageException(InvalidImageException.Reason.FORMAT));
     permits.acquireUninterruptibly();
     try {
       BufferedImage decoded = decode(bytes, format);
@@ -85,7 +85,7 @@ class ImageIoProcessorAdapter implements ImageProcessorPort {
       if (e instanceof InvalidImageException invalid) {
         throw invalid;
       }
-      throw new InvalidImageException("사진을 읽을 수 없어요.", e);
+      throw new InvalidImageException(InvalidImageException.Reason.DECODE, e);
     } finally {
       permits.release();
     }
@@ -100,11 +100,10 @@ class ImageIoProcessorAdapter implements ImageProcessorPort {
         int width = reader.getWidth(0);
         int height = reader.getHeight(0);
         if (width <= 0 || height <= 0) {
-          throw new InvalidImageException("사진을 읽을 수 없어요.");
+          throw new InvalidImageException(InvalidImageException.Reason.DECODE);
         }
         if ((long) width * height > maxPixels) {
-          throw new InvalidImageException(
-              "사진 해상도가 너무 커요. " + (maxPixels / 1_000_000) + "백만 화소 이하로 올려 주세요.");
+          throw new InvalidImageException(InvalidImageException.Reason.PIXELS);
         }
         ImageReadParam param = reader.getDefaultReadParam();
         int step = Math.max(width, height) / (ImageSettings.ORIGINAL_MAX_SIDE * 2);
@@ -113,7 +112,7 @@ class ImageIoProcessorAdapter implements ImageProcessorPort {
         }
         BufferedImage image = reader.read(0, param);
         if (image == null) {
-          throw new InvalidImageException("사진을 읽을 수 없어요.");
+          throw new InvalidImageException(InvalidImageException.Reason.DECODE);
         }
         return image;
       } finally {

@@ -15,6 +15,8 @@ public final class CodeRules {
 
   public static final Pattern LOWER_CODE = Pattern.compile("^[a-z0-9_]{1,30}$");
 
+  public static final int LABEL_MAX = 50;
+
   private CodeRules() {}
 
   /**
@@ -24,20 +26,19 @@ public final class CodeRules {
     String code = raw == null ? null : raw.strip();
     Pattern format = CodeGroups.COLOR.equals(group) ? LOWER_CODE : UPPER_CODE;
     if (code == null || !format.matcher(code).matches()) {
+      // COLOR는 영문 소문자, 그 밖은 영문 대문자 (숫자·밑줄 포함 1~30자)
       errors.add(
-          new FieldError(
-              "code",
-              CodeGroups.COLOR.equals(group)
-                  ? "영문 소문자·숫자·밑줄 1~30자여야 해요."
-                  : "영문 대문자·숫자·밑줄 1~30자여야 해요."));
+          FieldError.invalidFormat("code", CodeGroups.COLOR.equals(group) ? "lower" : "upper"));
     }
     return code;
   }
 
   public static String label(String raw, List<FieldError> errors) {
     String label = raw == null ? null : raw.strip();
-    if (label == null || label.isEmpty() || label.length() > 50) {
-      errors.add(new FieldError("label", "1~50자로 입력해 주세요."));
+    if (label == null || label.isEmpty()) {
+      errors.add(FieldError.required("label"));
+    } else if (label.length() > LABEL_MAX) {
+      errors.add(FieldError.tooLong("label", LABEL_MAX));
     }
     return label;
   }
@@ -48,12 +49,14 @@ public final class CodeRules {
     String parent = raw == null || raw.isBlank() ? null : raw.strip();
     if (CodeGroups.SUB_TYPE.equals(group)) {
       if (parent == null) {
-        errors.add(new FieldError("parent", "세부 종류는 상위 종류(CATEGORY 코드)가 필요해요."));
+        // 세부 종류는 상위 종류(CATEGORY 코드)가 필요하다
+        errors.add(FieldError.required("parent"));
       } else if (!snapshot.known(CodeGroups.CATEGORY, parent)) {
-        errors.add(new FieldError("parent", "없는 종류 코드예요."));
+        errors.add(FieldError.notAllowed("parent"));
       }
     } else if (parent != null) {
-      errors.add(new FieldError("parent", "세부 종류(SUB_TYPE)만 상위 코드를 가질 수 있어요."));
+      // 세부 종류(SUB_TYPE)만 상위 코드를 가질 수 있다
+      errors.add(FieldError.notAllowed("parent"));
     }
     return parent;
   }

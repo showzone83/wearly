@@ -1,6 +1,7 @@
 package app.wearly.sharedkernel.code;
 
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import java.util.List;
 import java.util.Objects;
 
@@ -10,8 +11,11 @@ import java.util.Objects;
  */
 public final class CodeChecks {
 
-  public static final String UNKNOWN = "허용되지 않는 값이에요.";
-  public static final String INACTIVE = "지금은 고를 수 없는 값이에요.";
+  /** 그룹에 없는 코드 */
+  public static final FieldErrorCode UNKNOWN = FieldErrorCode.NOT_ALLOWED;
+
+  /** 있지만 지금은 고를 수 없는(비활성) 코드 */
+  public static final FieldErrorCode INACTIVE = FieldErrorCode.INACTIVE;
 
   private CodeChecks() {}
 

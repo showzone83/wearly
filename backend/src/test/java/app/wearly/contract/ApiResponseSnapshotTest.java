@@ -42,8 +42,9 @@ import tools.jackson.databind.node.ObjectNode;
  *
  * <ul>
  *   <li>전용 PostgreSQL 컨테이너(빈 DB)로 띄워 ID·개수가 매번 같다. 시나리오는 한 메서드에서 순서대로 부른다.
- *   <li>매번 달라지는 값만 자리표시자로 바꾼다: 토큰, 시각(ISO-8601 UTC, 밀리초 3자리 또는 없음만 인정), 코드 버전·ETag의 시각, 소요
- *       시간(latencyMs·avgLatencyMs), 오늘 날짜, 가짜 공급자 서버 주소. 나머지(문자열 ID, null 포함 여부, 메시지)는 그대로 비교한다.
+ *   <li>매번 달라지는 값만 자리표시자로 바꾼다: 토큰, 오류 응답의 traceId, 시각(ISO-8601 UTC, 밀리초 3자리 또는 없음만 인정), 코드 버전·ETag의
+ *       시각, 소요 시간(latencyMs·avgLatencyMs), 오늘 날짜, 가짜 공급자 서버 주소. 나머지(문자열 ID, null 포함 여부, 오류
+ *       코드·params)는 그대로 비교한다.
  *   <li>필드 순서는 비교하지 않는다 (JSON 객체 비교).
  *   <li>스냅샷 파일이 없으면 지금 응답으로 만든다 (리팩터링 전 브랜치에서 한 번). 다시 만들려면 파일을 지우고 돌린다.
  * </ul>
@@ -826,6 +827,9 @@ class ApiResponseSnapshotTest {
         JsonNode v = e.getValue();
         if ((k.equals("accessToken") || k.equals("refreshToken")) && v.isString()) {
           out.put(k, v.asString().isBlank() ? "<blank-token>" : "<token>");
+        } else if (k.equals("traceId") && v.isString()) {
+          // 오류 응답의 요청 추적 ID는 매번 다르다 (값이 있는지만 본다)
+          out.put(k, v.asString().isBlank() ? "<blank-trace>" : "<traceId>");
         } else if ((k.equals("latencyMs") || k.equals("avgLatencyMs")) && v.isNumber()) {
           out.put(k, "<ms>");
         } else if (k.equals("fieldErrors") && v.isArray()) {
@@ -848,15 +852,15 @@ class ApiResponseSnapshotTest {
   }
 
   /**
-   * Bean Validation이 내는 필드 오류 순서는 검증 대상 객체의 해시에 따라 실행마다 달라질 수 있어(일반 클래스 요청 DTO) 필드·메시지 순으로 정렬해
-   * 비교한다. 항목 수·필드·메시지는 그대로 비교한다.
+   * Bean Validation이 내는 필드 오류 순서는 검증 대상 객체의 해시에 따라 실행마다 달라질 수 있어(일반 클래스 요청 DTO) 필드·코드 순으로 정렬해 비교한다.
+   * 항목 수·필드·코드·params는 그대로 비교한다.
    */
   private static JsonNode sortedErrors(JsonNode errors) {
     List<JsonNode> list = new ArrayList<>();
     errors.forEach(list::add);
     list.sort(
         java.util.Comparator.comparing((JsonNode e) -> e.path("field").asString(""))
-            .thenComparing(e -> e.path("message").asString("")));
+            .thenComparing(e -> e.path("code").asString("")));
     ArrayNode out = JSON.createArrayNode();
     list.forEach(out::add);
     return out;

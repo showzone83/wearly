@@ -3,7 +3,8 @@ package app.wearly.weather.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.domain.FieldErrorCode;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.weather.application.port.in.dto.PlaceCandidateDto;
 import app.wearly.weather.application.port.in.dto.WeatherDayDto;
@@ -83,13 +84,13 @@ class PlaceWeatherServiceTest {
     return service.day(new WeatherDayQueryDto(null, lat, lon, date.toString(), user));
   }
 
-  static ApiException error(Runnable r) {
+  static BusinessException error(Runnable r) {
     try {
       r.run();
-    } catch (ApiException e) {
+    } catch (BusinessException e) {
       return e;
     }
-    throw new AssertionError("ApiException이 나지 않았어요");
+    throw new AssertionError("BusinessException이 나지 않았어요");
   }
 
   void regionSnapshot(String code) {
@@ -181,9 +182,12 @@ class PlaceWeatherServiceTest {
     regionSnapshot("SEOUL");
     assertThat(region(" ", TODAY).place().regionCode()).isEqualTo("SEOUL");
 
-    ApiException bad = error(() -> region("NOWHERE", TODAY));
+    BusinessException bad = error(() -> region("NOWHERE", TODAY));
     assertThat(bad.code()).isEqualTo(ErrorCode.VALIDATION_FAILED);
     assertThat(bad.fieldErrors()).extracting(FieldError::field).containsExactly("region");
+    assertThat(bad.fieldErrors())
+        .extracting(FieldError::code)
+        .containsExactly(FieldErrorCode.NOT_FOUND);
   }
 
   @Test
@@ -205,16 +209,21 @@ class PlaceWeatherServiceTest {
   void 날짜는_오늘부터_1년_안의_YYYY_MM_DD다() {
     regionSnapshot("SEOUL");
     for (String bad : new String[] {null, "", "2026/10/20", "2026-10-16", "2027-10-18", "x"}) {
-      ApiException e =
+      BusinessException e =
           error(() -> service.day(new WeatherDayQueryDto("SEOUL", null, null, bad, null)));
       assertThat(e.code()).as(bad).isEqualTo(ErrorCode.VALIDATION_FAILED);
       assertThat(e.fieldErrors()).extracting(FieldError::field).containsExactly("date");
     }
+    BusinessException past =
+        error(() -> service.day(new WeatherDayQueryDto("SEOUL", null, null, "2026-10-16", null)));
+    assertThat(past.fieldErrors().get(0).code()).isEqualTo(FieldErrorCode.OUT_OF_RANGE);
+    assertThat(past.fieldErrors().get(0).params())
+        .isEqualTo(Map.of("min", TODAY.toString(), "max", TODAY.plusYears(1).toString()));
     assertThat(region("SEOUL", TODAY).source()).isEqualTo("FORECAST");
     assertThat(region("SEOUL", TODAY.plusYears(1)).source()).isEqualTo("CLIMATE");
 
     // 날짜와 지역이 둘 다 틀리면 둘 다 알려 준다
-    ApiException both =
+    BusinessException both =
         error(() -> service.day(new WeatherDayQueryDto("NOWHERE", null, null, "x", null)));
     assertThat(both.fieldErrors()).extracting(FieldError::field).containsExactly("date", "region");
   }
@@ -225,18 +234,25 @@ class PlaceWeatherServiceTest {
             error(() -> service.day(new WeatherDayQueryDto(null, 999.0, null, "x", null))).code())
         .isEqualTo(ErrorCode.UNAUTHORIZED);
 
-    ApiException onlyLat =
+    BusinessException onlyLat =
         error(() -> service.day(new WeatherDayQueryDto(null, 35.0, null, TODAY.toString(), 1L)));
     assertThat(onlyLat.fieldErrors()).extracting(FieldError::field).containsExactly("lon");
 
-    ApiException range =
+    BusinessException range =
         error(() -> service.day(new WeatherDayQueryDto(null, 91.0, 181.0, TODAY.toString(), 1L)));
     assertThat(range.fieldErrors()).extracting(FieldError::field).containsExactly("lat", "lon");
+    assertThat(range.fieldErrors())
+        .extracting(FieldError::code)
+        .containsOnly(FieldErrorCode.OUT_OF_RANGE);
+    assertThat(range.fieldErrors().get(0).params()).isEqualTo(Map.of("min", -90, "max", 90));
 
-    ApiException both =
+    BusinessException both =
         error(
             () -> service.day(new WeatherDayQueryDto("SEOUL", 35.0, 139.0, TODAY.toString(), 1L)));
     assertThat(both.fieldErrors()).extracting(FieldError::field).containsExactly("region");
+    assertThat(both.fieldErrors())
+        .extracting(FieldError::code)
+        .containsExactly(FieldErrorCode.CONFLICT);
     assertThat(base.callRows).isEmpty();
   }
 
@@ -454,7 +470,7 @@ class PlaceWeatherServiceTest {
   @Test
   void 검색어는_1자에서_50자다() {
     for (String bad : new String[] {null, "", "   ", "가".repeat(51)}) {
-      ApiException e = error(() -> service.searchPlaces(1, bad));
+      BusinessException e = error(() -> service.searchPlaces(1, bad));
       assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED);
       assertThat(e.fieldErrors()).extracting(FieldError::field).containsExactly("q");
     }
@@ -470,9 +486,9 @@ class PlaceWeatherServiceTest {
     service = fakes.service();
     service.searchPlaces(1, "tokyo");
 
-    ApiException e = error(() -> service.searchPlaces(1, "osaka"));
+    BusinessException e = error(() -> service.searchPlaces(1, "osaka"));
     assertThat(e.code()).isEqualTo(ErrorCode.WEATHER_LIMIT);
-    assertThat(e.getMessage()).contains("검색");
+    assertThat(e.params()).containsEntry("kind", "SEARCH");
     assertThat(service.searchPlaces(1, "tokyo")).isEmpty();
     assertThat(base.searched).containsExactly("WEATHERAPI:tokyo");
   }
@@ -722,7 +738,7 @@ class PlaceWeatherServiceTest {
     geo(Map.of("강릉", List.of(GANGNEUNG_KP), "강릉시", List.of(GANGNEUNG_SI)));
     service.searchPlaces(1, "강릉");
 
-    ApiException e = error(() -> service.searchPlaces(1, "도쿄"));
+    BusinessException e = error(() -> service.searchPlaces(1, "도쿄"));
     assertThat(e.code()).isEqualTo(ErrorCode.WEATHER_LIMIT);
     assertThat(service.searchPlaces(1, "강릉")).hasSize(2);
     assertThat(fakes.geocoded).containsExactly("강릉", "강릉시");

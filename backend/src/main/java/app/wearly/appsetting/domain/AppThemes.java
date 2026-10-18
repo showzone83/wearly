@@ -24,9 +24,9 @@ public final class AppThemes {
   public static List<FieldError> validate(String themeId) {
     List<FieldError> errors = new ArrayList<>();
     if (themeId == null || themeId.isBlank()) {
-      errors.add(new FieldError("themeId", "필수 값이에요."));
+      errors.add(FieldError.required("themeId"));
     } else if (!ALLOWED.contains(themeId)) {
-      errors.add(new FieldError("themeId", String.join(", ", ALLOWED) + " 중 하나여야 해요."));
+      errors.add(FieldError.notAllowed("themeId", ALLOWED));
     }
     return errors;
   }

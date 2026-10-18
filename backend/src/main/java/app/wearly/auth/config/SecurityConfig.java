@@ -3,6 +3,7 @@ package app.wearly.auth.config;
 import app.wearly.auth.adapter.in.web.ExpiryValidator;
 import app.wearly.auth.adapter.in.web.RestAuthenticationEntryPoint;
 import app.wearly.auth.adapter.in.web.UserIdAuthenticationConverter;
+import app.wearly.auth.adapter.in.web.UserIdMdcFilter;
 import app.wearly.auth.application.port.in.AuthenticationUseCase;
 import app.wearly.auth.domain.TokenPolicy;
 import app.wearly.common.config.WearlyProperties;
@@ -31,6 +32,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
@@ -85,7 +87,7 @@ public class SecurityConfig {
                     .bearerTokenResolver(bearerTokenResolver())
                     .authenticationEntryPoint(entryPoint)
                     .accessDeniedHandler(
-                        (req, res, e) -> errorWriter.write(res, ErrorCode.FORBIDDEN))
+                        (req, res, e) -> errorWriter.write(req, res, ErrorCode.FORBIDDEN))
                     .jwt(
                         jwt ->
                             jwt.decoder(jwtDecoder)
@@ -95,7 +97,9 @@ public class SecurityConfig {
             ex ->
                 ex.authenticationEntryPoint(entryPoint)
                     .accessDeniedHandler(
-                        (req, res, e) -> errorWriter.write(res, ErrorCode.FORBIDDEN)));
+                        (req, res, e) -> errorWriter.write(req, res, ErrorCode.FORBIDDEN)))
+        // 로그의 userId (인증 뒤, 권한 검사 앞이라 403 로그에도 찍힌다)
+        .addFilterAfter(new UserIdMdcFilter(), BearerTokenAuthenticationFilter.class);
     return http.build();
   }
 

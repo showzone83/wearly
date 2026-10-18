@@ -45,9 +45,24 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  # 오류 응답에 서버 내부 정보(예외 메시지·스택·검증 원문·예외 클래스)를 넣지 않는다.
+  # /error도 우리 형식 { status, code, fieldErrors, traceId }으로 쓴다 (common.error.ErrorPageController)
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+    whitelabel:
+      enabled: false
   tomcat:
     # 한도를 넘긴 업로드에도 JSON 오류 응답을 끝까지 보내기 위해 본문을 받아 버린다
     max-swallow-size: 20MB
+
+logging:
+  pattern:
+    # 모든 로그 줄에 요청 추적 ID(traceId, 응답 헤더 X-Request-Id·오류 본문 traceId와 같다)와 회원 ID를 찍는다.
+    # 값은 common.web.TraceIdFilter와 auth.adapter.in.web.UserIdMdcFilter가 MDC에 넣는다 (요청 밖이면 비어 있다)
+    level: "%5p [traceId=%X{traceId:-} userId=%X{userId:-}]"
 
 mybatis:
   mapper-locations: classpath:mapper/**/*.xml

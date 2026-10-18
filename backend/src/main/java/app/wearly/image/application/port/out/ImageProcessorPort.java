@@ -10,7 +10,7 @@ import app.wearly.image.domain.ProcessedImage;
 public interface ImageProcessorPort {
 
   /**
-   * @throws InvalidImageException 사진으로 쓸 수 없을 때 (메시지는 사용자 문구)
+   * @throws InvalidImageException 사진으로 쓸 수 없을 때 (사유는 reason)
    */
   ProcessedImage process(byte[] bytes);
 }

@@ -124,8 +124,9 @@ class ImageIoProcessorAdapterTest {
     assertThatThrownBy(() -> processor.process(TestImages.fakeJpeg()))
         .isInstanceOf(InvalidImageException.class);
     assertThatThrownBy(() -> processor.process("hello".getBytes(StandardCharsets.UTF_8)))
-        .isInstanceOf(InvalidImageException.class)
-        .hasMessageContaining("JPEG·PNG");
+        .isInstanceOfSatisfying(
+            InvalidImageException.class,
+            e -> assertThat(e.reason()).isEqualTo(InvalidImageException.Reason.FORMAT));
     byte[] gif = TestImages.encode(new BufferedImage(4, 4, BufferedImage.TYPE_INT_RGB), "gif");
     assertThatThrownBy(() -> processor.process(gif)).isInstanceOf(InvalidImageException.class);
   }
@@ -135,8 +136,9 @@ class ImageIoProcessorAdapterTest {
     ImageIoProcessorAdapter small = new ImageIoProcessorAdapter(100L, 1);
 
     assertThatThrownBy(() -> small.process(TestImages.png(20, 20)))
-        .isInstanceOf(InvalidImageException.class)
-        .hasMessageContaining("해상도");
+        .isInstanceOfSatisfying(
+            InvalidImageException.class,
+            e -> assertThat(e.reason()).isEqualTo(InvalidImageException.Reason.PIXELS));
     assertThat(small.process(TestImages.png(10, 10)).width()).isEqualTo(10);
   }
 

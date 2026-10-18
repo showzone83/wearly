@@ -1,8 +1,11 @@
 package app.wearly.image.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -29,12 +32,16 @@ class ImageRulesTest {
     assertThat(ImageRules.validateUpload("PROFILE", "image/gif", 0L, MAX))
         .extracting(FieldError::field)
         .containsExactly("purpose", "contentType", "size");
+    assertThat(ImageRules.validateUpload("PROFILE", "image/gif", 0L, MAX))
+        .extracting(FieldError::code)
+        .containsExactly(
+            FieldErrorCode.NOT_ALLOWED, FieldErrorCode.NOT_ALLOWED, FieldErrorCode.OUT_OF_RANGE);
     assertThat(ImageRules.validateUpload(null, null, null, MAX))
-        .extracting(FieldError::message)
-        .containsOnly("필수 값이에요.");
+        .extracting(FieldError::code)
+        .containsOnly(FieldErrorCode.REQUIRED);
     assertThat(ImageRules.validateUpload("ITEM", "image/jpeg", MAX + 1, MAX))
-        .extracting(FieldError::message)
-        .containsExactly("사진은 10MB까지 올릴 수 있어요.");
+        .extracting(FieldError::code, FieldError::params)
+        .containsExactly(tuple(FieldErrorCode.OUT_OF_RANGE, Map.of("min", 1, "max", MAX)));
   }
 
   @Test

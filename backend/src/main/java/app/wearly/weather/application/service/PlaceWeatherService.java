@@ -2,8 +2,9 @@ package app.wearly.weather.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.common.domain.Zones;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.weather.application.port.in.PlaceWeatherUseCase;
 import app.wearly.weather.application.port.in.dto.ClimateInfoDto;
@@ -47,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 import org.slf4j.Logger;
@@ -74,8 +76,11 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
 
   private static final Logger log = LoggerFactory.getLogger(PlaceWeatherService.class);
 
-  static final String SEARCH_UNAVAILABLE = "장소 검색을 지금 할 수 없어요. 잠시 후 다시 시도해 주세요.";
-  static final String SEARCH_LIMIT = "오늘 장소 검색 횟수를 모두 썼어요. 내일 다시 시도해 주세요.";
+  /** WEATHER_LIMIT·WEATHER_UNAVAILABLE params.kind: 장소 검색 */
+  static final String KIND_SEARCH = CallRecord.SEARCH;
+
+  /** WEATHER_LIMIT params.kind: 좌표 날씨를 공급자에게 받기 (회원 하루 한도) */
+  static final String KIND_ON_DEMAND = CallRecord.ON_DEMAND;
 
   private final CodeCatalog catalog;
   private final WeatherSnapshotPort snapshots;
@@ -130,22 +135,22 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
     if (q.byCoordinates()) {
       // 좌표 방식은 로그인이 먼저다 (앱은 토큰 없는 region 요청의 401을 "예전 서버"로 본다. 좌표만 401)
       if (q.userId() == null) {
-        throw new ApiException(ErrorCode.UNAUTHORIZED);
+        throw new BusinessException(ErrorCode.UNAUTHORIZED);
       }
       if (q.regionCode() != null && !q.regionCode().isBlank()) {
-        errors.add(new FieldError("region", "지역과 좌표는 함께 보낼 수 없어요."));
+        errors.add(new FieldError("region", FieldErrorCode.CONFLICT));
       }
       if (q.lat() == null) {
-        errors.add(new FieldError("lat", "위도가 필요해요."));
+        errors.add(FieldError.required("lat"));
       } else if (!GridKey.validLat(q.lat())) {
-        errors.add(new FieldError("lat", "위도는 -90~90이어야 해요."));
+        errors.add(FieldError.outOfRange("lat", -90, 90));
       }
       if (q.lon() == null) {
-        errors.add(new FieldError("lon", "경도가 필요해요."));
+        errors.add(FieldError.required("lon"));
       } else if (!GridKey.validLon(q.lon())) {
-        errors.add(new FieldError("lon", "경도는 -180~180이어야 해요."));
+        errors.add(FieldError.outOfRange("lon", -180, 180));
       }
-      ApiException.throwIfAny(errors);
+      BusinessException.throwIfAny(errors);
       return coordinateDay(q.userId(), q.lat(), q.lon(), date, today);
     }
     String code =
@@ -154,29 +159,33 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
             : q.regionCode().strip();
     Optional<WeatherRegion> region = WeatherRegion.find(catalog.current(), code);
     if (region.isEmpty()) {
-      errors.add(new FieldError("region", "없는 지역이에요."));
+      errors.add(new FieldError("region", FieldErrorCode.NOT_FOUND));
     }
-    ApiException.throwIfAny(errors);
+    BusinessException.throwIfAny(errors);
     return regionDay(region.get(), date, today);
   }
 
   /** YYYY-MM-DD, 오늘(한국 날짜)부터 1년 안 */
   static LocalDate parseDate(String raw, LocalDate today, List<FieldError> errors) {
     if (raw == null || raw.isBlank()) {
-      errors.add(new FieldError("date", "날짜가 필요해요."));
+      errors.add(FieldError.required("date"));
       return null;
     }
     LocalDate date;
     try {
       date = LocalDate.parse(raw.strip());
     } catch (DateTimeParseException e) {
-      errors.add(new FieldError("date", "날짜는 YYYY-MM-DD 형식이어야 해요."));
+      errors.add(FieldError.invalidFormat("date", "YYYY-MM-DD"));
       return null;
     }
-    if (date.isBefore(today)) {
-      errors.add(new FieldError("date", "오늘이나 그 뒤의 날짜여야 해요."));
-    } else if (date.isAfter(today.plusYears(PlaceWeatherOptions.MAX_DAYS_AHEAD_YEARS))) {
-      errors.add(new FieldError("date", "오늘부터 1년 안의 날짜여야 해요."));
+    LocalDate last = today.plusYears(PlaceWeatherOptions.MAX_DAYS_AHEAD_YEARS);
+    if (date.isBefore(today) || date.isAfter(last)) {
+      // 날짜 범위: min·max는 YYYY-MM-DD 문자열 (오늘 ~ 1년 뒤)
+      errors.add(
+          new FieldError(
+              "date",
+              FieldErrorCode.OUT_OF_RANGE,
+              Map.of("min", today.toString(), "max", last.toString())));
     }
     return date;
   }
@@ -247,7 +256,9 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
           c.computedAt(),
           new ClimateInfoDto(c.years(), c.rainDayRatio()));
     }
-    throw new ApiException(limited ? ErrorCode.WEATHER_LIMIT : ErrorCode.WEATHER_UNAVAILABLE);
+    throw limited
+        ? new BusinessException(ErrorCode.WEATHER_LIMIT, Map.of("kind", KIND_ON_DEMAND))
+        : new BusinessException(ErrorCode.WEATHER_UNAVAILABLE);
   }
 
   /**
@@ -315,10 +326,10 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
   public List<PlaceCandidateDto> searchPlaces(long userId, String query) {
     String q = normalize(query);
     if (q.isEmpty()) {
-      throw ApiException.validation("q", "검색어를 입력해 주세요.");
+      throw BusinessException.validation(FieldError.required("q"));
     }
     if (q.length() > PlaceWeatherOptions.MAX_QUERY) {
-      throw ApiException.validation("q", PlaceWeatherOptions.MAX_QUERY + "자까지 검색할 수 있어요.");
+      throw BusinessException.validation(FieldError.tooLong("q", PlaceWeatherOptions.MAX_QUERY));
     }
     List<WeatherRegion> regions = WeatherRegion.active(catalog.current());
     // 시·도 이름(서울·부산광역시·충청…)은 지오코딩이 잘 찾지 못해 REGION 코드로 먼저 맞춘다
@@ -326,7 +337,7 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
     List<PlaceCandidate> items;
     try {
       items = searchCache.find(q).orElseGet(() -> fetchPlaces(userId, q, !matched.isEmpty()));
-    } catch (ApiException e) {
+    } catch (BusinessException e) {
       // 시·도와 맞았으면 공급자가 안 되거나 한도를 넘어도 그 지역은 준다
       if (matched.isEmpty()) {
         throw e;
@@ -373,11 +384,11 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
     Predicate<WeatherProvider> supports = p -> sources.supportsSearch(p.code());
     boolean geo = geocoding.enabled();
     if (!geo && !runner.anyUsable(supports)) {
-      throw new ApiException(ErrorCode.WEATHER_UNAVAILABLE, SEARCH_UNAVAILABLE);
+      throw searchUnavailable();
     }
     if (!limits.tryConsume(
         CallRecord.SEARCH, userId, Zones.today(clock), options.searchDailyLimit())) {
-      throw new ApiException(ErrorCode.WEATHER_LIMIT, SEARCH_LIMIT);
+      throw new BusinessException(ErrorCode.WEATHER_LIMIT, Map.of("kind", KIND_SEARCH));
     }
     List<PlaceCandidate> items = geo ? geocode(q, !regionMatched) : null;
     if (items != null) {
@@ -387,7 +398,7 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
     Attempt<SearchResult> a =
         runner.callOnDemand(CallRecord.SEARCH, null, supports, p -> sources.search(p, q));
     if (!a.ok()) {
-      throw new ApiException(ErrorCode.WEATHER_UNAVAILABLE, SEARCH_UNAVAILABLE);
+      throw searchUnavailable();
     }
     items = a.result().items().stream().limit(PlaceWeatherOptions.MAX_SEARCH_RESULTS).toList();
     // 지오코딩이 잠깐 실패해 영어 이름으로 대신한 결과는 캐시하지 않는다 (다음 검색에서 다시 한글로)
@@ -447,6 +458,11 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
     }
     runs.saveCalls(null, r.calls().stream().map(c -> c.withKind(CallRecord.SEARCH)).toList());
     return r;
+  }
+
+  /** 장소 검색을 지금 할 수 없음: 503 WEATHER_UNAVAILABLE { kind: SEARCH } */
+  private static BusinessException searchUnavailable() {
+    return new BusinessException(ErrorCode.WEATHER_UNAVAILABLE, Map.of("kind", KIND_SEARCH));
   }
 
   /** 검색어 정리: 앞뒤 공백 제거, 공백 여러 개는 하나로, 소문자 (캐시 키) */

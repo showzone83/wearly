@@ -7,8 +7,6 @@ public enum UserStatus {
   ACTIVE,
   SUSPENDED;
 
-  static final String MESSAGE = "ACTIVE 또는 SUSPENDED여야 해요.";
-
   /** 정확한 이름만 받는다 (대소문자·공백 그대로) */
   public static Optional<UserStatus> parse(String raw) {
     for (UserStatus s : values()) {

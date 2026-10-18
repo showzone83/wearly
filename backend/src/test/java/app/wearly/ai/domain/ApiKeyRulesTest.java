@@ -3,6 +3,7 @@ package app.wearly.ai.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -22,7 +23,15 @@ class ApiKeyRulesTest {
     assertThat(ApiKeyRules.normalize("x".repeat(301), errors)).isNull();
     assertThat(ApiKeyRules.normalize(null, errors)).isNull();
     assertThat(errors).extracting(FieldError::field).containsOnly("apiKey").hasSize(4);
-    assertThat(errors).extracting(FieldError::message).noneMatch(m -> m.contains("sk-"));
+    assertThat(errors)
+        .extracting(FieldError::code)
+        .containsExactly(
+            FieldErrorCode.TOO_SHORT,
+            FieldErrorCode.INVALID_FORMAT,
+            FieldErrorCode.TOO_LONG,
+            FieldErrorCode.REQUIRED);
+    // 키 값은 오류에 들어가지 않는다 (params는 기준 길이뿐)
+    assertThat(errors).extracting(e -> e.params().toString()).noneMatch(m -> m.contains("sk-"));
     assertThat(ApiKeyRules.last4("sk-0123456789abcdefghij")).isEqualTo("ghij");
   }
 

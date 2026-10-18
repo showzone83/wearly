@@ -1,11 +1,21 @@
 package app.wearly.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.codeUnits;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.constructors;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
+import app.wearly.common.domain.DomainValidationException;
+import app.wearly.common.domain.FieldError;
+import app.wearly.common.error.BusinessException;
+import app.wearly.common.error.ErrorCode;
+import app.wearly.common.error.ErrorResponse;
 import com.tngtech.archunit.core.domain.Dependency;
+import com.tngtech.archunit.core.domain.JavaAccess;
 import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaCodeUnit;
+import com.tngtech.archunit.core.domain.JavaConstructor;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaParameterizedType;
 import com.tngtech.archunit.core.domain.JavaType;
@@ -19,6 +29,7 @@ import com.tngtech.archunit.lang.SimpleConditionEvent;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +44,8 @@ import org.springframework.http.ResponseEntity;
  *   <li>컨텍스트 사이 의존은 상대 컨텍스트의 application.port.in만. common·sharedkernel은 컨텍스트를 모른다
  *   <li>7장: @Entity는 persistence.jpa, @Mapper는 persistence.mybatis.mapper, 검증·Jackson 어노테이션은
  *       adapter.in.web, 컨트롤러는 web.response 타입만 돌려준다, 포트 DTO는 어댑터를 모른다
+ *   <li>오류 응답: BusinessException은 문장(String)을 받지 않고, 예외 메시지를 읽는 메서드는 오류 응답 객체를 만들지 않으며, ErrorCode
+ *       설명 문장은 응답에 쓰지 않는다 (서버 내부 정보가 응답으로 나가지 않게)
  * </ul>
  */
 @AnalyzeClasses(packages = "app.wearly", importOptions = ImportOption.DoNotIncludeTests.class)
@@ -266,6 +279,82 @@ class HexagonalArchitectureTest {
                           && c.isInterface()))
           .should()
           .resideInAPackage("app.wearly.*.adapter.out..");
+
+  @ArchTest
+  static final ArchRule BusinessException은_문장을_받지_않는다 =
+      constructors()
+          .that()
+          .areDeclaredIn(BusinessException.class)
+          .should(haveNoStringParameter())
+          .because("응답 문구는 ErrorCode·필드 오류 코드와 params뿐이다. 동적 문자열(예외 메시지 등)이 응답으로 나가지 않게 한다");
+
+  @ArchTest
+  static final ArchRule 예외_메시지를_읽는_메서드는_오류_응답을_만들지_않는다 =
+      codeUnits()
+          .that()
+          .areDeclaredInClassesThat()
+          .resideInAPackage("app.wearly..")
+          .should(notBuildErrorsFromExceptionMessages())
+          .because(
+              "Throwable.getMessage()는 로그에만 쓴다. 같은 메서드에서"
+                  + " BusinessException·FieldError·ErrorResponse를 만들면"
+                  + " 예외 메시지가 응답에 섞일 수 있다 (로그는 따로 뺀 메서드에서 남긴다)");
+
+  @ArchTest
+  static final ArchRule ErrorCode_설명은_응답에_쓰지_않는다 =
+      noClasses()
+          .that()
+          .resideInAPackage("app.wearly..")
+          .should()
+          .callMethod(ErrorCode.class, "description")
+          .because("오류 응답은 code만 보낸다. 설명 문장은 문서·카탈로그(error-codes.json)용이다");
+
+  private static ArchCondition<JavaConstructor> haveNoStringParameter() {
+    return new ArchCondition<>("String 인자가 없다") {
+      @Override
+      public void check(JavaConstructor c, ConditionEvents events) {
+        if (c.getRawParameterTypes().stream().anyMatch(t -> t.isEquivalentTo(String.class))) {
+          events.add(SimpleConditionEvent.violated(c, c.getFullName() + "이(가) String을 받는다"));
+        }
+      }
+    };
+  }
+
+  private static ArchCondition<JavaCodeUnit> notBuildErrorsFromExceptionMessages() {
+    Set<String> errorTypes =
+        Set.of(
+            BusinessException.class.getName(),
+            FieldError.class.getName(),
+            ErrorResponse.class.getName(),
+            DomainValidationException.class.getName());
+    return new ArchCondition<>("예외 메시지를 읽으면서 오류 응답 객체를 만들지 않는다") {
+      @Override
+      public void check(JavaCodeUnit unit, ConditionEvents events) {
+        boolean readsMessage =
+            unit.getMethodCallsFromSelf().stream()
+                .anyMatch(
+                    call ->
+                        (call.getName().equals("getMessage")
+                                || call.getName().equals("getLocalizedMessage"))
+                            && call.getTargetOwner().isAssignableTo(Throwable.class));
+        if (!readsMessage) {
+          return;
+        }
+        List<JavaAccess<?>> builds = new java.util.ArrayList<>();
+        unit.getConstructorCallsFromSelf().stream()
+            .filter(call -> errorTypes.contains(call.getTargetOwner().getName()))
+            .forEach(builds::add);
+        unit.getMethodCallsFromSelf().stream()
+            .filter(call -> errorTypes.contains(call.getTargetOwner().getName()))
+            .forEach(builds::add);
+        builds.forEach(
+            b ->
+                events.add(
+                    SimpleConditionEvent.violated(
+                        b, unit.getFullName() + "이(가) 예외 메시지를 읽고 " + b.getDescription())));
+      }
+    };
+  }
 
   private static ArchCondition<JavaClass> onlyUseOtherContextsThroughInputPorts() {
     return new ArchCondition<>("다른 컨텍스트는 application.port.in으로만 쓴다") {

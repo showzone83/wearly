@@ -2,16 +2,23 @@ package app.wearly.common.error;
 
 import app.wearly.common.domain.DomainValidationException;
 import app.wearly.common.domain.FieldError;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
+import org.springframework.validation.Errors;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -22,21 +29,37 @@ import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import tools.jackson.databind.DatabindException;
+import tools.jackson.databind.exc.InvalidFormatException;
 
-/** 모든 오류를 계약 4장 형식으로 바꾼다. */
+/**
+ * 모든 오류를 오류 응답 { status, code, params?, fieldErrors, traceId } 하나로 바꾼다. 응답에는 문장·예외 메시지·클래스 이름을 넣지
+ * 않는다. 자세한 내용은 로그로만 남기고 같은 traceId로 찾는다.
+ *
+ * <ul>
+ *   <li>기본 오류(프로토콜·프레임워크: 입력 형식·401·403·404·405·406·413·415): 카탈로그 코드만. Jackson·Spring 메시지는 WARN
+ *       로그에만 (스택 없음)
+ *   <li>업무 오류(BusinessException, DomainValidationException, 입력 검증): ErrorCode·필드 코드·params. WARN 로그
+ *       (스택 없음, code·경로·userId)
+ *   <li>시스템 오류(그 밖의 모든 예외): 500 INTERNAL_ERROR, 일시적 의존성 장애는 503 SERVICE_UNAVAILABLE. ERROR 로그에
+ *       스택·요청 정보. 의미가 분명한 DB 예외(낙관적 잠금·고유 제약)는 409 CONFLICT + WARN
+ * </ul>
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-  @ExceptionHandler(ApiException.class)
-  ResponseEntity<ErrorResponse> handleApi(ApiException e) {
-    return respond(e.code(), e.getMessage(), e.fieldErrors());
+  @ExceptionHandler(BusinessException.class)
+  ResponseEntity<Map<String, Object>> handleBusiness(BusinessException e, HttpServletRequest req) {
+    logBusiness(req, e.code(), e);
+    return respond(e.code(), e.params(), e.fieldErrors());
   }
 
   /** 도메인 불변식 위반 (H2: 웹 Bean Validation을 거치지 않은 입력도 도메인이 막는다) */
   @ExceptionHandler(DomainValidationException.class)
-  ResponseEntity<ErrorResponse> handleDomain(DomainValidationException e) {
+  ResponseEntity<Map<String, Object>> handleDomain(
+      DomainValidationException e, HttpServletRequest req) {
+    logBusiness(req, ErrorCode.VALIDATION_FAILED, e);
     return validation(e.errors());
   }
 
@@ -44,102 +67,214 @@ public class GlobalExceptionHandler {
    * @Valid 본문 검증 실패 (MethodArgumentNotValidException 포함)
    */
   @ExceptionHandler(BindException.class)
-  ResponseEntity<ErrorResponse> handleBind(BindException e) {
-    List<FieldError> errors = new ArrayList<>();
-    e.getFieldErrors()
-        .forEach(fe -> errors.add(new FieldError(fe.getField(), fe.getDefaultMessage())));
-    e.getGlobalErrors()
-        .forEach(ge -> errors.add(new FieldError(ge.getObjectName(), ge.getDefaultMessage())));
-    return validation(errors);
+  ResponseEntity<Map<String, Object>> handleBind(BindException e, HttpServletRequest req) {
+    logBusiness(req, ErrorCode.VALIDATION_FAILED, e);
+    return validation(fieldErrors(e));
   }
 
   @ExceptionHandler(HandlerMethodValidationException.class)
-  ResponseEntity<ErrorResponse> handleMethodValidation(HandlerMethodValidationException e) {
+  ResponseEntity<Map<String, Object>> handleMethodValidation(
+      HandlerMethodValidationException e, HttpServletRequest req) {
+    logBusiness(req, ErrorCode.VALIDATION_FAILED, e);
     List<FieldError> errors = new ArrayList<>();
     e.getParameterValidationResults()
         .forEach(
-            r ->
-                r.getResolvableErrors()
-                    .forEach(
-                        err ->
-                            errors.add(
-                                new FieldError(
-                                    r.getMethodParameter().getParameterName(),
-                                    err.getDefaultMessage()))));
+            r -> {
+              if (r instanceof Errors pe) {
+                errors.addAll(fieldErrors(pe));
+                return;
+              }
+              String name = r.getMethodParameter().getParameterName();
+              r.getResolvableErrors()
+                  .forEach(
+                      err -> {
+                        ConstraintViolation<?> v = constraintOf(r, err);
+                        errors.add(
+                            v == null
+                                ? FieldError.invalidFormat(name)
+                                : ConstraintCodes.of(name, v));
+                      });
+            });
     return validation(errors);
   }
 
   @ExceptionHandler(ConstraintViolationException.class)
-  ResponseEntity<ErrorResponse> handleConstraint(ConstraintViolationException e) {
+  ResponseEntity<Map<String, Object>> handleConstraint(
+      ConstraintViolationException e, HttpServletRequest req) {
+    logBusiness(req, ErrorCode.VALIDATION_FAILED, e);
     List<FieldError> errors =
         e.getConstraintViolations().stream()
-            .map(v -> new FieldError(v.getPropertyPath().toString(), v.getMessage()))
+            .map(v -> ConstraintCodes.of(leaf(ConstraintCodes.path(v)), v))
             .toList();
     return validation(errors);
   }
 
-  /** JSON 형식 오류, 허용되지 않은 열거형 값 등 */
+  /** JSON 형식 오류, 허용되지 않은 열거형 값, 빈 본문 */
   @ExceptionHandler(HttpMessageNotReadableException.class)
-  ResponseEntity<ErrorResponse> handleNotReadable(HttpMessageNotReadableException e) {
+  ResponseEntity<Map<String, Object>> handleNotReadable(
+      HttpMessageNotReadableException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.VALIDATION_FAILED, e);
     if (e.getCause() instanceof DatabindException de && !de.getPath().isEmpty()) {
-      return validation(List.of(new FieldError(JsonPaths.of(de.getPath()), "허용되지 않는 값이에요.")));
+      String field = JsonPaths.of(de.getPath());
+      boolean enumValue =
+          de instanceof InvalidFormatException ife
+              && ife.getTargetType() != null
+              && ife.getTargetType().isEnum();
+      return validation(
+          List.of(enumValue ? FieldError.notAllowed(field) : FieldError.invalidFormat(field)));
     }
-    return validation(List.of(new FieldError("body", "요청 본문을 읽을 수 없어요.")));
+    // 원인이 없으면 본문이 비어 있다 (Required request body is missing)
+    return validation(
+        List.of(
+            e.getCause() == null
+                ? FieldError.required("body")
+                : FieldError.invalidFormat("body", "json")));
   }
 
   @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-  ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
-    return validation(List.of(new FieldError(e.getName(), "허용되지 않는 값이에요.")));
+  ResponseEntity<Map<String, Object>> handleTypeMismatch(
+      MethodArgumentTypeMismatchException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.VALIDATION_FAILED, e);
+    boolean enumValue = e.getRequiredType() != null && e.getRequiredType().isEnum();
+    return validation(
+        List.of(
+            enumValue
+                ? FieldError.notAllowed(e.getName())
+                : FieldError.invalidFormat(e.getName())));
   }
 
   @ExceptionHandler(MissingServletRequestParameterException.class)
-  ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException e) {
-    return validation(List.of(new FieldError(e.getParameterName(), "필수 값이에요.")));
+  ResponseEntity<Map<String, Object>> handleMissingParam(
+      MissingServletRequestParameterException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.VALIDATION_FAILED, e);
+    return validation(List.of(FieldError.required(e.getParameterName())));
   }
 
   @ExceptionHandler(MissingServletRequestPartException.class)
-  ResponseEntity<ErrorResponse> handleMissingPart(MissingServletRequestPartException e) {
-    return validation(List.of(new FieldError(e.getRequestPartName(), "필수 값이에요.")));
+  ResponseEntity<Map<String, Object>> handleMissingPart(
+      MissingServletRequestPartException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.VALIDATION_FAILED, e);
+    return validation(List.of(FieldError.required(e.getRequestPartName())));
+  }
+
+  @ExceptionHandler(MissingRequestHeaderException.class)
+  ResponseEntity<Map<String, Object>> handleMissingHeader(
+      MissingRequestHeaderException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.VALIDATION_FAILED, e);
+    return validation(List.of(FieldError.required(e.getHeaderName())));
   }
 
   @ExceptionHandler(MaxUploadSizeExceededException.class)
-  ResponseEntity<ErrorResponse> handleTooLarge(MaxUploadSizeExceededException e) {
-    return respond(
-        ErrorCode.IMAGE_TOO_LARGE, ErrorCode.IMAGE_TOO_LARGE.defaultMessage(), List.of());
+  ResponseEntity<Map<String, Object>> handleTooLarge(
+      MaxUploadSizeExceededException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.IMAGE_TOO_LARGE, e);
+    return respond(ErrorCode.IMAGE_TOO_LARGE);
   }
 
   @ExceptionHandler(MultipartException.class)
-  ResponseEntity<ErrorResponse> handleMultipart(MultipartException e) {
+  ResponseEntity<Map<String, Object>> handleMultipart(
+      MultipartException e, HttpServletRequest req) {
     if (isSizeExceeded(e)) {
-      return respond(
-          ErrorCode.IMAGE_TOO_LARGE, ErrorCode.IMAGE_TOO_LARGE.defaultMessage(), List.of());
+      logClient(req, ErrorCode.IMAGE_TOO_LARGE, e);
+      return respond(ErrorCode.IMAGE_TOO_LARGE);
     }
-    return validation(List.of(new FieldError("image", "사진을 읽을 수 없어요.")));
+    logClient(req, ErrorCode.VALIDATION_FAILED, e);
+    return validation(List.of(FieldError.invalidFormat("image")));
   }
 
   @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-  ResponseEntity<ErrorResponse> handleMediaType(HttpMediaTypeNotSupportedException e) {
-    return respond(
-        ErrorCode.UNSUPPORTED_MEDIA_TYPE,
-        ErrorCode.UNSUPPORTED_MEDIA_TYPE.defaultMessage(),
-        List.of());
+  ResponseEntity<Map<String, Object>> handleMediaType(
+      HttpMediaTypeNotSupportedException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.UNSUPPORTED_MEDIA_TYPE, e);
+    return respond(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
   }
 
   @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-  ResponseEntity<ErrorResponse> handleMethod(HttpRequestMethodNotSupportedException e) {
-    return respond(
-        ErrorCode.METHOD_NOT_ALLOWED, ErrorCode.METHOD_NOT_ALLOWED.defaultMessage(), List.of());
+  ResponseEntity<Map<String, Object>> handleMethod(
+      HttpRequestMethodNotSupportedException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.METHOD_NOT_ALLOWED, e);
+    return respond(ErrorCode.METHOD_NOT_ALLOWED);
   }
 
   @ExceptionHandler(NoResourceFoundException.class)
-  ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException e) {
-    return respond(ErrorCode.NOT_FOUND, ErrorCode.NOT_FOUND.defaultMessage(), List.of());
+  ResponseEntity<Map<String, Object>> handleNoResource(
+      NoResourceFoundException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.NOT_FOUND, e);
+    return respond(ErrorCode.NOT_FOUND);
   }
 
+  /** 컨트롤러 안에서 난 인증·권한 예외 (지금은 메서드 보안을 쓰지 않지만 500이 되지 않게) */
+  @ExceptionHandler(AuthenticationException.class)
+  ResponseEntity<Map<String, Object>> handleAuthentication(
+      AuthenticationException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.UNAUTHORIZED, e);
+    return respond(ErrorCode.UNAUTHORIZED);
+  }
+
+  @ExceptionHandler(AccessDeniedException.class)
+  ResponseEntity<Map<String, Object>> handleAccessDenied(
+      AccessDeniedException e, HttpServletRequest req) {
+    logClient(req, ErrorCode.FORBIDDEN, e);
+    return respond(ErrorCode.FORBIDDEN);
+  }
+
+  /**
+   * 그 밖의 모든 예외. 위에서 따로 받지 않은 Spring MVC 예외(406, 경로 변수 누락, 비동기 시간 초과 등)는 HTTP 상태로 카탈로그 코드를 고르고, 나머지는
+   * 시스템 오류로 분류한다
+   */
   @ExceptionHandler(Exception.class)
-  ResponseEntity<ErrorResponse> handleUnknown(Exception e) {
-    log.error("처리하지 못한 오류", e);
-    return respond(ErrorCode.INTERNAL_ERROR, ErrorCode.INTERNAL_ERROR.defaultMessage(), List.of());
+  ResponseEntity<Map<String, Object>> handleUnknown(Exception e, HttpServletRequest req) {
+    if (e instanceof org.springframework.web.ErrorResponse er) {
+      ErrorCode code = ErrorCodes.forStatus(er.getStatusCode().value());
+      if (code.status() >= 500) {
+        logSystem(req, code, e);
+      } else {
+        logClient(req, code, e);
+      }
+      return respond(code);
+    }
+    ErrorCode code = SystemErrors.classify(e);
+    if (SystemErrors.expected(code)) {
+      logExpectedSystem(req, code, e);
+    } else {
+      logSystem(req, code, e);
+    }
+    return respond(code);
+  }
+
+  private static List<FieldError> fieldErrors(Errors e) {
+    List<FieldError> errors = new ArrayList<>();
+    e.getFieldErrors()
+        .forEach(
+            fe -> {
+              ConstraintViolation<?> v =
+                  fe.contains(ConstraintViolation.class)
+                      ? fe.unwrap(ConstraintViolation.class)
+                      : null;
+              errors.add(
+                  v == null
+                      ? FieldError.invalidFormat(fe.getField())
+                      : ConstraintCodes.of(fe.getField(), v));
+            });
+    // 객체 수준 오류: 객체 이름(자바 클래스 이름)을 내보내지 않고 body로
+    e.getGlobalErrors().forEach(ge -> errors.add(FieldError.invalidFormat("body")));
+    return errors;
+  }
+
+  private static ConstraintViolation<?> constraintOf(
+      org.springframework.validation.method.ParameterValidationResult r,
+      org.springframework.context.MessageSourceResolvable err) {
+    try {
+      return r.unwrap(err, ConstraintViolation.class);
+    } catch (IllegalArgumentException ex) {
+      return null;
+    }
+  }
+
+  /** 메서드 검증 경로(method.arg0.field)에서 마지막 이름만 */
+  private static String leaf(String path) {
+    int dot = path.lastIndexOf('.');
+    return dot < 0 ? path : path.substring(dot + 1);
   }
 
   private static boolean isSizeExceeded(Throwable e) {
@@ -152,13 +287,62 @@ public class GlobalExceptionHandler {
     return false;
   }
 
-  private static ResponseEntity<ErrorResponse> validation(List<FieldError> errors) {
-    return respond(
-        ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage(), errors);
+  private static ResponseEntity<Map<String, Object>> validation(List<FieldError> errors) {
+    return respond(ErrorCode.VALIDATION_FAILED, Map.of(), errors);
   }
 
-  private static ResponseEntity<ErrorResponse> respond(
-      ErrorCode code, String message, List<FieldError> errors) {
-    return ResponseEntity.status(code.status()).body(ErrorResponse.of(code, message, errors));
+  private static ResponseEntity<Map<String, Object>> respond(ErrorCode code) {
+    return respond(code, Map.of(), List.of());
+  }
+
+  private static ResponseEntity<Map<String, Object>> respond(
+      ErrorCode code, Map<String, Object> params, List<FieldError> errors) {
+    return ResponseEntity.status(code.status()).body(ErrorResponse.of(code, params, errors).body());
+  }
+
+  /** 업무 오류: 스택 없이 code·경로·userId (예외 메시지는 code와 필드 코드뿐) */
+  private static void logBusiness(HttpServletRequest req, ErrorCode code, Exception e) {
+    log.warn(
+        "업무 오류 code={} {} {} userId={} detail={}",
+        code,
+        req.getMethod(),
+        req.getRequestURI(),
+        TraceIds.currentUser(),
+        e.getMessage());
+  }
+
+  /** 기본 오류: Jackson·Spring 메시지 원문은 여기(로그)에만 */
+  private static void logClient(HttpServletRequest req, ErrorCode code, Exception e) {
+    log.warn(
+        "요청 오류 code={} {} {} userId={} cause={}: {}",
+        code,
+        req.getMethod(),
+        req.getRequestURI(),
+        TraceIds.currentUser(),
+        e.getClass().getName(),
+        e.getMessage());
+  }
+
+  private static void logExpectedSystem(HttpServletRequest req, ErrorCode code, Exception e) {
+    log.warn(
+        "DB 충돌 code={} {} {} userId={} cause={} sqlState={}",
+        code,
+        req.getMethod(),
+        req.getRequestURI(),
+        TraceIds.currentUser(),
+        e.getClass().getName(),
+        SystemErrors.sqlState(e));
+  }
+
+  /** 시스템 오류: 스택·요청 정보 */
+  private static void logSystem(HttpServletRequest req, ErrorCode code, Exception e) {
+    log.error(
+        "시스템 오류 code={} {} {} query={} userId={}",
+        code,
+        req.getMethod(),
+        req.getRequestURI(),
+        req.getQueryString(),
+        TraceIds.currentUser(),
+        e);
   }
 }

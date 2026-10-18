@@ -15,7 +15,7 @@ import app.wearly.ai.domain.AiProviderType;
 import app.wearly.ai.domain.BuiltInModels;
 import app.wearly.ai.domain.ProviderSecret;
 import app.wearly.ai.domain.SealedSecret;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import java.time.Clock;
 import java.time.Duration;
@@ -202,7 +202,7 @@ class AiModelListServiceTest {
   void 없는_공급자는_404() {
     assertThatThrownBy(() -> service.models("nope", false))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
   }
 
   @Test

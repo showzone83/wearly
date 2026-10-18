@@ -1,6 +1,6 @@
 package app.wearly.support;
 
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.time.Instant;
@@ -27,7 +27,7 @@ public class FakeUsers implements UserUseCase {
 
   @Override
   public UserAccountDto get(long userId) {
-    return find(userId).orElseThrow(ApiException::notFound);
+    return find(userId).orElseThrow(BusinessException::notFound);
   }
 
   @Override

@@ -40,7 +40,10 @@ export async function raw(method: string, path: string, opts: RawOptions = {}): 
   return { status: res.status, headers: res.headers, text, json };
 }
 
-/** 계약 4장 오류 응답 형식 검사: { status, code, message, fieldErrors[] } */
+/**
+ * 계약 4장 오류 응답 형식 검사: { status, code, params?, fieldErrors: [{ field, code, params? }], traceId }.
+ * 문장(message)은 없다. traceId는 응답 헤더 X-Request-Id와 같다.
+ */
 export function checkErrorBody(res: RawResponse, status: number, code: string | readonly string[], label: string): void {
   const codes = typeof code === 'string' ? [code] : code;
   if (res.status !== status || !codes.includes(res.json?.code)) {
@@ -50,6 +53,16 @@ export function checkErrorBody(res: RawResponse, status: number, code: string | 
   ok(ct.includes('application/json'), `${label}: 오류 응답 Content-Type이 JSON`, ct);
   const b = res.json;
   eq(b.status, status, `${label}: 본문 status`);
-  ok(isNonEmptyString(b.message), `${label}: 본문 message는 비어 있지 않은 문자열`, b.message);
+  ok(!('message' in b), `${label}: 본문에 message가 없다 (문구는 앱이 code로 정한다)`, b.message);
+  ok(isNonEmptyString(b.traceId), `${label}: 본문 traceId는 비어 있지 않은 문자열`, b.traceId);
+  eq(res.headers.get('x-request-id'), b.traceId, `${label}: X-Request-Id 헤더 = 본문 traceId`);
   ok(Array.isArray(b.fieldErrors), `${label}: 본문 fieldErrors는 배열`, b.fieldErrors);
+  ok(
+    (b.fieldErrors ?? []).every(
+      (f: { field?: unknown; code?: unknown; message?: unknown }) =>
+        isNonEmptyString(f.field) && isNonEmptyString(f.code) && f.message === undefined,
+    ),
+    `${label}: fieldErrors 항목은 { field, code, params? }`,
+    b.fieldErrors,
+  );
 }

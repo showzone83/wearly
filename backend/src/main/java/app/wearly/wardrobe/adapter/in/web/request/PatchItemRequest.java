@@ -2,6 +2,8 @@ package app.wearly.wardrobe.adapter.in.web.request;
 
 import app.wearly.common.application.Patch;
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
+import app.wearly.common.error.ConstraintCodes;
 import app.wearly.wardrobe.application.port.in.dto.PatchItemDto;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -46,20 +48,20 @@ public final class PatchItemRequest {
         value = jsonMapper.treeToValue(body.get(name), type);
       } catch (DatabindException e) {
         if (typeError == null) {
-          typeError = new FieldError(name, "허용되지 않는 값이에요.");
+          typeError = FieldError.invalidFormat(name);
         }
-        fields.put(name, Patch.rejected("허용되지 않는 값이에요."));
+        fields.put(name, Patch.rejected(FieldErrorCode.INVALID_FORMAT));
         continue;
       }
       fields.put(name, Patch.of(value));
       for (ConstraintViolation<ItemRequest> v :
           validator.validateValue(ItemRequest.class, name, value)) {
-        invalid.add(new FieldError(v.getPropertyPath().toString(), v.getMessage()));
+        invalid.add(ConstraintCodes.of(ConstraintCodes.path(v), v));
       }
     }
     List<FieldError> errors;
     if (!object) {
-      errors = List.of(new FieldError("body", "JSON 객체를 보내 주세요."));
+      errors = List.of(FieldError.invalidType("body", "object"));
     } else if (typeError != null) {
       errors = List.of(typeError);
     } else {

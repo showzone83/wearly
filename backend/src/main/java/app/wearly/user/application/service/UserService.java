@@ -2,7 +2,7 @@ package app.wearly.user.application.service;
 
 import app.wearly.common.domain.DomainValidationException;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.user.application.port.in.UserDeletedListener;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
@@ -34,7 +34,7 @@ public class UserService implements UserUseCase {
   @Override
   @Transactional(readOnly = true)
   public UserAccountDto get(long userId) {
-    return find(userId).orElseThrow(ApiException::notFound);
+    return find(userId).orElseThrow(BusinessException::notFound);
   }
 
   @Override
@@ -45,14 +45,19 @@ public class UserService implements UserUseCase {
             .orElseThrow(
                 () ->
                     new DomainValidationException(
-                        List.of(new FieldError("role", "USER 또는 ADMIN이어야 해요."))));
+                        List.of(
+                            FieldError.notAllowed(
+                                "role",
+                                java.util.Arrays.stream(UserRole.values())
+                                    .map(Enum::name)
+                                    .toList()))));
     return toAccount(users.save(User.newUser(email, name, r)));
   }
 
   @Override
   @Transactional
   public UserAccountDto changeAccess(long userId, String status, String role) {
-    User user = users.findById(userId).orElseThrow(ApiException::notFound);
+    User user = users.findById(userId).orElseThrow(BusinessException::notFound);
     user.changeAccess(status, role);
     return toAccount(users.save(user));
   }

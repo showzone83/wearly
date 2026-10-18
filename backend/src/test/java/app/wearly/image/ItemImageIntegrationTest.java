@@ -196,7 +196,8 @@ class ItemImageIntegrationTest extends IntegrationTestBase {
     assertThat(put(url, fake)).isEqualTo(200);
     assertThat(exists("uploads/" + userId + "/" + imageId)).isTrue();
 
-    complete(s, imageId).expectError(400, "IMAGE_INVALID");
+    Resp decode = complete(s, imageId).expectError(400, "IMAGE_INVALID");
+    assertThat(decode.body().get("params").get("reason").asString()).isEqualTo("DECODE");
     assertThat(exists("uploads/" + userId + "/" + imageId)).isFalse();
     // 실패한 이미지는 버려져 다시 complete하면 404
     complete(s, imageId).expectError(404, "NOT_FOUND");
@@ -206,7 +207,7 @@ class ItemImageIntegrationTest extends IntegrationTestBase {
     JsonNode url2 = uploadUrl(s, "image/png", text.length).expect(200).body();
     put(url2, text);
     Resp invalid = complete(s, url2.get("imageId").asString()).expectError(400, "IMAGE_INVALID");
-    assertThat(invalid.body().get("message").asString()).contains("JPEG·PNG");
+    assertThat(invalid.body().get("params").get("reason").asString()).isEqualTo("FORMAT");
   }
 
   @Test
@@ -223,8 +224,9 @@ class ItemImageIntegrationTest extends IntegrationTestBase {
         .containsExactly("purpose", "contentType", "size");
     Resp big =
         uploadUrl(s, "image/jpeg", 10L * 1024 * 1024 + 1).expectError(400, "VALIDATION_FAILED");
-    assertThat(big.body().get("fieldErrors").get(0).get("message").asString())
-        .isEqualTo("사진은 10MB까지 올릴 수 있어요.");
+    JsonNode size = big.body().get("fieldErrors").get(0);
+    assertThat(size.get("code").asString()).isEqualTo("OUT_OF_RANGE");
+    assertThat(size.get("params").get("max").asLong()).isEqualTo(10L * 1024 * 1024);
   }
 
   @Test

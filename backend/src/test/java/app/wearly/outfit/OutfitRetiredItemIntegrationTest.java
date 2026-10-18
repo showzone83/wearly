@@ -41,8 +41,7 @@ class OutfitRetiredItemIntegrationTest extends IntegrationTestBase {
     Resp r = api().post(PATH, t, request(ctx)).expectError(400, "VALIDATION_FAILED");
     assertThat(r.body().get("fieldErrors").findValuesAsString("field"))
         .containsExactlyInAnyOrder("context.fixed.SHOES", "context.anchorItemId");
-    assertThat(r.body().get("fieldErrors").findValuesAsString("message"))
-        .containsOnly("사용하지 않는 옷이에요.");
+    assertThat(r.body().get("fieldErrors").findValuesAsString("code")).containsOnly("ITEM_RETIRED");
   }
 
   @Test
@@ -59,7 +58,7 @@ class OutfitRetiredItemIntegrationTest extends IntegrationTestBase {
                 item("블랙 로퍼", "SHOES", "LOAFER", "black")));
     retire(t, ids.get("블랙 로퍼"));
     Resp r = api().post(PATH, t, request(context())).expectError(400, "WARDROBE_INSUFFICIENT");
-    assertThat(r.body().get("message").asString()).contains("SHOES");
+    assertThat(r.body().get("params").get("missing").toString()).isEqualTo("[\"SHOES\"]");
   }
 
   private void retire(String token, String id) {

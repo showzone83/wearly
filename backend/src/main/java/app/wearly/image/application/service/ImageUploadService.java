@@ -1,7 +1,7 @@
 package app.wearly.image.application.service;
 
 import app.wearly.common.domain.Zones;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.image.application.port.in.ImageContentUseCase;
 import app.wearly.image.application.port.in.ImageUploadUseCase;
@@ -66,13 +66,13 @@ public class ImageUploadService implements ImageUploadUseCase, ImageContentUseCa
   @Override
   @Transactional
   public UploadUrlDto createUploadUrl(long userId, CreateUploadUrlDto input) {
-    ApiException.throwIfAny(
+    BusinessException.throwIfAny(
         ImageRules.validateUpload(
             input.purpose(), input.contentType(), input.size(), settings.maxUploadBytes()));
     queries.lockUploads(userId);
     long used = queries.countCreatedSince(userId, Zones.startOf(Zones.today(clock)));
     if (used >= settings.dailyUploadLimit()) {
-      throw new ApiException(ErrorCode.IMAGE_UPLOAD_LIMIT);
+      throw new BusinessException(ErrorCode.IMAGE_UPLOAD_LIMIT);
     }
     ItemImage image =
         images.save(
@@ -93,18 +93,17 @@ public class ImageUploadService implements ImageUploadUseCase, ImageContentUseCa
     String uploadKey = image.uploadKey();
     long size = storage.size(uploadKey).orElseThrow(() -> notUploaded());
     if (size > settings.maxUploadBytes()) {
-      throw reject(
-          image, "사진은 " + ImageRules.megabytes(settings.maxUploadBytes()) + "MB까지 올릴 수 있어요.");
+      throw reject(image, InvalidImageException.Reason.TOO_LARGE);
     }
     byte[] bytes = storage.read(uploadKey);
     if (ImageFormats.sniff(bytes).isEmpty()) {
-      throw reject(image, "JPEG·PNG 사진만 올릴 수 있어요.");
+      throw reject(image, InvalidImageException.Reason.FORMAT);
     }
     ProcessedImage processed;
     try {
       processed = processor.process(bytes);
     } catch (InvalidImageException e) {
-      throw reject(image, e.getMessage());
+      throw reject(image, e.reason());
     }
     image.markReady(
         processed.original().length, processed.width(), processed.height(), clock.instant());
@@ -126,20 +125,20 @@ public class ImageUploadService implements ImageUploadUseCase, ImageContentUseCa
 
   /** 내 이미지 (DELETED·형식이 틀린 ID·남의 것은 404) */
   private ItemImage findLive(long userId, String rawId) {
-    UUID id = ImageRules.parseId(rawId).orElseThrow(ApiException::notFound);
-    ItemImage image = images.find(userId, id).orElseThrow(ApiException::notFound);
+    UUID id = ImageRules.parseId(rawId).orElseThrow(BusinessException::notFound);
+    ItemImage image = images.find(userId, id).orElseThrow(BusinessException::notFound);
     if (image.isDeleted()) {
-      throw ApiException.notFound();
+      throw BusinessException.notFound();
     }
     return image;
   }
 
-  /** 처리 실패: 업로드 원본을 지우고 DELETED로 둔 뒤 400 IMAGE_INVALID */
-  private ApiException reject(ItemImage image, String message) {
+  /** 처리 실패: 업로드 원본을 지우고 DELETED로 둔 뒤 400 IMAGE_INVALID { reason } */
+  private BusinessException reject(ItemImage image, InvalidImageException.Reason reason) {
     deleteQuietly(List.of(image.uploadKey()));
     image.markDeleted(clock.instant());
     images.save(image);
-    return new ApiException(ErrorCode.IMAGE_INVALID, message);
+    return new BusinessException(ErrorCode.IMAGE_INVALID, Map.of("reason", reason.name()));
   }
 
   private void deleteQuietly(List<String> keys) {
@@ -150,7 +149,7 @@ public class ImageUploadService implements ImageUploadUseCase, ImageContentUseCa
     }
   }
 
-  private static ApiException notUploaded() {
-    return new ApiException(ErrorCode.IMAGE_NOT_UPLOADED);
+  private static BusinessException notUploaded() {
+    return new BusinessException(ErrorCode.IMAGE_NOT_UPLOADED);
   }
 }

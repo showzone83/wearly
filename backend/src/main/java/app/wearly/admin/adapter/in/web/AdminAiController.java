@@ -152,7 +152,7 @@ public class AdminAiController {
     return AiLogDetailResponse.from(logs.aiLog(PathIds.parse(id)));
   }
 
-  /** JSON → 공급자 부분 수정. 형식(JSON 타입) 판단과 그 오류 문구는 여기서 정한다 (M4) */
+  /** JSON → 공급자 부분 수정. 형식(JSON 타입) 판단은 여기서 한다 (오류는 INVALID_TYPE + params.expected) (M4) */
   private PatchProviderDto toPatch(JsonNode body) {
     if (!JsonPatches.isObject(body)) {
       return null;
@@ -160,15 +160,15 @@ public class AdminAiController {
     Patch<Map<String, Object>> options =
         body.has("options") && body.get("options").isNull()
             ? Patch.of(Map.of())
-            : JsonPatches.object(body, "options", jsonMapper, "JSON 객체여야 해요.");
+            : JsonPatches.object(body, "options", jsonMapper);
     return new PatchProviderDto(
         JsonPatches.scalar(body, "providerId"),
         JsonPatches.text(body, "type"),
         JsonPatches.text(body, "displayName"),
         JsonPatches.text(body, "model"),
         JsonPatches.text(body, "apiKeyEnv"),
-        JsonPatches.bool(body, "enabled", "true 또는 false여야 해요."),
-        JsonPatches.integer(body, "priority", "0~10000 정수여야 해요."),
+        JsonPatches.bool(body, "enabled"),
+        JsonPatches.integer(body, "priority"),
         options);
   }
 }

@@ -19,21 +19,21 @@ public final class ImageRules {
       String purpose, String contentType, Long size, long maxBytes) {
     List<FieldError> errors = new ArrayList<>();
     if (purpose == null) {
-      errors.add(new FieldError("purpose", "필수 값이에요."));
+      errors.add(FieldError.required("purpose"));
     } else if (!PURPOSE_ITEM.equals(purpose)) {
-      errors.add(new FieldError("purpose", "ITEM이어야 해요."));
+      errors.add(FieldError.notAllowed("purpose", List.of(PURPOSE_ITEM)));
     }
     if (contentType == null) {
-      errors.add(new FieldError("contentType", "필수 값이에요."));
+      errors.add(FieldError.required("contentType"));
     } else if (!CONTENT_TYPES.contains(contentType)) {
-      errors.add(new FieldError("contentType", "image/jpeg 또는 image/png여야 해요."));
+      errors.add(
+          FieldError.notAllowed("contentType", List.of(ImageFormats.JPEG, ImageFormats.PNG)));
     }
     if (size == null) {
-      errors.add(new FieldError("size", "필수 값이에요."));
-    } else if (size < 1) {
-      errors.add(new FieldError("size", "1 이상이어야 해요."));
-    } else if (size > maxBytes) {
-      errors.add(new FieldError("size", "사진은 " + megabytes(maxBytes) + "MB까지 올릴 수 있어요."));
+      errors.add(FieldError.required("size"));
+    } else if (size < 1 || size > maxBytes) {
+      // 바이트 단위 범위 (최대는 설정값, 기본 10MB)
+      errors.add(FieldError.outOfRange("size", 1, maxBytes));
     }
     return errors;
   }
@@ -49,9 +49,5 @@ public final class ImageRules {
     } catch (IllegalArgumentException e) {
       return Optional.empty();
     }
-  }
-
-  public static long megabytes(long bytes) {
-    return Math.max(1, bytes / (1024 * 1024));
   }
 }

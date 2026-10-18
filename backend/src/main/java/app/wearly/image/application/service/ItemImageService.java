@@ -1,6 +1,6 @@
 package app.wearly.image.application.service;
 
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.image.application.port.in.ItemImageUseCase;
 import app.wearly.image.application.port.in.dto.ItemImageRefDto;
@@ -52,19 +52,19 @@ public class ItemImageService implements ItemImageUseCase {
   @Override
   @Transactional
   public ItemImageRefDto attach(long userId, long itemId, String rawId) {
-    UUID id = ImageRules.parseId(rawId).orElseThrow(ApiException::notFound);
-    ItemImage image = images.findForUpdate(userId, id).orElseThrow(ApiException::notFound);
+    UUID id = ImageRules.parseId(rawId).orElseThrow(BusinessException::notFound);
+    ItemImage image = images.findForUpdate(userId, id).orElseThrow(BusinessException::notFound);
     if (image.isDeleted()) {
-      throw ApiException.notFound();
+      throw BusinessException.notFound();
     }
     if (!image.isReady()) {
-      throw new ApiException(ErrorCode.IMAGE_NOT_UPLOADED);
+      throw new BusinessException(ErrorCode.IMAGE_NOT_UPLOADED);
     }
     if (image.itemId() != null) {
       if (image.itemId() == itemId) {
         return urls.ref(image);
       }
-      throw new ApiException(ErrorCode.IMAGE_IN_USE);
+      throw new BusinessException(ErrorCode.IMAGE_IN_USE);
     }
     // 예전 사진을 먼저 떼야 부분 유니크 인덱스(아이템당 하나)에 걸리지 않는다
     discardCurrent(userId, itemId);

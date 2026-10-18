@@ -2,8 +2,9 @@ package app.wearly.weather.application.service;
 
 import app.wearly.code.application.port.in.CodeCatalog;
 import app.wearly.common.domain.FieldError;
+import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.common.domain.Zones;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.weather.application.port.in.WeatherAdminUseCase;
 import app.wearly.weather.application.port.in.dto.CallSearchDto;
@@ -138,15 +139,15 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   public WeatherSettingChangeDto updateSetting(long adminId, UpdateWeatherSettingDto in) {
     List<FieldError> errors = new ArrayList<>();
     if (in == null) {
-      throw ApiException.validation("body", "JSON 객체여야 해요.");
+      throw BusinessException.validation(FieldError.invalidType("body", "object"));
     }
     required(errors, "enabled", in.enabled());
     required(errors, "intervalMinutes", in.intervalMinutes());
     required(errors, "forecastDays", in.forecastDays());
     required(errors, "failureThreshold", in.failureThreshold());
     required(errors, "cooldownMinutes", in.cooldownMinutes());
-    ApiException.throwIfAny(errors);
-    ApiException.throwIfAny(
+    BusinessException.throwIfAny(errors);
+    BusinessException.throwIfAny(
         WeatherSetting.validate(
             in.intervalMinutes(), in.forecastDays(), in.failureThreshold(), in.cooldownMinutes()));
     WeatherSetting before = runner.setting();
@@ -187,7 +188,7 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   public WeatherProviderChangeDto patchProvider(
       long adminId, String providerCode, PatchWeatherProviderDto patch) {
     if (patch == null) {
-      throw ApiException.validation("body", "JSON 객체여야 해요.");
+      throw BusinessException.validation(FieldError.invalidType("body", "object"));
     }
     WeatherProvider current = provider(providerCode);
     List<FieldError> errors = new ArrayList<>();
@@ -198,16 +199,16 @@ public class WeatherAdminService implements WeatherAdminUseCase {
     final Integer days =
         patch.maxForecastDays().apply("maxForecastDays", current.maxForecastDays(), errors);
     if (enabled == null) {
-      errors.add(new FieldError("enabled", "true 또는 false여야 해요."));
+      errors.add(FieldError.required("enabled"));
     }
     if (priority == null) {
-      errors.add(new FieldError("priority", "0~" + WeatherProvider.MAX_PRIORITY + " 정수여야 해요."));
+      errors.add(FieldError.required("priority"));
     }
     if (days == null) {
-      errors.add(new FieldError("maxForecastDays", "1~14 정수여야 해요."));
+      errors.add(FieldError.required("maxForecastDays"));
     }
-    ApiException.throwIfAny(errors);
-    ApiException.throwIfAny(WeatherProvider.validate(priority, quota, days));
+    BusinessException.throwIfAny(errors);
+    BusinessException.throwIfAny(WeatherProvider.validate(priority, quota, days));
     Map<String, Long> used = runner.monthUsage();
     Instant now = clock.instant();
     WeatherProviderDto before = view(current, used, now);
@@ -234,11 +235,12 @@ public class WeatherAdminService implements WeatherAdminUseCase {
     WeatherRegion region = region(regionCode);
     KeyState key = sources.keyState(p);
     if (!key.callable()) {
-      throw new ApiException(
+      // 관리자 API라 키 이름(서버 설정 이름)은 알려 준다. reason: KEY_MISSING(키 없음) · NOT_IMPLEMENTED(서버에 구현 없음)
+      throw new BusinessException(
           ErrorCode.WEATHER_NO_PROVIDER,
           key == KeyState.MISSING
-              ? "이 공급자의 키가 서버 설정에 없어요 (" + p.keyName() + ")."
-              : "서버에 이 공급자 구현이 없어요.");
+              ? Map.of("reason", "KEY_MISSING", "keyName", p.keyName())
+              : Map.of("reason", "NOT_IMPLEMENTED"));
     }
     Instant now = clock.instant();
     RefreshRun run = runs.create(RefreshRun.start(RunTrigger.TEST, adminId, region.code(), now));
@@ -268,11 +270,11 @@ public class WeatherAdminService implements WeatherAdminUseCase {
             ? runner.activeRegions()
             : List.of(region(regionCode));
     if (!runner.anyUsable()) {
-      throw new ApiException(ErrorCode.WEATHER_NO_PROVIDER);
+      throw new BusinessException(ErrorCode.WEATHER_NO_PROVIDER);
     }
     String owner = UUID.randomUUID().toString();
     if (!lock.tryAcquire(owner, WeatherOptions.LOCK_TTL)) {
-      throw new ApiException(ErrorCode.WEATHER_REFRESH_RUNNING);
+      throw new BusinessException(ErrorCode.WEATHER_REFRESH_RUNNING);
     }
     RefreshRun run;
     try {
@@ -311,7 +313,7 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   @Override
   @Transactional(readOnly = true)
   public RefreshRunDetailDto run(long runId) {
-    RefreshRunDto run = runRow(runId).orElseThrow(ApiException::notFound);
+    RefreshRunDto run = runRow(runId).orElseThrow(BusinessException::notFound);
     List<WeatherCallDto> calls =
         new ArrayList<>(
             logs
@@ -382,7 +384,7 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   @Transactional(readOnly = true)
   public WeatherSnapshotDto snapshot(String regionCode) {
     WeatherRegion region =
-        WeatherRegion.find(catalog.current(), regionCode).orElseThrow(ApiException::notFound);
+        WeatherRegion.find(catalog.current(), regionCode).orElseThrow(BusinessException::notFound);
     return toSnapshotDto(
         region,
         snapshots.find(region.code()).orElse(null),
@@ -392,15 +394,15 @@ public class WeatherAdminService implements WeatherAdminUseCase {
   }
 
   private WeatherProvider provider(String code) {
-    return providers.find(code).orElseThrow(ApiException::notFound);
+    return providers.find(code).orElseThrow(BusinessException::notFound);
   }
 
   private WeatherRegion region(String code) {
     if (code == null || code.isBlank()) {
-      throw ApiException.validation("regionCode", "지역을 골라 주세요.");
+      throw BusinessException.validation(FieldError.required("regionCode"));
     }
     return WeatherRegion.find(catalog.current(), code.strip())
-        .orElseThrow(() -> ApiException.validation("regionCode", "없는 지역이에요."));
+        .orElseThrow(() -> BusinessException.validation("regionCode", FieldErrorCode.NOT_FOUND));
   }
 
   private WeatherProviderDto view(WeatherProvider p, Map<String, Long> used, Instant now) {
@@ -452,9 +454,9 @@ public class WeatherAdminService implements WeatherAdminUseCase {
         return v;
       }
     }
-    String names =
-        String.join(", ", Arrays.stream(type.getEnumConstants()).map(Enum::name).toList());
-    throw ApiException.validation(field, names + " 중 하나여야 해요.");
+    throw BusinessException.validation(
+        FieldError.notAllowed(
+            field, Arrays.stream(type.getEnumConstants()).map(Enum::name).toList()));
   }
 
   private static WeatherSnapshotDto toSnapshotDto(
@@ -525,7 +527,7 @@ public class WeatherAdminService implements WeatherAdminUseCase {
 
   private static void required(List<FieldError> errors, String field, Object value) {
     if (Objects.isNull(value)) {
-      errors.add(new FieldError(field, "필수 값이에요."));
+      errors.add(FieldError.required(field));
     }
   }
 }

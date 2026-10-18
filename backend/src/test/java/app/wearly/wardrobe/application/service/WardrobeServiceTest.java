@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.wearly.common.application.Patch;
 import app.wearly.common.domain.FieldError;
-import app.wearly.common.error.ApiException;
+import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.image.application.port.in.ItemImageUseCase;
 import app.wearly.image.application.port.in.dto.ItemImageRefDto;
@@ -180,7 +180,7 @@ class WardrobeServiceTest {
             () ->
                 service.list(new ItemSearchDto(USER, "HAT", null, "fuchsia", null, "price", null)))
         .isInstanceOfSatisfying(
-            ApiException.class,
+            BusinessException.class,
             e ->
                 assertThat(e.fieldErrors())
                     .extracting(FieldError::field)
@@ -206,7 +206,7 @@ class WardrobeServiceTest {
   void 등록은_불변식과_코드를_검증하고_통과해야_저장한다() {
     assertThatThrownBy(() -> service.create(USER, create("navy")))
         .isInstanceOfSatisfying(
-            ApiException.class,
+            BusinessException.class,
             e ->
                 assertThat(e.fieldErrors())
                     .containsExactly(new FieldError("color", CodeChecks.INACTIVE)));
@@ -231,7 +231,7 @@ class WardrobeServiceTest {
     long other = givenItemWithColor("white");
     assertThatThrownBy(() -> service.patch(USER, other, patch(Patch.absent(), Patch.of("navy"))))
         .isInstanceOfSatisfying(
-            ApiException.class,
+            BusinessException.class,
             e ->
                 assertThat(e.fieldErrors())
                     .containsExactly(new FieldError("color", CodeChecks.INACTIVE)));
@@ -241,7 +241,7 @@ class WardrobeServiceTest {
   @Test
   void PATCH_입력_오류는_다른_검증보다_먼저_그대로_돌려준다() {
     long id = givenItemWithColor("white");
-    FieldError typeError = new FieldError("formality", "숫자여야 해요.");
+    FieldError typeError = FieldError.invalidFormat("formality");
     PatchItemDto bad =
         new PatchItemDto(
             Patch.absent(),
@@ -261,7 +261,7 @@ class WardrobeServiceTest {
 
     assertThatThrownBy(() -> service.patch(USER, id, bad))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.fieldErrors()).containsExactly(typeError));
+            BusinessException.class, e -> assertThat(e.fieldErrors()).containsExactly(typeError));
   }
 
   @Test
@@ -270,8 +270,8 @@ class WardrobeServiceTest {
 
     assertThatThrownBy(() -> service.patch(99L, id, patch(Patch.of("x"), Patch.absent())))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
-    assertThatThrownBy(() -> service.delete(99L, id)).isInstanceOf(ApiException.class);
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+    assertThatThrownBy(() -> service.delete(99L, id)).isInstanceOf(BusinessException.class);
     assertThat(rows).containsKey(id);
   }
 
@@ -288,7 +288,7 @@ class WardrobeServiceTest {
     assertThatThrownBy(
             () -> service.list(new ItemSearchDto(USER, null, null, null, null, null, "yes")))
         .isInstanceOfSatisfying(
-            ApiException.class,
+            BusinessException.class,
             e ->
                 assertThat(e.fieldErrors())
                     .extracting(FieldError::field)
@@ -301,17 +301,17 @@ class WardrobeServiceTest {
 
     assertThatThrownBy(() -> service.retire(99L, id, new RetireItemDto("BAD", null)))
         .isInstanceOfSatisfying(
-            ApiException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
+            BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.NOT_FOUND));
     assertThatThrownBy(() -> service.retire(USER, id, new RetireItemDto("LOST", "x".repeat(201))))
         .isInstanceOfSatisfying(
-            ApiException.class,
+            BusinessException.class,
             e ->
                 assertThat(e.fieldErrors())
                     .extracting(FieldError::field)
                     .containsExactlyInAnyOrder("reason", "memo"));
     assertThatThrownBy(() -> service.retire(USER, id, null))
         .isInstanceOfSatisfying(
-            ApiException.class,
+            BusinessException.class,
             e ->
                 assertThat(e.fieldErrors())
                     .extracting(FieldError::field)
@@ -331,7 +331,7 @@ class WardrobeServiceTest {
     assertThat(rows.get(id).isRetired()).isFalse();
     // 사용 중이면 그대로 200
     assertThat(service.restore(USER, id).retiredAt()).isNull();
-    assertThatThrownBy(() -> service.restore(99L, id)).isInstanceOf(ApiException.class);
+    assertThatThrownBy(() -> service.restore(99L, id)).isInstanceOf(BusinessException.class);
   }
 
   @Test

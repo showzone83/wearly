@@ -42,31 +42,30 @@ public final class JsonPatches {
   }
 
   /** int 범위의 정수만, 아니면 형식 오류 */
-  public static Patch<Integer> integer(JsonNode body, String field, String message) {
+  public static Patch<Integer> integer(JsonNode body, String field) {
     if (!body.has(field)) {
       return Patch.absent();
     }
     JsonNode n = body.get(field);
     return n.isIntegralNumber() && n.canConvertToInt()
         ? Patch.of(n.asInt())
-        : Patch.rejected(message);
+        : Patch.rejectedType("integer");
   }
 
-  public static Patch<Boolean> bool(JsonNode body, String field, String message) {
+  public static Patch<Boolean> bool(JsonNode body, String field) {
     if (!body.has(field)) {
       return Patch.absent();
     }
     JsonNode n = body.get(field);
-    return n.isBoolean() ? Patch.of(n.asBoolean()) : Patch.rejected(message);
+    return n.isBoolean() ? Patch.of(n.asBoolean()) : Patch.rejectedType("boolean");
   }
 
   /** JSON 객체만 Map으로 (키 순서 유지), 아니면 형식 오류 */
-  public static Patch<Map<String, Object>> object(
-      JsonNode body, String field, JsonMapper mapper, String message) {
+  public static Patch<Map<String, Object>> object(JsonNode body, String field, JsonMapper mapper) {
     if (!body.has(field)) {
       return Patch.absent();
     }
     JsonNode n = body.get(field);
-    return n.isObject() ? Patch.of(mapper.convertValue(n, MAP)) : Patch.rejected(message);
+    return n.isObject() ? Patch.of(mapper.convertValue(n, MAP)) : Patch.rejectedType("object");
   }
 }
