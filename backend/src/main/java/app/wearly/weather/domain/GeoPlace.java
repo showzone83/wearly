@@ -27,12 +27,31 @@ public record GeoPlace(
     return KOREA.equals(countryCode);
   }
 
+  /** 수도·행정 중심 (PPLC·PPLA~PPLA5·PPLG) */
+  public boolean adminCenter() {
+    return featureCode != null
+        && (featureCode.equals("PPLC")
+            || featureCode.startsWith("PPLA")
+            || featureCode.equals("PPLG"));
+  }
+
+  /** 행정 중심이거나 인구가 있는 곳 (REGION 코드를 붙여도 되는 곳) */
+  public boolean major() {
+    return adminCenter() || (population != null && population > 0);
+  }
+
+  /** 이름에 한글이 하나라도 있는지 (한글 검색어인데 'Pusan'처럼 로마자 이름만 있는 국내 결과를 빼는 데 쓴다) */
+  public boolean hangulName() {
+    return name != null && name.chars().anyMatch(c -> c >= '가' && c <= '힣');
+  }
+
   public PlaceCandidate toCandidate() {
     return new PlaceCandidate(
         name == null ? "" : name,
         admin1 == null ? "" : admin1,
         country == null ? "" : country,
         lat,
-        lon);
+        lon,
+        major());
   }
 }

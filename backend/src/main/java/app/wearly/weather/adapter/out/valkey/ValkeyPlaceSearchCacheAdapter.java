@@ -16,15 +16,16 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * PlaceSearchCachePort 구현 (Valkey). 키 wearly:weather:search:v2:&lt;정리한 검색어&gt; = [{label, region,
- * country, lat, lon}] JSON, 만료는 search-cache-ttl. v2: 검색을 지오코딩(한글 이름)으로 바꾸면서 예전 키(영어 이름)를 버렸다.
+ * PlaceSearchCachePort 구현 (Valkey). 키 wearly:weather:search:v3:&lt;정리한 검색어&gt; = [{label, region,
+ * country, lat, lon, major}] JSON, 만료는 search-cache-ttl. v2: 검색을 지오코딩(한글 이름)으로 바꾸면서 예전 키(영어 이름)를
+ * 버렸다. v3: major(REGION 코드를 붙여도 되는 곳)를 더했다.
  */
 @Component
 class ValkeyPlaceSearchCacheAdapter implements PlaceSearchCachePort {
 
   private static final Logger log = LoggerFactory.getLogger(ValkeyPlaceSearchCacheAdapter.class);
 
-  static final String PREFIX = "wearly:weather:search:v2:";
+  static final String PREFIX = "wearly:weather:search:v3:";
 
   private final StringRedisTemplate redis;
   private final JsonMapper json;
@@ -49,7 +50,8 @@ class ValkeyPlaceSearchCacheAdapter implements PlaceSearchCachePort {
                 n.path("region").asString(""),
                 n.path("country").asString(""),
                 n.path("lat").asDouble(),
-                n.path("lon").asDouble()));
+                n.path("lon").asDouble(),
+                n.path("major").asBoolean(true)));
       }
       return Optional.of(out);
     } catch (RuntimeException e) {
@@ -71,6 +73,7 @@ class ValkeyPlaceSearchCacheAdapter implements PlaceSearchCachePort {
                   m.put("country", c.country());
                   m.put("lat", c.lat());
                   m.put("lon", c.lon());
+                  m.put("major", c.major());
                   return m;
                 })
             .toList();

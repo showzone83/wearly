@@ -27,6 +27,7 @@ import app.wearly.weather.domain.FetchResult;
 import app.wearly.weather.domain.GeoPlace;
 import app.wearly.weather.domain.GeocodeResult;
 import app.wearly.weather.domain.GridKey;
+import app.wearly.weather.domain.KoreanRegionNames;
 import app.wearly.weather.domain.MonthlyClimate;
 import app.wearly.weather.domain.PlaceCandidate;
 import app.wearly.weather.domain.PlaceSearchRules;
@@ -319,64 +320,99 @@ public class PlaceWeatherService implements PlaceWeatherUseCase {
     if (q.length() > PlaceWeatherOptions.MAX_QUERY) {
       throw ApiException.validation("q", PlaceWeatherOptions.MAX_QUERY + "자까지 검색할 수 있어요.");
     }
-    List<PlaceCandidate> items = searchCache.find(q).orElse(null);
-    if (items == null) {
-      Predicate<WeatherProvider> supports = p -> sources.supportsSearch(p.code());
-      boolean geo = geocoding.enabled();
-      if (!geo && !runner.anyUsable(supports)) {
-        throw new ApiException(ErrorCode.WEATHER_UNAVAILABLE, SEARCH_UNAVAILABLE);
-      }
-      // 보정 검색까지 한 요청으로 센다
-      if (!limits.tryConsume(
-          CallRecord.SEARCH, userId, Zones.today(clock), options.searchDailyLimit())) {
-        throw new ApiException(ErrorCode.WEATHER_LIMIT, SEARCH_LIMIT);
-      }
-      items = geo ? geocode(q) : null;
-      if (items != null) {
-        searchCache.save(q, items, options.searchCacheTtl());
-      } else {
-        Attempt<SearchResult> a =
-            runner.callOnDemand(CallRecord.SEARCH, null, supports, p -> sources.search(p, q));
-        if (!a.ok()) {
-          throw new ApiException(ErrorCode.WEATHER_UNAVAILABLE, SEARCH_UNAVAILABLE);
-        }
-        items = a.result().items().stream().limit(PlaceWeatherOptions.MAX_SEARCH_RESULTS).toList();
-        // 지오코딩이 잠깐 실패해 영어 이름으로 대신한 결과는 캐시하지 않는다 (다음 검색에서 다시 한글로)
-        if (!geo) {
-          searchCache.save(q, items, options.searchCacheTtl());
-        }
-      }
-    }
     List<WeatherRegion> regions = WeatherRegion.active(catalog.current());
-    return items.stream()
-        .map(
-            c ->
-                new PlaceCandidateDto(
-                    c.label(),
-                    c.region(),
-                    c.country(),
-                    c.lat(),
-                    c.lon(),
-                    nearRegion(regions, c.lat(), c.lon()).map(WeatherRegion::code).orElse(null)))
-        .toList();
+    // 시·도 이름(서울·부산광역시·충청…)은 지오코딩이 잘 찾지 못해 REGION 코드로 먼저 맞춘다
+    List<WeatherRegion> matched = KoreanRegionNames.match(regions, q);
+    List<PlaceCandidate> items;
+    try {
+      items = searchCache.find(q).orElseGet(() -> fetchPlaces(userId, q, !matched.isEmpty()));
+    } catch (ApiException e) {
+      // 시·도와 맞았으면 공급자가 안 되거나 한도를 넘어도 그 지역은 준다
+      if (matched.isEmpty()) {
+        throw e;
+      }
+      items = List.of();
+    }
+    List<PlaceCandidateDto> out = new ArrayList<>();
+    for (WeatherRegion r : matched) {
+      PlaceCandidate c = KoreanRegionNames.candidate(r);
+      out.add(
+          new PlaceCandidateDto(c.label(), c.region(), c.country(), c.lat(), c.lon(), r.code()));
+    }
+    for (PlaceCandidate c : items) {
+      if (duplicatesRegion(matched, c)) {
+        continue;
+      }
+      // 30km 안의 REGION 코드는 행정 중심·인구 있는 곳에만 (작은 마을에는 붙이지 않는다)
+      String code =
+          c.major()
+              ? nearRegion(regions, c.lat(), c.lon()).map(WeatherRegion::code).orElse(null)
+              : null;
+      out.add(new PlaceCandidateDto(c.label(), c.region(), c.country(), c.lat(), c.lon(), code));
+    }
+    return out.stream().limit(PlaceWeatherOptions.MAX_SEARCH_RESULTS).toList();
+  }
+
+  /** 맞춘 시·도와 같은 곳인지: 같은 격자이거나, 30km 안의 행정 중심·인구 있는 곳 (예: 부산광 → 부산광역시) */
+  static boolean duplicatesRegion(List<WeatherRegion> matched, PlaceCandidate c) {
+    return matched.stream()
+        .anyMatch(
+            r ->
+                GridKey.of(r.lat(), r.lon()).equals(GridKey.of(c.lat(), c.lon()))
+                    || (c.major()
+                        && GridKey.distanceKm(r.lat(), r.lon(), c.lat(), c.lon())
+                            <= PlaceWeatherOptions.REGION_NEAR_KM));
+  }
+
+  /**
+   * 캐시에 없는 검색어를 공급자에게 찾는다 (회원 하루 한도 1, 보정 검색까지 한 요청). 지오코딩 → 실패하거나 꺼져 있으면 날씨 공급자 검색.
+   *
+   * @param regionMatched 시·도와 맞은 검색어 (국내 보정 검색을 하지 않는다)
+   */
+  private List<PlaceCandidate> fetchPlaces(long userId, String q, boolean regionMatched) {
+    Predicate<WeatherProvider> supports = p -> sources.supportsSearch(p.code());
+    boolean geo = geocoding.enabled();
+    if (!geo && !runner.anyUsable(supports)) {
+      throw new ApiException(ErrorCode.WEATHER_UNAVAILABLE, SEARCH_UNAVAILABLE);
+    }
+    if (!limits.tryConsume(
+        CallRecord.SEARCH, userId, Zones.today(clock), options.searchDailyLimit())) {
+      throw new ApiException(ErrorCode.WEATHER_LIMIT, SEARCH_LIMIT);
+    }
+    List<PlaceCandidate> items = geo ? geocode(q, !regionMatched) : null;
+    if (items != null) {
+      searchCache.save(q, items, options.searchCacheTtl());
+      return items;
+    }
+    Attempt<SearchResult> a =
+        runner.callOnDemand(CallRecord.SEARCH, null, supports, p -> sources.search(p, q));
+    if (!a.ok()) {
+      throw new ApiException(ErrorCode.WEATHER_UNAVAILABLE, SEARCH_UNAVAILABLE);
+    }
+    items = a.result().items().stream().limit(PlaceWeatherOptions.MAX_SEARCH_RESULTS).toList();
+    // 지오코딩이 잠깐 실패해 영어 이름으로 대신한 결과는 캐시하지 않는다 (다음 검색에서 다시 한글로)
+    if (!geo) {
+      searchCache.save(q, items, options.searchCacheTtl());
+    }
+    return items;
   }
 
   /** 지오코딩으로 찾고 한글 국내 지명을 보정해 정렬한다. 첫 호출이 실패하면 null (날씨 공급자 검색으로 대신). 보정 호출이 실패하면 그때까지의 결과를 쓴다. */
-  private List<PlaceCandidate> geocode(String q) {
+  private List<PlaceCandidate> geocode(String q, boolean retry) {
     GeocodeResult first = geocodeOnce(q);
     if (!first.ok()) {
       log.warn("장소 검색 지오코딩 실패, 날씨 공급자 검색으로 대신해요: {}", first.errorMessage());
       return null;
     }
     List<GeoPlace> all = new ArrayList<>(first.places());
-    if (PlaceSearchRules.needsKoreanRetry(q, all)) {
+    if (retry && PlaceSearchRules.needsKoreanRetry(q, all)) {
       for (String variant : PlaceSearchRules.koreanVariants(q)) {
         GeocodeResult more = geocodeOnce(variant);
         if (!more.ok()) {
           break;
         }
         all.addAll(more.places());
-        if (PlaceSearchRules.hasKorea(more.places())) {
+        if (PlaceSearchRules.hasKoreaMajor(more.places())) {
           break;
         }
       }

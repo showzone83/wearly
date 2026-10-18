@@ -74,7 +74,8 @@ final class WeatherFakes {
   boolean lockHeld;
   int releases;
 
-  final List<WeatherRegion> regions =
+  /** 활성 REGION (장소 검색 테스트는 시·도 17개로 바꿔 쓴다. catalog가 부를 때마다 읽는다) */
+  List<WeatherRegion> regions =
       List.of(
           new WeatherRegion("SEOUL", "서울", 37.5665, 126.978, true),
           new WeatherRegion("BUSAN", "부산", 35.1796, 129.0756, true),

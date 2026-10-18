@@ -135,7 +135,7 @@ class OpenMeteoGeocodingClientTest {
     assertThat(PlaceSearchRules.needsKoreanRetry("강릉", gangneung)).isTrue();
     assertThat(PlaceSearchRules.koreanVariants("강릉")).containsExactly("강릉시", "강릉군");
     List<GeoPlace> si = places("gangneung-si");
-    assertThat(PlaceSearchRules.hasKorea(si)).isTrue();
+    assertThat(PlaceSearchRules.hasKoreaMajor(si)).isTrue();
     List<GeoPlace> all = new ArrayList<>(gangneung);
     all.addAll(si);
     assertThat(PlaceSearchRules.rank("강릉", all, 10))

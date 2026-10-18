@@ -584,11 +584,15 @@ class PlaceWeatherServiceTest {
   @Test
   void 시로도_한국이_없으면_군까지_찾는다() {
     GeoPlace yangpyeong = new GeoPlace("양평군", "경기도", "대한민국", "KR", "ADM2", 120000L, 37.49, 127.49);
-    geo(Map.of("양평군", List.of(yangpyeong)));
+    // 양평시에서 인구 없는 한국 마을만 나오면 아직 멈추지 않는다
+    GeoPlace village = new GeoPlace("양평시", "전라남도", "대한민국", "KR", "PPL", null, 34.9, 126.9);
+    geo(Map.of("양평시", List.of(village), "양평군", List.of(yangpyeong)));
 
     assertThat(service.searchPlaces(1, "양평"))
-        .extracting(PlaceCandidateDto::label)
-        .containsExactly("양평군");
+        .extracting(PlaceCandidateDto::label, PlaceCandidateDto::regionCode)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("양평군", null),
+            org.assertj.core.groups.Tuple.tuple("양평시", null));
     assertThat(fakes.geocoded).containsExactly("양평", "양평시", "양평군");
   }
 
@@ -617,7 +621,8 @@ class PlaceWeatherServiceTest {
     answer.add(new GeoPlace("공항", "x", "일본", "JP", "AIRP", null, 13.0, 13.0));
     answer.add(new GeoPlace("현청", "x", "일본", "JP", "PPLA", 10L, 14.0, 14.0));
     answer.add(new GeoPlace("북한 도시", "x", "조선", "KP", "PPLA", 900000L, 15.0, 15.0));
-    answer.add(new GeoPlace("한국 마을", null, "대한민국", "KR", "PPL", null, 16.0, 16.0));
+    // 인구가 있는 한국 마을 (행정 중심·인구 있는 한국 결과가 맨 앞)
+    answer.add(new GeoPlace("한국 마을", null, "대한민국", "KR", "PPL", 50L, 16.0, 16.0));
     // 같은 격자(16.0,16.0)의 뒤 항목은 버린다
     answer.add(new GeoPlace("한국 마을 옆", "x", "대한민국", "KR", "PPL", null, 16.04, 15.96));
     for (int i = 0; i < 10; i++) {
@@ -630,7 +635,7 @@ class PlaceWeatherServiceTest {
     assertThat(items).hasSize(10);
     assertThat(items)
         .extracting(PlaceCandidateDto::label)
-        // 한국 → (북한 포함 나머지) 행정 중심 → 도시·마을 → 시설·지형, 같은 순위 안에서는 인구 많은 순
+        // 한국의 행정 중심·인구 있는 곳 → (북한 포함 나머지) 행정 중심 → 도시·마을 → 시설·지형, 같은 순위 안에서는 인구 많은 순
         .containsExactly("한국 마을", "북한 도시", "현청", "큰 마을", "작은 마을", "공원", "공항", "기타0", "기타1", "기타2")
         .doesNotContain("한국 마을 옆");
     assertThat(items.getFirst().region()).isEmpty();
@@ -721,6 +726,121 @@ class PlaceWeatherServiceTest {
     assertThat(e.code()).isEqualTo(ErrorCode.WEATHER_LIMIT);
     assertThat(service.searchPlaces(1, "강릉")).hasSize(2);
     assertThat(fakes.geocoded).containsExactly("강릉", "강릉시");
+  }
+
+  // ---------------------------------------------------------------- 장소 검색 (시·도 이름)
+
+  /** 시·도 17개로 바꾸고 지오코딩 답을 고정본으로 */
+  void regionsAndFixtures(Map<String, String> fixtures) {
+    base.regions = PlaceWeatherFakes.allRegions();
+    fakes.geoEnabled = true;
+    fakes.geoAnswer =
+        q ->
+            PlaceWeatherFakes.geoOk(
+                fixtures.containsKey(q)
+                    ? PlaceWeatherFakes.geoFixture(fixtures.get(q))
+                    : List.of());
+    service = fakes.service();
+  }
+
+  @Test
+  void 부산은_시도_부산이_맨_앞이고_로마자_Pusan은_빼고_작은_마을에는_지역_코드를_붙이지_않는다() {
+    regionsAndFixtures(Map.of("부산", "busan"));
+
+    List<PlaceCandidateDto> items = service.searchPlaces(1, "부산");
+
+    assertThat(items.getFirst())
+        .isEqualTo(new PlaceCandidateDto("부산", "부산광역시", "대한민국", 35.1796, 129.0756, "BUSAN"));
+    // 실제 응답: Pusan(경북)·Pusan(경남)·부산(전남 마을)·부산(충북 산)
+    assertThat(items).extracting(PlaceCandidateDto::label).doesNotContain("Pusan");
+    assertThat(items)
+        .extracting(
+            PlaceCandidateDto::label, PlaceCandidateDto::region, PlaceCandidateDto::regionCode)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("부산", "부산광역시", "BUSAN"),
+            // 광주(GWANGJU)에서 약 18km지만 인구 없는 마을이라 코드를 붙이지 않는다
+            org.assertj.core.groups.Tuple.tuple("부산", "전라남도", null),
+            org.assertj.core.groups.Tuple.tuple("부산", "충청북도", null));
+    // 시·도와 맞았으므로 부산시·부산군 보정 검색은 하지 않는다
+    assertThat(fakes.geocoded).containsExactly("부산");
+  }
+
+  @Test
+  void 서울_제주_대구_인천은_그_시도가_맨_앞이다() {
+    regionsAndFixtures(Map.of("서울", "seoul", "대구", "daegu", "인천", "incheon"));
+
+    assertThat(service.searchPlaces(1, "서울"))
+        .singleElement()
+        .isEqualTo(new PlaceCandidateDto("서울", "서울특별시", "대한민국", 37.5665, 126.978, "SEOUL"));
+    assertThat(service.searchPlaces(1, "제주"))
+        .singleElement()
+        .isEqualTo(new PlaceCandidateDto("제주", "제주특별자치도", "대한민국", 33.4996, 126.5312, "JEJU"));
+
+    List<PlaceCandidateDto> daegu = service.searchPlaces(1, "대구");
+    assertThat(daegu.getFirst().regionCode()).isEqualTo("DAEGU");
+    assertThat(daegu.getFirst().label()).isEqualTo("대구");
+    // 전남의 대구 마을 둘(한국) → 북한 강원도의 대구, 모두 지역 코드 없음
+    assertThat(daegu.subList(1, daegu.size()))
+        .extracting(PlaceCandidateDto::region, PlaceCandidateDto::regionCode)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("전라남도", null),
+            org.assertj.core.groups.Tuple.tuple("전라남도", null),
+            org.assertj.core.groups.Tuple.tuple("강원도", null));
+
+    List<PlaceCandidateDto> incheon = service.searchPlaces(1, "인천");
+    assertThat(incheon.getFirst().regionCode()).isEqualTo("INCHEON");
+    assertThat(incheon).hasSize(4);
+    assertThat(incheon.subList(1, 4)).allMatch(c -> c.regionCode() == null);
+    assertThat(fakes.geocoded).containsExactly("서울", "제주", "대구", "인천");
+  }
+
+  @Test
+  void 정식_이름과_앞부분도_맞추고_같은_곳의_행정_중심은_뺀다() {
+    regionsAndFixtures(Map.of("부산광", "busan-metro", "부산광역시", "busan-metro"));
+
+    // 부산광역시(PPLA, 인구 3285147)는 시·도 부산과 30km 안이라 한 번만
+    assertThat(service.searchPlaces(1, "부산광"))
+        .singleElement()
+        .satisfies(c -> assertThat(c.regionCode()).isEqualTo("BUSAN"));
+    assertThat(service.searchPlaces(1, "부산광역시")).hasSize(1);
+    assertThat(service.searchPlaces(1, "충청"))
+        .extracting(PlaceCandidateDto::regionCode)
+        .containsExactly("CHUNGBUK", "CHUNGNAM");
+    assertThat(service.searchPlaces(1, "전라북도"))
+        .extracting(PlaceCandidateDto::regionCode)
+        .containsExactly("JEONBUK");
+    assertThat(service.searchPlaces(1, "전북특별자치도"))
+        .extracting(PlaceCandidateDto::regionCode)
+        .containsExactly("JEONBUK");
+    // 한 글자는 앞부분으로 맞추지 않는다 (경 → 경기·경북·경남이 되지 않게)
+    assertThat(service.searchPlaces(1, "경")).isEmpty();
+  }
+
+  @Test
+  void 시도와_맞으면_한도를_넘거나_공급자가_실패해도_그_지역은_준다() {
+    fakes.options =
+        new PlaceWeatherOptions(
+            Duration.ofHours(3), 30, Duration.ofDays(1), 0, true, 10, Duration.ofSeconds(2));
+    regionsAndFixtures(Map.of());
+
+    assertThat(service.searchPlaces(1, "서울"))
+        .extracting(PlaceCandidateDto::regionCode)
+        .containsExactly("SEOUL");
+    assertThat(error(() -> service.searchPlaces(1, "도쿄")).code())
+        .isEqualTo(ErrorCode.WEATHER_LIMIT);
+    assertThat(fakes.geocoded).isEmpty();
+
+    fakes.options =
+        new PlaceWeatherOptions(
+            Duration.ofHours(3), 30, Duration.ofDays(1), 100, true, 10, Duration.ofSeconds(2));
+    fakes.geoAnswer = q -> PlaceWeatherFakes.geoFailed();
+    base.searchAnswers.put(
+        "WEATHERAPI", (p, q) -> SearchResult.failed(FetchErrors.HTTP_5XX, "x", List.of()));
+    service = fakes.service();
+    assertThat(service.searchPlaces(1, "부산"))
+        .extracting(PlaceCandidateDto::regionCode)
+        .containsExactly("BUSAN");
+    assertThat(fakes.searchRows).isEmpty();
   }
 
   @Test

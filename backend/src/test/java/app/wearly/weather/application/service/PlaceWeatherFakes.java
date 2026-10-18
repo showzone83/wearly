@@ -17,6 +17,11 @@ import app.wearly.weather.domain.MonthlyClimate;
 import app.wearly.weather.domain.PlaceCandidate;
 import app.wearly.weather.domain.PlaceSnapshot;
 import app.wearly.weather.domain.PlaceWeatherOptions;
+import app.wearly.weather.domain.WeatherRegion;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,6 +34,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /** 장소별 날씨 서비스 단위 테스트용 가짜 포트 (WeatherFakes 위에 19 문서의 포트를 더한다) */
 final class PlaceWeatherFakes {
@@ -72,6 +79,55 @@ final class PlaceWeatherFakes {
                 50,
                 300,
                 WeatherFakes.NOW)));
+  }
+
+  /** 실제 Open-Meteo 지오코딩 응답 고정본 (fixtures/weather/open-meteo-geocoding-&lt;name&gt;.json) → 장소 */
+  static List<GeoPlace> geoFixture(String name) {
+    String body;
+    try (InputStream in =
+        PlaceWeatherFakes.class.getResourceAsStream(
+            "/fixtures/weather/open-meteo-geocoding-" + name + ".json")) {
+      body = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    List<GeoPlace> out = new ArrayList<>();
+    for (JsonNode n : JsonMapper.builder().build().readTree(body).path("results")) {
+      JsonNode pop = n.path("population");
+      out.add(
+          new GeoPlace(
+              n.path("name").asString(null),
+              n.path("admin1").asString(null),
+              n.path("country").asString(null),
+              n.path("country_code").asString(null),
+              n.path("feature_code").asString(null),
+              pop.isNumber() ? pop.asLong() : null,
+              n.path("latitude").asDouble(),
+              n.path("longitude").asDouble()));
+    }
+    return out;
+  }
+
+  /** 시·도 17개 (V11 마이그레이션의 REGION 코드와 같은 값) */
+  static List<WeatherRegion> allRegions() {
+    return List.of(
+        new WeatherRegion("SEOUL", "서울", 37.5665, 126.978, true),
+        new WeatherRegion("BUSAN", "부산", 35.1796, 129.0756, true),
+        new WeatherRegion("DAEGU", "대구", 35.8714, 128.6014, true),
+        new WeatherRegion("INCHEON", "인천", 37.4563, 126.7052, true),
+        new WeatherRegion("GWANGJU", "광주", 35.1595, 126.8526, true),
+        new WeatherRegion("DAEJEON", "대전", 36.3504, 127.3845, true),
+        new WeatherRegion("ULSAN", "울산", 35.5384, 129.3114, true),
+        new WeatherRegion("SEJONG", "세종", 36.48, 127.289, true),
+        new WeatherRegion("GYEONGGI", "경기", 37.2636, 127.0286, true),
+        new WeatherRegion("GANGWON", "강원", 37.8813, 127.7298, true),
+        new WeatherRegion("CHUNGBUK", "충북", 36.6424, 127.489, true),
+        new WeatherRegion("CHUNGNAM", "충남", 36.6588, 126.6728, true),
+        new WeatherRegion("JEONBUK", "전북", 35.8242, 127.148, true),
+        new WeatherRegion("JEONNAM", "전남", 34.8161, 126.4629, true),
+        new WeatherRegion("GYEONGBUK", "경북", 36.576, 128.5056, true),
+        new WeatherRegion("GYEONGNAM", "경남", 35.228, 128.6811, true),
+        new WeatherRegion("JEJU", "제주", 33.4996, 126.5312, true));
   }
 
   static GeocodeResult geoFailed() {
