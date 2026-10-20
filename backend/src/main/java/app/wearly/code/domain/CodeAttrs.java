@@ -5,6 +5,8 @@ import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.sharedkernel.code.CodeGroups;
 import app.wearly.sharedkernel.code.CodeSnapshot;
 import app.wearly.sharedkernel.code.Slots;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,7 +16,9 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
-/** 그룹별 attrs 검증과 정규화 (06 문서 3장, 07 문서 4장). 틀린 값은 attrs.키 필드 오류로 모은다. 그룹에 없는 키도 거부한다. */
+/**
+ * 그룹별 attrs 검증과 정규화 (06 문서 3장, 07 문서 4장, MALL은 24 문서). 틀린 값은 attrs.키 필드 오류로 모은다. 그룹에 없는 키도 거부한다.
+ */
 public final class CodeAttrs {
 
   static final Pattern HEX = Pattern.compile("^#[0-9A-Fa-f]{6}$");
@@ -23,6 +27,9 @@ public final class CodeAttrs {
 
   /** BODY_TYPE attrs.description·hint 최대 길이 (앱 체형 고르기 화면에 한두 줄로 보인다) */
   static final int TEXT_MAX = 80;
+
+  /** MALL attrs.url 최대 길이 */
+  static final int URL_MAX = 500;
 
   private CodeAttrs() {}
 
@@ -46,6 +53,7 @@ public final class CodeAttrs {
           case CodeGroups.ITEM_STATUS -> Set.of("recommendable");
           case CodeGroups.REGION -> Set.of("lat", "lon");
           case CodeGroups.BODY_TYPE -> Set.of("description", "hint");
+          case CodeGroups.MALL -> Set.of("url");
           default -> Set.of();
         };
     for (String key : in.keySet()) {
@@ -109,6 +117,7 @@ public final class CodeAttrs {
         out.put("description", text(in, "description", errors));
         out.put("hint", text(in, "hint", errors));
       }
+      case CodeGroups.MALL -> out.put("url", url(in, "url", errors));
       default -> {
         // PATTERN·SEASON·STYLE·RETIRE_REASON·AGE_RANGE·FIT: attrs 없음
       }
@@ -199,6 +208,44 @@ public final class CodeAttrs {
       errors.add(FieldError.tooLong(field, TEXT_MAX));
     }
     return t;
+  }
+
+  /**
+   * 앱이 웹 화면으로 여는 주소. https만 받고(앱 안 화면이라 평문 http는 막는다), 호스트가 있어야 하며, 사용자 정보(user@)가 든 주소는 받지 않는다
+   * (피싱처럼 보이는 주소 방지).
+   */
+  private static Object url(Map<String, Object> in, String key, List<FieldError> errors) {
+    Object v = in.get(key);
+    String field = "attrs." + key;
+    if (!(v instanceof String s)) {
+      errors.add(v == null ? FieldError.required(field) : FieldError.invalidType(field, "string"));
+      return v;
+    }
+    String t = s.strip();
+    if (t.isEmpty()) {
+      errors.add(FieldError.required(field));
+      return t;
+    }
+    if (t.length() > URL_MAX) {
+      errors.add(FieldError.tooLong(field, URL_MAX));
+      return t;
+    }
+    if (!isHttpsUrl(t)) {
+      errors.add(FieldError.invalidFormat(field, "url"));
+    }
+    return t;
+  }
+
+  static boolean isHttpsUrl(String s) {
+    try {
+      URI u = new URI(s);
+      return "https".equalsIgnoreCase(u.getScheme())
+          && u.getHost() != null
+          && !u.getHost().isBlank()
+          && u.getRawUserInfo() == null;
+    } catch (URISyntaxException e) {
+      return false;
+    }
   }
 
   private static Object bool(Map<String, Object> in, String key, List<FieldError> errors) {

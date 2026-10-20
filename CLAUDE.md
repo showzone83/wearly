@@ -29,6 +29,7 @@
   - `21_예정_코디_저장.md` — 예정 코디 서버 저장(`/plans`), 앱 동기화 규칙
   - `22_관리자_계정_관리.md` — 관리자 계정 관리: 1단계 구현(자동 승격 막기·비밀번호 변경·역할 지정·TOTP 2단계 인증·로그인 기록, 처음 로그인·휴대폰 분실 대처), 2단계 구현(회사 계정 로그인 OIDC SSO·계정 연결 규칙·설정·로컬 Keycloak·Entra/Google 전환·한계)
   - `23_D-1_알림.md` — 예정 코디 D-1 알림: 앱 로컬 알림 + 서버 푸시(`notify`), Expo Go 한계, 실제 휴대폰 푸시 준비(EAS·APNs·FCM)
+  - `24_쇼핑몰_캡처_등록.md` — 쇼핑몰 캡처로 옷 사진 등록: 코드 그룹 `MALL`(attrs.url), 앱 안 웹 화면·정사각 틀 캡처, 옷 등록·옷 상세 사진 시트
 - `CHANGELOG.md` — 변경 이력(Keep a Changelog, `[Unreleased]`). 새 작업을 합칠 때 항목을 추가한다.
 - `mobile/` — React Native(Expo SDK 57) 목업 앱. 백엔드 없이 기기 안에 데이터 저장. Expo 작업 규칙은 `mobile/AGENTS.md`를 따른다.
 

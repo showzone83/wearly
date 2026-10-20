@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GarmentArt } from '@/components/GarmentArt';
@@ -15,6 +15,7 @@ import { createItem, isAccountMode } from '@/lib/account';
 import { api, errorAlertMessage, errorMessage, isNetworkError, photoFile } from '@/lib/api';
 import { systemTraceId, traceLabelOf } from '@/lib/errorText';
 import { activeCodes, defaultStatus, isActiveCode, subTypesOf } from '@/lib/codes';
+import { availableMalls, openMallCapture } from '@/lib/mallCapture';
 import { mockAnalyze } from '@/lib/mockAnalyze';
 import { MOCK_MODE } from '@/lib/mode';
 import { isSmallPhoto, SMALL_PHOTO_TEXT } from '@/lib/photoEditRules';
@@ -24,6 +25,8 @@ import { canRecommend } from '@/lib/recommend';
 import { activeItems } from '@/lib/retire';
 import { draftFromSuggestion } from '@/lib/serverItems';
 import { photoSource, samplePhotoUri, type TSamplePhoto } from '@/lib/samplePhotos';
+import { useCodesVersion } from '@/store/useCodes';
+import { useMallCapture } from '@/store/useMallCapture';
 import { useStore } from '@/store/useStore';
 import { makeStyles, useColors } from '@/theme';
 
@@ -180,6 +183,17 @@ export default function NewItem() {
   const s = useStyles();
   const colors = useColors();
   const fromAi = aiSource !== null;
+  // 쇼핑몰 캡처(doc/24): 고를 쇼핑몰이 있을 때만 버튼을 보인다. 캡처 결과는 쇼핑몰 화면이 'new' 몫으로 넣는다
+  const codesVersion = useCodesVersion();
+  const malls = useMemo(() => availableMalls(), [codesVersion]);
+  const mallShot = useMallCapture((st) => st.result);
+
+  // 쇼핑몰에서 캡처해 돌아오면 그 사진으로 카메라·앨범과 같은 흐름(올리기·AI 분석)을 탄다
+  useEffect(() => {
+    const shot = mallShot ? useMallCapture.getState().take('new') : null;
+    if (shot) void analyze({ uri: shot.uri, width: shot.width, height: shot.height, mimeType: 'image/png' });
+    // analyze는 이 렌더의 것을 쓰면 되므로 결과만 본다
+  }, [mallShot]);
 
   // 2단계: 분석 진행 표시 (결과가 오면 analyze()가 3단계로 넘긴다). 사진을 올리는 동안은 멈춰 둔다
   useEffect(() => {
@@ -399,6 +413,9 @@ export default function NewItem() {
       footer={
         <View style={{ gap: 4 }}>
           <Button title="사진 선택하기" onPress={() => pick('library')} />
+          {malls.length > 0 ? (
+            <Button title="쇼핑몰에서 가져오기" variant="outline" onPress={() => openMallCapture('new')} />
+          ) : null}
           <Button title="사진 없이 직접 입력" variant="ghost" small onPress={() => manual()} />
         </View>
       }

@@ -41,11 +41,24 @@ const WARMTH = [
 ];
 
 /** 속성 폼이 있는 그룹. 나머지는 attrs 없음 (06 3장) */
-const ATTR_GROUPS = new Set(['CATEGORY', 'SUB_TYPE', 'COLOR', 'ITEM_STATUS', 'REGION', 'BODY_TYPE']);
+const ATTR_GROUPS = new Set(['CATEGORY', 'SUB_TYPE', 'COLOR', 'ITEM_STATUS', 'REGION', 'BODY_TYPE', 'MALL']);
 const NO_ATTR_GROUPS = new Set(['PATTERN', 'SEASON', 'STYLE', 'AGE_RANGE', 'FIT']);
 
 /** BODY_TYPE attrs.description·hint 최대 길이 (서버 CodeAttrs.TEXT_MAX) */
 const BODY_TEXT_MAX = 80;
+
+/** MALL attrs.url 최대 길이 (서버 CodeAttrs.URL_MAX) */
+const MALL_URL_MAX = 500;
+
+/** 앱이 웹 화면으로 여는 주소: https, 호스트 있음, 사용자 정보(user@) 없음 (서버 CodeAttrs.isHttpsUrl과 같은 규칙) */
+const isHttpsUrl = (value: string): boolean => {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'https:' && !!u.hostname && !u.username && !u.password;
+  } catch {
+    return false;
+  }
+};
 
 const CUSTOM_SHAPE = '__custom__';
 
@@ -79,6 +92,8 @@ const initialAttrs = (group: string): ICodeAttrs => {
       return { lat: '', lon: '' };
     case 'BODY_TYPE':
       return { description: '', hint: '' };
+    case 'MALL':
+      return { url: 'https://' };
     default:
       return {};
   }
@@ -104,6 +119,7 @@ const KNOWN_FIELDS = [
   'attrs.lon',
   'attrs.description',
   'attrs.hint',
+  'attrs.url',
 ];
 
 const baseField = (field: string): string => {
@@ -257,6 +273,12 @@ export const CodeForm = ({
         else if (v.length > BODY_TEXT_MAX) e.set(`attrs.${key}`, `${BODY_TEXT_MAX}자 이하로 입력하세요.`);
       }
     }
+    if (g === 'MALL') {
+      const url = String(form.attrs.url ?? '').trim();
+      if (!url || url === 'https://') e.set('attrs.url', '처음 열 주소를 입력하세요.');
+      else if (url.length > MALL_URL_MAX) e.set('attrs.url', `${MALL_URL_MAX}자 이하로 입력하세요.`);
+      else if (!isHttpsUrl(url)) e.set('attrs.url', 'https:// 로 시작하는 주소여야 합니다.');
+    }
     if (!ATTR_GROUPS.has(g) && !NO_ATTR_GROUPS.has(g)) {
       try {
         const parsed: unknown = JSON.parse(form.attrsJson || '{}');
@@ -292,6 +314,7 @@ export const CodeForm = ({
       a.description = String(a.description ?? '').trim();
       a.hint = String(a.hint ?? '').trim();
     }
+    if (g === 'MALL') a.url = String(a.url ?? '').trim();
     return a;
   };
 
@@ -472,8 +495,8 @@ export const CodeForm = ({
               </Field>
             </div>
             <p className="muted small">
-              날씨는 이 좌표로 받습니다. 활성 지역만 주기적으로 받고, 지역을 늘리면 공급자 호출 수도 늘어납니다 (날씨 &gt;
-              스케줄의 예상 월 호출 수).
+              날씨는 이 좌표로 받습니다. 활성 지역만 주기적으로 받고, 지역을 늘리면 공급자 호출 수도 늘어납니다 (날씨
+              &gt; 스케줄의 예상 월 호출 수).
             </p>
           </>
         ) : null}
@@ -505,6 +528,29 @@ export const CodeForm = ({
                 placeholder="예: 상체에 볼륨이 있고 허리 위치가 높은 편이에요"
               />
             </Field>
+          </>
+        ) : null}
+        {g === 'MALL' ? (
+          <>
+            <Field
+              label="처음 열 주소 (url)"
+              required
+              error={err('attrs.url')}
+              hint={`https:// 로 시작하는 주소. ${MALL_URL_MAX}자 이하. 휴대폰 화면에 맞는 모바일 주소가 좋습니다.`}
+            >
+              <input
+                className="mono"
+                inputMode="url"
+                value={String(form.attrs.url ?? '')}
+                maxLength={MALL_URL_MAX}
+                onChange={(e) => setAttr('url', e.target.value)}
+                placeholder="예: https://www.musinsa.com"
+              />
+            </Field>
+            <p className="muted small">
+              앱의 &quot;쇼핑몰에서 가져오기&quot;가 이 주소를 앱 안 화면으로 엽니다. 회원이 상품 사진을 캡처해 옷
+              사진으로 씁니다. 앱 안에서 잘 열리지 않는 쇼핑몰은 비활성으로 두세요.
+            </p>
           </>
         ) : null}
         {NO_ATTR_GROUPS.has(g) ? <p className="muted">이 그룹은 속성이 없습니다.</p> : null}

@@ -12,15 +12,22 @@ interface IPhotoSheetProps {
   visible: boolean;
   /** 지금 사진이 있는지 (있으면 '사진 빼기'가 보인다) */
   hasPhoto: boolean;
+  /** 쇼핑몰에서 가져오기를 보일지 (doc/24) */
+  mallAvailable?: boolean;
   onClose: () => void;
   /** 고른 선택지. 시트가 완전히 닫힌 뒤 부른다 (iOS는 모달이 닫히는 중에 카메라·앨범·확인 창을 띄우지 못한다) */
   onSelect: (action: TPhotoAction) => void;
 }
 
-const ICON: Record<TPhotoAction, 'camera' | 'image' | 'trash'> = { camera: 'camera', library: 'image', remove: 'trash' };
+const ICON: Record<TPhotoAction, 'camera' | 'image' | 'search' | 'trash'> = {
+  camera: 'camera',
+  library: 'image',
+  mall: 'search',
+  remove: 'trash',
+};
 
-/** 옷 상세의 사진 시트 (이슈 #8): 카메라로 다시 찍기 · 앨범에서 고르기 · 사진 빼기(사진이 있을 때) · 취소 */
-export const PhotoSheet = ({ visible, hasPhoto, onClose, onSelect }: IPhotoSheetProps) => {
+/** 옷 상세의 사진 시트 (이슈 #8): 카메라로 다시 찍기 · 앨범에서 고르기 · 쇼핑몰에서 가져오기 · 사진 빼기(사진이 있을 때) · 취소 */
+export const PhotoSheet = ({ visible, hasPhoto, mallAvailable = false, onClose, onSelect }: IPhotoSheetProps) => {
   const chosen = useRef<TPhotoAction | null>(null);
 
   const s = useStyles();
@@ -59,7 +66,7 @@ export const PhotoSheet = ({ visible, hasPhoto, onClose, onSelect }: IPhotoSheet
       <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={s.grip} />
         <Text style={s.title}>{photoSheetTitle(hasPhoto)}</Text>
-        {photoSheetOptions(hasPhoto).map((o) => (
+        {photoSheetOptions(hasPhoto, mallAvailable).map((o) => (
           <Pressable
             key={o.action}
             style={({ pressed }) => [s.row, pressed && s.pressed]}

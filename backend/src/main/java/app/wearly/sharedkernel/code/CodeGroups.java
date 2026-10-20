@@ -28,6 +28,9 @@ public final class CodeGroups {
   /** 프로필 나의 정보: 핏 선호. attrs 없음 */
   public static final String FIT = "FIT";
 
+  /** 옷 사진을 캡처해 올 쇼핑몰 (24 문서). attrs.url */
+  public static final String MALL = "MALL";
+
   public static final List<String> ALL =
       List.of(
           CATEGORY,
@@ -41,7 +44,8 @@ public final class CodeGroups {
           REGION,
           AGE_RANGE,
           BODY_TYPE,
-          FIT);
+          FIT,
+          MALL);
 
   private CodeGroups() {}
 }

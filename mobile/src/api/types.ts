@@ -375,7 +375,9 @@ export type CodeGroupKey =
   /** 나의 정보: 연령대·체형(attrs.description·hint)·핏 선호. 예전 서버에는 없다 */
   | 'AGE_RANGE'
   | 'BODY_TYPE'
-  | 'FIT';
+  | 'FIT'
+  /** 옷 사진을 캡처해 올 쇼핑몰 (doc/24). attrs.url. 예전 서버에는 없다 */
+  | 'MALL';
 
 export interface CodeDto {
   code: string;

@@ -223,6 +223,8 @@ export default function RootLayout() {
                 <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
                 <Stack.Screen name="auth" />
                 <Stack.Screen name="item/new" options={{ presentation: 'modal' }} />
+                {/* 쇼핑몰 캡처(doc/24): 옷 등록 모달 위에도 뜨고 웹 화면을 넓게 쓰도록 전체 화면 */}
+                <Stack.Screen name="item/mall" options={{ presentation: 'fullScreenModal' }} />
               </Stack>
               <AuthWatcher />
             </>

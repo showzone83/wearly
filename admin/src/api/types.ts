@@ -207,6 +207,8 @@ export interface ICodeAttrs {
   description?: string;
   /** BODY_TYPE: 고르기를 돕는 한 줄 특징 */
   hint?: string;
+  /** MALL: 앱이 웹 화면으로 처음 여는 주소 (https) */
+  url?: string;
   [key: string]: unknown;
 }
 

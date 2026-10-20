@@ -316,6 +316,15 @@ export const CodesPage = () => {
   );
 };
 
+/** 주소의 호스트만 (형식이 틀리면 그대로) */
+const urlHost = (url: string): string => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+};
+
 const AttrSummary = ({ group, code, label }: { group: string; code: IAdminCode; label: (color: string) => string }) => {
   const a = code.attrs ?? {};
   switch (group) {
@@ -343,6 +352,14 @@ const AttrSummary = ({ group, code, label }: { group: string; code: IAdminCode; 
         <span className="small" title={typeof a.hint === 'string' ? a.hint : undefined}>
           {typeof a.description === 'string' && a.description ? a.description : '—'}
         </span>
+      );
+    case 'MALL':
+      return typeof a.url === 'string' && a.url ? (
+        <a className="mono small" href={a.url} target="_blank" rel="noopener noreferrer" title={a.url}>
+          {urlHost(a.url)}
+        </a>
+      ) : (
+        <span className="muted">—</span>
       );
     default:
       return Object.keys(a).length ? (

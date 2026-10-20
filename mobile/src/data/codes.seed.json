@@ -1426,6 +1426,58 @@
           "sortOrder": 30
         }
       ]
+    },
+    {
+      "group": "MALL",
+      "name": "쇼핑몰",
+      "description": "옷 사진을 캡처해 올 쇼핑몰. attrs.url(처음 열 주소, https만, 500자 이하). 활성 코드만 앱 목록에 나온다",
+      "codes": [
+        {
+          "code": "MUSINSA",
+          "label": "무신사",
+          "parent": null,
+          "attrs": {
+            "url": "https://www.musinsa.com"
+          },
+          "sortOrder": 10
+        },
+        {
+          "code": "29CM",
+          "label": "29CM",
+          "parent": null,
+          "attrs": {
+            "url": "https://www.29cm.co.kr"
+          },
+          "sortOrder": 20
+        },
+        {
+          "code": "WCONCEPT",
+          "label": "W컨셉",
+          "parent": null,
+          "attrs": {
+            "url": "https://www.wconcept.co.kr"
+          },
+          "sortOrder": 30
+        },
+        {
+          "code": "ZIGZAG",
+          "label": "지그재그",
+          "parent": null,
+          "attrs": {
+            "url": "https://zigzag.kr"
+          },
+          "sortOrder": 40
+        },
+        {
+          "code": "ABLY",
+          "label": "에이블리",
+          "parent": null,
+          "attrs": {
+            "url": "https://m.a-bly.com"
+          },
+          "sortOrder": 50
+        }
+      ]
     }
   ]
 }

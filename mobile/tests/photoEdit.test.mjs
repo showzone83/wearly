@@ -44,6 +44,16 @@ test('시트 선택지: 사진이 있으면 다시 찍기·앨범·빼기, 없�
     ['camera', 'library'],
   );
   assert.equal(photoSheetOptions(false)[0].label, '카메라로 찍기');
+  // 쇼핑몰에서 가져오기 (doc/24): 쓸 수 있을 때만, 사진 빼기 앞
+  assert.deepEqual(
+    photoSheetOptions(true, true).map((o) => o.action),
+    ['camera', 'library', 'mall', 'remove'],
+  );
+  assert.deepEqual(
+    photoSheetOptions(false, true).map((o) => o.action),
+    ['camera', 'library', 'mall'],
+  );
+  assert.equal(photoSheetOptions(false, true)[2].label, '쇼핑몰에서 가져오기');
   assert.equal(photoSheetTitle(true), '사진 바꾸기');
   assert.equal(photoSheetTitle(false), '사진 추가');
 });

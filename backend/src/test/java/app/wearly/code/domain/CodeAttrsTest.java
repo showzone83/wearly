@@ -137,4 +137,52 @@ class CodeAttrsTest {
               assertThat(errors).as(c.code()).isEmpty();
             });
   }
+
+  @Test
+  void MALL_url은_https만_받고_앞뒤_공백을_지운다() {
+    List<FieldError> errors = new ArrayList<>();
+    Map<String, Object> out =
+        CodeAttrs.validate(
+            "MALL", Map.of("url", "  https://www.musinsa.com/app  "), "X", codes, errors);
+    assertThat(errors).isEmpty();
+    assertThat(out).containsExactly(Map.entry("url", "https://www.musinsa.com/app"));
+  }
+
+  @Test
+  void MALL_url이_틀리면_attrs_url_필드_오류() {
+    assertThat(mallUrlError(Map.of())).isEqualTo("REQUIRED");
+    assertThat(mallUrlError(Map.of("url", " "))).isEqualTo("REQUIRED");
+    assertThat(mallUrlError(Map.of("url", 1))).isEqualTo("INVALID_TYPE");
+    assertThat(mallUrlError(Map.of("url", "http://shop.example.com"))).isEqualTo("INVALID_FORMAT");
+    assertThat(mallUrlError(Map.of("url", "https://"))).isEqualTo("INVALID_FORMAT");
+    assertThat(mallUrlError(Map.of("url", "https://user@shop.example.com")))
+        .isEqualTo("INVALID_FORMAT");
+    assertThat(mallUrlError(Map.of("url", "javascript:alert(1)"))).isEqualTo("INVALID_FORMAT");
+    assertThat(mallUrlError(Map.of("url", "https://a.kr/" + "x".repeat(CodeAttrs.URL_MAX))))
+        .isEqualTo("TOO_LONG");
+
+    List<FieldError> errors = new ArrayList<>();
+    CodeAttrs.validate("MALL", Map.of("url", "https://a.kr", "logo", "x"), "X", codes, errors);
+    assertThat(errors).extracting(FieldError::field).containsExactly("attrs.logo");
+  }
+
+  @Test
+  void 초기값의_쇼핑몰_코드는_모두_attrs_검증을_통과한다() {
+    assertThat(codes.codes("MALL")).isNotEmpty();
+    codes
+        .codes("MALL")
+        .forEach(
+            c -> {
+              List<FieldError> errors = new ArrayList<>();
+              CodeAttrs.validate("MALL", c.attrs(), c.code(), codes, errors);
+              assertThat(errors).as(c.code()).isEmpty();
+            });
+  }
+
+  private String mallUrlError(Map<String, Object> attrs) {
+    List<FieldError> errors = new ArrayList<>();
+    CodeAttrs.validate("MALL", attrs, "X", codes, errors);
+    assertThat(errors).extracting(FieldError::field).containsExactly("attrs.url");
+    return errors.getFirst().code().name();
+  }
 }

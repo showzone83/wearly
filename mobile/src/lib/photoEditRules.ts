@@ -20,7 +20,8 @@ export const isSmallPhoto = (width: number | null | undefined, height: number | 
 
 // ── 사진 시트 ──
 
-export type TPhotoAction = 'camera' | 'library' | 'remove';
+/** mall: 쇼핑몰 화면에서 캡처 (doc/24) */
+export type TPhotoAction = 'camera' | 'library' | 'mall' | 'remove';
 
 export interface IPhotoSheetOption {
   action: TPhotoAction;
@@ -33,12 +34,16 @@ export interface IPhotoSheetOption {
 export const hasItemPhoto = (item: { image?: IItemImage | null; imageUri?: string | null } | undefined): boolean =>
   !!(item?.image?.imageId || item?.imageUri);
 
-/** 사진 칸을 눌렀을 때 시트의 선택지 (취소는 시트가 따로 그린다). 사진 빼기는 사진이 있을 때만 */
-export const photoSheetOptions = (hasPhoto: boolean): IPhotoSheetOption[] => {
+/**
+ * 사진 칸을 눌렀을 때 시트의 선택지 (취소는 시트가 따로 그린다). 사진 빼기는 사진이 있을 때만,
+ * 쇼핑몰에서 가져오기는 고를 쇼핑몰이 있고 앱 안 웹 화면을 쓸 수 있을 때만(웹 체험판은 아님)
+ */
+export const photoSheetOptions = (hasPhoto: boolean, mallAvailable = false): IPhotoSheetOption[] => {
   const options: IPhotoSheetOption[] = [
     { action: 'camera', label: hasPhoto ? '카메라로 다시 찍기' : '카메라로 찍기' },
     { action: 'library', label: '앨범에서 고르기' },
   ];
+  if (mallAvailable) options.push({ action: 'mall', label: '쇼핑몰에서 가져오기' });
   if (hasPhoto) options.push({ action: 'remove', label: '사진 빼기', danger: true });
   return options;
 };

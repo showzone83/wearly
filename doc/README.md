@@ -31,6 +31,7 @@
 | [21_예정_코디_저장.md](21_예정_코디_저장.md) | 예정 코디 서버 저장: `/plans` API(목록·만들기·bulk·PATCH·삭제)·검증·`PLAN_LIMIT` 500개·`missingItemIds`, V14 `tb_planned_outfit`, 앱 동기화(`clientId`·합치기·대기열·지우기 기록·지운 옷) |
 | [22_관리자_계정_관리.md](22_관리자_계정_관리.md) | 관리자 계정 관리 결정: 보완 전 구현의 문제(자동 승격 등), 일반 방식 3가지(앱 DB·IdP SSO·네트워크 차단), 1~3단계 계획(보완[구현함: 자동 승격 막기·비밀번호 변경·역할 지정·TOTP 2단계 인증·로그인 기록, 처음 로그인·휴대폰 분실 대처]·OIDC SSO·로컬 Keycloak[구현함: 서버 주도 Authorization Code + PKCE, 계정 연결 규칙, 설정, Entra·Google 전환, 한계]·접근 프록시), IdP 확인 목록, 용어 |
 | [23_D-1_알림.md](23_D-1_알림.md) | 예정 코디 D-1 알림: 앱 로컬 알림(전날 20:00, 60개 상한, 권한), 푸시 토큰 API `/me/push-token`, 서버 `notify` 컨텍스트(매일 19:30 D-1 작업·Expo Push·`V17`), 설정 `wearly.notify.*`, Expo Go에서 되는 것·안 되는 것, 실제 휴대폰 원격 푸시 준비(EAS·APNs·FCM) |
+| [24_쇼핑몰_캡처_등록.md](24_쇼핑몰_캡처_등록.md) | 쇼핑몰 캡처로 옷 사진 등록: 코드 그룹 `MALL`(`attrs.url` https, V25), 앱 안 웹 화면(react-native-webview)·정사각 틀 캡처(react-native-view-shot)·자르기, 이동 제한, 옷 등록·옷 상세 사진 시트 연결, 웹 체험판 미지원, 저작권 안내 |
 | [../CHANGELOG.md](../CHANGELOG.md) | 변경 이력: 날짜별 추가·변경·수정·보안·문서, 진행 중 작업 |
 
 ## 빠른 실행

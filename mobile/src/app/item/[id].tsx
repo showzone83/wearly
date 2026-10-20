@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Icon } from '@/components/Icon';
 import { defaultName, draftOf, FORMALITY_TEXT, ItemForm, type ItemDraft } from '@/components/ItemForm';
@@ -7,6 +7,8 @@ import { PhotoSheet } from '@/components/PhotoSheet';
 import { RetireSheet } from '@/components/RetireSheet';
 import { Button, confirm, Divider, Header, notify, Row, Screen, SectionHead, TraceLabel } from '@/components/ui';
 
+import { useCodesVersion } from '@/store/useCodes';
+import { useMallCapture } from '@/store/useMallCapture';
 import { useStore } from '@/store/useStore';
 
 import { Image } from 'expo-image';
@@ -21,6 +23,7 @@ import { systemTraceId } from '@/lib/errorText';
 import { itemColors, purchaseInfo, purchaseText } from '@/lib/itemAttrs';
 import { pickItemPhoto, reanalysisAvailable, reanalyzeItemPhoto, removeItemPhoto, replaceItemPhoto } from '@/lib/itemPhoto';
 import { josa } from '@/lib/josa';
+import { availableMalls, openMallCapture } from '@/lib/mallCapture';
 import {
   aiBadgeFields,
   applyReanalysis,
@@ -108,6 +111,18 @@ const ItemDetail = () => {
   const [aiFields, setAiFields] = useState<('category' | 'color' | 'pattern')[]>([]);
   const s = useStyles();
   const colors = useColors();
+  // 쇼핑몰 캡처(doc/24): 고를 쇼핑몰이 있을 때만 시트에 보인다. 결과는 쇼핑몰 화면이 이 옷 ID 몫으로 넣는다
+  const codesVersion = useCodesVersion();
+  const mallAvailable = useMemo(() => availableMalls().length > 0, [codesVersion]);
+  const mallShot = useMallCapture((st) => st.result);
+  /** 아래(아이템이 있을 때만 정의되는) runReplace를 effect에서 부르기 위한 자리 */
+  const replaceRef = useRef<((p: IPickedPhoto) => Promise<void>) | null>(null);
+
+  // 쇼핑몰에서 캡처해 돌아오면 카메라·앨범과 같은 사진 바꾸기를 탄다
+  useEffect(() => {
+    const shot = mallShot && id ? useMallCapture.getState().take(id) : null;
+    if (shot) void replaceRef.current?.({ uri: shot.uri, width: shot.width, height: shot.height });
+  }, [mallShot, id]);
 
   if (!item || !draft) {
     return (
@@ -206,6 +221,7 @@ const ItemDetail = () => {
       });
     }
   };
+  replaceRef.current = runReplace;
 
   const onRemovePhoto = async () => {
     setPhotoTask({ status: 'removing' });
@@ -225,6 +241,10 @@ const ItemDetail = () => {
   const onPhotoAction = async (action: TPhotoAction) => {
     if (action === 'remove') {
       confirm(REMOVE_PHOTO_TITLE, REMOVE_PHOTO_MESSAGE, () => void onRemovePhoto(), '사진 빼기');
+      return;
+    }
+    if (action === 'mall') {
+      openMallCapture(item.id);
       return;
     }
     try {
@@ -483,6 +503,7 @@ const ItemDetail = () => {
       <PhotoSheet
         visible={photoSheet}
         hasPhoto={hasPhoto}
+        mallAvailable={mallAvailable}
         onClose={() => setPhotoSheet(false)}
         onSelect={(action) => void onPhotoAction(action)}
       />
