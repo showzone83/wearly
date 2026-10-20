@@ -360,7 +360,8 @@ export function evaluate(outfitItems: OutfitItems, input: EngineInput): Outfit {
 
   const reasons: string[] = [];
   const anchor = ctx.anchorItemId ? byId.get(ctx.anchorItemId) : undefined;
-  if (anchor) reasons.push(`중심 아이템 ${josa(anchor.name, '을', '를')} 살린 조합이에요`);
+  // 중심 아이템이 실제로 코디에 들어 있을 때만 말한다 (화면과 문구가 어긋나지 않게, 이슈 #13)
+  if (anchor && Object.values(outfitItems).includes(anchor.id)) reasons.push(`중심 아이템 ${josa(anchor.name, '을', '를')} 살린 조합이에요`);
   if (c.reason) reasons.push(c.reason);
   if (w?.reason) reasons.push(w.reason);
   if (d.reason) reasons.push(d.reason);
@@ -434,14 +435,20 @@ function differsBy(a: OutfitItems, b: OutfitItems): number {
   return (['TOP', 'BOTTOM', 'DRESS', 'OUTER', 'SHOES'] as Slot[]).filter((k) => a[k] !== b[k]).length;
 }
 
+/** 중심 아이템(ctx.anchorItemId)이 들어갈 칸. 없거나 칸이 없는 종류면 null */
+function anchorSlotOf(input: EngineInput): Slot | null {
+  const id = input.ctx.anchorItemId;
+  const anchor = id ? input.items.find((i) => i.id === id) : undefined;
+  return anchor ? slotOf(anchor.category) : null;
+}
+
 /**
  * 몸판 후보: 상의×하의 조합과 원피스 한 벌.
  * 상의·하의를 고정(또는 중심 아이템)하면 원피스를 빼고, 원피스를 고정하면 상의·하의 조합을 뺀다.
  */
 function bodyCandidates(pool: Record<Slot, WardrobeItem[]>, input: EngineInput): OutfitItems[] {
   const { ctx } = input;
-  const anchor = ctx.anchorItemId ? input.items.find((i) => i.id === ctx.anchorItemId) : undefined;
-  const anchorSlot = anchor ? slotOf(anchor.category) : null;
+  const anchorSlot = anchorSlotOf(input);
   const wantsDress = !!ctx.fixed?.DRESS || anchorSlot === 'DRESS';
   const wantsSeparates = !!ctx.fixed?.TOP || !!ctx.fixed?.BOTTOM || anchorSlot === 'TOP' || anchorSlot === 'BOTTOM';
 
@@ -456,8 +463,11 @@ export function recommend(input: EngineInput, count = 3): Outfit[] {
   const bodies = bodyCandidates(pool, input);
   if (bodies.length === 0) return [];
 
-  const fixedOuter = input.ctx.fixed?.OUTER;
-  const outers: (WardrobeItem | undefined)[] = fixedOuter ? pool.OUTER : [undefined, ...pool.OUTER];
+  // 아우터는 선택 칸이라 "아우터 없음"도 후보지만, 고정·중심 아이템이 아우터면 빼지 않는다 (이슈 #13).
+  // 그 아우터가 후보에서 빠졌으면(사용 중지 등) 코디가 아예 안 나오지 않게 아우터 없이 만든다
+  const mustOuter = !!input.ctx.fixed?.OUTER || anchorSlotOf(input) === 'OUTER';
+  const outers: (WardrobeItem | undefined)[] =
+    mustOuter && pool.OUTER.length > 0 ? pool.OUTER : [undefined, ...pool.OUTER];
   const shoes: (WardrobeItem | undefined)[] = pool.SHOES.length ? pool.SHOES : [undefined];
 
   const byId = new Map(input.items.map((i) => [i.id, i]));
