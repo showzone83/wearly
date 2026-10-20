@@ -117,6 +117,7 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 - 쇼핑몰 캡처로 옷 사진 등록: 관리자가 등록한 쇼핑몰(코드 그룹 `MALL`, `attrs.url` https만·500자, `V25` 초기값 무신사·29CM·W컨셉·지그재그·에이블리)을 앱 안 웹 화면(`react-native-webview`)으로 열고, 상품 사진을 정사각 틀(모서리 손잡이로 크기·가운데 손잡이로 위치 조정, 최소 120)에 맞춰 캡처(`react-native-view-shot`)하면 틀 안만 잘라 카메라·앨범과 같은 올리기·AI 분석으로 넘긴다. 옷 등록 1단계 버튼과 옷 상세 사진 시트 "쇼핑몰에서 가져오기", 다른 앱을 여는 주소(`intent:`·`market:`·앱 스킴 등) 막기, 웹 체험판에서는 숨김, 저작권 안내. 관리자 코드 폼에 MALL 주소 입력칸(https 검사)·목록 호스트 링크. 두 패키지 모두 Expo Go 포함 ([doc/24](doc/24_쇼핑몰_캡처_등록.md)) (작성: kang6123)
 
 #### 변경
+- 관리자 사이트의 브라우저 기본 확인창(`window.confirm` 6곳: 회원 정지·해제·관리자 지정·해제, 2단계 인증 초기화, 종류 비활성화, 코드 삭제, 공급자 삭제, 복구 코드 저장 안 하고 닫기)을 사이트 대화상자로 바꿈. `useConfirmStore.ask`(Promise) + `ConfirmHost`, 제목·버튼 이름, 위험 동작은 빨간 버튼·처음 포커스 취소. Modal이 겹치면 Esc는 맨 위 창만 닫는다. ESLint로 `alert`·`confirm`·`prompt` 금지 ([#10](https://github.com/showzone83/wearly/issues/10), [doc/07](doc/07_관리자_사이트.md) 5장, `admin/README.md` 코드 규칙 7) (작성: kang6123)
 - 코드 그룹 12개 → 13개(코드 140 → 145). API 응답 스냅샷(`snapshots/api-responses.json`)을 다시 만듦 — 코드 응답 말고는 그대로 ([doc/06](doc/06_코드_관리.md) 3장) (작성: kang6123)
 
 #### 수정

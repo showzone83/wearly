@@ -8,6 +8,7 @@ import { ColorChip, GarmentPreview } from '@/components/Garment';
 import { Badge, Button, Card, Empty, ErrorBox, Loading, Notice, PageHeader, Switch } from '@/components/ui';
 import { CodeForm } from '@/pages/codes/CodeForm';
 
+import { useConfirmStore } from '@/stores/useConfirmStore';
 import { useToastStore } from '@/stores/useToastStore';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -38,6 +39,7 @@ export const CodesPage = () => {
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
   const toastError = useToastStore((s) => s.showError);
+  const confirm = useConfirmStore((s) => s.ask);
   const reorder = useMutation({
     mutationFn: (codes: string[]) => api.codes.reorder(g, codes),
     onMutate: async (codes) => {
@@ -114,15 +116,16 @@ export const CodesPage = () => {
     reorder.mutate(next);
   };
 
-  const onToggle = (c: IAdminCode) => {
+  const onToggle = async (c: IAdminCode) => {
     if (c.active && g === 'CATEGORY') {
       const children = book.group('SUB_TYPE').filter((s) => s.parent === c.code && s.active).length;
-      if (
-        !window.confirm(
-          `${c.label} 종류를 비활성화하면 하위 세부 종류 ${children}개도 새로 고를 수 없게 됩니다. 계속할까요?`,
-        )
-      )
-        return;
+      const ok = await confirm({
+        title: '종류 비활성화',
+        message: `${c.label} 종류를 비활성화하면 하위 세부 종류 ${children}개도 새로 고를 수 없게 됩니다. 계속할까요?`,
+        confirmLabel: '비활성화',
+        tone: 'danger',
+      });
+      if (!ok) return;
     }
     toggleActive.mutate(c);
   };
@@ -279,7 +282,7 @@ export const CodesPage = () => {
                           <Switch
                             checked={c.active}
                             disabled={toggleActive.isPending}
-                            onChange={() => onToggle(c)}
+                            onChange={() => void onToggle(c)}
                             title={c.active ? '끄면 새로 고를 수 없게 됩니다' : '다시 사용'}
                           />
                         </td>

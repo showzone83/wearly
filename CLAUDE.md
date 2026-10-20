@@ -104,6 +104,7 @@ docker compose down                       # 중지 (DB 데이터는 wearly-pgdat
 - 상태 공유는 zustand 스토어(`admin/src/stores/`), React Context 금지.
 - 컴포넌트·커스텀 훅 본문은 ref → state → hooks → effect → memo → event 순서(분류 사이 빈 줄). TDZ 때문에 앞에 둬야 하는 선언만 바로 위에 `// 순서 예외: <이유>` (로컬 규칙 `local/component-order`).
 - import 그룹은 위치 기준 react → api → component(`components`·`pages`) → hooks(`hooks`·`stores`) → 3rd party → local(`lib` 등) → css, 그룹 사이 빈 줄·안은 알파벳순·`import type`은 따로 값 뒤. 내부 모듈은 `@/` 별칭만(상대 경로 금지). `npm run lint -- --fix`로 정렬.
+- 브라우저 기본 창(`alert`·`confirm`·`prompt`) 금지. 확인은 `useConfirmStore`의 `ask`(Promise), 안내는 토스트(`useToastStore`) (이슈 #10, ESLint).
 - 포맷은 루트 `.prettierrc.json`(작은따옴표, 120자)을 따른다. VS Code는 저장할 때 Prettier와 ESLint 자동 수정을 적용한다(`.vscode/settings.json`).
 - 자세한 내용은 `admin/README.md`의 "코드 규칙".
 

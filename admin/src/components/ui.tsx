@@ -310,7 +310,11 @@ export const Drawer = ({
   );
 };
 
-/** 가운데 뜨는 작은 대화상자 (확인·비밀 입력). Drawer 위에 겹쳐 열 수 있고, Esc는 이 창만 닫는다 */
+/** 열린 Modal id (연 순서). Esc는 맨 위(마지막) Modal만 닫는다 */
+const openModals: number[] = [];
+let modalSeq = 0;
+
+/** 가운데 뜨는 작은 대화상자 (확인·비밀 입력). Drawer·다른 Modal 위에 겹쳐 열 수 있고, Esc는 맨 위 창만 닫는다 */
 export const Modal = ({
   title,
   onClose,
@@ -322,16 +326,27 @@ export const Modal = ({
   children: ReactNode;
   footer?: ReactNode;
 }) => {
+  const [id] = useState(() => ++modalSeq);
+
+  useEffect(() => {
+    openModals.push(id);
+    return () => {
+      const i = openModals.lastIndexOf(id);
+      if (i >= 0) openModals.splice(i, 1);
+    };
+  }, [id]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
+      // 같은 캡처 단계 리스너는 먼저 연(아래) 창부터 불리므로, 맨 위 창이 아니면 넘긴다
+      if (openModals[openModals.length - 1] !== id) return;
       e.preventDefault();
       onClose();
     };
     // 캡처 단계에서 먼저 받아 아래 Drawer의 Esc 처리보다 앞선다
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose]);
+  }, [id, onClose]);
   // body에 바로 붙여 Drawer(애니메이션 transform·스크롤 영역) 안에서도 화면 가운데에 뜨게 한다
   return createPortal(
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>

@@ -1032,6 +1032,12 @@ input[type='checkbox'] {
   padding: 18px 22px 22px;
 }
 
+/* 확인 대화상자 본문 (components/ConfirmHost.tsx): 문구의 줄바꿈을 살린다 */
+.confirm-message {
+  white-space: pre-line;
+  line-height: 1.6;
+}
+
 /* ───────── AI 공급자: API 키 ───────── */
 
 .key-box {

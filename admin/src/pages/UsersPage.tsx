@@ -9,6 +9,7 @@ import { Badge, Button, Card, Empty, ErrorBox, Loading, PageHeader, Pagination }
 import { UserSessionsDrawer } from '@/pages/UserSessionsDrawer';
 
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useConfirmStore } from '@/stores/useConfirmStore';
 import { useToastStore } from '@/stores/useToastStore';
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -42,6 +43,7 @@ export const UsersPage = () => {
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
   const toastError = useToastStore((s) => s.showError);
+  const confirm = useConfirmStore((s) => s.ask);
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: qk.users(query),
     queryFn: () => api.users.list(query),
@@ -97,14 +99,28 @@ export const UsersPage = () => {
   };
 
   const act = (u: IAdminUser, patch: IUserPatch, message: string) => {
-    if (window.confirm(message)) update.mutate({ user: u, patch });
+    const [title, danger]: [string, boolean] = patch.status
+      ? patch.status === 'SUSPENDED'
+        ? ['회원 정지', true]
+        : ['정지 해제', false]
+      : patch.role === 'ADMIN'
+        ? ['관리자 지정', false]
+        : ['관리자 해제', true];
+    void confirm({ title, message, confirmLabel: title, tone: danger ? 'danger' : 'primary' }).then((ok) => {
+      if (ok) update.mutate({ user: u, patch });
+    });
   };
   const confirmResetMfa = (u: IAdminUser) => {
-    const ok = window.confirm(
-      `${u.email ?? u.name} 회원의 2단계 인증을 초기화할까요?\n` +
+    void confirm({
+      title: '2단계 인증 초기화',
+      message:
+        `${u.email ?? u.name} 회원의 2단계 인증을 초기화할까요?\n` +
         '인증 앱 등록과 복구 코드가 지워지고 그 회원의 로그인이 모두 끊깁니다. 다음 로그인 때 인증 앱을 다시 등록합니다.',
-    );
-    if (ok) resetMfa.mutate(u);
+      confirmLabel: '초기화',
+      tone: 'danger',
+    }).then((ok) => {
+      if (ok) resetMfa.mutate(u);
+    });
   };
 
   return (

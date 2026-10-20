@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from '@/App';
+import { ConfirmHost } from '@/components/ConfirmHost';
 import { Toaster } from '@/components/Toaster';
 
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -22,6 +23,7 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <App />
         <Toaster />
+        <ConfirmHost />
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

@@ -146,8 +146,8 @@ admin/
       client.ts            토큰 갱신 single-flight, 응답 정규화
       tokenStore.ts        sessionStorage (wearly-admin-tokens, wearly-admin-user, wearly-admin-sso[SSO 공급자 ID], wearly-admin-sso-pending[SSO 시작~콜백])
       types.ts · errors.ts(ApiError: code·params·fieldErrors·traceId) · index.ts
-    stores/                zustand 스토어: useAuthStore(로그인 사용자·상태, 로그인·2단계 인증 단계[대기 토큰·등록·코드·복구 코드]·회사 계정 로그인[startSso·completeSso·failSso]·로그아웃(SSO면 IdP 로그아웃도), 로그인 잃음 처리), useToastStore(토스트)
-    components/            Layout(왼쪽 메뉴), ui(버튼·표·패널 등), Garment(일러스트·색 칩), Toaster(토스트 표시),
+    stores/                zustand 스토어: useAuthStore(로그인 사용자·상태, 로그인·2단계 인증 단계[대기 토큰·등록·코드·복구 코드]·회사 계정 로그인[startSso·completeSso·failSso]·로그아웃(SSO면 IdP 로그아웃도), 로그인 잃음 처리), useToastStore(토스트), useConfirmStore(확인 대화상자)
+    components/            Layout(왼쪽 메뉴), ui(버튼·표·패널 등), Garment(일러스트·색 칩), Toaster(토스트 표시), ConfirmHost(확인 대화상자 표시),
                            Mascot(마스코트 PNG), ThemePreview(색 견본·작은 앱 화면), SeasonPreview(4계절 × 2테마 미리보기), Mfa(QR·코드 입력·복구 코드 공용 조각), Sessions
     lib/                   queryClient(React Query 캐시), garment(앱 일러스트 데이터 래퍼), appTheme(앱 테마·마스코트 데이터 래퍼),
                            queries(TanStack Query 키·훅), format, providerTypes, modelPicker(모델 드롭다운의 순수 함수),
@@ -206,3 +206,15 @@ admin/
    - 그룹 안은 경로 알파벳순, `{ … }` 안의 이름도 알파벳순. 타입은 `import { a, type B }` 대신 **`import type { B }` 문으로 따로** 쓰고, 같은 그룹 안에서 값 import 뒤에 온다.
    - **내부 모듈은 `@/` 별칭으로만 가져온다**(`./client`, `../api` 같은 상대 경로 금지, 같은 폴더도 `@/pages/providers/ProviderForm`처럼). 그래야 경로 문자열만으로 위치를 알 수 있다. `@/`는 `tsconfig.app.json`의 `paths`와 `vite.config.ts`의 `alias`에 있다.
    - ESLint: `simple-import-sort/imports`(그룹 정의는 `eslint-rules/import-groups.js`), 이름 순서를 바꿀 때 빠지는 쉼표 뒤 공백은 `@stylistic/comma-spacing`, 상대 경로는 `no-restricted-imports`(patterns), 인라인 `type`은 `no-restricted-syntax`(`ImportSpecifier[importKind='type']`). 순서는 `npm run lint -- --fix`로 자동 정렬된다.
+7. **브라우저 기본 창(`alert`·`confirm`·`prompt`)은 쓰지 않는다** (이슈 #10). 확인은 `useConfirmStore`의 `ask`(Promise로 true/false, 그리는 쪽 `components/ConfirmHost.tsx`), 결과 안내는 토스트(`useToastStore`), 화면 안 안내는 `Notice`·`ErrorBox`를 쓴다.
+   ```tsx
+   const confirm = useConfirmStore((s) => s.ask);
+
+   const handleDelete = async () => {
+     if (!(await confirm({ title: '코드 삭제', message: '삭제할까요?', confirmLabel: '삭제', tone: 'danger' }))) return;
+     remove.mutate();
+   };
+   ```
+   - `tone: 'danger'`면 빨간 확인 버튼이고 처음 포커스는 취소 버튼이다(Enter로 실수로 실행하지 않게). 닫기·Esc·바깥 클릭은 취소. 여러 번 부르면 순서대로 하나씩 뜬다.
+   - Modal이 겹치면 Esc는 맨 위 창만 닫는다(`components/ui.tsx` `Modal`).
+   - ESLint: `no-restricted-globals`(`alert`·`confirm`·`prompt`), `no-restricted-properties`(`window`·`globalThis`·`self`의 같은 이름).

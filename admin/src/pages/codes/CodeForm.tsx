@@ -8,6 +8,7 @@ import type { IAdminCode, IAdminCodeGroup, ICodeAttrs, TSlot } from '@/api';
 import { ColorChip, GarmentPreview } from '@/components/Garment';
 import { Button, Drawer, Field, Notice, Segmented, Switch } from '@/components/ui';
 
+import { useConfirmStore } from '@/stores/useConfirmStore';
 import { useToastStore } from '@/stores/useToastStore';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -160,6 +161,7 @@ export const CodeForm = ({
 
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
+  const confirm = useConfirmStore((s) => s.ask);
   const save = useMutation({
     mutationFn: async () => {
       const attrs = buildAttrs();
@@ -326,9 +328,15 @@ export const CodeForm = ({
     if (v.size === 0) save.mutate();
   };
 
-  const onDelete = () => {
+  const onDelete = async () => {
     if (!original) return;
-    if (!window.confirm(`${original.label}(${original.code}) 코드를 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    const ok = await confirm({
+      title: '코드 삭제',
+      message: `${original.label}(${original.code}) 코드를 삭제할까요? 되돌릴 수 없습니다.`,
+      confirmLabel: '삭제',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setInUse(null);
     remove.mutate();
   };
@@ -341,7 +349,7 @@ export const CodeForm = ({
       footer={
         <>
           {isEdit ? (
-            <Button variant="danger" onClick={onDelete} busy={remove.isPending} className="mr-auto">
+            <Button variant="danger" onClick={() => void onDelete()} busy={remove.isPending} className="mr-auto">
               삭제
             </Button>
           ) : (

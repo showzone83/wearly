@@ -10,6 +10,7 @@ import { MfaSetupView, RecoveryCodesView, TotpInput } from '@/components/Mfa';
 import { Badge, Button, Card, Drawer, ErrorBox, Field, Loading, Notice, PageHeader, Segmented } from '@/components/ui';
 
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useConfirmStore } from '@/stores/useConfirmStore';
 import { useToastStore } from '@/stores/useToastStore';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -138,6 +139,7 @@ const MfaEnrollDrawer = ({ reenroll, onClose }: { reenroll: boolean; onClose: ()
   const email = useAuthStore((s) => s.user?.email ?? null);
   const setRecoveryCodesLeft = useAuthStore((s) => s.setRecoveryCodesLeft);
   const toast = useToastStore((s) => s.show);
+  const askConfirm = useConfirmStore((s) => s.ask);
 
   useEffect(() => {
     if (step !== 'setup') return;
@@ -161,8 +163,19 @@ const MfaEnrollDrawer = ({ reenroll, onClose }: { reenroll: boolean; onClose: ()
     void queryClient.invalidateQueries({ queryKey: ['users'] });
   };
   const handleClose = () => {
-    if (step === 'codes' && !window.confirm('복구 코드를 저장하지 않고 닫을까요? 이 코드는 다시 볼 수 없어요.')) return;
-    onClose();
+    if (step !== 'codes') {
+      onClose();
+      return;
+    }
+    void askConfirm({
+      title: '복구 코드',
+      message: '복구 코드를 저장하지 않고 닫을까요? 이 코드는 다시 볼 수 없어요.',
+      confirmLabel: '저장하지 않고 닫기',
+      cancelLabel: '돌아가기',
+      tone: 'danger',
+    }).then((ok) => {
+      if (ok) onClose();
+    });
   };
   const handleRetrySetup = () => {
     setSetup(null);

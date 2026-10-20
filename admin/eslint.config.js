@@ -75,6 +75,24 @@ export default defineConfig([
           ],
         },
       ],
+      // 7. 브라우저 기본 창(alert·confirm·prompt)은 쓰지 않는다 (이슈 #10). 확인은 useConfirmStore, 안내는 useToastStore
+      'no-restricted-globals': [
+        'error',
+        ...['alert', 'confirm', 'prompt'].map((name) => ({
+          name,
+          message: '브라우저 기본 창 대신 useConfirmStore(확인)나 useToastStore(안내)를 쓰세요.',
+        })),
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...['window', 'globalThis', 'self'].flatMap((object) =>
+          ['alert', 'confirm', 'prompt'].map((property) => ({
+            object,
+            property,
+            message: '브라우저 기본 창 대신 useConfirmStore(확인)나 useToastStore(안내)를 쓰세요.',
+          })),
+        ),
+      ],
       // 2·3. 인터페이스 이름은 I로, 타입 별칭 이름은 T로 시작한다 (IProps, TKeySource)
       '@typescript-eslint/naming-convention': [
         'error',

@@ -9,6 +9,7 @@ import { KeySourceBadge } from '@/pages/providers/ApiKeySection';
 import { ProviderForm } from '@/pages/providers/ProviderForm';
 import { TestPanel } from '@/pages/providers/TestPanel';
 
+import { useConfirmStore } from '@/stores/useConfirmStore';
 import { useToastStore } from '@/stores/useToastStore';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -37,6 +38,7 @@ export const ProvidersPage = () => {
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
   const toastError = useToastStore((s) => s.showError);
+  const confirm = useConfirmStore((s) => s.ask);
   // 순서 예외: 아래 swap의 onSuccess 옵션이 렌더 중에 invalidate를 바로 읽는다
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: qk.providers });
@@ -85,8 +87,14 @@ export const ProvidersPage = () => {
   const setEditing = (p: IAiProvider | 'new' | null) => setEditingId(p === 'new' || p === null ? p : p.providerId);
 
   const onDelete = (p: IAiProvider) => {
-    if (window.confirm(`${p.displayName}(${p.providerId}) 공급자를 삭제할까요? 분석 기록은 남습니다.`))
-      remove.mutate(p);
+    void confirm({
+      title: '공급자 삭제',
+      message: `${p.displayName}(${p.providerId}) 공급자를 삭제할까요? 분석 기록은 남습니다.`,
+      confirmLabel: '삭제',
+      tone: 'danger',
+    }).then((ok) => {
+      if (ok) remove.mutate(p);
+    });
   };
 
   return (
