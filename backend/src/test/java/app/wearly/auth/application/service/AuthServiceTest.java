@@ -107,6 +107,16 @@ class AuthServiceTest {
         public void postpone(long credentialId, Instant at) {
           credentialRows.put(credentialId, credentialRows.get(credentialId).postponedAt(at));
         }
+
+        @Override
+        public List<Long> findReminderDueUserIds(Instant dueBy, int limit) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean claimReminder(long userId, Instant dueBy, Instant now) {
+          throw new UnsupportedOperationException();
+        }
       };
 
   final PasswordHasher hasher =

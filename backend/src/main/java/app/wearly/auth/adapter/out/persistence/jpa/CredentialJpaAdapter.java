@@ -4,6 +4,7 @@ import app.wearly.auth.application.port.out.CredentialPort;
 import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
@@ -59,6 +60,16 @@ class CredentialJpaAdapter implements CredentialPort {
   public void postpone(long credentialId, Instant at) {
     load(credentialId).postpone(at);
     credentials.flush();
+  }
+
+  @Override
+  public List<Long> findReminderDueUserIds(Instant dueBy, int limit) {
+    return credentials.findReminderDueUserIds(dueBy, limit);
+  }
+
+  @Override
+  public boolean claimReminder(long userId, Instant dueBy, Instant now) {
+    return credentials.claimReminder(userId, dueBy, now) > 0;
   }
 
   private LocalCredentialEntity load(long credentialId) {
