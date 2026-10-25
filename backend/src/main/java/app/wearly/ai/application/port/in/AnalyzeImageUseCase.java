@@ -13,4 +13,10 @@ public interface AnalyzeImageUseCase {
    * 그다음은 analyze와 같다
    */
   AnalyzeResultDto analyzeStored(long userId, String imageId);
+
+  /**
+   * imageOwnerId의 저장한 사진으로 분석하고 일일 한도·기록은 quotaUserId로 센다 (옷장 도우미가 주인 사진을 분석할 때 돕는 사람 한도를 쓴다,
+   * doc/26 D7). 권한 확인은 부르는 쪽이 한다
+   */
+  AnalyzeResultDto analyzeStored(long quotaUserId, long imageOwnerId, String imageId);
 }

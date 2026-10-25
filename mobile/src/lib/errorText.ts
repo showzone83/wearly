@@ -231,6 +231,17 @@ export const SERVER_TEXT: Record<string, TText> = {
     return '쓸 수 있는 날씨 공급자가 없어요. 공급자 사용 여부·키·차단 상태·월 한도를 확인해 주세요.';
   },
   PLAN_LIMIT: (p) => `예정은 ${has(p, 'max') ? str(p.max) : '500'}개까지 저장할 수 있어요. 지난 예정을 지워 주세요.`,
+  // 옷장 도우미 연결 (doc/26)
+  PAIRING_CODE_INVALID: '코드가 맞지 않거나 시간이 지났어요. 코드를 다시 받아 주세요.',
+  PAIRING_SELF: '내가 만든 코드는 내가 입력할 수 없어요. 상대에게 코드를 보내 주세요.',
+  PAIRING_EXISTS: '이미 연결됐거나 승인을 기다리는 상대예요.',
+  PAIRING_LIMIT: (p) => {
+    const max = has(p, 'max') ? str(p.max) : null;
+    if (str(p.side) === 'OWNER') return `옷장 주인은 돕는 사람을 ${max ?? '정해진 수'}명까지 연결할 수 있어요.`;
+    if (str(p.side) === 'HELPER') return `옷장은 ${max ?? '정해진 수'}곳까지 맡을 수 있어요.`;
+    return '연결할 수 있는 인원을 모두 채웠어요.';
+  },
+  PAIRING_TOO_MANY_ATTEMPTS: '코드를 여러 번 입력했어요. 잠시 후 다시 시도해 주세요.',
   INTERNAL_ERROR: '일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.',
   NOT_ACCEPTABLE: '지원하지 않는 응답 형식이에요.',
   CONFLICT: '다른 요청과 겹쳐 처리하지 못했어요. 다시 시도해 주세요.',

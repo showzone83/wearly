@@ -176,6 +176,19 @@ wearly:
       time: ${WEARLY_NOTIFY_DAY_BEFORE_TIME:19:30}
       # false면 작업을 예약하지 않는다 (테스트용)
       scheduler-enabled: ${WEARLY_NOTIFY_DAY_BEFORE_SCHEDULER_ENABLED:true}
+  # 옷장 도우미 연결 (pairing 컨텍스트, doc/26). 인원은 승인 대기 중인 요청도 센다
+  pairing:
+    # 주인 한 명에게 연결할 수 있는 돕는 사람 수
+    max-helpers-per-owner: ${WEARLY_PAIRING_MAX_HELPERS_PER_OWNER:1}
+    # 돕는 사람 한 명이 맡을 수 있는 옷장 수 (부모 두 분 등)
+    max-closets-per-helper: ${WEARLY_PAIRING_MAX_CLOSETS_PER_HELPER:2}
+    # 연결 코드 유효 시간 (1회용)
+    code-ttl: ${WEARLY_PAIRING_CODE_TTL:PT24H}
+    # 주인 승인을 기다리는 시간. 지나면 대기 요청은 없는 것으로 본다
+    pending-ttl: ${WEARLY_PAIRING_PENDING_TTL:P7D}
+    # 코드 입력 시도 한도 (join-attempt-window마다, 맞는 입력도 센다)
+    join-attempt-limit: ${WEARLY_PAIRING_JOIN_ATTEMPT_LIMIT:10}
+    join-attempt-window: ${WEARLY_PAIRING_JOIN_ATTEMPT_WINDOW:PT1H}
   # 웹에서 넣은 AI 키를 암호화하는 마스터 키 (base64 32바이트, openssl rand -base64 32). 없으면 웹 키 입력이 꺼진다
   secret-key: ${WEARLY_SECRET_KEY:}
   admin:

@@ -259,6 +259,11 @@ export const SERVER_ERROR_TEXT: Record<string, TText | null> = {
   IMAGE_TOO_LARGE: '사진이 너무 커요. 10MB 이하 사진을 올려 주세요.',
   UNSUPPORTED_MEDIA_TYPE: '지원하지 않는 형식이에요. JPEG·PNG·WebP·HEIC 사진을 올려 주세요.',
   PLAN_LIMIT: null, // 앱 예정 코디 개수 한도
+  PAIRING_CODE_INVALID: null, // 앱 옷장 도우미 연결 (doc/26)
+  PAIRING_SELF: null, // 앱 옷장 도우미 연결
+  PAIRING_EXISTS: null, // 앱 옷장 도우미 연결
+  PAIRING_LIMIT: null, // 앱 옷장 도우미 연결
+  PAIRING_TOO_MANY_ATTEMPTS: null, // 앱 옷장 도우미 연결
   AI_LIMIT_EXCEEDED: null, // 앱 회원 일일 한도 (관리자 시험 분석은 한도에 세지 않는다)
   AI_UNAVAILABLE: (p) =>
     `AI ${featureText(p.feature)}을(를) 지금 할 수 없어요. AI 공급자의 사용 여부·키·오늘 실패를 확인해 주세요.`,

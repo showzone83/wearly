@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 옷장 도우미 연결 읽기 전용 조회 (doc/26). 살아 있는 연결 = ACTIVE 또는 pendingSince 뒤에 만든 PENDING -->
+<mapper namespace="app.wearly.pairing.adapter.out.persistence.mybatis.mapper.PairingMapper">
+
+    <sql id="open">
+        (p.status = 'ACTIVE' OR (p.status = 'PENDING' AND p.created_at &gt; #{pendingSince}))
+    </sql>
+
+    <select id="countOpenAsOwner" resultType="long">
+        SELECT count(*)
+          FROM tb_closet_pairing p
+         WHERE p.owner_id = #{ownerId} AND <include refid="open"/>
+    </select>
+
+    <select id="countOpenAsHelper" resultType="long">
+        SELECT count(*)
+          FROM tb_closet_pairing p
+         WHERE p.helper_id = #{helperId} AND <include refid="open"/>
+    </select>
+
+    <select id="findOpen" resultType="app.wearly.pairing.application.port.out.dto.PairingRowDto">
+        SELECT p.pairing_id, p.owner_id, o.name AS owner_name, p.helper_id, h.name AS helper_name,
+               p.permission, p.status, p.issued_by, p.notify_owner, p.created_at, p.approved_at
+          FROM tb_closet_pairing p
+          JOIN tb_user o ON o.user_id = p.owner_id
+          JOIN tb_user h ON h.user_id = p.helper_id
+         WHERE (p.owner_id = #{userId} OR p.helper_id = #{userId}) AND <include refid="open"/>
+         ORDER BY p.created_at DESC, p.pairing_id DESC
+    </select>
+
+    <select id="findUserName" resultType="string">
+        SELECT u.name FROM tb_user u WHERE u.user_id = #{userId}
+    </select>
+
+    <select id="findActions" resultType="app.wearly.pairing.application.port.out.dto.ProxyActionRowDto">
+        SELECT a.action_id, a.action, a.item_id, a.item_name, a.created_at
+          FROM tb_closet_proxy_action a
+         WHERE a.pairing_id = #{pairingId}
+         ORDER BY a.created_at DESC, a.action_id DESC
+         LIMIT #{limit}
+    </select>
+</mapper>

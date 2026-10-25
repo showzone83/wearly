@@ -116,9 +116,14 @@ public class AiAnalysisService implements AnalyzeImageUseCase, ProviderTestUseCa
 
   @Override
   public AnalyzeResultDto analyzeStored(long userId, String imageId) {
-    ImageContentDto stored = storedImages.readOriginal(userId, imageId);
+    return analyzeStored(userId, userId, imageId);
+  }
+
+  @Override
+  public AnalyzeResultDto analyzeStored(long quotaUserId, long imageOwnerId, String imageId) {
+    ImageContentDto stored = storedImages.readOriginal(imageOwnerId, imageId);
     return analyze(
-        userId,
+        quotaUserId,
         new ImageUpload(stored.bytes(), stored.contentType(), stored.bytes().length, true, false));
   }
 

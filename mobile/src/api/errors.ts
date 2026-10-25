@@ -32,6 +32,16 @@ export type ApiErrorCode =
   | 'WEATHER_LIMIT'
   /** 예정 코디 저장 개수 상한 초과 (409, params.max = 500). POST /plans·/plans/bulk */
   | 'PLAN_LIMIT'
+  /** 옷장 도우미 연결 코드가 없음·만료·이미 사용됨 (404, doc/26) */
+  | 'PAIRING_CODE_INVALID'
+  /** 내가 만든 연결 코드를 내가 입력함 (400) */
+  | 'PAIRING_SELF'
+  /** 이미 연결됐거나 승인 대기 중인 상대 (409) */
+  | 'PAIRING_EXISTS'
+  /** 연결 인원 초과, 대기 포함 (409). params.side: OWNER(주인의 돕는 사람 수) · HELPER(돕는 사람의 옷장 수), params.max */
+  | 'PAIRING_LIMIT'
+  /** 연결 코드 입력 시도 한도 초과 (429) */
+  | 'PAIRING_TOO_MANY_ATTEMPTS'
   /** 서버에 닿지 못함 (연결 실패·시간 초과) */
   | 'NETWORK'
   /** 응답이 계약 형식이 아님 (JSON이 아닌 오류 본문 등) */

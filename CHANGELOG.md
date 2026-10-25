@@ -130,8 +130,11 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 
 #### 추가
 - 친구 초대·추천인: 회원별 초대 코드(8자, 처음 볼 때 발급), 앱 더보기 > 친구 초대 화면(OS 공유 시트로 카카오톡 등·문자 `expo-sms`·코드 복사, 초대로 가입한 친구 목록), 가입 화면 "초대 코드 (선택)"(없는 코드여도 가입은 되고 `UNKNOWN_CODE`로 기록). 초대한 이력·초대 코드 가입 이력 테이블(`V26__invite.sql`), 새 `invite` 컨텍스트와 API `GET /users/me/invite`·`POST /users/me/invite/shares`·`GET /users/me/invite/friends`, 가입 `inviteCode`. 관리자: 회원 목록 추천인·초대 수 열, 새 "친구 초대" 화면(가입 이력·초대한 이력 탭, `GET /admin/invites/signups`·`/shares`). 하네스 시나리오 2개, API 스냅샷에 새 응답 ([#16](https://github.com/showzone83/wearly/issues/16), [doc/25](doc/25_친구_초대.md)) (작성: kang6123)
+- 옷장 도우미 연결(1단계, 백엔드): 돕는 사람이 옷장 주인의 옷을 대신 관리하기 전에 연결한다. 연결 코드(8자·1회용·24시간, Valkey) 두 흐름 — 주인 코드를 돕는 사람이 넣으면 승인 대기(7일), 돕는 사람 코드를 주인이 넣으면 고른 권한(`VIEW`·`EDIT`)으로 바로 연결. 승인·거절·권한·알림 변경·양쪽 해제, 인원 주인당 1명·돕는 사람당 2곳(대기 포함, `wearly.pairing.*`), 코드 입력 1시간 10회. 새 `pairing` 컨텍스트와 `/api/v1/pairings` API, `V27__closet_pairing.sql`, 오류 코드 5개(`PAIRING_*`, 서버 51 → 56개)와 앱·관리자 문구 표. 앱 화면·대리 작업은 다음 단계 ([#11](https://github.com/showzone83/wearly/issues/11), [doc/26](doc/26_옷장_도우미.md)) (작성: kang6123)
+- 옷장 도우미 대리 작업(2단계, 백엔드): 돕는 사람이 `/api/v1/owners/{ownerId}/…`로 주인 옷장의 옷을 조회(`VIEW`)·등록·수정·사용 중지·다시 사용(`EDIT`)하고, 주인 이름으로 사진을 올리고(주인 경로·주인 업로드 한도), 그 사진을 AI 분석한다(돕는 사람 한도). 완전 삭제는 없음. 연결이 없으면 404, 권한 부족 403(매 요청 DB 확인). 바꾼 일은 같은 트랜잭션에서 작업 기록(`V28__closet_proxy_action.sql`, `GET /pairings/{id}/actions`). wardrobe·image·ai에 대리 컨트롤러·서비스, pairing에 `ClosetAccessUseCase`, `AnalyzeImageUseCase.analyzeStored(한도 회원, 사진 주인, imageId)` ([#11](https://github.com/showzone83/wearly/issues/11), [doc/26](doc/26_옷장_도우미.md) 4.5~4.7) (작성: kang6123)
 
 #### 변경
+- 초대 코드 글자 규칙(8자, 0·1·I·L·O 제외)을 공유 커널 `sharedkernel.shortcode.ShortCodes`로 옮겨 옷장 도우미 연결 코드와 함께 쓴다. `InviteCodes`의 동작은 같다 ([doc/26](doc/26_옷장_도우미.md) 4.1) (작성: kang6123)
 - 친구 초대: 초대한 이력 연속 클릭·반복 호출 막기. 서버는 같은 회원·같은 방법을 60초에 한 번, 하루 30건까지만 기록하고 넘으면 기록 없이 204(Valkey 쿨다운·하루 카운터를 Lua 하나로, `InviteSharePolicy`). 앱은 공유 시트·문자 앱이 열려 있는 동안 버튼을 막고, 코드 복사 기록은 화면에서 처음 한 번만 보낸다. 관리자 친구 초대 화면은 같은 조건으로 다시 검색해도 목록을 다시 받는다 ([#16](https://github.com/showzone83/wearly/issues/16), [doc/25](doc/25_친구_초대.md) 6.1) (작성: kang6123)
 - 앱: Expo SDK 57 → 58 (`expo ~58.0.19`, React Native 0.88.0, React 19.3.0, `react-native-webview` 14.0.1, `react-native-view-shot` 6.1.1). RN 엄격 타입에서 없어진 `StyleSheet.NamedStyles` 대신 `theme.ts`에 같은 모양의 타입을 둠. expo-router 탭 바 props가 `navigation` 대신 `emitter`·`navigateToTab`이 되어 하단 탭 바를 맞춤. 쇼핑몰 캡처 화면 ref 타입(`ViewInstance`, webview 14 타입 우회 `WebView<object>`). 스토어 Expo Go가 SDK 58을 지원하기 전까지 휴대폰 확인 방법 ([doc/04](doc/04_목업_앱.md) 2장) (작성: kang6123)
 
@@ -140,6 +143,7 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 
 #### 문서
 - 친구 초대([doc/25](doc/25_친구_초대.md)) 새로. API 계약([doc/05](doc/05_백엔드_API.md) 6장 인증·친구 초대, 8장)·관리자 사이트([doc/07](doc/07_관리자_사이트.md) 4·5장)·백엔드 구조·흐름([doc/08](doc/08_백엔드_구조.md) 2장, [doc/10](doc/10_백엔드_흐름.md) 1.2·3.1)·DB 명령([doc/14](doc/14_DB_명령.md) 3·6장)·문서 목록 반영 (작성: kang6123)
+- 옷장 도우미([doc/26](doc/26_옷장_도우미.md)) 새로: 이슈 #11 검토, 결정 사항 11개, 0~7단계 계획, 1단계 구현 내용. API 계약([doc/05](doc/05_백엔드_API.md) 6장)·오류 응답([doc/20](doc/20_오류_응답.md) 14장)·문서 목록 반영 (작성: kang6123)
 
 ## 진행 중 (아직 `dev`에 없음)
 

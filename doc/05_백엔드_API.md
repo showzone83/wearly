@@ -23,6 +23,8 @@
 >
 > **이슈 #4·#5·#6, D-1 알림, 프롬프트 캐싱(2026-10-18)**: 옷 색 1~3개·구입일·초봄/초여름/초가을 계절(`V20`, 6장 "옷장"), 나의 정보 연령대·체형·키·핏(`V21`, 6장 "회원·프로필"), 계절 테마 `seasonMode`(6장 "앱 설정", [12](12_디자인_테마.md) 7장), 푸시 토큰 `PUT·DELETE /me/push-token`(`V17`, [23](23_D-1_알림.md)), AI 프롬프트 캐싱(7장).
 >
+> **옷장 도우미 연결(2026-10-25)**: 돕는 사람이 옷장 주인의 옷을 대신 관리하기 위한 연결. `/api/v1/pairings`(코드 발급·입력·목록·승인·거절·변경·해제), 새 오류 코드 5개(`V27__closet_pairing.sql`) → [26_옷장_도우미.md](26_옷장_도우미.md).
+>
 > **4차 변경**: AI 코디 추천 `POST /api/v1/outfits/recommendations`(`V5__outfit_recommend.sql`) → [09_AI_코디_추천.md](09_AI_코디_추천.md). 백엔드 코드 스타일(Google Java Style) → 08 문서 5장.
 
 ## 1. 범위
@@ -143,6 +145,7 @@ interface ErrorBody {
 | 사진: `IMAGE_INVALID`(`params.reason`), `IMAGE_NOT_UPLOADED`, `IMAGE_IN_USE`, `IMAGE_UPLOAD_LIMIT`, `IMAGE_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE` | [18](18_사진_저장.md) 6장 |
 | 날씨: `WEATHER_UNAVAILABLE`, `WEATHER_LIMIT`(`params.kind`), `WEATHER_REFRESH_RUNNING`, `WEATHER_NO_PROVIDER` | [17](17_날씨.md), [19](19_장소별_날씨.md) |
 | 예정 코디: `PLAN_LIMIT`(`params.max` = 500) | [21](21_예정_코디_저장.md) 2.2 |
+| 옷장 도우미 연결: `PAIRING_CODE_INVALID`, `PAIRING_SELF`, `PAIRING_EXISTS`, `PAIRING_LIMIT`(`params.side`·`max`), `PAIRING_TOO_MANY_ATTEMPTS` | [26](26_옷장_도우미.md), [20](20_오류_응답.md) 14장 |
 | 공통: `VALIDATION_FAILED`, `NOT_FOUND`(남의 것도 404), `METHOD_NOT_ALLOWED`, `NOT_ACCEPTABLE`, `CONFLICT`, `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE` | [20](20_오류_응답.md) 3장 |
 
 ## 5. 토큰
@@ -241,6 +244,37 @@ interface ProfileDto {
 | GET | `/users/me/invite/friends` | — | 200 `[{ name, joinedAt }]`. 내 코드로 가입한 친구, 최근 가입순, 최대 100명 |
 
 로그인 필요. 관리자 이력 API(`/admin/invites/signups`·`/admin/invites/shares`)는 07 문서 4장.
+
+### 옷장 도우미 연결 (26 문서)
+
+돕는 사람이 옷장 주인의 옷을 대신 등록·관리하기 전에 연결한다. 코드는 8자(화면에는 `XXXX-XXXX`, 대소문자·공백·하이픈 무시), 1회용, 24시간.
+
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| POST | `/pairings/codes` | `{ role }` | 201 `{ code, role, expiresAt }`. `role`은 코드를 만드는 자리 `OWNER`(주인)·`HELPER`(돕는 사람). 같은 자리로 만든 이전 코드는 사라진다 |
+| POST | `/pairings/join` | `{ code, permission? }` | 201 연결. 주인 코드면 입력한 회원이 돕는 사람이 되고 `PENDING`(주인 승인 대기, `permission`은 무시). 돕는 사람 코드면 입력한 회원이 주인이 되고 `permission`(`VIEW`·`EDIT`, 필수)으로 바로 `ACTIVE`. 오류 404 `PAIRING_CODE_INVALID`·400 `PAIRING_SELF`·409 `PAIRING_EXISTS`·409 `PAIRING_LIMIT`(`params.side`·`max`)·429 `PAIRING_TOO_MANY_ATTEMPTS` |
+| GET | `/pairings` | — | 200 `{ asOwner: [연결], asHelper: [연결] }` 최근 순. 끝난 연결·만료된 대기(7일)는 뺀다 |
+| POST | `/pairings/{id}/approve` | `{ permission }` | 200 연결 (주인, 대기 중일 때만) |
+| POST | `/pairings/{id}/reject` | — | 204 (주인, 대기 중일 때만) |
+| PATCH | `/pairings/{id}` | `{ permission?, notifyOwner? }` | 200 연결 (주인). 권한은 `ACTIVE`일 때만 |
+| DELETE | `/pairings/{id}` | — | 204. 양쪽 모두 끊을 수 있다(대기 취소 포함). 옷은 주인 옷장에 남는다 |
+| GET | `/pairings/{id}/actions` | — | 200 `[{ id, action, itemId, itemName, createdAt }]` 돕는 사람이 한 일, 최근 순 최대 100건. `action`은 `ITEM_CREATE`·`ITEM_UPDATE`·`ITEM_RETIRE`·`ITEM_RESTORE`. 주인·돕는 사람 모두, 끝난 연결도 |
+
+- 연결: `{ id, role, partnerId, partnerName, permission, status, issuedBy, notifyOwner, createdAt, approvedAt }`. `role`은 요청한 회원의 자리(`OWNER`·`HELPER`), `partner*`는 상대, `permission`은 승인 전 `null`, `status`는 `PENDING`·`ACTIVE`, `issuedBy`는 코드를 만든 쪽.
+- 로그인 필요. 연결에 없는 회원, 주인 자리가 아닌데 승인·거절·변경, 끝난 연결·만료된 대기는 404 `NOT_FOUND`. 인원은 주인당 돕는 사람 1명, 돕는 사람당 옷장 2곳(대기 포함, `wearly.pairing.*`).
+
+**대리 작업 (`/owners/{ownerId}/…`, 돕는 사람)** — 요청·응답 모양은 내 옷장 API와 같다. `ACTIVE` 연결이 없으면 404 `NOT_FOUND`, 보기(`VIEW`) 권한으로 바꾸려 하면 403 `FORBIDDEN`.
+
+| 메서드 | 경로 | 권한 | 같은 모양의 내 API |
+|---|---|---|---|
+| GET | `/owners/{ownerId}/wardrobe/items`, `/owners/{ownerId}/wardrobe/items/{id}` | VIEW | `/wardrobe/items` (같은 검색 조건) |
+| POST | `/owners/{ownerId}/wardrobe/items` | EDIT | `/wardrobe/items` |
+| PATCH | `/owners/{ownerId}/wardrobe/items/{id}` | EDIT | `/wardrobe/items/{id}` |
+| POST | `/owners/{ownerId}/wardrobe/items/{id}/retire`·`/restore` | EDIT | `/wardrobe/items/{id}/retire`·`/restore` |
+| POST | `/owners/{ownerId}/images/upload-url`, `/owners/{ownerId}/images/{imageId}/complete` | EDIT | `/images/…`. 사진은 주인 것으로 저장되고 하루 업로드 한도도 주인 것 |
+| POST | `/owners/{ownerId}/wardrobe/items/analyze` | EDIT | `/wardrobe/items/analyze`의 JSON `{ imageId }`만 (주인 경로로 올린 사진). 하루 한도·`remainingToday`는 돕는 사람 것 |
+
+- 완전 삭제(`DELETE`)·여러 벌 등록·통계는 없다 (완전 삭제를 보내면 405). 등록·수정·사용 중지·다시 사용은 작업 기록에 남는다 (26 문서 4.7).
 
 ### 옷장
 

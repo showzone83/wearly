@@ -65,7 +65,8 @@ class HexagonalArchitectureTest {
           "weather",
           "plan",
           "notify",
-          "invite");
+          "invite",
+          "pairing");
   static final Pattern CONTEXT_CLASS =
       Pattern.compile("^app\\.wearly\\.(" + String.join("|", CONTEXTS) + ")\\.(.*)$");
 
