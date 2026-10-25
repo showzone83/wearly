@@ -7,6 +7,7 @@ import { AuditLogsPage } from '@/pages/AuditLogsPage';
 import { AuthEventsPage } from '@/pages/AuthEventsPage';
 import { CodesPage } from '@/pages/codes/CodesPage';
 import { DashboardPage } from '@/pages/DashboardPage';
+import { InvitesPage } from '@/pages/InvitesPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MyAccountPage } from '@/pages/MyAccountPage';
 import { ProvidersPage } from '@/pages/providers/ProvidersPage';
@@ -47,6 +48,7 @@ export const App = () => {
         <Route path="ai/providers" element={<ProvidersPage />} />
         <Route path="ai/logs" element={<AiLogsPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="invites" element={<InvitesPage />} />
         <Route path="sessions" element={<SessionsPage />} />
         <Route path="auth-events" element={<AuthEventsPage />} />
         <Route path="me" element={<MyAccountPage />} />

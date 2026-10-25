@@ -271,6 +271,16 @@ export default function My() {
         </>
       )}
 
+      {/* 친구 초대 (doc/25). 초대 코드는 서버 계정에 있으므로 계정 사용자만 */}
+      {isAccount && (
+        <>
+          <Text style={s.section}>친구 초대</Text>
+          <MenuCard>
+            <MenuRow icon="share" label="친구 초대" value="초대 코드 보내기" last onPress={() => router.push('/invite')} />
+          </MenuCard>
+        </>
+      )}
+
       <Text style={s.section}>계정</Text>
       <MenuCard>
         {isAccount ? (

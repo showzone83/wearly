@@ -28,6 +28,8 @@ export const qk = {
   myMfa: ['me', 'mfa'] as const,
   /** 관리자 로그인 기록 */
   authEvents: (q: object) => ['auth-events', q] as const,
+  inviteSignups: (q: object) => ['invite-signups', q] as const,
+  inviteShares: (q: object) => ['invite-shares', q] as const,
   audit: (q: object) => ['audit', q] as const,
   appTheme: ['app', 'theme'] as const,
   /** 'sessions'로 시작하는 키를 무효화하면 목록과 회원별 세션이 함께 다시 읽힌다 */

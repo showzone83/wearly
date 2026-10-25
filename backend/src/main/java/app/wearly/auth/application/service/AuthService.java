@@ -24,6 +24,7 @@ import app.wearly.auth.domain.PasswordPolicy;
 import app.wearly.common.domain.FieldError;
 import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
+import app.wearly.invite.application.port.in.InviteUseCase;
 import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.time.Clock;
@@ -43,6 +44,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
   private final AccessTokenIssuer accessTokens;
   private final PasswordHasher passwords;
   private final AuthEventPort events;
+  private final InviteUseCase invites;
   private final Clock clock;
 
   /** 없는 이메일로 로그인할 때도 같은 시간이 걸리도록 비교에 쓰는 더미 해시 */
@@ -56,6 +58,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
       AccessTokenIssuer accessTokens,
       PasswordHasher passwords,
       AuthEventPort events,
+      InviteUseCase invites,
       Clock clock) {
     this.users = users;
     this.credentials = credentials;
@@ -64,6 +67,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
     this.accessTokens = accessTokens;
     this.passwords = passwords;
     this.events = events;
+    this.invites = invites;
     this.clock = clock;
     this.dummyHash = passwords.encode("wearly-dummy-password-1");
   }
@@ -77,6 +81,8 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
     }
     UserAccountDto user = users.create(email, req.name().strip(), UserAccountDto.ROLE_USER);
     saveCredential(new LocalCredential(null, user.id(), email, passwords.encode(req.password())));
+    // 초대 코드 가입 이력 (doc/25). 없는 코드여도 가입은 막지 않는다
+    invites.recordSignup(user.id(), req.inviteCode());
     return issueTokens(user, client);
   }
 

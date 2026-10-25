@@ -243,6 +243,14 @@ class ApiResponseSnapshotTest {
     keepOnboarded.put("onboarded", false);
     record("profile.put.notOnboarded", api.put("/api/v1/users/me/profile", t, keepOnboarded));
     record("profile.put.restore", api.put("/api/v1/users/me/profile", t, profile));
+    // 친구 초대 (doc/25). 코드는 매번 달라 자리표시자로 바꾼다
+    record("invite.get", api.get("/api/v1/users/me/invite", t));
+    record(
+        "invite.share", api.post("/api/v1/users/me/invite/shares", t, Map.of("channel", "copy")));
+    record(
+        "invite.share.invalid",
+        api.post("/api/v1/users/me/invite/shares", t, Map.of("channel", "FAX")));
+    record("invite.friends", api.get("/api/v1/users/me/invite/friends", t));
   }
 
   private static Map<String, Object> profile() {
@@ -799,6 +807,9 @@ class ApiResponseSnapshotTest {
     record("admin.audit", api.get("/api/v1/admin/audit-logs?size=100", t));
     record("admin.audit.code", api.get("/api/v1/admin/audit-logs?targetType=CODE&size=3", t));
     record("admin.audit.invalid", api.get("/api/v1/admin/audit-logs?targetType=ITEM", t));
+    record("admin.invites.signups", api.get("/api/v1/admin/invites/signups", t));
+    record("admin.invites.shares", api.get("/api/v1/admin/invites/shares?q=SNAP-A", t));
+    record("admin.invites.invalid", api.get("/api/v1/admin/invites/shares?channel=FAX&page=-1", t));
     record("admin.dashboard.after", api.get("/api/v1/admin/dashboard", t));
   }
 
@@ -836,6 +847,9 @@ class ApiResponseSnapshotTest {
         } else if (k.equals("traceId") && v.isString()) {
           // 오류 응답의 요청 추적 ID는 매번 다르다 (값이 있는지만 본다)
           out.put(k, v.asString().isBlank() ? "<blank-trace>" : "<traceId>");
+        } else if (k.equals("inviteCode") && v.isString()) {
+          // 초대 코드는 처음 열 때 무작위로 만든다 (doc/25). 형식만 본다
+          out.put(k, v.asString().matches("[A-HJKMNP-Z2-9]{8}") ? "<inviteCode>" : v.asString());
         } else if ((k.equals("latencyMs") || k.equals("avgLatencyMs")) && v.isNumber()) {
           out.put(k, "<ms>");
         } else if (k.equals("fieldErrors") && v.isArray()) {

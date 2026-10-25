@@ -196,6 +196,10 @@ public class AdminUserService implements AdminUserUseCase {
         r.bodyType(),
         r.heightCm(),
         r.fitPreference(),
-        r.mfaEnrolled());
+        r.mfaEnrolled(),
+        r.referrerId(),
+        r.referrerEmail(),
+        r.referrerName(),
+        r.invitedCount());
   }
 }

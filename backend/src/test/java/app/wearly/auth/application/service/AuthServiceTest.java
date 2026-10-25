@@ -24,6 +24,7 @@ import app.wearly.auth.domain.RefreshTokens;
 import app.wearly.auth.domain.TokenPolicy;
 import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
+import app.wearly.support.FakeInvites;
 import app.wearly.support.FakeUsers;
 import app.wearly.support.InMemoryMfa;
 import app.wearly.support.InMemorySessionStore;
@@ -144,8 +145,10 @@ class AuthServiceTest {
           new MfaPolicy(true, null),
           clock);
 
+  final FakeInvites invites = new FakeInvites();
+
   final AuthService service =
-      new AuthService(users, credentials, sessions, mfa, issuer, hasher, eventPort, clock);
+      new AuthService(users, credentials, sessions, mfa, issuer, hasher, eventPort, invites, clock);
 
   @Test
   void 가입하면_이메일을_정규화해_저장하고_토큰을_준다() {
@@ -167,6 +170,19 @@ class AuthServiceTest {
         .isInstanceOfSatisfying(
             BusinessException.class, e -> assertThat(e.code()).isEqualTo(ErrorCode.EMAIL_TAKEN));
     assertThat(users.rows).hasSize(1);
+  }
+
+  @Test
+  void 가입하면_입력한_초대_코드를_초대_컨텍스트에_넘긴다() {
+    AuthResultDto a =
+        service.signup(new SignupDto("i@wearly.test", "pass1234", "초대", "abcd-efgh"), PHONE);
+    AuthResultDto b = service.signup(new SignupDto("n@wearly.test", "pass1234", "없음"), PHONE);
+
+    // 코드 정리·추천인 찾기·없는 코드 처리는 초대 컨텍스트가 한다 (가입은 막지 않는다)
+    assertThat(invites.signups)
+        .containsExactly(
+            new FakeInvites.Signup(a.user().id(), "abcd-efgh"),
+            new FakeInvites.Signup(b.user().id(), null));
   }
 
   @Test

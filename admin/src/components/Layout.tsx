@@ -14,6 +14,8 @@ const MENU = [
   { to: '/ai/providers', label: 'AI 공급자', icon: '✦' },
   { to: '/ai/logs', label: 'AI 분석 기록', icon: '≡' },
   { to: '/users', label: '회원', icon: '◔' },
+  // 초대 코드로 가입한 이력·초대를 보낸 이력 (doc/25)
+  { to: '/invites', label: '친구 초대', icon: '✉' },
   // 지금 로그인돼 있는 세션과 강제 로그아웃 (doc/16 5장)
   { to: '/sessions', label: '로그인 사용자', icon: '◉' },
   // 관리자 계정의 로그인·2단계 인증 기록 (doc/22)

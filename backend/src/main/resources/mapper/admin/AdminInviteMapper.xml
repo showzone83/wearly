@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 관리자 친구 초대 이력 (doc/25): 초대 코드 가입 이력·초대한 이력, 최신순 -->
+<mapper namespace="app.wearly.admin.adapter.out.persistence.mybatis.mapper.AdminInviteMapper">
+
+    <sql id="signupWhere">
+        <where>
+            <if test="f.query != null">
+                <bind name="queryPattern" value="@app.wearly.common.mybatis.LikePatterns@contains(f.query)"/>
+                (u.email ILIKE #{queryPattern} ESCAPE '\' OR u.name ILIKE #{queryPattern} ESCAPE '\'
+                 OR r.email ILIKE #{queryPattern} ESCAPE '\' OR r.name ILIKE #{queryPattern} ESCAPE '\'
+                 OR s.entered_code ILIKE #{queryPattern} ESCAPE '\')
+            </if>
+            <if test="f.result != null">AND s.result = #{f.result}</if>
+        </where>
+    </sql>
+
+    <select id="findSignups" resultType="app.wearly.admin.application.port.out.dto.InviteSignupRowDto">
+        SELECT s.invite_signup_id AS id, s.created_at, s.user_id, u.email AS user_email, u.name AS user_name,
+               s.entered_code, s.result, s.referrer_id, r.email AS referrer_email, r.name AS referrer_name
+          FROM tb_invite_signup s
+          JOIN tb_user u ON u.user_id = s.user_id
+          LEFT JOIN tb_user r ON r.user_id = s.referrer_id
+        <include refid="signupWhere"/>
+         ORDER BY s.created_at DESC, s.invite_signup_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countSignups" resultType="long">
+        SELECT count(*)
+          FROM tb_invite_signup s
+          JOIN tb_user u ON u.user_id = s.user_id
+          LEFT JOIN tb_user r ON r.user_id = s.referrer_id
+        <include refid="signupWhere"/>
+    </select>
+
+    <sql id="shareWhere">
+        <where>
+            <if test="f.query != null">
+                <bind name="queryPattern" value="@app.wearly.common.mybatis.LikePatterns@contains(f.query)"/>
+                (u.email ILIKE #{queryPattern} ESCAPE '\' OR u.name ILIKE #{queryPattern} ESCAPE '\')
+            </if>
+            <if test="f.channel != null">AND h.channel = #{f.channel}</if>
+        </where>
+    </sql>
+
+    <select id="findShares" resultType="app.wearly.admin.application.port.out.dto.InviteShareRowDto">
+        SELECT h.invite_share_id AS id, h.created_at, h.user_id, u.email AS user_email, u.name AS user_name, h.channel
+          FROM tb_invite_share h
+          JOIN tb_user u ON u.user_id = h.user_id
+        <include refid="shareWhere"/>
+         ORDER BY h.created_at DESC, h.invite_share_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countShares" resultType="long">
+        SELECT count(*)
+          FROM tb_invite_share h
+          JOIN tb_user u ON u.user_id = h.user_id
+        <include refid="shareWhere"/>
+    </select>
+</mapper>

@@ -25,6 +25,10 @@ import type {
   ICodeCreate,
   ICodePatch,
   IDashboard,
+  IInviteShareQuery,
+  IInviteShareRow,
+  IInviteSignupQuery,
+  IInviteSignupRow,
   ILoginRequest,
   IMfaEnableResponse,
   IMfaPendingResponse,
@@ -235,9 +239,14 @@ const toAuthEventRow = (r: Record<string, unknown>): IAuthEventRow => {
   };
 };
 
-/** 회원 행. mfaEnrolled가 없는 예전 서버면 false */
+/** 회원 행. mfaEnrolled·invitedCount가 없는 예전 서버면 false·0 */
 const toAdminUser = (r: Record<string, unknown>): IAdminUser => {
-  return { ...(r as unknown as IAdminUser), id: String(r.id ?? ''), mfaEnrolled: r.mfaEnrolled === true };
+  return {
+    ...(r as unknown as IAdminUser),
+    id: String(r.id ?? ''),
+    mfaEnrolled: r.mfaEnrolled === true,
+    invitedCount: typeof r.invitedCount === 'number' ? r.invitedCount : 0,
+  };
 };
 
 /** 로그인 응답이 2단계 인증 대기인가 (토큰 대신 mfaToken이 온다) */
@@ -735,6 +744,18 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       /** 다른 관리자의 2단계 인증 초기화 (204). 그 회원의 세션도 모두 끊긴다. 자기 자신은 400 id SELF_NOT_ALLOWED */
       resetMfa: (id: string): Promise<void> => {
         return request<void>('DELETE', `/admin/users/${enc(id)}/mfa`, { auth: true });
+      },
+    },
+
+    /** 친구 초대 이력 (doc/25, 최신순) */
+    invites: {
+      /** 초대 코드 가입 이력 */
+      signups: async (q: IInviteSignupQuery): Promise<IPage<IInviteSignupRow>> => {
+        return toPage(await get<unknown>('/admin/invites/signups', { ...q }), q);
+      },
+      /** 초대한 이력 */
+      shares: async (q: IInviteShareQuery): Promise<IPage<IInviteShareRow>> => {
+        return toPage(await get<unknown>('/admin/invites/shares', { ...q }), q);
       },
     },
 

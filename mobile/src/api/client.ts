@@ -14,6 +14,9 @@ import type {
   CodesResponse,
   CodesResult,
   ImageCompleteResponse,
+  InviteChannel,
+  InviteDto,
+  InvitedFriendDto,
   ItemDto,
   ItemFilter,
   ItemInput,
@@ -442,6 +445,20 @@ export function createApiClient(options: ApiClientOptions) {
       async deleteMe(): Promise<void> {
         await request<void>('DELETE', '/users/me', { auth: true });
         await tokenStore.clear();
+      },
+    },
+    invite: {
+      /** 내 초대 코드 (없으면 서버가 만든다)와 그 코드로 가입한 친구 수 (doc/25) */
+      get(): Promise<InviteDto> {
+        return request<InviteDto>('GET', '/users/me/invite', { auth: true });
+      },
+      /** 초대한 이력 남기기. 오류: 400 VALIDATION_FAILED(channel) */
+      recordShare(channel: InviteChannel): Promise<void> {
+        return request<void>('POST', '/users/me/invite/shares', { auth: true, json: { channel } });
+      },
+      /** 내 초대 코드로 가입한 친구 (최근 가입순, 최대 100명) */
+      friends(): Promise<InvitedFriendDto[]> {
+        return request<InvitedFriendDto[]>('GET', '/users/me/invite/friends', { auth: true });
       },
     },
     profile: {

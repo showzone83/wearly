@@ -9,11 +9,13 @@ import { continueAsGuest, enterAccount } from '@/lib/account';
 import { MOCK_MODE } from '@/lib/mode';
 import { api, errorMessage } from '@/lib/api';
 import { fieldErrorText, systemTraceId } from '@/lib/errorText';
+import { formatInviteCode } from '@/lib/invite';
 import { useStore } from '@/store/useStore';
 import { inputBase, makeStyles, useColors } from '@/theme';
 
 type Mode = 'login' | 'signup';
-type Field = 'email' | 'password' | 'name';
+type Field = 'email' | 'password' | 'name' | 'inviteCode';
+const FIELDS: readonly Field[] = ['email', 'password', 'name', 'inviteCode'];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -40,17 +42,19 @@ function validate(mode: Mode, email: string, password: string, name: string): Pa
 
 // 이메일 로그인·가입 (임시 수단: 소셜 로그인 키를 받기 전까지 토큰 흐름을 먼저 쓴다. 계약 1장)
 export default function Auth() {
-  const params = useLocalSearchParams<{ reason?: string; mode?: string }>();
+  // invite = 친구의 초대 코드 (초대 링크로 들어온 경우 미리 채운다, doc/25)
+  const params = useLocalSearchParams<{ reason?: string; mode?: string; invite?: string }>();
   // expired = 로그인이 풀려 들어온 경우. elsewhere는 다른 곳에서 로그아웃됨(강제 로그아웃 등, doc/16 6장)
   const elsewhere = params.reason === 'elsewhere';
   const expired = params.reason === 'expired' || elsewhere;
   const lastEmail = useStore((s) => (s.authMode === 'account' ? s.user?.email : null));
   const guestHasData = useStore((s) => s.authMode === 'guest' && s.onboarded);
 
-  const [mode, setMode] = useState<Mode>(params.mode === 'signup' ? 'signup' : 'login');
+  const [mode, setMode] = useState<Mode>(params.mode === 'signup' || params.invite ? 'signup' : 'login');
   const [email, setEmail] = useState(lastEmail ?? '');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [inviteCode, setInviteCode] = useState(params.invite ? formatInviteCode(params.invite) : '');
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [banner, setBanner] = useState<string | null>(null);
   /** 배너 오류가 시스템 오류면 그 traceId (오류 번호) */
@@ -77,7 +81,7 @@ export default function Auth() {
     try {
       const res =
         mode === 'signup'
-          ? await api.auth.signup({ email: mail, password, name: name.trim() })
+          ? await api.auth.signup({ email: mail, password, name: name.trim(), inviteCode: inviteCode.trim() || undefined })
           : await api.auth.login({ email: mail, password });
       const dest = await enterAccount(res.user);
       // 스플래시·마이에서 들어온 경우 쌓인 화면을 정리하고 이동한다
@@ -88,7 +92,7 @@ export default function Auth() {
         setErrors({ email: '이미 가입된 이메일이에요. 로그인해 주세요.' });
       } else if (isApiError(e) && e.code === 'VALIDATION_FAILED' && e.fieldErrors.length) {
         const next: Partial<Record<Field, string>> = {};
-        for (const f of e.fieldErrors) if (f.field === 'email' || f.field === 'password' || f.field === 'name') next[f.field] ??= fieldErrorText(f);
+        for (const f of e.fieldErrors) if (FIELDS.includes(f.field as Field)) next[f.field as Field] ??= fieldErrorText(f);
         setErrors(next);
         if (!Object.keys(next).length) setBanner(errorMessage(e));
       } else if (isApiError(e) && e.code === 'INVALID_CREDENTIALS') {
@@ -180,6 +184,21 @@ export default function Auth() {
           onSubmitEditing={submit}
           returnKeyType="go"
         />
+        {mode === 'signup' && (
+          <Input
+            label="초대 코드 (선택)"
+            value={inviteCode}
+            onChangeText={(v) => setInviteCode(formatInviteCode(v))}
+            error={errors.inviteCode}
+            hint="친구에게 받은 코드가 있으면 넣어 주세요."
+            placeholder="ABCD-EFGH"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={20}
+            onSubmitEditing={submit}
+            returnKeyType="go"
+          />
+        )}
       </View>
 
       {banner && (

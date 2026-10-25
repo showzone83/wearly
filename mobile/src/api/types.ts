@@ -46,6 +46,25 @@ export interface SignupRequest {
   email: string;
   password: string;
   name: string;
+  /** 친구의 초대 코드 (선택, doc/25). 없는 코드여도 가입은 된다 */
+  inviteCode?: string;
+}
+
+// ── 친구 초대 (doc/25) ──
+
+export interface InviteDto {
+  /** 정리한 8자. 화면에는 XXXX-XXXX로 보인다 */
+  inviteCode: string;
+  /** 이 코드로 가입한 친구 수 */
+  invitedCount: number;
+}
+
+/** 초대를 보낸 방법: 공유 시트(카카오톡 등) · 문자 · 코드 복사 */
+export type InviteChannel = 'SHARE' | 'SMS' | 'COPY';
+
+export interface InvitedFriendDto {
+  name: string;
+  joinedAt: string;
 }
 
 export interface LoginRequest {

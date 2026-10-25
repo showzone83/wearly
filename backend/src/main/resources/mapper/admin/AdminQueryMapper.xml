@@ -88,9 +88,14 @@
                  WHERE l.user_id = u.user_id AND l.feature = 'ITEM_ANALYZE' AND l.status = 'SUCCESS'
                    AND l.created_at &gt;= #{todayFrom} AND l.created_at &lt; #{todayTo}) AS ai_today,
                p.age_range, p.body_type, p.height_cm, p.fit_preference,
-               EXISTS (SELECT 1 FROM tb_user_mfa m WHERE m.user_id = u.user_id) AS mfa_enrolled
+               EXISTS (SELECT 1 FROM tb_user_mfa m WHERE m.user_id = u.user_id) AS mfa_enrolled,
+               r.user_id AS referrer_id, r.email AS referrer_email, r.name AS referrer_name,
+               (SELECT count(*) FROM tb_invite_signup s2
+                 WHERE s2.referrer_id = u.user_id AND s2.result = 'LINKED') AS invited_count
           FROM tb_user u
           LEFT JOIN tb_user_profile p ON p.user_id = u.user_id
+          LEFT JOIN tb_invite_signup s ON s.user_id = u.user_id AND s.result = 'LINKED'
+          LEFT JOIN tb_user r ON r.user_id = s.referrer_id
         <include refid="userWhere"/>
          ORDER BY u.created_at DESC, u.user_id DESC
          LIMIT #{limit} OFFSET #{offset}

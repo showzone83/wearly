@@ -358,6 +358,36 @@
       "workType" : "CUSTOM"
     }
   },
+  "invite.get" : {
+    "status" : 200,
+    "body" : {
+      "inviteCode" : "<inviteCode>",
+      "invitedCount" : 0
+    }
+  },
+  "invite.share" : {
+    "status" : 204,
+    "body" : null
+  },
+  "invite.share.invalid" : {
+    "status" : 400,
+    "body" : {
+      "status" : 400,
+      "code" : "VALIDATION_FAILED",
+      "fieldErrors" : [ {
+        "field" : "channel",
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "SHARE", "SMS", "COPY" ]
+        }
+      } ],
+      "traceId" : "<traceId>"
+    }
+  },
+  "invite.friends" : {
+    "status" : 200,
+    "body" : [ ]
+  },
   "codes" : {
     "status" : 200,
     "body" : {
@@ -3289,7 +3319,11 @@
         "bodyType" : null,
         "heightCm" : null,
         "fitPreference" : null,
-        "mfaEnrolled" : false
+        "mfaEnrolled" : false,
+        "referrerId" : null,
+        "referrerEmail" : null,
+        "referrerName" : null,
+        "invitedCount" : 0
       }, {
         "id" : "2",
         "email" : "snap-a@wearly.test",
@@ -3304,7 +3338,11 @@
         "bodyType" : null,
         "heightCm" : null,
         "fitPreference" : null,
-        "mfaEnrolled" : false
+        "mfaEnrolled" : false,
+        "referrerId" : null,
+        "referrerEmail" : null,
+        "referrerName" : null,
+        "invitedCount" : 0
       }, {
         "id" : "1",
         "email" : "admin@snapshot.test",
@@ -3319,7 +3357,11 @@
         "bodyType" : null,
         "heightCm" : null,
         "fitPreference" : null,
-        "mfaEnrolled" : false
+        "mfaEnrolled" : false,
+        "referrerId" : null,
+        "referrerEmail" : null,
+        "referrerName" : null,
+        "invitedCount" : 0
       } ],
       "page" : 0,
       "size" : 20,
@@ -3343,7 +3385,11 @@
         "bodyType" : null,
         "heightCm" : null,
         "fitPreference" : null,
-        "mfaEnrolled" : false
+        "mfaEnrolled" : false,
+        "referrerId" : null,
+        "referrerEmail" : null,
+        "referrerName" : null,
+        "invitedCount" : 0
       } ],
       "page" : 1,
       "size" : 1,
@@ -3367,7 +3413,11 @@
         "bodyType" : null,
         "heightCm" : null,
         "fitPreference" : null,
-        "mfaEnrolled" : false
+        "mfaEnrolled" : false,
+        "referrerId" : null,
+        "referrerEmail" : null,
+        "referrerName" : null,
+        "invitedCount" : 0
       } ],
       "page" : 0,
       "size" : 20,
@@ -3420,7 +3470,11 @@
       "bodyType" : null,
       "heightCm" : null,
       "fitPreference" : null,
-      "mfaEnrolled" : false
+      "mfaEnrolled" : false,
+      "referrerId" : null,
+      "referrerEmail" : null,
+      "referrerName" : null,
+      "invitedCount" : 0
     }
   },
   "admin.users.patch.suspendedLogin" : {
@@ -3457,7 +3511,11 @@
       "bodyType" : null,
       "heightCm" : null,
       "fitPreference" : null,
-      "mfaEnrolled" : false
+      "mfaEnrolled" : false,
+      "referrerId" : null,
+      "referrerEmail" : null,
+      "referrerName" : null,
+      "invitedCount" : 0
     }
   },
   "admin.users.patch.restoredOldToken" : {
@@ -3545,7 +3603,11 @@
       "bodyType" : null,
       "heightCm" : null,
       "fitPreference" : null,
-      "mfaEnrolled" : false
+      "mfaEnrolled" : false,
+      "referrerId" : null,
+      "referrerEmail" : null,
+      "referrerName" : null,
+      "invitedCount" : 0
     }
   },
   "admin.users.patch.demote" : {
@@ -3564,7 +3626,11 @@
       "bodyType" : null,
       "heightCm" : null,
       "fitPreference" : null,
-      "mfaEnrolled" : false
+      "mfaEnrolled" : false,
+      "referrerId" : null,
+      "referrerEmail" : null,
+      "referrerName" : null,
+      "invitedCount" : 0
     }
   },
   "admin.users.patch.demotedOldToken" : {
@@ -8948,8 +9014,8 @@
       "enabled" : true,
       "priority" : 8,
       "options" : {
-        "detail" : "low",
-        "baseUrl" : "<fake>/v1"
+        "baseUrl" : "<fake>/v1",
+        "detail" : "low"
       },
       "usable" : true,
       "today" : {
@@ -10503,6 +10569,46 @@
         "code" : "NOT_ALLOWED",
         "params" : {
           "allowed" : [ "CODE", "AI_PROVIDER", "USER", "APP_SETTING", "SESSION", "WEATHER_SETTING", "WEATHER_PROVIDER", "WEATHER_REFRESH" ]
+        }
+      } ],
+      "traceId" : "<traceId>"
+    }
+  },
+  "admin.invites.signups" : {
+    "status" : 200,
+    "body" : {
+      "items" : [ ],
+      "page" : 0,
+      "size" : 20,
+      "total" : 0
+    }
+  },
+  "admin.invites.shares" : {
+    "status" : 200,
+    "body" : {
+      "items" : [ {
+        "id" : "1",
+        "createdAt" : "<instant>",
+        "userId" : "2",
+        "userEmail" : "snap-a@wearly.test",
+        "userName" : "스냅에이",
+        "channel" : "COPY"
+      } ],
+      "page" : 0,
+      "size" : 20,
+      "total" : 1
+    }
+  },
+  "admin.invites.invalid" : {
+    "status" : 400,
+    "body" : {
+      "status" : 400,
+      "code" : "VALIDATION_FAILED",
+      "fieldErrors" : [ {
+        "field" : "page",
+        "code" : "OUT_OF_RANGE",
+        "params" : {
+          "min" : 0
         }
       } ],
       "traceId" : "<traceId>"

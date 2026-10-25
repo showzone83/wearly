@@ -164,7 +164,7 @@ interface ErrorBody {
 
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
-| POST | `/auth/signup` | `{ email, password, name }` | 201 `AuthResponse` |
+| POST | `/auth/signup` | `{ email, password, name, inviteCode? }` | 201 `AuthResponse`. `inviteCode`는 친구의 초대 코드(선택, 20자까지, 25 문서). 없는 코드여도 가입은 되고 가입 이력에 `UNKNOWN_CODE`로 남는다 |
 | POST | `/auth/login` | `{ email, password }` | 200 `AuthResponse`. **관리자 사이트 로그인(`X-Wearly-Client: admin`)에서 2단계 인증이 필요하면** 200 `MfaChallenge`(아래) |
 | POST | `/auth/refresh` | `{ refreshToken }` | 200 `AuthResponse` |
 | POST | `/auth/logout` | `{ refreshToken }` | 204 (없는 토큰이어도 204) |
@@ -231,6 +231,16 @@ interface ProfileDto {
 ```
 
 기본값은 앱 `DEFAULT_PROFILE`(`mobile/src/data/seed.ts`)과 같게 한다. `PUT`의 `name`은 `tb_user.name`도 함께 바꾼다. 나의 정보 네 칸은 코드 테이블로 검증한다(활성 코드만, 틀리면 400 `VALIDATION_FAILED`, `heightCm`는 130~210이 아니면 `OUT_OF_RANGE`). 코디 추천 AI의 사용자 메시지에 "회원 정보" 한 줄로 들어간다 (09 문서 3장). 코드 값과 체형 설명은 06 문서.
+
+### 친구 초대 (25 문서)
+
+| 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|
+| GET | `/users/me/invite` | — | 200 `{ inviteCode, invitedCount }`. 코드가 없으면 만든다(처음 한 번). `inviteCode`는 8자(화면에는 `XXXX-XXXX`) |
+| POST | `/users/me/invite/shares` | `{ channel }` | 204. 초대한 이력. `channel`은 `SHARE`(공유 시트)·`SMS`·`COPY`, 틀리면 400 `VALIDATION_FAILED`(`channel` `NOT_ALLOWED`). 같은 방법은 60초에 한 번, 회원당 하루 30건까지만 기록하고 넘으면 **기록 없이 204** (25 문서 6장) |
+| GET | `/users/me/invite/friends` | — | 200 `[{ name, joinedAt }]`. 내 코드로 가입한 친구, 최근 가입순, 최대 100명 |
+
+로그인 필요. 관리자 이력 API(`/admin/invites/signups`·`/admin/invites/shares`)는 07 문서 4장.
 
 ### 옷장
 
@@ -434,11 +444,12 @@ interface AnalyzeResponse {
 
 ```ts
 const api = createApiClient({ baseUrl, tokenStore, onAuthLost });
-api.auth.signup({ email, password, name })   // 토큰 저장까지
+api.auth.signup({ email, password, name, inviteCode? })   // 토큰 저장까지. inviteCode는 선택 (25 문서)
 api.auth.login({ email, password })          // 토큰 저장까지
 api.auth.logout()                            // 서버 폐기 + 저장소 비움 (서버 실패해도 비움)
 api.users.me() / api.users.deleteMe()        // deleteMe도 저장소 비움
 api.profile.get() / api.profile.put(dto)
+api.invite.get() / recordShare(channel) / friends()   // 친구 초대 (로그인, 25 문서)
 api.wardrobe.list(filter?) / get(id) / create(input) / bulkCreate(inputs)
 api.wardrobe.update(id, patch) / remove(id) / stats()
 api.wardrobe.analyze(file)                   // file: Blob | { uri, name, type } (RN)

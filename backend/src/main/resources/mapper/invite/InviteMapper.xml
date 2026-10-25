@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 초대 읽기 전용 조회: 내 코드로 가입한 친구 (doc/25). 추천인 관계는 tb_invite_signup.result = 'LINKED' -->
+<mapper namespace="app.wearly.invite.adapter.out.persistence.mybatis.mapper.InviteMapper">
+
+    <select id="countInvited" resultType="long">
+        SELECT count(*)
+          FROM tb_invite_signup s
+         WHERE s.referrer_id = #{referrerId} AND s.result = 'LINKED'
+    </select>
+
+    <select id="findInvitedFriends" resultType="app.wearly.invite.application.port.out.dto.InvitedFriendRowDto">
+        SELECT u.name, s.created_at AS joined_at
+          FROM tb_invite_signup s
+          JOIN tb_user u ON u.user_id = s.user_id
+         WHERE s.referrer_id = #{referrerId} AND s.result = 'LINKED'
+         ORDER BY s.created_at DESC, s.invite_signup_id DESC
+         LIMIT #{limit}
+    </select>
+</mapper>

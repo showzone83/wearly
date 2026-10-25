@@ -176,6 +176,8 @@ export const UsersPage = () => {
                     <th>2단계 인증</th>
                     <th>상태</th>
                     <th>가입일</th>
+                    <th title="이 회원을 초대한 회원 (가입할 때 넣은 초대 코드, doc/25)">추천인</th>
+                    <th className="num" title="이 회원의 초대 코드로 가입한 친구 수">초대</th>
                     <th className="num">아이템</th>
                     <th className="num">오늘 AI</th>
                     <th title="연령대 · 체형 · 키 · 핏 선호 (회원이 앱에서 입력, 선택)">나의 정보</th>
@@ -214,6 +216,16 @@ export const UsersPage = () => {
                           {u.status === 'SUSPENDED' ? <Badge tone="red">정지</Badge> : <Badge tone="green">정상</Badge>}
                         </td>
                         <td className="small">{fmtDate(u.createdAt)}</td>
+                        <td className="small" title={u.referrerEmail ?? undefined}>
+                          {u.referrerId ? (
+                            <>
+                              {u.referrerName ?? '—'} <span className="mono muted">#{u.referrerId}</span>
+                            </>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
+                        <td className="num">{u.invitedCount ? fmtNum(u.invitedCount) : <span className="muted">0</span>}</td>
                         <td className="num">{fmtNum(u.itemCount)}</td>
                         <td className="num">{fmtNum(u.aiToday)}</td>
                         <td

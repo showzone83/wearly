@@ -119,7 +119,11 @@ class AdminUserServiceTest {
                           null,
                           null,
                           null,
-                          false))
+                          false,
+                          null,
+                          null,
+                          null,
+                          0))
               .toList();
         }
 

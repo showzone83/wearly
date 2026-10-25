@@ -443,6 +443,12 @@ export interface IAdminUser {
   fitPreference?: string | null;
   /** TOTP를 등록했는지 (관리자만 의미 있음). 예전 서버면 false */
   mfaEnrolled: boolean;
+  /** 이 회원을 초대한 추천인 (doc/25, 없으면 null. 예전 서버는 필드 없음) */
+  referrerId?: string | null;
+  referrerEmail?: string | null;
+  referrerName?: string | null;
+  /** 이 회원의 초대 코드로 가입한 친구 수. 예전 서버면 0 */
+  invitedCount: number;
 }
 
 export interface IUserQuery extends IPageQuery {
@@ -454,6 +460,52 @@ export interface IUserQuery extends IPageQuery {
 export interface IUserPatch {
   status?: TUserStatus;
   role?: TUserRole;
+}
+
+// ───────── 친구 초대 (doc/25) ─────────
+
+/** 초대 코드 가입 결과: 추천인 연결 · 없는 코드(추천인 없이 가입) */
+export type TInviteSignupResult = 'LINKED' | 'UNKNOWN_CODE' | (string & {});
+
+/** 초대를 보낸 방법: 공유 시트(카카오톡 등) · 문자 · 코드 복사 */
+export type TInviteChannel = 'SHARE' | 'SMS' | 'COPY' | (string & {});
+
+/** `GET /admin/invites/signups` 한 줄: 초대 코드를 넣고 가입한 회원 */
+export interface IInviteSignupRow {
+  id: string;
+  createdAt: string;
+  userId: string;
+  userEmail: string | null;
+  userName: string;
+  /** 가입자가 입력한 코드 (공백·하이픈을 빼고 대문자로 정리한 값) */
+  enteredCode: string;
+  result: TInviteSignupResult;
+  /** 추천인 (UNKNOWN_CODE거나 추천인이 탈퇴하면 null) */
+  referrerId: string | null;
+  referrerEmail: string | null;
+  referrerName: string | null;
+}
+
+/** `GET /admin/invites/shares` 한 줄: 앱에서 초대를 보낸 기록 */
+export interface IInviteShareRow {
+  id: string;
+  createdAt: string;
+  userId: string;
+  userEmail: string | null;
+  userName: string;
+  channel: TInviteChannel;
+}
+
+export interface IInviteSignupQuery extends IPageQuery {
+  /** 가입자·추천인 이메일·이름, 입력 코드 */
+  q?: string;
+  result?: string;
+}
+
+export interface IInviteShareQuery extends IPageQuery {
+  /** 회원 이메일·이름 */
+  q?: string;
+  channel?: string;
 }
 
 // ───────── 로그인 세션 (doc/16 4장) ─────────

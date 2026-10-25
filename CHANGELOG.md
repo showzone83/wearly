@@ -128,11 +128,18 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 
 ### 2026-10-25
 
+#### 추가
+- 친구 초대·추천인: 회원별 초대 코드(8자, 처음 볼 때 발급), 앱 더보기 > 친구 초대 화면(OS 공유 시트로 카카오톡 등·문자 `expo-sms`·코드 복사, 초대로 가입한 친구 목록), 가입 화면 "초대 코드 (선택)"(없는 코드여도 가입은 되고 `UNKNOWN_CODE`로 기록). 초대한 이력·초대 코드 가입 이력 테이블(`V26__invite.sql`), 새 `invite` 컨텍스트와 API `GET /users/me/invite`·`POST /users/me/invite/shares`·`GET /users/me/invite/friends`, 가입 `inviteCode`. 관리자: 회원 목록 추천인·초대 수 열, 새 "친구 초대" 화면(가입 이력·초대한 이력 탭, `GET /admin/invites/signups`·`/shares`). 하네스 시나리오 2개, API 스냅샷에 새 응답 ([#16](https://github.com/showzone83/wearly/issues/16), [doc/25](doc/25_친구_초대.md)) (작성: kang6123)
+
 #### 변경
+- 친구 초대: 초대한 이력 연속 클릭·반복 호출 막기. 서버는 같은 회원·같은 방법을 60초에 한 번, 하루 30건까지만 기록하고 넘으면 기록 없이 204(Valkey 쿨다운·하루 카운터를 Lua 하나로, `InviteSharePolicy`). 앱은 공유 시트·문자 앱이 열려 있는 동안 버튼을 막고, 코드 복사 기록은 화면에서 처음 한 번만 보낸다. 관리자 친구 초대 화면은 같은 조건으로 다시 검색해도 목록을 다시 받는다 ([#16](https://github.com/showzone83/wearly/issues/16), [doc/25](doc/25_친구_초대.md) 6.1) (작성: kang6123)
 - 앱: Expo SDK 57 → 58 (`expo ~58.0.19`, React Native 0.88.0, React 19.3.0, `react-native-webview` 14.0.1, `react-native-view-shot` 6.1.1). RN 엄격 타입에서 없어진 `StyleSheet.NamedStyles` 대신 `theme.ts`에 같은 모양의 타입을 둠. expo-router 탭 바 props가 `navigation` 대신 `emitter`·`navigateToTab`이 되어 하단 탭 바를 맞춤. 쇼핑몰 캡처 화면 ref 타입(`ViewInstance`, webview 14 타입 우회 `WebView<object>`). 스토어 Expo Go가 SDK 58을 지원하기 전까지 휴대폰 확인 방법 ([doc/04](doc/04_목업_앱.md) 2장) (작성: kang6123)
 
 #### 수정
 - 앱 내 옷장: 옷 사진 그리드가 화면 너비를 다 채우지 못하고 한 줄에 2장만 나오던 문제. 타일 너비를 창 너비가 아니라 그리드의 실제 너비(`onLayout`)로 계산하고 정수로 내림한다. 이전에는 스크롤바나 소수점 반올림으로 셋째 열이 다음 줄로 밀렸다. 넓은 화면(태블릿·가로 모드)은 타일 최소 150에 맞춰 열을 늘린다 (작성: kang6123)
+
+#### 문서
+- 친구 초대([doc/25](doc/25_친구_초대.md)) 새로. API 계약([doc/05](doc/05_백엔드_API.md) 6장 인증·친구 초대, 8장)·관리자 사이트([doc/07](doc/07_관리자_사이트.md) 4·5장)·백엔드 구조·흐름([doc/08](doc/08_백엔드_구조.md) 2장, [doc/10](doc/10_백엔드_흐름.md) 1.2·3.1)·DB 명령([doc/14](doc/14_DB_명령.md) 3·6장)·문서 목록 반영 (작성: kang6123)
 
 ## 진행 중 (아직 `dev`에 없음)
 
