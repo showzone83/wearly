@@ -484,6 +484,7 @@ api.auth.logout()                            // 서버 폐기 + 저장소 비움
 api.users.me() / api.users.deleteMe()        // deleteMe도 저장소 비움
 api.profile.get() / api.profile.put(dto)
 api.invite.get() / recordShare(channel) / friends()   // 친구 초대 (로그인, 25 문서)
+api.pairing.issueCode(role) / join(code, permission?) / list() / approve(id, permission) / reject(id) / update(id, { permission?, notifyOwner? }) / end(id) / actions(id)   // 옷장 도우미 연결 (로그인, 26 문서). 대리 작업 /owners/{ownerId}/…는 아직 없다
 api.wardrobe.list(filter?) / get(id) / create(input) / bulkCreate(inputs)
 api.wardrobe.update(id, patch) / remove(id) / stats()
 api.wardrobe.analyze(file)                   // file: Blob | { uri, name, type } (RN)
@@ -511,4 +512,4 @@ api.push.register({ token, platform, deviceId }) / remove(deviceId)   // 푸시 
 - 6차의 앱 설정·옷 사용 중지 시나리오(32~40)는 앱 모듈을 거치지 않고 원시 HTTP로만 서버 계약을 확인한다 (`harness/README.md`). 계절 모드(이슈 #6)는 시나리오 34.
 - 관리자 2단계 인증 시나리오(45)는 지정한 관리자가 TOTP를 등록하고 대기 토큰으로 로그인하는 과정을 확인한다. `harness/run.sh`는 `WEARLY_ADMIN_MFA_REQUIRED=false`와 고정 마스터 키로 백엔드를 띄워, 시나리오가 따로 등록한 관리자 말고는 비밀번호만으로 들어온다 (22 문서).
 - 관리자 SSO 시나리오(46)는 SSO가 꺼진 기본 동작만 본다: 공급자 목록은 `{ enabled: false, providers: [] }`, 시작·콜백·교환·로그아웃은 404 `NOT_FOUND`. `harness/run.sh`는 `WEARLY_SSO_ENABLED=false`로 띄운다. 켠 흐름은 백엔드 `SsoIntegrationTest`(가짜 IdP)와 로컬 Keycloak(22 문서 4.2.5)으로 확인한다.
-- 나의 정보 시나리오(9), 푸시 토큰 시나리오(58)도 있다. 번호는 `./run.sh --list` 기준(지금 58개).
+- 나의 정보 시나리오(9), 푸시 토큰 시나리오(58), 옷장 도우미 시나리오(61·62, `api.pairing`)도 있다. 번호는 `./run.sh --list` 기준(지금 62개).

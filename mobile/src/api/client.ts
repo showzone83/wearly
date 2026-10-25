@@ -17,6 +17,12 @@ import type {
   InviteChannel,
   InviteDto,
   InvitedFriendDto,
+  PairingCodeDto,
+  PairingDto,
+  PairingListDto,
+  PairingPermission,
+  PairingRole,
+  ProxyActionDto,
   ItemDto,
   ItemFilter,
   ItemInput,
@@ -459,6 +465,48 @@ export function createApiClient(options: ApiClientOptions) {
       /** 내 초대 코드로 가입한 친구 (최근 가입순, 최대 100명) */
       friends(): Promise<InvitedFriendDto[]> {
         return request<InvitedFriendDto[]>('GET', '/users/me/invite/friends', { auth: true });
+      },
+    },
+    pairing: {
+      /** 연결 코드 만들기. role은 코드를 만드는 자리 (같은 자리의 이전 코드는 사라진다, doc/26) */
+      issueCode(role: PairingRole): Promise<PairingCodeDto> {
+        return request<PairingCodeDto>('POST', '/pairings/codes', { auth: true, json: { role } });
+      },
+      /**
+       * 코드 입력. 주인 코드면 승인 대기(PENDING), 돕는 사람 코드면 permission(필수)으로 바로 ACTIVE.
+       * 오류: 404 PAIRING_CODE_INVALID · 400 PAIRING_SELF · 409 PAIRING_EXISTS · 409 PAIRING_LIMIT · 429 PAIRING_TOO_MANY_ATTEMPTS
+       */
+      join(code: string, permission?: PairingPermission): Promise<PairingDto> {
+        return request<PairingDto>('POST', '/pairings/join', {
+          auth: true,
+          json: permission ? { code, permission } : { code },
+        });
+      },
+      list(): Promise<PairingListDto> {
+        return request<PairingListDto>('GET', '/pairings', { auth: true });
+      },
+      /** 주인이 대기 요청 승인 */
+      approve(id: string, permission: PairingPermission): Promise<PairingDto> {
+        return request<PairingDto>('POST', `/pairings/${encodeURIComponent(id)}/approve`, {
+          auth: true,
+          json: { permission },
+        });
+      },
+      /** 주인이 대기 요청 거절 */
+      reject(id: string): Promise<void> {
+        return request<void>('POST', `/pairings/${encodeURIComponent(id)}/reject`, { auth: true });
+      },
+      /** 주인이 권한·알림 변경 (권한은 연결된 뒤에만) */
+      update(id: string, patch: { permission?: PairingPermission; notifyOwner?: boolean }): Promise<PairingDto> {
+        return request<PairingDto>('PATCH', `/pairings/${encodeURIComponent(id)}`, { auth: true, json: patch });
+      },
+      /** 연결 해제 (양쪽 모두, 대기 취소 포함). 옷은 주인 옷장에 남는다 */
+      end(id: string): Promise<void> {
+        return request<void>('DELETE', `/pairings/${encodeURIComponent(id)}`, { auth: true });
+      },
+      /** 돕는 사람이 한 일 (최근 순 최대 100건, 주인·돕는 사람 모두) */
+      actions(id: string): Promise<ProxyActionDto[]> {
+        return request<ProxyActionDto[]>('GET', `/pairings/${encodeURIComponent(id)}/actions`, { auth: true });
       },
     },
     profile: {

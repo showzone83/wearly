@@ -193,6 +193,15 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 |---|---|---|
 | 58 | 푸시 토큰 | 토큰 없이 401 `UNAUTHORIZED` → 등록 200(키 4개 `deviceId`·`platform`·`serverPush`·`dayBeforeTime`, `serverPush` false, `dayBeforeTime` `HH:mm`) → 같은 기기 다시 등록 200(플랫폼이 바뀜) → 검증 400(`token`·`platform`·`deviceId`) → 삭제 204(없어도 204, `deviceId` 없으면 400) |
 
+### 옷장 도우미 (doc/26, 앱 API 모듈)
+
+계약 26 문서 4.3. 앱 API 모듈 `api.pairing`으로 두 계정을 연결한다(코드: `src/scenarios/pairing.ts`). 대리 작업(`/owners/{ownerId}/…`)은 앱 API 모듈에 아직 없어 백엔드 통합 테스트가 본다. 번호는 `--list` 기준.
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 61 | 옷장 도우미 | 주인 코드(8자, 약 24시간) → 돕는 사람이 소문자·하이픈으로 입력 → `PENDING` → 같은 코드 다시 입력 404 `PAIRING_CODE_INVALID` → 주인 목록 → 돕는 사람의 승인·변경은 404 → 주인 승인 `ACTIVE` → 권한·알림 변경 → 작업 기록 빈 목록, 남의 연결 기록 404 → 돕는 사람이 해제 → 양쪽 목록에서 사라짐, 끝난 연결 해제 404 |
+| 62 | 옷장 도우미 | 돕는 사람 코드 → 주인이 권한 없이 입력 400(`permission` `REQUIRED`) → 권한으로 입력 바로 `ACTIVE` → 이미 연결 409 `PAIRING_EXISTS`, 자기 코드 400 `PAIRING_SELF`, 인원 초과 409 `PAIRING_LIMIT`(`side` `OWNER`, `max` 1) → 해제 → 거절(끝난 요청 거절 404), 없는 코드 404, 모르는 자리 400 |
+
 ### 계약에 정해지지 않아 하네스가 고른 기대값
 
 계약 문서에 명시되지 않은 부분은 다음처럼 기대한다. 백엔드와 다르면 둘 중 하나를 고치고 계약 문서에도 적는다.
@@ -234,7 +243,7 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 |---|---|
 | `run.sh` | DB·Valkey·MinIO(하네스 버킷) 준비 → 백엔드 기동·종료 → 러너 실행 |
 | `src/main.ts` | 러너. 인자 해석, 시나리오 실행, 결과 표 |
-| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`·`images`·`weather`·`plans`·`mfa`·`push`·`sso`). 전체 58개(`./run.sh --list`) |
+| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`·`images`·`weather`·`plans`·`mfa`·`push`·`sso`·`invite`·`pairing`). 전체 62개(`./run.sh --list`) |
 | `src/lib/session.ts` | 앱 모듈로 클라이언트 만들기, 요청·토큰 저장·`onAuthLost` 기록 |
 | `src/lib/http.ts` | 원시 요청과 오류 본문 형식 검사(`checkErrorBody`: `message` 없음, `traceId` = `X-Request-Id`, `fieldErrors` 항목은 `{ field, code, params? }`) |
 | `src/lib/rawUser.ts` | 앱 모듈 없이 가입·관리자 로그인한 세션 (`TOKEN_EXPIRED`면 다시 로그인) |

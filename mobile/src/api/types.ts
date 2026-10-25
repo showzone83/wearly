@@ -67,6 +67,65 @@ export interface InvitedFriendDto {
   joinedAt: string;
 }
 
+// ── 옷장 도우미 (doc/26) ──
+
+/** 연결에서의 자리: 옷장 주인 · 돕는 사람 */
+export type PairingRole = 'OWNER' | 'HELPER';
+
+/** 돕는 사람의 권한 (누적): 보기 · 등록·수정(사용 중지·다시 사용 포함, 완전 삭제는 주인만) */
+export type PairingPermission = 'VIEW' | 'EDIT';
+
+/** 연결 상태: 주인 승인 대기 · 연결됨 */
+export type PairingStatus = 'PENDING' | 'ACTIVE';
+
+/** POST /pairings/codes 응답 */
+export interface PairingCodeDto {
+  /** 정리한 8자. 화면에는 XXXX-XXXX로 보인다 */
+  code: string;
+  /** 코드를 만든 자리 */
+  role: PairingRole;
+  /** 코드가 사라지는 시각 (ISO) */
+  expiresAt: string;
+}
+
+/** 연결 하나 (요청한 회원 쪽에서 본 모양) */
+export interface PairingDto {
+  id: string;
+  /** 내 자리: OWNER(내 옷장을 돕는 사람) · HELPER(내가 돕는 옷장) */
+  role: PairingRole;
+  partnerId: string;
+  partnerName: string;
+  /** 승인 전(PENDING)이면 null */
+  permission: PairingPermission | null;
+  status: PairingStatus;
+  /** 코드를 만든 쪽 */
+  issuedBy: PairingRole;
+  /** 돕는 사람의 작업을 주인에게 알릴지 */
+  notifyOwner: boolean;
+  createdAt: string;
+  approvedAt: string | null;
+}
+
+export interface PairingListDto {
+  /** 내 옷장을 돕는 사람 */
+  asOwner: PairingDto[];
+  /** 내가 돕는 옷장 */
+  asHelper: PairingDto[];
+}
+
+/** 돕는 사람이 한 일 */
+export type ProxyAction = 'ITEM_CREATE' | 'ITEM_UPDATE' | 'ITEM_RETIRE' | 'ITEM_RESTORE';
+
+export interface ProxyActionDto {
+  id: string;
+  action: ProxyAction;
+  /** 주인이 완전 삭제했으면 지금은 없을 수 있다 */
+  itemId: string;
+  /** 기록 당시 옷 이름 */
+  itemName: string | null;
+  createdAt: string;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;

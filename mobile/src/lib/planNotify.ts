@@ -31,6 +31,7 @@ import {
   type IFreshWeather,
   type IScheduledNotify,
 } from './planNotifyRules';
+import { HELPER_CHANNEL, helperNoticeRoute } from './pairingRules';
 import { planSource, weatherFromDay } from './planWeather';
 
 /** 서버 푸시 등록을 다시 하는 간격 (토큰이 바뀌었을 수 있다) */
@@ -99,11 +100,19 @@ let channelReady: Promise<void> | null = null;
 const ensureChannel = (): Promise<void> => {
   if (Platform.OS !== 'android') return Promise.resolve();
   if (!channelReady) {
-    channelReady = Notifications.setNotificationChannelAsync(NOTIFY_CHANNEL, {
-      name: '예정 전날 알림',
-      description: '예정 코디 전날 저녁에 날씨와 함께 알려 드려요',
-      importance: Notifications.AndroidImportance.DEFAULT,
-    })
+    channelReady = Promise.all([
+      Notifications.setNotificationChannelAsync(NOTIFY_CHANNEL, {
+        name: '예정 전날 알림',
+        description: '예정 코디 전날 저녁에 날씨와 함께 알려 드려요',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      }),
+      // 옷장 도우미 알림 (서버 푸시의 channelId와 같다, doc/26 3단계)
+      Notifications.setNotificationChannelAsync(HELPER_CHANNEL, {
+        name: '옷장 도우미 알림',
+        description: '옷장 도우미 연결 요청과 대신 정리한 옷을 알려 드려요',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      }),
+    ])
       .then(() => undefined)
       .catch((e) => {
         channelReady = null;
@@ -357,6 +366,12 @@ export const unregisterPushToken = async (server = true): Promise<void> => {
 const openFromResponse = (response: NotificationsModule.NotificationResponse | null | undefined): boolean => {
   if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return false;
   const data = response.notification.request.content.data as Record<string, unknown> | null;
+  // 옷장 도우미 알림(연결 요청·승인·해제·대리 작업)은 도우미 화면을 연다 (doc/26)
+  const helperRoute = helperNoticeRoute(data);
+  if (helperRoute) {
+    router.push(helperRoute as never);
+    return true;
+  }
   if (data?.type !== NOTIFY_TYPE) return false;
   const plan = findNotifiedPlan(useStore.getState().plans, data);
   if (plan) {
