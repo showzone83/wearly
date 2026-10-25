@@ -91,7 +91,9 @@
                EXISTS (SELECT 1 FROM tb_user_mfa m WHERE m.user_id = u.user_id) AS mfa_enrolled,
                r.user_id AS referrer_id, r.email AS referrer_email, r.name AS referrer_name,
                (SELECT count(*) FROM tb_invite_signup s2
-                 WHERE s2.referrer_id = u.user_id AND s2.result = 'LINKED') AS invited_count
+                 WHERE s2.referrer_id = u.user_id AND s2.result = 'LINKED') AS invited_count,
+               (SELECT w.purge_after FROM tb_user_withdrawal w
+                 WHERE w.user_id = u.user_id AND w.canceled_at IS NULL AND w.purged_at IS NULL) AS purge_at
           FROM tb_user u
           LEFT JOIN tb_user_profile p ON p.user_id = u.user_id
           LEFT JOIN tb_invite_signup s ON s.user_id = u.user_id AND s.result = 'LINKED'

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 관리자 탈퇴 기록 (doc/27 4단계): 목록(최근 신청순)·상태별·사유별 수. 회원이 지워진 기록은 이메일·이름이 없다 (LEFT JOIN) -->
+<mapper namespace="app.wearly.admin.adapter.out.persistence.mybatis.mapper.AdminWithdrawalMapper">
+
+    <sql id="withdrawalWhere">
+        <where>
+            <if test="f.query != null">
+                <bind name="queryPattern" value="@app.wearly.common.mybatis.LikePatterns@contains(f.query)"/>
+                (u.email ILIKE #{queryPattern} ESCAPE '\' OR u.name ILIKE #{queryPattern} ESCAPE '\'
+                 <if test="f.userId != null">OR w.user_id = #{f.userId}</if>)
+            </if>
+            <if test="f.state == 'OPEN'">AND w.canceled_at IS NULL AND w.purged_at IS NULL</if>
+            <if test="f.state == 'OVERDUE'">AND w.canceled_at IS NULL AND w.purged_at IS NULL AND w.purge_after &lt;= #{now}</if>
+            <if test="f.state == 'CANCELED'">AND w.canceled_at IS NOT NULL</if>
+            <if test="f.state == 'PURGED'">AND w.purged_at IS NOT NULL</if>
+            <if test="f.reason != null">AND w.reason = #{f.reason}</if>
+        </where>
+    </sql>
+
+    <select id="findWithdrawals" resultType="app.wearly.admin.application.port.out.dto.AdminWithdrawalRowDto">
+        SELECT w.withdrawal_id AS id, w.user_id, u.email, u.name, w.reason, w.reason_text,
+               w.requested_at, w.purge_after, w.canceled_at, w.canceled_by, w.purged_at, w.purged_by
+          FROM tb_user_withdrawal w
+          LEFT JOIN tb_user u ON u.user_id = w.user_id
+        <include refid="withdrawalWhere"/>
+         ORDER BY w.requested_at DESC, w.withdrawal_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countWithdrawals" resultType="long">
+        SELECT count(*)
+          FROM tb_user_withdrawal w
+          LEFT JOIN tb_user u ON u.user_id = w.user_id
+        <include refid="withdrawalWhere"/>
+    </select>
+
+    <select id="countStates" resultType="app.wearly.admin.application.port.out.dto.WithdrawalStateCountRowDto">
+        SELECT count(*) AS total,
+               count(*) FILTER (WHERE w.canceled_at IS NULL AND w.purged_at IS NULL) AS open,
+               count(*) FILTER (WHERE w.canceled_at IS NOT NULL) AS canceled,
+               count(*) FILTER (WHERE w.purged_at IS NOT NULL) AS purged
+          FROM tb_user_withdrawal w
+         WHERE w.requested_at &gt;= #{from}
+    </select>
+
+    <select id="countReasons" resultType="app.wearly.admin.application.port.out.dto.WithdrawalReasonCountRowDto">
+        SELECT w.reason, count(*) AS count
+          FROM tb_user_withdrawal w
+         WHERE w.requested_at &gt;= #{from}
+         GROUP BY w.reason
+         ORDER BY count(*) DESC, w.reason
+    </select>
+
+    <select id="countOverdue" resultType="long">
+        SELECT count(*)
+          FROM tb_user_withdrawal w
+         WHERE w.canceled_at IS NULL AND w.purged_at IS NULL AND w.purge_after &lt;= #{now}
+    </select>
+</mapper>

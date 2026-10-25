@@ -148,6 +148,7 @@ export const UsersPage = () => {
               <option value="">모든 상태</option>
               <option value="ACTIVE">정상</option>
               <option value="SUSPENDED">정지</option>
+              <option value="WITHDRAWN">탈퇴 예정</option>
             </select>
             <select value={query.role ?? ''} onChange={(e) => setFilter('role', e.target.value)} aria-label="역할">
               <option value="">모든 역할</option>
@@ -190,7 +191,7 @@ export const UsersPage = () => {
                     const busy = update.isPending && update.variables?.user.id === u.id;
                     const mfaBusy = resetMfa.isPending && resetMfa.variables?.id === u.id;
                     return (
-                      <tr key={u.id} className={u.status === 'SUSPENDED' ? 'row-inactive' : ''}>
+                      <tr key={u.id} className={u.status !== 'ACTIVE' ? 'row-inactive' : ''}>
                         <td className="mono small">{u.id}</td>
                         <td>
                           {u.email ?? <span className="muted">—</span>} {isMe ? <Badge tone="beige">나</Badge> : null}
@@ -213,7 +214,16 @@ export const UsersPage = () => {
                           )}
                         </td>
                         <td>
-                          {u.status === 'SUSPENDED' ? <Badge tone="red">정지</Badge> : <Badge tone="green">정상</Badge>}
+                          {u.status === 'WITHDRAWN' ? (
+                            <>
+                              <Badge tone="beige">탈퇴 예정</Badge>
+                              {u.purgeAt ? <div className="small muted">삭제 {fmtDate(u.purgeAt)}</div> : null}
+                            </>
+                          ) : u.status === 'SUSPENDED' ? (
+                            <Badge tone="red">정지</Badge>
+                          ) : (
+                            <Badge tone="green">정상</Badge>
+                          )}
                         </td>
                         <td className="small">{fmtDate(u.createdAt)}</td>
                         <td className="small" title={u.referrerEmail ?? undefined}>
@@ -267,7 +277,16 @@ export const UsersPage = () => {
                               2단계 인증 초기화
                             </Button>
                           ) : null}
-                          {u.status === 'SUSPENDED' ? (
+                          {u.status === 'WITHDRAWN' ? (
+                            // 탈퇴 예정은 상태·역할을 바꿀 수 없다. 탈퇴 취소·바로 삭제는 탈퇴 기록 화면에서
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => navigate(`/withdrawals?q=${encodeURIComponent(u.id)}`)}
+                            >
+                              탈퇴 기록
+                            </Button>
+                          ) : u.status === 'SUSPENDED' ? (
                             <Button
                               size="sm"
                               busy={busy}
@@ -296,7 +315,7 @@ export const UsersPage = () => {
                               정지
                             </Button>
                           )}
-                          {u.role === 'ADMIN' ? (
+                          {u.status === 'WITHDRAWN' ? null : u.role === 'ADMIN' ? (
                             <Button
                               size="sm"
                               variant="ghost"

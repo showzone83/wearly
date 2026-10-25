@@ -9,7 +9,8 @@ import app.wearly.common.web.Times;
  * 오늘(한국 시간) 성공한 사진 분석 수. ageRange(AGE_RANGE)·bodyType(BODY_TYPE)·fitPreference(FIT) 코드와 heightCm =
  * 프로필 나의 정보 (조회만, 없으면 null). mfaEnrolled = TOTP 2단계 인증을 등록했는지.
  * referrerId·referrerEmail·referrerName = 이 회원을 초대한 추천인 (없으면 null), invitedCount = 이 회원의 초대 코드로 가입한
- * 친구 수 (doc/25)
+ * 친구 수 (doc/25). status = ACTIVE · SUSPENDED · WITHDRAWN(탈퇴 예정, doc/27), purgeAt = 탈퇴 예정이면 삭제 예정
+ * 시각(아니면 null)
  */
 public record AdminUserResponse(
     String id,
@@ -29,7 +30,8 @@ public record AdminUserResponse(
     String referrerId,
     String referrerEmail,
     String referrerName,
-    long invitedCount) {
+    long invitedCount,
+    String purgeAt) {
 
   public static AdminUserResponse from(AdminUserDto d) {
     return new AdminUserResponse(
@@ -50,6 +52,7 @@ public record AdminUserResponse(
         Ids.format(d.referrerId()),
         d.referrerEmail(),
         d.referrerName(),
-        d.invitedCount());
+        d.invitedCount(),
+        Times.iso(d.purgeAt()));
   }
 }

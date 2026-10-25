@@ -43,7 +43,8 @@ export interface IPageQuery {
 // ───────── 인증 ─────────
 
 export type TUserRole = 'USER' | 'ADMIN';
-export type TUserStatus = 'ACTIVE' | 'SUSPENDED';
+/** 회원 상태. WITHDRAWN = 탈퇴 예정 (유예 기간 중, doc/27). 관리자가 상태 바꾸기로 넣거나 뺄 수 없다 */
+export type TUserStatus = 'ACTIVE' | 'SUSPENDED' | 'WITHDRAWN';
 
 export interface IUserDto {
   id: string;
@@ -449,6 +450,8 @@ export interface IAdminUser {
   referrerName?: string | null;
   /** 이 회원의 초대 코드로 가입한 친구 수. 예전 서버면 0 */
   invitedCount: number;
+  /** 탈퇴 예정이면 삭제 예정 시각 (doc/27, 아니면 null. 예전 서버는 필드 없음) */
+  purgeAt?: string | null;
 }
 
 export interface IUserQuery extends IPageQuery {
@@ -458,7 +461,7 @@ export interface IUserQuery extends IPageQuery {
 }
 
 export interface IUserPatch {
-  status?: TUserStatus;
+  status?: Exclude<TUserStatus, 'WITHDRAWN'>;
   role?: TUserRole;
 }
 
@@ -506,6 +509,58 @@ export interface IInviteShareQuery extends IPageQuery {
   /** 회원 이메일·이름 */
   q?: string;
   channel?: string;
+}
+
+// ───────── 탈퇴 기록 (doc/27 4단계) ─────────
+
+/** 탈퇴 사유 코드 */
+export type TWithdrawalReason = 'NOT_USEFUL' | 'BAD_RECOMMEND' | 'HARD_TO_USE' | 'PRIVACY' | 'OTHER_APP' | 'OTHER' | (string & {});
+
+/** 탈퇴 기록 상태: 탈퇴 예정 · 취소 · 삭제됨 */
+export type TWithdrawalState = 'OPEN' | 'CANCELED' | 'PURGED' | (string & {});
+
+/** `GET /admin/withdrawals` 한 줄 */
+export interface IWithdrawalRow {
+  id: string;
+  userId: string;
+  /** 회원이 지워졌으면 null */
+  email: string | null;
+  name: string | null;
+  reason: TWithdrawalReason;
+  /** 회원이 적은 하고 싶은 말 (없으면 null) */
+  reasonText: string | null;
+  state: TWithdrawalState;
+  /** 탈퇴 예정인데 삭제 예정 시각이 지났다 (예약 삭제가 밀림) */
+  overdue: boolean;
+  requestedAt: string;
+  purgeAt: string;
+  canceledAt: string | null;
+  /** USER(다시 로그인) · ADMIN */
+  canceledBy: string | null;
+  purgedAt: string | null;
+  /** SCHEDULER(예약 삭제) · ADMIN */
+  purgedBy: string | null;
+}
+
+export interface IWithdrawalQuery extends IPageQuery {
+  /** 남은 회원의 이메일·이름 또는 회원 ID */
+  q?: string;
+  /** OPEN · OVERDUE · CANCELED · PURGED */
+  state?: string;
+  reason?: string;
+}
+
+/** `GET /admin/withdrawals/summary` */
+export interface IWithdrawalSummary {
+  days: number;
+  from: string;
+  total: number;
+  open: number;
+  canceled: number;
+  purged: number;
+  /** 기간과 상관없이 기한이 지났는데 남은 탈퇴 예정 수 */
+  overdue: number;
+  reasons: { reason: TWithdrawalReason; count: number }[];
 }
 
 // ───────── 옷장 도우미 (doc/26 6단계) ─────────

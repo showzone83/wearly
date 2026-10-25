@@ -35,6 +35,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminUserService implements AdminUserUseCase {
 
   static final List<String> STATUSES = List.of(UserAccountDto.ACTIVE, UserAccountDto.SUSPENDED);
+
+  /** 목록 상태 필터 값: 바꿀 수 있는 상태 + 탈퇴 예정 (doc/27, 상태 바꾸기로는 넣거나 뺄 수 없다) */
+  static final List<String> LIST_STATUSES =
+      List.of(UserAccountDto.ACTIVE, UserAccountDto.SUSPENDED, UserAccountDto.WITHDRAWN);
+
   static final List<String> ROLES = List.of(UserAccountDto.ROLE_USER, UserAccountDto.ROLE_ADMIN);
 
   private final AdminQueryPort queries;
@@ -63,8 +68,8 @@ public class AdminUserService implements AdminUserUseCase {
   @Transactional(readOnly = true)
   public PageDto<AdminUserDto> list(String q, String status, String role, PagingDto paging) {
     String st = SearchText.blankToNull(status);
-    if (st != null && !STATUSES.contains(st)) {
-      throw BusinessException.validation(FieldError.notAllowed("status", STATUSES));
+    if (st != null && !LIST_STATUSES.contains(st)) {
+      throw BusinessException.validation(FieldError.notAllowed("status", LIST_STATUSES));
     }
     String rl = SearchText.blankToNull(role);
     if (rl != null && !ROLES.contains(rl)) {
@@ -200,6 +205,7 @@ public class AdminUserService implements AdminUserUseCase {
         r.referrerId(),
         r.referrerEmail(),
         r.referrerName(),
-        r.invitedCount());
+        r.invitedCount(),
+        r.purgeAt());
   }
 }

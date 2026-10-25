@@ -31,6 +31,9 @@ export const qk = {
   inviteSignups: (q: object) => ['invite-signups', q] as const,
   inviteShares: (q: object) => ['invite-shares', q] as const,
   pairings: (q: object) => ['pairings', q] as const,
+  /** 'withdrawals'로 시작하는 키를 무효화하면 목록과 요약이 함께 다시 읽힌다 */
+  withdrawals: (q: object) => ['withdrawals', 'list', q] as const,
+  withdrawalSummary: (days: number) => ['withdrawals', 'summary', days] as const,
   pairingActions: (id: string) => ['pairing-actions', id] as const,
   audit: (q: object) => ['audit', q] as const,
   appTheme: ['app', 'theme'] as const,

@@ -67,6 +67,9 @@ import type {
   IWeatherSchedule,
   IWeatherSnapshot,
   IWeatherTestResult,
+  IWithdrawalQuery,
+  IWithdrawalRow,
+  IWithdrawalSummary,
   TAiLogDetail,
   TKeySource,
   TLoginResponse,
@@ -759,6 +762,25 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       /** 초대한 이력 */
       shares: async (q: IInviteShareQuery): Promise<IPage<IInviteShareRow>> => {
         return toPage(await get<unknown>('/admin/invites/shares', { ...q }), q);
+      },
+    },
+
+    /** 탈퇴 기록 (doc/27 4단계, 최근 신청순) */
+    withdrawals: {
+      list: async (q: IWithdrawalQuery): Promise<IPage<IWithdrawalRow>> => {
+        return toPage(await get<unknown>('/admin/withdrawals', { ...q }), q);
+      },
+      /** 최근 days일 요약 (기본 30) */
+      summary: (days?: number): Promise<IWithdrawalSummary> => {
+        return get<IWithdrawalSummary>('/admin/withdrawals/summary', days ? { days } : {});
+      },
+      /** 탈퇴 취소 (204). 탈퇴 예정이 아니면 404 */
+      cancel: (userId: string): Promise<void> => {
+        return request<void>('POST', `/admin/withdrawals/${enc(userId)}/cancel`, { auth: true });
+      },
+      /** 바로 삭제 (204, 되돌릴 수 없음). 탈퇴 예정이 아니면 404 */
+      purge: (userId: string): Promise<void> => {
+        return request<void>('POST', `/admin/withdrawals/${enc(userId)}/purge`, { auth: true });
       },
     },
 

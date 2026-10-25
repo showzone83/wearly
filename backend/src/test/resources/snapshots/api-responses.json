@@ -3323,7 +3323,8 @@
         "referrerId" : null,
         "referrerEmail" : null,
         "referrerName" : null,
-        "invitedCount" : 0
+        "invitedCount" : 0,
+        "purgeAt" : null
       }, {
         "id" : "2",
         "email" : "snap-a@wearly.test",
@@ -3342,7 +3343,8 @@
         "referrerId" : null,
         "referrerEmail" : null,
         "referrerName" : null,
-        "invitedCount" : 0
+        "invitedCount" : 0,
+        "purgeAt" : null
       }, {
         "id" : "1",
         "email" : "admin@snapshot.test",
@@ -3361,7 +3363,8 @@
         "referrerId" : null,
         "referrerEmail" : null,
         "referrerName" : null,
-        "invitedCount" : 0
+        "invitedCount" : 0,
+        "purgeAt" : null
       } ],
       "page" : 0,
       "size" : 20,
@@ -3389,7 +3392,8 @@
         "referrerId" : null,
         "referrerEmail" : null,
         "referrerName" : null,
-        "invitedCount" : 0
+        "invitedCount" : 0,
+        "purgeAt" : null
       } ],
       "page" : 1,
       "size" : 1,
@@ -3417,7 +3421,8 @@
         "referrerId" : null,
         "referrerEmail" : null,
         "referrerName" : null,
-        "invitedCount" : 0
+        "invitedCount" : 0,
+        "purgeAt" : null
       } ],
       "page" : 0,
       "size" : 20,
@@ -3433,7 +3438,7 @@
         "field" : "status",
         "code" : "NOT_ALLOWED",
         "params" : {
-          "allowed" : [ "ACTIVE", "SUSPENDED" ]
+          "allowed" : [ "ACTIVE", "SUSPENDED", "WITHDRAWN" ]
         }
       } ],
       "traceId" : "<traceId>"
@@ -3474,7 +3479,8 @@
       "referrerId" : null,
       "referrerEmail" : null,
       "referrerName" : null,
-      "invitedCount" : 0
+      "invitedCount" : 0,
+      "purgeAt" : null
     }
   },
   "admin.users.patch.suspendedLogin" : {
@@ -3515,7 +3521,8 @@
       "referrerId" : null,
       "referrerEmail" : null,
       "referrerName" : null,
-      "invitedCount" : 0
+      "invitedCount" : 0,
+      "purgeAt" : null
     }
   },
   "admin.users.patch.restoredOldToken" : {
@@ -3607,7 +3614,8 @@
       "referrerId" : null,
       "referrerEmail" : null,
       "referrerName" : null,
-      "invitedCount" : 0
+      "invitedCount" : 0,
+      "purgeAt" : null
     }
   },
   "admin.users.patch.demote" : {
@@ -3630,7 +3638,8 @@
       "referrerId" : null,
       "referrerEmail" : null,
       "referrerName" : null,
-      "invitedCount" : 0
+      "invitedCount" : 0,
+      "purgeAt" : null
     }
   },
   "admin.users.patch.demotedOldToken" : {

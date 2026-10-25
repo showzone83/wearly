@@ -18,6 +18,8 @@ const MENU = [
   { to: '/invites', label: '친구 초대', icon: '✉' },
   // 옷장 도우미 연결·대리 작업 기록·강제 해제 (doc/26 6단계)
   { to: '/pairings', label: '옷장 도우미', icon: '♡' },
+  // 탈퇴 기록: 사유별 집계·탈퇴 예정 회원 취소·바로 삭제 (doc/27 4단계)
+  { to: '/withdrawals', label: '탈퇴 기록', icon: '⌫' },
   // 지금 로그인돼 있는 세션과 강제 로그아웃 (doc/16 5장)
   { to: '/sessions', label: '로그인 사용자', icon: '◉' },
   // 관리자 계정의 로그인·2단계 인증 기록 (doc/22)

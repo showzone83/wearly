@@ -19,6 +19,7 @@ import { WeatherCallsPage } from '@/pages/weather/WeatherCallsPage';
 import { WeatherProvidersPage } from '@/pages/weather/WeatherProvidersPage';
 import { WeatherSchedulePage } from '@/pages/weather/WeatherSchedulePage';
 import { WeatherSnapshotsPage } from '@/pages/weather/WeatherSnapshotsPage';
+import { WithdrawalsPage } from '@/pages/WithdrawalsPage';
 
 import { useAuthStore } from '@/stores/useAuthStore';
 
@@ -51,6 +52,7 @@ export const App = () => {
         <Route path="users" element={<UsersPage />} />
         <Route path="invites" element={<InvitesPage />} />
         <Route path="pairings" element={<PairingsPage />} />
+        <Route path="withdrawals" element={<WithdrawalsPage />} />
         <Route path="sessions" element={<SessionsPage />} />
         <Route path="auth-events" element={<AuthEventsPage />} />
         <Route path="me" element={<MyAccountPage />} />
