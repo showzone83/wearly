@@ -32,7 +32,7 @@
   - `24_쇼핑몰_캡처_등록.md` — 쇼핑몰 캡처로 옷 사진 등록: 코드 그룹 `MALL`(attrs.url), 앱 안 웹 화면·정사각 틀 캡처, 옷 등록·옷 상세 사진 시트
   - `25_친구_초대.md` — 친구 초대·추천인(이슈 #16): 초대 코드, 공유 시트(카카오톡 등)·문자·복사, 가입 때 초대 코드(없는 코드여도 가입), 초대한 이력·가입 이력(V26, `invite` 컨텍스트), 관리자 친구 초대 화면
   - `26_옷장_도우미.md` — 옷장 도우미(이슈 #11): 돕는 사람이 주인 옷장을 대신 등록·관리, 결정 사항, 0~7단계 계획, 1~6단계(관리자 사이트·주인 옷장 화면·앱 연결 관리·알림 포함, 연결 `/pairings`·`V27`, 대리 작업 `/owners/{ownerId}/…`·작업 기록 `V28`) 구현함, 코드는 주인만 만든다(#18, 8단계), 후속 이슈
-  - `27_탈퇴_유예.md` — 탈퇴 유예 기간(이슈 #19): 30일 "탈퇴 예정"(`WITHDRAWN`), 다시 로그인하면 취소, 사유 필수·기록 `tb_user_withdrawal`, 30일 뒤 예약 삭제, 관리자 "탈퇴 기록". 결정 W1~W11, 0~5단계 계획, 0~4단계 구현함(`POST /users/me/withdrawal`·`V30`·`ACCOUNT_WITHDRAWN`, 로그인 `cancelWithdrawal`, 매일 04:30 예약 삭제, 앱 `/withdraw`·로그인 취소 창, 관리자 "탈퇴 기록" `/admin/withdrawals`)
+  - `27_탈퇴_유예.md` — 탈퇴 유예 기간(이슈 #19): 30일 "탈퇴 예정"(`WITHDRAWN`), 다시 로그인하면 취소, 사유 필수·기록 `tb_user_withdrawal`, 30일 뒤 예약 삭제, 관리자 "탈퇴 기록". 결정 W1~W11, 0~5단계 계획, 0~5단계 구현함(`POST /users/me/withdrawal`·`V30`·`ACCOUNT_WITHDRAWN`, 로그인 `cancelWithdrawal`, 매일 04:30 예약 삭제, 앱 `/withdraw`·로그인 취소 창, 관리자 "탈퇴 기록" `/admin/withdrawals`), 사람이 할 일(처리방침·실기기)은 5단계
 - `CHANGELOG.md` — 변경 이력(Keep a Changelog, `[Unreleased]`). 새 작업을 합칠 때 항목을 추가한다.
 - `mobile/` — React Native(Expo SDK 58) 목업 앱. 백엔드 없이 기기 안에 데이터 저장. Expo 작업 규칙은 `mobile/AGENTS.md`를 따른다.
 

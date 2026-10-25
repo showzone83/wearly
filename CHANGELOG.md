@@ -134,6 +134,7 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 ### 2026-10-25
 
 #### 추가
+- 탈퇴 유예 기간(5단계, 문서): [doc/27](doc/27_탈퇴_유예.md) 마무리(사람이 할 일: 개인정보 처리방침 30일 보관 문구·개발 백엔드 재시작·실제 휴대폰·예약 삭제 확인·이슈 댓글), [doc/14](doc/14_DB_명령.md) 탈퇴 예정·기록 조회와 테이블 표, [doc/26](doc/26_옷장_도우미.md) D9에 "탈퇴 신청 즉시 연결 끝남" ([#19](https://github.com/showzone83/wearly/issues/19)) (작성: kang6123)
 - 탈퇴 유예 기간(4단계, 관리자): 새 메뉴 "탈퇴 기록"(`/withdrawals`) — 최근 N일 상태별·사유별 요약과 삭제 밀림 경고, 탈퇴 기록 목록(검색·상태·사유), 탈퇴 예정 회원의 탈퇴 취소·바로 삭제(변경 이력 `USER_WITHDRAWAL_CANCEL`·`USER_PURGE`). API `GET /admin/withdrawals`·`/summary`, `POST /admin/withdrawals/{userId}/cancel`·`/purge`. 회원 목록에 "탈퇴 예정" 필터·배지·삭제 예정일(`purgeAt`) ([#19](https://github.com/showzone83/wearly/issues/19), [doc/27](doc/27_탈퇴_유예.md) 4단계) (작성: kang6123)
 - 탈퇴 유예 기간(3단계, 앱): 더보기 > 회원 탈퇴가 새 탈퇴 화면(`/withdraw`)을 연다 — 30일 유예·취소 방법·옷장 도우미 연결 끊김 안내, 사유 6개 중 하나(필수)·하고 싶은 말(선택 200자), 확인 창, 탈퇴 뒤 삭제 예정일 안내. 로그인할 때 탈퇴 예정 계정이면 "탈퇴를 취소할까요?" 창에서 `cancelWithdrawal`로 되돌린다. 이메일 중복 문구에 탈퇴 취소 안내. 규칙 `lib/withdrawRules.ts`(단위 테스트 4개), `confirm`에 확인 버튼 색 인자 ([#19](https://github.com/showzone83/wearly/issues/19), [doc/27](doc/27_탈퇴_유예.md) 3단계) (작성: kang6123)
 - 탈퇴 유예 기간(2단계, 백엔드): 30일이 지난 탈퇴 예정 회원을 매일 04:30(`wearly.user.withdrawal.purge-cron`) 예약 작업이 지운다. 회원마다 따로 트랜잭션으로 기록에 삭제(`purged_at`·`purged_by`)를 남겨 처리권을 잡은 뒤 지금의 회원 삭제(CASCADE·세션·사진 정리)를 부르고, 한 명이 실패해도 나머지는 계속한다. 한 번에 `purge-batch`(500)명. 관리자 바로 삭제용 `purgeNow`도 둔다 ([#19](https://github.com/showzone83/wearly/issues/19), [doc/27](doc/27_탈퇴_유예.md) 2단계) (작성: kang6123)
