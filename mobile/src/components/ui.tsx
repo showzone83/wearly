@@ -368,9 +368,9 @@ export const Notice = ({
   );
 };
 
-/** 확인 대화상자 (앱이 직접 그린다, DialogHost). 취소·확인 두 버튼이고 확인은 위험한 동작 색이다 */
-export const confirm = (title: string, message: string, onOk: () => void, okLabel = '확인') => {
-  useDialogStore.getState().show({ kind: 'confirm', title, message, okLabel, onOk });
+/** 확인 대화상자 (앱이 직접 그린다, DialogHost). 취소·확인 두 버튼이고 확인은 위험한 동작 색이다 (danger=false면 기본 색) */
+export const confirm = (title: string, message: string, onOk: () => void, okLabel = '확인', danger = true) => {
+  useDialogStore.getState().show({ kind: 'confirm', title, message, okLabel, onOk, danger });
 };
 
 /** 알림 대화상자 (앱이 직접 그린다, DialogHost). 확인 버튼 하나 */
@@ -410,7 +410,7 @@ export const DialogHost = () => {
             {isConfirm && <Button title="취소" variant="outline" small onPress={cancel} style={s.dialogButton} />}
             <Button
               title={dialog.okLabel}
-              variant={isConfirm ? 'danger' : 'primary'}
+              variant={isConfirm && dialog.danger !== false ? 'danger' : 'primary'}
               small
               onPress={() => close(dialog.id, true)}
               style={s.dialogButton}

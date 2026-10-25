@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 
 import { SEASON_INFO, SEASON_MODE_LABELS, SEASON_MODES } from '@/data/seasons';
 import { THEME_IDS, THEMES } from '@/data/themes';
-import { deleteAccount, logout, saveProfile } from '@/lib/account';
+import { logout, saveProfile } from '@/lib/account';
 import { API_BASE_URL, errorAlertMessage } from '@/lib/api';
 import { styleLabel } from '@/lib/codes';
 import { diffDays, todayKey } from '@/lib/date';
@@ -309,17 +309,7 @@ export default function My() {
               label="회원 탈퇴"
               danger
               last
-              onPress={() =>
-                confirm(
-                  '정말 탈퇴할까요?',
-                  '30일 뒤 계정과 서버에 저장된 옷장·취향 설정이 모두 삭제돼요. 그 전에 다시 로그인하면 탈퇴를 취소할 수 있어요. 이 기기의 데이터는 지금 지워져요.',
-                  () =>
-                    void run(async () => {
-                      await deleteAccount({ reason: 'OTHER' });
-                    }, '탈퇴하지 못했어요'),
-                  '탈퇴',
-                )
-              }
+              onPress={() => router.push('/withdraw')}
             />
           </>
         ) : (

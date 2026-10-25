@@ -8,8 +8,10 @@ export interface IDialog {
   kind: TDialogKind;
   title: string;
   message?: string;
-  /** 확인 버튼 글자 (confirm은 위험한 동작 색으로 그린다) */
+  /** 확인 버튼 글자 */
   okLabel: string;
+  /** confirm의 확인 버튼을 위험한 동작 색으로 그린다 (기본 true. 탈퇴 취소처럼 되돌리는 동작은 false) */
+  danger?: boolean;
   /** confirm에서 확인을 눌렀을 때. 창을 닫은 뒤에 부른다 */
   onOk?: () => void;
 }

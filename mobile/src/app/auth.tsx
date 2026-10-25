@@ -4,12 +4,13 @@ import { ActivityIndicator, Pressable, Text, TextInput, View, type TextInputProp
 
 import { isApiError } from '@/api/errors';
 import { Mascot } from '@/components/Mascot';
-import { Button, Header, Kicker, Screen, Title, TraceLabel } from '@/components/ui';
+import { Button, confirm, Header, Kicker, Screen, Title, TraceLabel } from '@/components/ui';
 import { continueAsGuest, enterAccount } from '@/lib/account';
 import { MOCK_MODE } from '@/lib/mode';
 import { api, errorMessage } from '@/lib/api';
 import { fieldErrorText, systemTraceId } from '@/lib/errorText';
 import { formatInviteCode } from '@/lib/invite';
+import { cancelWithdrawalText } from '@/lib/withdrawRules';
 import { useStore } from '@/store/useStore';
 import { inputBase, makeStyles, useColors } from '@/theme';
 
@@ -70,7 +71,8 @@ export default function Auth() {
     setBannerTrace(undefined);
   };
 
-  const submit = async () => {
+  /** cancelWithdrawal: 탈퇴 예정 계정이면 탈퇴를 취소하고 로그인한다 (doc/27, 취소 확인 창에서 다시 부른다) */
+  const submit = async (cancelWithdrawal = false) => {
     const mail = email.trim().toLowerCase();
     const errs = validate(mode, mail, password, name);
     setErrors(errs);
@@ -82,14 +84,18 @@ export default function Auth() {
       const res =
         mode === 'signup'
           ? await api.auth.signup({ email: mail, password, name: name.trim(), inviteCode: inviteCode.trim() || undefined })
-          : await api.auth.login({ email: mail, password });
+          : await api.auth.login(cancelWithdrawal ? { email: mail, password, cancelWithdrawal } : { email: mail, password });
       const dest = await enterAccount(res.user);
       // 스플래시·마이에서 들어온 경우 쌓인 화면을 정리하고 이동한다
       if (router.canDismiss()) router.dismissAll();
       router.replace(dest === 'home' ? '/home' : '/onboarding');
     } catch (e) {
-      if (isApiError(e) && e.code === 'EMAIL_TAKEN') {
-        setErrors({ email: '이미 가입된 이메일이에요. 로그인해 주세요.' });
+      if (isApiError(e) && e.code === 'ACCOUNT_WITHDRAWN') {
+        // 탈퇴 예정 계정 (doc/27): 삭제 예정일을 알리고 취소할지 묻는다
+        const t = cancelWithdrawalText(e.params.purgeAt);
+        confirm(t.title, t.message, () => void submit(true), t.ok, false);
+      } else if (isApiError(e) && e.code === 'EMAIL_TAKEN') {
+        setErrors({ email: '이미 가입된 이메일이에요. 로그인해 주세요. 탈퇴를 신청한 계정이면 로그인해서 취소할 수 있어요.' });
       } else if (isApiError(e) && e.code === 'VALIDATION_FAILED' && e.fieldErrors.length) {
         const next: Partial<Record<Field, string>> = {};
         for (const f of e.fieldErrors) if (FIELDS.includes(f.field as Field)) next[f.field as Field] ??= fieldErrorText(f);
@@ -181,7 +187,7 @@ export default function Auth() {
           autoCorrect={false}
           autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
           textContentType={mode === 'signup' ? 'newPassword' : 'password'}
-          onSubmitEditing={submit}
+          onSubmitEditing={() => void submit()}
           returnKeyType="go"
         />
         {mode === 'signup' && (
@@ -195,7 +201,7 @@ export default function Auth() {
             autoCapitalize="characters"
             autoCorrect={false}
             maxLength={20}
-            onSubmitEditing={submit}
+            onSubmitEditing={() => void submit()}
             returnKeyType="go"
           />
         )}
@@ -211,7 +217,7 @@ export default function Auth() {
       <Button
         title={busy ? '' : mode === 'login' ? '로그인' : '가입하고 시작하기'}
         icon={busy ? <ActivityIndicator color="#fff" /> : undefined}
-        onPress={submit}
+        onPress={() => void submit()}
         disabled={busy}
         style={{ marginTop: 24 }}
       />
