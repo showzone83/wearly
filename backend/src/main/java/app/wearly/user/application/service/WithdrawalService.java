@@ -1,6 +1,7 @@
 package app.wearly.user.application.service;
 
 import app.wearly.common.error.BusinessException;
+import app.wearly.user.application.port.in.UserUseCase;
 import app.wearly.user.application.port.in.UserWithdrawnListener;
 import app.wearly.user.application.port.in.WithdrawalUseCase;
 import app.wearly.user.application.port.in.dto.WithdrawDto;
@@ -24,6 +25,7 @@ public class WithdrawalService implements WithdrawalUseCase {
 
   private final UserPort users;
   private final WithdrawalPort withdrawals;
+  private final UserUseCase accounts;
   private final List<UserWithdrawnListener> listeners;
   private final WithdrawalPolicy policy;
   private final Clock clock;
@@ -31,11 +33,13 @@ public class WithdrawalService implements WithdrawalUseCase {
   public WithdrawalService(
       UserPort users,
       WithdrawalPort withdrawals,
+      UserUseCase accounts,
       List<UserWithdrawnListener> listeners,
       WithdrawalPolicy policy,
       Clock clock) {
     this.users = users;
     this.withdrawals = withdrawals;
+    this.accounts = accounts;
     this.listeners = List.copyOf(listeners);
     this.policy = policy;
     this.clock = clock;
@@ -80,6 +84,35 @@ public class WithdrawalService implements WithdrawalUseCase {
         .findOpen(userId)
         .ifPresent(
             w -> withdrawals.save(w.cancel(byAdmin ? Closer.ADMIN : Closer.USER, clock.instant())));
+    return true;
+  }
+
+  @Override
+  @Transactional
+  public boolean purgeIfDue(long userId, Instant now) {
+    return purge(userId, now, now, Closer.SCHEDULER);
+  }
+
+  @Override
+  @Transactional
+  public boolean purgeNow(long userId) {
+    return purge(userId, null, clock.instant(), Closer.ADMIN);
+  }
+
+  /** 처리권을 잡고(기록에 삭제) 회원을 지운다. 회원 행·하위 데이터·세션·사진은 UserUseCase.delete가 지운다 */
+  private boolean purge(long userId, Instant dueBy, Instant now, Closer by) {
+    if (!withdrawals.claimPurge(userId, dueBy, now, by)) {
+      return false;
+    }
+    User user = users.findById(userId).orElse(null);
+    if (user == null) {
+      return true; // 이미 지워졌다 (기록만 닫는다)
+    }
+    if (!user.isWithdrawn()) {
+      // 기록은 열려 있는데 회원이 탈퇴 예정이 아니다: 지우지 않고 기록도 되돌린다
+      throw new IllegalStateException("탈퇴 예정이 아닌 회원은 지우지 않아요: user " + userId);
+    }
+    accounts.delete(userId);
     return true;
   }
 

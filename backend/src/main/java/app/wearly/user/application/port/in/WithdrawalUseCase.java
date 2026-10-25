@@ -2,6 +2,7 @@ package app.wearly.user.application.port.in;
 
 import app.wearly.user.application.port.in.dto.WithdrawDto;
 import app.wearly.user.application.port.in.dto.WithdrawalDto;
+import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -29,4 +30,14 @@ public interface WithdrawalUseCase {
    * @param byAdmin true면 관리자가 취소했다 (기록의 canceled_by ADMIN)
    */
   boolean cancel(long userId, boolean byAdmin);
+
+  /**
+   * 기한이 지난 탈퇴 예정 회원을 지운다 (예약 삭제, doc/27 2단계). 기록에 삭제(SCHEDULER)를 남기고 {@link UserUseCase#delete}로 회원
+   * 행과 하위 데이터(CASCADE)·세션·사진을 지운다. 한 트랜잭션이라 지우지 못하면 기록도 되돌아가 다음에 다시 한다. 기한 전이거나 취소됐거나 다른 서버가 먼저
+   * 지웠으면 false
+   */
+  boolean purgeIfDue(long userId, Instant now);
+
+  /** 탈퇴 예정 회원을 기한과 상관없이 지금 지운다 (관리자 바로 삭제, 기록의 purged_by ADMIN). 탈퇴 예정이 아니면 false */
+  boolean purgeNow(long userId);
 }

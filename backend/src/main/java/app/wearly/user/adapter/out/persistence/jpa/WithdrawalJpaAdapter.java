@@ -4,7 +4,10 @@ import app.wearly.user.application.port.out.WithdrawalPort;
 import app.wearly.user.domain.Withdrawal;
 import app.wearly.user.domain.Withdrawal.Closer;
 import app.wearly.user.domain.WithdrawalReason;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Component;
 
 /** WithdrawalPort 구현 (JPA). 엔티티 ↔ 도메인 모델 변환 */
@@ -33,6 +36,20 @@ class WithdrawalJpaAdapter implements WithdrawalPort {
   @Override
   public Optional<Withdrawal> findOpen(long userId) {
     return repository.findOpen(userId).map(WithdrawalJpaAdapter::toDomain);
+  }
+
+  @Override
+  public List<Long> findDueUserIds(Instant now, int limit) {
+    return repository.findDueUserIds(now, Limit.of(limit));
+  }
+
+  @Override
+  public boolean claimPurge(long userId, Instant dueBy, Instant now, Closer by) {
+    int n =
+        dueBy == null
+            ? repository.claimAny(userId, now, by.name())
+            : repository.claimDue(userId, dueBy, now, by.name());
+    return n > 0;
   }
 
   private static String name(Closer c) {

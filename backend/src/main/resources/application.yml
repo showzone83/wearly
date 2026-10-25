@@ -181,6 +181,11 @@ wearly:
     # 탈퇴 유예 (doc/27): 탈퇴를 신청하면 이만큼 "탈퇴 예정"으로 두고, 그 안에 다시 로그인하면 취소할 수 있다
     withdrawal:
       grace: ${WEARLY_USER_WITHDRAWAL_GRACE:P30D}
+      # 유예 기간이 지난 회원을 지우는 예약 작업 (한국 시간 cron, 기본 매일 04:30). 한 번에 purge-batch명까지
+      purge-cron: ${WEARLY_USER_WITHDRAWAL_PURGE_CRON:0 30 4 * * *}
+      purge-batch: ${WEARLY_USER_WITHDRAWAL_PURGE_BATCH:500}
+      # false면 예약 작업을 만들지 않는다 (테스트용)
+      scheduler-enabled: ${WEARLY_USER_WITHDRAWAL_SCHEDULER_ENABLED:true}
   # 옷장 도우미 연결 (pairing 컨텍스트, doc/26). 인원은 승인 대기 중인 요청도 센다
   pairing:
     # 주인 한 명에게 연결할 수 있는 돕는 사람 수

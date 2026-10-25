@@ -57,4 +57,22 @@ public class FakeWithdrawals implements WithdrawalUseCase {
     canceled.put(userId, byAdmin);
     return true;
   }
+
+  @Override
+  public boolean purgeIfDue(long userId, Instant now) {
+    WithdrawalDto w = open.get(userId);
+    if (w == null || w.purgeAfter().isAfter(now)) {
+      return false;
+    }
+    return purgeNow(userId);
+  }
+
+  @Override
+  public boolean purgeNow(long userId) {
+    if (open.remove(userId) == null) {
+      return false;
+    }
+    users.delete(userId);
+    return true;
+  }
 }
