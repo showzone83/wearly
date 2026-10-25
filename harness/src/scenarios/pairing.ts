@@ -1,12 +1,19 @@
-// 옷장 도우미 연결 (doc/26 4단계): 앱 API 모듈 api.pairing으로 두 계정을 코드 두 흐름으로 연결·승인·권한 변경·해제한다.
-// 대리 작업(/owners/{ownerId}/…)은 api.owners로 확인한다 (5단계).
+// 옷장 도우미 연결 (doc/26 4단계): 앱 API 모듈 api.pairing으로 두 계정을 주인 코드로 연결·승인·권한 변경·해제한다.
+// 코드는 옷장 주인만 만든다 (#18). 대리 작업(/owners/{ownerId}/…)은 api.owners로 확인한다 (5단계).
 import { eq, expectApiError, ok } from '../lib/assert';
 import { item } from '../lib/fixtures';
+import { checkErrorBody, raw } from '../lib/http';
 import { solidPng } from '../lib/png';
-import { signedUp } from '../lib/session';
+import { signedUp, tokensOf, type UserSession } from '../lib/session';
 import type { Scenario } from '../scenario';
 
 const CODE_RE = /^[A-HJKMNP-Z2-9]{8}$/;
+
+/** 주인 코드 → 돕는 사람 입력 → 주인 승인. 주인 쪽에서 본 연결 */
+async function connect(owner: UserSession, helper: UserSession, permission: 'VIEW' | 'EDIT') {
+  const pending = await helper.api.pairing.join((await owner.api.pairing.issueCode()).code);
+  return owner.api.pairing.approve(pending.id, permission);
+}
 
 const ownerCodeFlow: Scenario = {
   group: '옷장 도우미',
@@ -16,7 +23,7 @@ const ownerCodeFlow: Scenario = {
     const helper = await signedUp('pair-h', '딸');
     const ownerId = (await owner.api.users.me()).id;
 
-    const issued = await owner.api.pairing.issueCode('OWNER');
+    const issued = await owner.api.pairing.issueCode();
     ok(CODE_RE.test(issued.code), '코드 8자 형식', issued.code);
     eq(issued.role, 'OWNER', '코드를 만든 자리');
     const left = Date.parse(issued.expiresAt) - Date.now();
@@ -52,45 +59,44 @@ const ownerCodeFlow: Scenario = {
   },
 };
 
-const helperCodeFlow: Scenario = {
+const ownerOnlyCode: Scenario = {
   group: '옷장 도우미',
-  name: '돕는 사람 코드 → 주인이 권한 없이 입력 400 → 권한으로 입력(바로 ACTIVE) → 자기 코드·중복·인원 초과 오류 → 거절 → 주인이 해제',
+  name: '돕는 사람 자리 코드는 400(#18) → 주인 코드로 연결 → 중복·자기 코드·인원 초과 오류 → 주인이 해제 → 거절 → 없는 코드',
   async run() {
     const owner = await signedUp('pair2-o', '아빠');
     const helper = await signedUp('pair2-h', '아들');
 
-    const code = (await helper.api.pairing.issueCode('HELPER')).code;
-    const bad = await expectApiError(owner.api.pairing.join(code), { status: 400, code: 'VALIDATION_FAILED' }, '돕는 사람 코드에 권한 없음');
-    eq(bad.fieldErrors.map((f) => `${f.field}:${f.code}`), ['permission:REQUIRED'], '권한 필수');
-    const active = await owner.api.pairing.join(code, 'VIEW');
-    eq([active.status, active.permission, active.issuedBy, active.partnerName], ['ACTIVE', 'VIEW', 'HELPER', '아들'], '바로 연결');
+    // 코드는 옷장 주인만 만든다: 앱 모듈은 자리를 받지 않으므로 서버를 직접 부른다
+    const ht = (await tokensOf(helper)).accessToken;
+    const helperRole = await raw('POST', '/pairings/codes', { token: ht, body: { role: 'HELPER' } });
+    checkErrorBody(helperRole, 400, 'VALIDATION_FAILED', '돕는 사람 자리 코드');
+    eq(helperRole.json.fieldErrors.map((f: { field: string; code: string }) => `${f.field}:${f.code}`), ['role:NOT_ALLOWED'], '자리 값 오류');
+    checkErrorBody(await raw('POST', '/pairings/codes', { token: ht, body: { role: 'FRIEND' } }), 400, 'VALIDATION_FAILED', '모르는 자리');
+
+    const active = await connect(owner, helper, 'VIEW');
+    eq([active.status, active.permission, active.issuedBy, active.partnerName], ['ACTIVE', 'VIEW', 'OWNER', '아들'], '주인 코드로 연결');
 
     // 같은 사이 다시: 이미 연결
-    const again = (await helper.api.pairing.issueCode('HELPER')).code;
-    await expectApiError(owner.api.pairing.join(again, 'EDIT'), { status: 409, code: 'PAIRING_EXISTS' }, '이미 연결됨');
+    const again = (await owner.api.pairing.issueCode()).code;
+    await expectApiError(helper.api.pairing.join(again), { status: 409, code: 'PAIRING_EXISTS' }, '이미 연결됨');
     // 내 코드는 내가 입력할 수 없다
-    await expectApiError(helper.api.pairing.join(again, 'EDIT'), { status: 400, code: 'PAIRING_SELF' }, '자기 코드');
+    await expectApiError(owner.api.pairing.join(again), { status: 400, code: 'PAIRING_SELF' }, '자기 코드');
 
     // 주인은 돕는 사람 1명까지 (남은 한 칸 없음)
     const other = await signedUp('pair2-x', '삼촌');
-    const full = await expectApiError(
-      owner.api.pairing.join((await other.api.pairing.issueCode('HELPER')).code, 'EDIT'),
-      { status: 409, code: 'PAIRING_LIMIT' },
-      '돕는 사람 인원 초과',
-    );
+    const full = await expectApiError(other.api.pairing.join(again), { status: 409, code: 'PAIRING_LIMIT' }, '돕는 사람 인원 초과');
     eq([full.params?.side, full.params?.max], ['OWNER', 1], '인원 초과 params');
 
     await owner.api.pairing.end(active.id);
 
     // 거절: 돕는 사람이 주인 코드를 넣고 주인이 거절
-    const pending = await helper.api.pairing.join((await owner.api.pairing.issueCode('OWNER')).code);
+    const pending = await helper.api.pairing.join((await owner.api.pairing.issueCode()).code);
     await owner.api.pairing.reject(pending.id);
     eq((await helper.api.pairing.list()).asHelper.length, 0, '거절 뒤 목록');
     await expectApiError(owner.api.pairing.reject(pending.id), { status: 404, code: 'NOT_FOUND' }, '끝난 요청 거절');
 
     // 없는 코드
-    await expectApiError(owner.api.pairing.join('ZZZZ-ZZZZ'), { status: 404, code: 'PAIRING_CODE_INVALID' }, '없는 코드');
-    await expectApiError(owner.api.pairing.issueCode('FRIEND' as never), { status: 400, code: 'VALIDATION_FAILED' }, '모르는 자리');
+    await expectApiError(helper.api.pairing.join('ZZZZ-ZZZZ'), { status: 404, code: 'PAIRING_CODE_INVALID' }, '없는 코드');
   },
 };
 
@@ -103,8 +109,7 @@ const ownerCloset: Scenario = {
     const stranger = await signedUp('own-x', '남');
     const ownerId = (await owner.api.users.me()).id;
 
-    const code = (await helper.api.pairing.issueCode('HELPER')).code;
-    const pairing = await owner.api.pairing.join(code, 'VIEW');
+    const pairing = await connect(owner, helper, 'VIEW');
 
     // 보기 권한: 조회만
     const seed = await owner.api.wardrobe.create(item({ name: '주인 니트' }));
@@ -156,4 +161,4 @@ const ownerCloset: Scenario = {
   },
 };
 
-export const pairingScenarios: Scenario[] = [ownerCodeFlow, helperCodeFlow, ownerCloset];
+export const pairingScenarios: Scenario[] = [ownerCodeFlow, ownerOnlyCode, ownerCloset];

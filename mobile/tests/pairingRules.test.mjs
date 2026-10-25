@@ -20,7 +20,7 @@ const pairing = (over) => ({
   partnerName: '민지',
   permission: 'EDIT',
   status: 'ACTIVE',
-  issuedBy: 'HELPER',
+  issuedBy: 'OWNER',
   notifyOwner: true,
   createdAt: '2026-10-25T03:00:00.000Z',
   approvedAt: '2026-10-25T03:00:00.000Z',

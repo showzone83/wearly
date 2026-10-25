@@ -9,7 +9,7 @@ import { systemTraceId } from '@/lib/errorText';
 import { endConfirmText, pairingStatusText, PERMISSION_DESC, PERMISSION_LABEL, PERMISSIONS } from '@/lib/pairingRules';
 import { makeStyles, useColors } from '@/theme';
 
-// 옷장 도우미 (doc/26 4단계): 내 옷장을 도와주는 사람, 내가 돕는 옷장. 코드 만들기·입력은 /helper/code.
+// 옷장 도우미 (doc/26 4단계): 내 옷장을 도와주는 사람, 내가 돕는 옷장. 코드 만들기(주인만, #18)·입력은 /helper/code.
 // 승인·거절·권한·알림 변경은 주인만, 해제는 양쪽 모두 (서버가 확인한다).
 export default function Helper() {
   const [list, setList] = useState<PairingListDto | null>(null);
@@ -67,12 +67,12 @@ export default function Helper() {
   return (
     <Screen header={<Header title="옷장 도우미" />}>
       <Text style={s.desc}>
-        가까운 사람이 내 옷을 대신 등록하거나, 내가 가까운 사람의 옷장을 도울 수 있어요. 연결하려면 코드를 만들어 상대에게
-        보내거나, 받은 코드를 입력해 주세요.
+        가까운 사람이 내 옷을 대신 등록해 줄 수 있어요. 도움을 받고 싶으면 코드를 만들어 보내고, 옷장 주인에게 코드를
+        받았다면 입력해 주세요.
       </Text>
 
       <View style={s.actions}>
-        <Button title="코드 만들기" onPress={() => router.push('/helper/code?mode=make')} />
+        <Button title="내 옷장 코드 만들기" onPress={() => router.push('/helper/code?mode=make')} />
         <Button title="받은 코드 입력하기" variant="outline" onPress={() => router.push('/helper/code?mode=enter')} />
       </View>
 

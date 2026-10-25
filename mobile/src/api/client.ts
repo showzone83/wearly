@@ -21,7 +21,6 @@ import type {
   PairingDto,
   PairingListDto,
   PairingPermission,
-  PairingRole,
   ProxyActionDto,
   ItemDto,
   ItemFilter,
@@ -468,19 +467,16 @@ export function createApiClient(options: ApiClientOptions) {
       },
     },
     pairing: {
-      /** 연결 코드 만들기. role은 코드를 만드는 자리 (같은 자리의 이전 코드는 사라진다, doc/26) */
-      issueCode(role: PairingRole): Promise<PairingCodeDto> {
-        return request<PairingCodeDto>('POST', '/pairings/codes', { auth: true, json: { role } });
+      /** 내 옷장을 도와줄 사람에게 보낼 연결 코드 만들기. 코드는 옷장 주인만 만든다 (이전 코드는 사라진다, doc/26·#18) */
+      issueCode(): Promise<PairingCodeDto> {
+        return request<PairingCodeDto>('POST', '/pairings/codes', { auth: true, json: { role: 'OWNER' } });
       },
       /**
-       * 코드 입력. 주인 코드면 승인 대기(PENDING), 돕는 사람 코드면 permission(필수)으로 바로 ACTIVE.
+       * 옷장 주인에게 받은 코드 입력. 주인 승인 대기(PENDING)가 된다.
        * 오류: 404 PAIRING_CODE_INVALID · 400 PAIRING_SELF · 409 PAIRING_EXISTS · 409 PAIRING_LIMIT · 429 PAIRING_TOO_MANY_ATTEMPTS
        */
-      join(code: string, permission?: PairingPermission): Promise<PairingDto> {
-        return request<PairingDto>('POST', '/pairings/join', {
-          auth: true,
-          json: permission ? { code, permission } : { code },
-        });
+      join(code: string): Promise<PairingDto> {
+        return request<PairingDto>('POST', '/pairings/join', { auth: true, json: { code } });
       },
       list(): Promise<PairingListDto> {
         return request<PairingListDto>('GET', '/pairings', { auth: true });

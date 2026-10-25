@@ -22,10 +22,8 @@ class PairingIntegrationTest extends IntegrationTestBase {
     return body.get("code").asString();
   }
 
-  JsonNode join(Session s, String code, String permission) {
-    Map<String, Object> body =
-        permission == null ? Map.of("code", code) : Map.of("code", code, "permission", permission);
-    return api().post(PATH + "/join", s.accessToken(), body).expect(201).body();
+  JsonNode join(Session s, String code) {
+    return api().post(PATH + "/join", s.accessToken(), Map.of("code", code)).expect(201).body();
   }
 
   @Test
@@ -46,7 +44,7 @@ class PairingIntegrationTest extends IntegrationTestBase {
         .isBetween(Duration.ofHours(23), Duration.ofHours(25));
 
     String typed = (code.substring(0, 4) + "-" + code.substring(4)).toLowerCase();
-    JsonNode pending = join(helper, typed, null);
+    JsonNode pending = join(helper, typed);
     assertThat(pending.get("status").asString()).isEqualTo("PENDING");
     assertThat(pending.get("role").asString()).isEqualTo("HELPER");
     assertThat(pending.get("partnerId").asString()).isEqualTo(owner.userId());
@@ -83,18 +81,22 @@ class PairingIntegrationTest extends IntegrationTestBase {
   }
 
   @Test
-  void 돕는_사람_코드를_주인이_넣으면_바로_연결되고_권한을_바꾸고_해제한다() {
+  void 돕는_사람은_코드를_만들_수_없고_연결된_뒤_권한을_바꾸고_해제한다() {
     Session owner = signup();
     Session helper = signup();
 
-    String code = issue(helper, "HELPER");
+    // #18: 코드는 옷장 주인만 만든다
     api()
-        .post(PATH + "/join", owner.accessToken(), Map.of("code", code))
+        .post(PATH + "/codes", helper.accessToken(), Map.of("role", "HELPER"))
         .expectError(400, "VALIDATION_FAILED");
-    JsonNode active = join(owner, code, "VIEW");
+    String id = join(helper, issue(owner, "OWNER")).get("id").asString();
+    JsonNode active =
+        api()
+            .post(PATH + "/" + id + "/approve", owner.accessToken(), Map.of("permission", "VIEW"))
+            .expect(200)
+            .body();
     assertThat(active.get("status").asString()).isEqualTo("ACTIVE");
-    assertThat(active.get("issuedBy").asString()).isEqualTo("HELPER");
-    String id = active.get("id").asString();
+    assertThat(active.get("issuedBy").asString()).isEqualTo("OWNER");
 
     JsonNode changed =
         api()
@@ -116,7 +118,7 @@ class PairingIntegrationTest extends IntegrationTestBase {
     api().delete(PATH + "/" + id, owner.accessToken()).expectError(404, "NOT_FOUND");
 
     // 끊은 뒤 다시 연결할 수 있다 (부분 고유 인덱스)
-    join(owner, issue(helper, "HELPER"), "EDIT");
+    join(helper, issue(owner, "OWNER"));
   }
 
   @Test
@@ -129,7 +131,7 @@ class PairingIntegrationTest extends IntegrationTestBase {
         .post(PATH + "/join", owner.accessToken(), Map.of("code", own))
         .expectError(400, "PAIRING_SELF");
 
-    final JsonNode pending = join(helper, own, null);
+    final JsonNode pending = join(helper, own);
     api()
         .post(PATH + "/join", helper.accessToken(), Map.of("code", issue(owner, "OWNER")))
         .expectError(409, "PAIRING_EXISTS");
@@ -155,6 +157,15 @@ class PairingIntegrationTest extends IntegrationTestBase {
     api()
         .post(PATH + "/codes", s.accessToken(), Map.of("role", "FRIEND"))
         .expectError(400, "VALIDATION_FAILED");
+    // 본문이 없으면 주인 코드
+    assertThat(
+            api()
+                .post(PATH + "/codes", s.accessToken(), null)
+                .expect(201)
+                .body()
+                .get("role")
+                .asString())
+        .isEqualTo("OWNER");
     api().get(PATH, null).expectError(401, "UNAUTHORIZED");
   }
 }

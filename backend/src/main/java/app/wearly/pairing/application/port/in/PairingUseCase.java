@@ -12,19 +12,17 @@ import java.util.List;
 public interface PairingUseCase {
 
   /**
-   * 연결 코드를 만든다. 같은 자리로 만든 이전 코드는 사라진다.
+   * 옷장 주인의 연결 코드를 만든다 (#18부터 돕는 사람은 만들지 않는다). role을 비우면 OWNER. 이전 코드는 사라진다.
    *
-   * <p>오류: 400 VALIDATION_FAILED (role REQUIRED · NOT_ALLOWED: OWNER · HELPER)
+   * <p>오류: 400 VALIDATION_FAILED (role NOT_ALLOWED: OWNER)
    */
   PairingCodeDto issueCode(long userId, String role);
 
   /**
-   * 코드를 입력한다. 주인 코드면 입력한 회원이 돕는 사람이 되고 주인 승인을 기다린다(PENDING). 돕는 사람 코드면 입력한 회원이 주인이 되고 고른 권한으로 바로
-   * 연결된다(ACTIVE).
+   * 주인 코드를 입력한다. 입력한 회원이 돕는 사람이 되고 주인 승인을 기다린다(PENDING). #18 전에 만든 돕는 사람 코드는 없는 코드로 본다.
    *
-   * <p>오류: 400 VALIDATION_FAILED (code REQUIRED, 돕는 사람 코드인데 permission REQUIRED · NOT_ALLOWED) ·
-   * 404 PAIRING_CODE_INVALID · 400 PAIRING_SELF · 409 PAIRING_EXISTS · 409 PAIRING_LIMIT · 429
-   * PAIRING_TOO_MANY_ATTEMPTS
+   * <p>오류: 400 VALIDATION_FAILED (code REQUIRED) · 404 PAIRING_CODE_INVALID · 400 PAIRING_SELF ·
+   * 409 PAIRING_EXISTS · 409 PAIRING_LIMIT · 429 PAIRING_TOO_MANY_ATTEMPTS
    */
   PairingDto join(long userId, JoinPairingDto input);
 

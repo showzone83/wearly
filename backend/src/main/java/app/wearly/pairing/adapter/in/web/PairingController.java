@@ -34,15 +34,16 @@ public class PairingController {
     this.pairings = pairings;
   }
 
-  /** 201 { code, role, expiresAt }. 같은 자리로 만든 이전 코드는 사라진다 */
+  /** 201 { code, role, expiresAt }. 옷장 주인 코드만 만든다(#18). 이전 코드는 사라진다. 본문은 비워도 된다 */
   @PostMapping("/codes")
   @ResponseStatus(HttpStatus.CREATED)
   public PairingCodeResponse issueCode(
-      @CurrentUser long userId, @RequestBody PairingCodeRequest request) {
-    return PairingCodeResponse.from(pairings.issueCode(userId, request.role()));
+      @CurrentUser long userId, @RequestBody(required = false) PairingCodeRequest request) {
+    return PairingCodeResponse.from(
+        pairings.issueCode(userId, request == null ? null : request.role()));
   }
 
-  /** 201 연결 (주인 코드면 PENDING, 돕는 사람 코드면 ACTIVE) */
+  /** 201 연결 (PENDING, 주인 승인을 기다린다) */
   @PostMapping("/join")
   @ResponseStatus(HttpStatus.CREATED)
   public PairingResponse join(@CurrentUser long userId, @RequestBody JoinPairingRequest request) {

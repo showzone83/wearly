@@ -86,13 +86,13 @@ class ClosetAccessServiceTest {
     unended = withId(Pairing.requested(OWNER, HELPER, NOW));
     assertError(() -> service.requireView(HELPER, OWNER), ErrorCode.NOT_FOUND);
     // 방향이 반대면 다른 연결이다
-    unended = withId(Pairing.accepted(OWNER, HELPER, PairingPermission.EDIT, NOW));
+    unended = withId(Pairing.requested(OWNER, HELPER, NOW).approve(PairingPermission.EDIT, NOW));
     assertError(() -> service.requireView(OWNER, HELPER), ErrorCode.NOT_FOUND);
   }
 
   @Test
   void 보기_권한은_보기만_되고_등록은_403() {
-    unended = withId(Pairing.accepted(OWNER, HELPER, PairingPermission.VIEW, NOW));
+    unended = withId(Pairing.requested(OWNER, HELPER, NOW).approve(PairingPermission.VIEW, NOW));
     assertThat(service.requireView(HELPER, OWNER))
         .isEqualTo(new ClosetAccessDto(10L, OWNER, HELPER));
     assertError(() -> service.requireEdit(HELPER, OWNER), ErrorCode.FORBIDDEN);
@@ -100,7 +100,7 @@ class ClosetAccessServiceTest {
 
   @Test
   void 등록_권한은_둘_다_된다() {
-    unended = withId(Pairing.accepted(OWNER, HELPER, PairingPermission.EDIT, NOW));
+    unended = withId(Pairing.requested(OWNER, HELPER, NOW).approve(PairingPermission.EDIT, NOW));
     assertThat(service.requireEdit(HELPER, OWNER).pairingId()).isEqualTo(10L);
     assertThat(service.requireView(HELPER, OWNER).ownerId()).isEqualTo(OWNER);
   }
@@ -109,7 +109,8 @@ class ClosetAccessServiceTest {
   void 끝난_연결은_404() {
     unended =
         withId(
-            Pairing.accepted(OWNER, HELPER, PairingPermission.EDIT, NOW)
+            Pairing.requested(OWNER, HELPER, NOW)
+                .approve(PairingPermission.EDIT, NOW)
                 .end(PairingEndReason.OWNER, NOW));
     // findUnended는 끝난 연결을 주지 않지만, 상태 확인도 한 번 더 한다
     assertError(() -> service.requireEdit(HELPER, OWNER), ErrorCode.NOT_FOUND);

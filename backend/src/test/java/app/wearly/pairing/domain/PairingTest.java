@@ -27,16 +27,17 @@ class PairingTest {
   }
 
   @Test
-  void 주인_코드로_만든_연결은_승인을_기다리고_돕는_사람_코드면_바로_연결된다() {
+  void 주인_코드로_만든_연결은_승인을_기다리고_승인하면_연결된다() {
     Pairing requested = Pairing.requested(1L, 2L, NOW);
     assertThat(requested.status()).isEqualTo(PairingStatus.PENDING);
     assertThat(requested.permission()).isNull();
     assertThat(requested.issuedBy()).isEqualTo(PairingRole.OWNER);
 
-    Pairing accepted = Pairing.accepted(1L, 2L, PairingPermission.VIEW, NOW);
-    assertThat(accepted.status()).isEqualTo(PairingStatus.ACTIVE);
-    assertThat(accepted.approvedAt()).isEqualTo(NOW);
-    assertThat(accepted.issuedBy()).isEqualTo(PairingRole.HELPER);
+    Pairing approved = requested.approve(PairingPermission.VIEW, NOW.plusSeconds(60));
+    assertThat(approved.status()).isEqualTo(PairingStatus.ACTIVE);
+    assertThat(approved.permission()).isEqualTo(PairingPermission.VIEW);
+    assertThat(approved.approvedAt()).isEqualTo(NOW.plusSeconds(60));
+    assertThat(approved.issuedBy()).isEqualTo(PairingRole.OWNER);
   }
 
   @Test
@@ -63,7 +64,9 @@ class PairingTest {
   @Test
   void 끝나면_ENDED와_끝낸_쪽이_남는다() {
     Pairing ended =
-        Pairing.accepted(1L, 2L, PairingPermission.EDIT, NOW).end(PairingEndReason.HELPER, NOW);
+        Pairing.requested(1L, 2L, NOW)
+            .approve(PairingPermission.EDIT, NOW)
+            .end(PairingEndReason.HELPER, NOW);
     assertThat(ended.status()).isEqualTo(PairingStatus.ENDED);
     assertThat(ended.endedBy()).isEqualTo(PairingEndReason.HELPER);
     assertThat(ended.endedAt()).isEqualTo(NOW);

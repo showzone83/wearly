@@ -71,7 +71,7 @@ public class PairingService implements PairingUseCase {
 
   @Override
   public PairingCodeDto issueCode(long userId, String role) {
-    PairingRole r = parseRole(role);
+    PairingRole r = parseIssuerRole(role);
     Instant now = clock.instant();
     PairingCode value = new PairingCode(userId, r);
     for (int i = 0; i < MAX_ATTEMPTS; i++) {
@@ -96,14 +96,16 @@ public class PairingService implements PairingUseCase {
     PairingCode found =
         (PairingCode.isFormat(code) ? codes.peek(code) : Optional.<PairingCode>empty())
             .orElseThrow(() -> new BusinessException(ErrorCode.PAIRING_CODE_INVALID));
+    // #18 전에 만든 돕는 사람 코드(최대 24시간 남는다)는 없는 코드로 본다
+    if (found.issuerRole() != PairingRole.OWNER) {
+      throw new BusinessException(ErrorCode.PAIRING_CODE_INVALID);
+    }
     if (found.issuerId() == userId) {
       throw new BusinessException(ErrorCode.PAIRING_SELF);
     }
     // 아래 확인에 걸리면 코드를 쓰지 않은 것으로 두어 다시 입력할 수 있게 한다
-    final PairingPermission permission =
-        found.issuerRole() == PairingRole.HELPER ? parsePermission(input.permission()) : null;
-    long ownerId = found.issuerRole() == PairingRole.OWNER ? found.issuerId() : userId;
-    long helperId = found.issuerRole() == PairingRole.OWNER ? userId : found.issuerId();
+    long ownerId = found.issuerId();
+    long helperId = userId;
     final String issuerName =
         queries
             .findUserName(found.issuerId())
@@ -120,18 +122,9 @@ public class PairingService implements PairingUseCase {
     if (!codes.take(code, found)) {
       throw new BusinessException(ErrorCode.PAIRING_CODE_INVALID);
     }
-    Pairing created =
-        pairings.save(
-            permission == null
-                ? Pairing.requested(ownerId, helperId, now)
-                : Pairing.accepted(ownerId, helperId, permission, now));
-    // 코드를 만든 쪽이 입력한 쪽의 소식을 받는다: 승인 대기면 주인이 요청을, 바로 연결되면 돕는 사람이 연결을
-    String joinerName = queries.findUserName(userId).orElse("");
-    if (permission == null) {
-      notices.sendAfterCommit(ownerId, created.id(), PairingNotices.requested(joinerName));
-    } else {
-      notices.sendAfterCommit(helperId, created.id(), PairingNotices.accepted(joinerName));
-    }
+    Pairing created = pairings.save(Pairing.requested(ownerId, helperId, now));
+    notices.sendAfterCommit(
+        ownerId, created.id(), PairingNotices.requested(queries.findUserName(userId).orElse("")));
     return toDto(created, userId, issuerName);
   }
 
@@ -284,13 +277,17 @@ public class PairingService implements PairingUseCase {
         r.approvedAt());
   }
 
-  private static PairingRole parseRole(String role) {
+  /** 코드는 옷장 주인만 만든다 (#18). 비우면 OWNER */
+  private static PairingRole parseIssuerRole(String role) {
     if (role == null || role.isBlank()) {
-      throw BusinessException.validation("role", FieldErrorCode.REQUIRED);
+      return PairingRole.OWNER;
     }
     return PairingRole.parse(role)
+        .filter(r -> r == PairingRole.OWNER)
         .orElseThrow(
-            () -> BusinessException.validation(FieldError.notAllowed("role", PairingRole.names())));
+            () ->
+                BusinessException.validation(
+                    FieldError.notAllowed("role", List.of(PairingRole.OWNER.name()))));
   }
 
   private static PairingPermission parsePermission(String permission) {

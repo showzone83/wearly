@@ -29,24 +29,29 @@ class OwnerClosetIntegrationTest extends IntegrationTestBase {
 
   @Autowired JdbcTemplate jdbc;
 
-  /** 돕는 사람 코드를 주인이 넣어 바로 연결. 연결 ID */
+  /** 주인 코드 → 돕는 사람 입력 → 주인 승인 (#18부터 코드는 주인만 만든다). 연결 ID */
   String pair(Session owner, Session helper, String permission) {
     String code =
         api()
-            .post("/api/v1/pairings/codes", helper.accessToken(), Map.of("role", "HELPER"))
+            .post("/api/v1/pairings/codes", owner.accessToken(), Map.of("role", "OWNER"))
             .expect(201)
             .body()
             .get("code")
             .asString();
-    return api()
+    String id =
+        api()
+            .post("/api/v1/pairings/join", helper.accessToken(), Map.of("code", code))
+            .expect(201)
+            .body()
+            .get("id")
+            .asString();
+    api()
         .post(
-            "/api/v1/pairings/join",
+            "/api/v1/pairings/" + id + "/approve",
             owner.accessToken(),
-            Map.of("code", code, "permission", permission))
-        .expect(201)
-        .body()
-        .get("id")
-        .asString();
+            Map.of("permission", permission))
+        .expect(200);
+    return id;
   }
 
   static String items(Session owner) {

@@ -8,7 +8,7 @@ import java.time.Instant;
  *
  * @param id 저장 전에는 null
  * @param permission 승인 전(PENDING)에는 null
- * @param issuedBy 연결 코드를 만든 쪽
+ * @param issuedBy 연결 코드를 만든 쪽. #18부터 OWNER만 만든다 (HELPER는 그 전의 연결)
  * @param notifyOwner 돕는 사람의 작업을 주인에게 알릴지
  * @param endedBy 끝나지 않았으면 null
  */
@@ -37,23 +37,6 @@ public record Pairing(
         true,
         now,
         null,
-        null,
-        null);
-  }
-
-  /** 주인이 돕는 사람 코드를 입력했다: 입력이 곧 승인이다 */
-  public static Pairing accepted(
-      long ownerId, long helperId, PairingPermission permission, Instant now) {
-    return new Pairing(
-        null,
-        ownerId,
-        helperId,
-        permission,
-        PairingStatus.ACTIVE,
-        PairingRole.HELPER,
-        true,
-        now,
-        now,
         null,
         null);
   }
