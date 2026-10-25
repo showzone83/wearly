@@ -14,7 +14,7 @@ import { isApiError } from '@/api/errors';
 import { createItem, isAccountMode } from '@/lib/account';
 import { api, errorAlertMessage, errorMessage, isNetworkError, photoFile } from '@/lib/api';
 import { systemTraceId, traceLabelOf } from '@/lib/errorText';
-import { activeCodes, defaultStatus, isActiveCode, subTypesOf } from '@/lib/codes';
+import { manualDraft } from '@/lib/itemDraft';
 import { availableMalls, openMallCapture } from '@/lib/mallCapture';
 import { mockAnalyze } from '@/lib/mockAnalyze';
 import { MOCK_MODE } from '@/lib/mode';
@@ -75,11 +75,6 @@ type Outcome =
   /** 사진을 서버에 올리지 못함 → 2단계에서 오류와 '다시 시도' */
   | { kind: 'uploadError'; message: string; traceId?: string };
 
-/** 원하는 코드가 활성이면 그것, 아니면 첫 활성 코드 */
-function pick(options: string[], preferred: string): string {
-  return options.includes(preferred) ? preferred : (options[0] ?? preferred);
-}
-
 /** 개발 실행에서만: 기기 쪽 원인(연결 실패 등)을 문구 뒤에 붙인다. 배포 화면에는 정해진 문구만 */
 const causeDetail = (e: unknown): string => {
   if (!__DEV__) return '';
@@ -137,27 +132,6 @@ async function runAnalysis(asset: PickedAsset, onStage: (stage: TStage) => void)
     }
     return { kind: 'error', message: errorMessage(e, 'AI 분석에 실패했어요.') + causeDetail(e), photo, traceId: systemTraceId(e) };
   }
-}
-
-/** 직접 입력의 첫 값: 네이비 니트. 코드가 비활성이면 각 그룹의 첫 활성 값으로 */
-function manualDraft(photo?: TPhoto): ItemDraft {
-  const category = isActiveCode('CATEGORY', 'TOP') ? 'TOP' : pick(activeCodes('CATEGORY'), 'TOP');
-  const subType = pick(subTypesOf(category), 'KNIT');
-  const color = pick(activeCodes('COLOR'), 'navy');
-  return {
-    name: defaultName({ color, subType }),
-    category,
-    subType,
-    color,
-    colors: [color],
-    pattern: pick(activeCodes('PATTERN'), 'SOLID'),
-    seasons: ['FALL', 'WINTER'].filter((x) => isActiveCode('SEASON', x)),
-    styles: ['NEAT'].filter((x) => isActiveCode('STYLE', x)),
-    formality: 2,
-    status: defaultStatus(),
-    imageUri: photo?.uri,
-    image: photo?.image,
-  };
 }
 
 export default function NewItem() {

@@ -100,22 +100,23 @@ export interface IUploadedPhoto {
 }
 
 /**
- * 사진 한 장을 서버에 올린다 (준비 → upload-url → PUT → complete).
+ * 사진 한 장을 서버에 올린다 (준비 → upload-url → PUT → complete). ownerId가 있으면 옷장 주인 대신 올린다 (doc/26).
  * @throws ApiError. 서버에 사진 API가 없으면 code가 IMAGES_UNSUPPORTED(→ 기기 사진으로 되돌아간다)
  */
-export const uploadPhoto = async (uri: string): Promise<IUploadedPhoto> => {
+export const uploadPhoto = async (uri: string, ownerId?: string): Promise<IUploadedPhoto> => {
   if (imagesKnownUnsupported()) throw unsupportedError();
-  return uploadPrepared(await preparePhoto(uri));
+  return uploadPrepared(await preparePhoto(uri), ownerId);
 };
 
-/** preparePhoto로 준비한 사진을 올린다. 오류는 uploadPhoto와 같다 */
-export const uploadPrepared = async (prepared: IPreparedPhoto): Promise<IUploadedPhoto> => {
+/** preparePhoto로 준비한 사진을 올린다. 오류는 uploadPhoto와 같다. ownerId가 있으면 그 옷장 주인 이름으로 올린다 */
+export const uploadPrepared = async (prepared: IPreparedPhoto, ownerId?: string): Promise<IUploadedPhoto> => {
   if (imagesKnownUnsupported()) throw unsupportedError();
   const { body, size } = await readBody(prepared.uri);
 
   let target;
   try {
-    target = await api.images.uploadUrl({ purpose: 'ITEM', contentType: prepared.contentType, size });
+    const req = { purpose: 'ITEM', contentType: prepared.contentType, size } as const;
+    target = ownerId ? await api.owners.uploadUrl(ownerId, req) : await api.images.uploadUrl(req);
   } catch (e) {
     if (isImagesUnsupported(e)) {
       support.markUnsupported(Date.now());
@@ -125,7 +126,7 @@ export const uploadPrepared = async (prepared: IPreparedPhoto): Promise<IUploade
   }
   support.markSupported();
   await api.images.put(target, body);
-  const done = await api.images.complete(target.imageId);
+  const done = ownerId ? await api.owners.complete(ownerId, target.imageId) : await api.images.complete(target.imageId);
   const image: ImageRef = { imageId: done.imageId, url: done.url, thumbUrl: done.thumbUrl, expiresAt: done.expiresAt };
   return { image, localUri: prepared.uri, seeded: seedImageCache(image.imageId, prepared.uri) };
 };

@@ -74,3 +74,16 @@ test('옷장 도우미 알림만 도우미 화면을 연다', () => {
   assert.equal(helperNoticeRoute({}), null);
   assert.equal(helperNoticeRoute({ type: 7 }), null);
 });
+
+test('주인 옷장: 편집 권한과 막힌 까닭', async () => {
+  const { canEditCloset, ownerAccessProblem, OWNER_ACCESS_TEXT } = await import('../src/lib/pairingRules.ts');
+  assert.equal(canEditCloset('EDIT'), true);
+  assert.equal(canEditCloset('VIEW'), false);
+  assert.equal(canEditCloset(null), false);
+  assert.equal(ownerAccessProblem(404, 'NOT_FOUND'), 'gone');
+  assert.equal(ownerAccessProblem(403, 'FORBIDDEN'), 'forbidden');
+  assert.equal(ownerAccessProblem(404, 'PAIRING_CODE_INVALID'), null);
+  assert.equal(ownerAccessProblem(400, 'VALIDATION_FAILED'), null);
+  assert.equal(ownerAccessProblem(0, 'NETWORK'), null);
+  assert.match(OWNER_ACCESS_TEXT.gone, /연결이 끊겼/);
+});

@@ -597,6 +597,73 @@ export function createApiClient(options: ApiClientOptions) {
           timeoutMs: uploadTimeout,
         }),
     },
+    owners: {
+      // 옷장 도우미의 대리 작업 (doc/26 4.6): 돕는 사람이 옷장 주인(ownerId)의 옷장을 쓴다. 요청·응답 모양은 wardrobe·images와 같다.
+      // 연결이 없으면 404 NOT_FOUND, 보기(VIEW) 권한으로 바꾸려 하면 403 FORBIDDEN. 완전 삭제·여러 벌 등록은 없다.
+      list(ownerId: string, filter: ItemFilter = {}): Promise<ItemListResponse> {
+        return request<ItemListResponse>('GET', `/owners/${encodeURIComponent(ownerId)}/wardrobe/items`, {
+          auth: true,
+          query: {
+            category: filter.category,
+            status: filter.status,
+            color: filter.color,
+            q: filter.q,
+            sort: filter.sort,
+            retired: filter.retired === undefined ? undefined : String(filter.retired),
+          },
+        });
+      },
+      get(ownerId: string, id: string): Promise<ItemDto> {
+        return request<ItemDto>('GET', `/owners/${encodeURIComponent(ownerId)}/wardrobe/items/${encodeURIComponent(id)}`, {
+          auth: true,
+        });
+      },
+      create(ownerId: string, input: ItemInput): Promise<ItemDto> {
+        return request<ItemDto>('POST', `/owners/${encodeURIComponent(ownerId)}/wardrobe/items`, { auth: true, json: input });
+      },
+      update(ownerId: string, id: string, patch: Partial<ItemInput>): Promise<ItemDto> {
+        return request<ItemDto>('PATCH', `/owners/${encodeURIComponent(ownerId)}/wardrobe/items/${encodeURIComponent(id)}`, {
+          auth: true,
+          json: patch,
+        });
+      },
+      retire(ownerId: string, id: string, req: RetireRequest): Promise<ItemDto> {
+        return request<ItemDto>(
+          'POST',
+          `/owners/${encodeURIComponent(ownerId)}/wardrobe/items/${encodeURIComponent(id)}/retire`,
+          { auth: true, json: req },
+        );
+      },
+      restore(ownerId: string, id: string): Promise<ItemDto> {
+        return request<ItemDto>(
+          'POST',
+          `/owners/${encodeURIComponent(ownerId)}/wardrobe/items/${encodeURIComponent(id)}/restore`,
+          { auth: true },
+        );
+      },
+      /** 주인 경로로 올린 사진(complete까지 끝난 것)을 AI 분석. 하루 한도는 돕는 사람 것 (D7) */
+      analyzeImage(ownerId: string, req: AnalyzeImageRequest): Promise<AnalyzeResponse> {
+        return request<AnalyzeResponse>('POST', `/owners/${encodeURIComponent(ownerId)}/wardrobe/items/analyze`, {
+          auth: true,
+          json: req,
+          timeoutMs: analyzeTimeout,
+        });
+      },
+      /** 주인 대신 사진 올릴 서명 주소 받기 (사진은 주인 것으로 저장된다) */
+      uploadUrl(ownerId: string, req: UploadUrlRequest): Promise<UploadUrlResponse> {
+        return request<UploadUrlResponse>('POST', `/owners/${encodeURIComponent(ownerId)}/images/upload-url`, {
+          auth: true,
+          json: req,
+        });
+      },
+      complete(ownerId: string, imageId: string): Promise<ImageCompleteResponse> {
+        return request<ImageCompleteResponse>(
+          'POST',
+          `/owners/${encodeURIComponent(ownerId)}/images/${encodeURIComponent(imageId)}/complete`,
+          { auth: true, timeoutMs: uploadTimeout },
+        );
+      },
+    },
     plans: {
       /**
        * 예정 코디 목록 (로그인 필요). from·to(YYYY-MM-DD, 양 끝 포함)는 선택. 날짜 → 시간대 → id 순.

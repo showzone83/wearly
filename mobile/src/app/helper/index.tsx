@@ -187,6 +187,15 @@ export default function Helper() {
                       ? PERMISSION_DESC[p.permission]
                       : ''}
                 </Text>
+                {p.status === 'ACTIVE' && (
+                  <Button
+                    title={`${p.partnerName}님 옷장 열기`}
+                    small
+                    onPress={() =>
+                      router.push(`/helper/closet?ownerId=${encodeURIComponent(p.partnerId)}&name=${encodeURIComponent(p.partnerName)}`)
+                    }
+                  />
+                )}
                 <View style={s.row}>
                   {p.status === 'ACTIVE' && (
                     <Button

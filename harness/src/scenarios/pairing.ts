@@ -1,6 +1,8 @@
 // 옷장 도우미 연결 (doc/26 4단계): 앱 API 모듈 api.pairing으로 두 계정을 코드 두 흐름으로 연결·승인·권한 변경·해제한다.
-// 대리 작업(/owners/{ownerId}/…)은 백엔드 통합 테스트가 본다 (하네스 앱 API 모듈에는 아직 없다).
+// 대리 작업(/owners/{ownerId}/…)은 api.owners로 확인한다 (5단계).
 import { eq, expectApiError, ok } from '../lib/assert';
+import { item } from '../lib/fixtures';
+import { solidPng } from '../lib/png';
 import { signedUp } from '../lib/session';
 import type { Scenario } from '../scenario';
 
@@ -92,4 +94,66 @@ const helperCodeFlow: Scenario = {
   },
 };
 
-export const pairingScenarios: Scenario[] = [ownerCodeFlow, helperCodeFlow];
+const ownerCloset: Scenario = {
+  group: '옷장 도우미',
+  name: '대리 작업(api.owners): 보기 권한은 조회만(등록 403) → 권한 올리면 등록·수정·사용 중지·다시 사용 → 주인 옷장에만 보임 → 주인 경로 사진 올리기·AI 분석·사진 붙여 등록 → 작업 기록 → 남·해제 뒤 404, 완전 삭제는 없음',
+  async run() {
+    const owner = await signedUp('own-o', '엄마');
+    const helper = await signedUp('own-h', '딸');
+    const stranger = await signedUp('own-x', '남');
+    const ownerId = (await owner.api.users.me()).id;
+
+    const code = (await helper.api.pairing.issueCode('HELPER')).code;
+    const pairing = await owner.api.pairing.join(code, 'VIEW');
+
+    // 보기 권한: 조회만
+    const seed = await owner.api.wardrobe.create(item({ name: '주인 니트' }));
+    eq((await helper.api.owners.list(ownerId)).items.map((i) => i.name), ['주인 니트'], '보기 권한 목록');
+    eq((await helper.api.owners.get(ownerId, seed.id)).name, '주인 니트', '보기 권한 상세');
+    await expectApiError(helper.api.owners.create(ownerId, item({ name: '몰래' })), { status: 403, code: 'FORBIDDEN' }, '보기 권한으로 등록');
+    await expectApiError(helper.api.owners.update(ownerId, seed.id, { name: 'x' }), { status: 403, code: 'FORBIDDEN' }, '보기 권한으로 수정');
+    await expectApiError(helper.api.owners.retire(ownerId, seed.id, { reason: 'DONATED' }), { status: 403, code: 'FORBIDDEN' }, '보기 권한으로 사용 중지');
+    await expectApiError(stranger.api.owners.list(ownerId), { status: 404, code: 'NOT_FOUND' }, '연결 없는 회원');
+
+    // 등록·수정 권한
+    await owner.api.pairing.update(pairing.id, { permission: 'EDIT' });
+    const created = await helper.api.owners.create(ownerId, item({ name: '딸이 넣은 셔츠' }));
+    eq(created.name, '딸이 넣은 셔츠', '대리 등록');
+    eq((await helper.api.wardrobe.list()).items.length, 0, '돕는 사람 옷장에는 없다');
+    const ownerNames = (await owner.api.wardrobe.list()).items.map((i) => i.name).sort();
+    eq(ownerNames, ['딸이 넣은 셔츠', '주인 니트'], '주인 옷장에 보임');
+
+    eq((await helper.api.owners.update(ownerId, created.id, { name: '딸이 고친 셔츠' })).name, '딸이 고친 셔츠', '대리 수정');
+    const retired = await helper.api.owners.retire(ownerId, created.id, { reason: 'DONATED', memo: '기부' });
+    ok(retired.retiredAt, '사용 중지', retired);
+    eq((await helper.api.owners.list(ownerId, { retired: true })).items.map((i) => i.id), [created.id], '사용 안 함 목록');
+    const restored = await helper.api.owners.restore(ownerId, created.id);
+    eq(restored.retiredAt ?? null, null, '다시 사용');
+
+    // 주인 경로 사진 올리기 → AI 분석 → 붙여 등록
+    const png = solidPng([200, 40, 40]);
+    const target = await helper.api.owners.uploadUrl(ownerId, { purpose: 'ITEM', contentType: 'image/png', size: png.length });
+    await helper.api.images.put(target, new Blob([png], { type: 'image/png' }));
+    const done = await helper.api.owners.complete(ownerId, target.imageId);
+    eq(done.imageId, target.imageId, '사진 올리기 끝');
+    await expectApiError(helper.api.wardrobe.analyzeImage({ imageId: target.imageId }), { status: 404, code: 'NOT_FOUND' }, '돕는 사람 자기 경로로는 주인 사진을 못 쓴다');
+    const analyzed = await helper.api.owners.analyzeImage(ownerId, { imageId: target.imageId });
+    ok(analyzed.suggestion.category, 'AI 제안', analyzed.suggestion);
+    const withPhoto = await helper.api.owners.create(ownerId, { ...item({ name: '사진 셔츠' }), imageId: target.imageId });
+    eq(withPhoto.image?.imageId, target.imageId, '사진이 붙음');
+    const ownerView = await owner.api.wardrobe.get(withPhoto.id);
+    eq(ownerView.image?.imageId, target.imageId, '주인도 같은 사진을 본다');
+
+    // 작업 기록: 등록 2 · 수정 1 · 사용 중지 1 · 다시 사용 1
+    const actions = await owner.api.pairing.actions(pairing.id);
+    eq(actions.map((a) => a.action).sort(), ['ITEM_CREATE', 'ITEM_CREATE', 'ITEM_RESTORE', 'ITEM_RETIRE', 'ITEM_UPDATE'], '작업 기록');
+    eq((await helper.api.pairing.actions(pairing.id)).length, 5, '돕는 사람도 같은 기록');
+
+    // 해제하면 막히고 옷은 주인에게 남는다
+    await helper.api.pairing.end(pairing.id);
+    await expectApiError(helper.api.owners.list(ownerId), { status: 404, code: 'NOT_FOUND' }, '해제 뒤 접근');
+    eq((await owner.api.wardrobe.list()).items.length, 3, '해제해도 옷은 주인에게 남는다');
+  },
+};
+
+export const pairingScenarios: Scenario[] = [ownerCodeFlow, helperCodeFlow, ownerCloset];

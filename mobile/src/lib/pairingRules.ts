@@ -73,3 +73,23 @@ export const endConfirmText = (p: PairingDto): { title: string; message: string;
 
 /** 알림을 눌렀을 때 열 화면. 옷장 도우미 알림이 아니면 null */
 export const helperNoticeRoute = (data: unknown): string | null => (isHelperNotice(data) ? '/helper' : null);
+
+// ── 주인 옷장 (doc/26 5단계) ──
+
+/** 이 권한으로 옷을 등록·수정·사용 중지할 수 있는지 (보기만이면 false) */
+export const canEditCloset = (permission: PairingPermission | null | undefined): boolean => permission === 'EDIT';
+
+/**
+ * 주인 옷장 요청이 막힌 까닭. 404는 연결이 끊겼거나 그 옷이 없어진 것(서버는 연결 여부를 숨긴다),
+ * 403은 권한이 바뀌어 보기만 남은 것. 그 밖의 오류는 null (그대로 안내)
+ */
+export const ownerAccessProblem = (status: number, code: string): 'gone' | 'forbidden' | null => {
+  if (status === 404 && code === 'NOT_FOUND') return 'gone';
+  if (status === 403 && code === 'FORBIDDEN') return 'forbidden';
+  return null;
+};
+
+export const OWNER_ACCESS_TEXT = {
+  gone: '연결이 끊겼거나 옷이 없어졌어요. 옷장 도우미 화면에서 확인해 주세요.',
+  forbidden: '지금은 보기만 할 수 있어요. 옷장 주인이 권한을 바꿨는지 확인해 주세요.',
+} as const;

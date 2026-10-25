@@ -202,6 +202,12 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 | 61 | 옷장 도우미 | 주인 코드(8자, 약 24시간) → 돕는 사람이 소문자·하이픈으로 입력 → `PENDING` → 같은 코드 다시 입력 404 `PAIRING_CODE_INVALID` → 주인 목록 → 돕는 사람의 승인·변경은 404 → 주인 승인 `ACTIVE` → 권한·알림 변경 → 작업 기록 빈 목록, 남의 연결 기록 404 → 돕는 사람이 해제 → 양쪽 목록에서 사라짐, 끝난 연결 해제 404 |
 | 62 | 옷장 도우미 | 돕는 사람 코드 → 주인이 권한 없이 입력 400(`permission` `REQUIRED`) → 권한으로 입력 바로 `ACTIVE` → 이미 연결 409 `PAIRING_EXISTS`, 자기 코드 400 `PAIRING_SELF`, 인원 초과 409 `PAIRING_LIMIT`(`side` `OWNER`, `max` 1) → 해제 → 거절(끝난 요청 거절 404), 없는 코드 404, 모르는 자리 400 |
 
+### 옷장 도우미 대리 작업 (doc/26 5단계, 앱 API 모듈)
+
+| # | 분류 | 확인하는 것 |
+|---|---|---|
+| 63 | 옷장 도우미 | `api.owners`: 보기 권한은 조회만(등록·수정·사용 중지 403 `FORBIDDEN`, 연결 없는 회원 404) → 권한을 올리면 등록·수정·사용 중지(`retired` 목록)·다시 사용 → 돕는 사람 옷장에는 없고 주인 옷장에만 → 주인 경로 사진 올리기(PUT)·complete·AI 분석(자기 경로로 쓰면 404)·사진 붙여 등록·주인도 같은 `imageId` → 작업 기록 5건(`ITEM_CREATE`×2·`ITEM_UPDATE`·`ITEM_RETIRE`·`ITEM_RESTORE`) → 해제 뒤 404, 옷은 주인에게 남음 |
+
 ### 계약에 정해지지 않아 하네스가 고른 기대값
 
 계약 문서에 명시되지 않은 부분은 다음처럼 기대한다. 백엔드와 다르면 둘 중 하나를 고치고 계약 문서에도 적는다.
@@ -243,7 +249,7 @@ refresh 횟수는 `createApiClient`의 `fetch` 주입 옵션으로 세션마다 
 |---|---|
 | `run.sh` | DB·Valkey·MinIO(하네스 버킷) 준비 → 백엔드 기동·종료 → 러너 실행 |
 | `src/main.ts` | 러너. 인자 해석, 시나리오 실행, 결과 표 |
-| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`·`images`·`weather`·`plans`·`mfa`·`push`·`sso`·`invite`·`pairing`). 전체 62개(`./run.sh --list`) |
+| `src/scenarios/*.ts` | 분류별 시나리오 (`auth`·`profile`·`wardrobe`·`codes`·`ai`·`tokens`·`account`·`admin`·`appSettings`·`retire`·`sessions`·`images`·`weather`·`plans`·`mfa`·`push`·`sso`·`invite`·`pairing`). 전체 63개(`./run.sh --list`) |
 | `src/lib/session.ts` | 앱 모듈로 클라이언트 만들기, 요청·토큰 저장·`onAuthLost` 기록 |
 | `src/lib/http.ts` | 원시 요청과 오류 본문 형식 검사(`checkErrorBody`: `message` 없음, `traceId` = `X-Request-Id`, `fieldErrors` 항목은 `{ field, code, params? }`) |
 | `src/lib/rawUser.ts` | 앱 모듈 없이 가입·관리자 로그인한 세션 (`TOKEN_EXPIRED`면 다시 로그인) |
