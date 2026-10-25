@@ -133,6 +133,26 @@ export interface LoginRequest {
   cancelWithdrawal?: boolean;
 }
 
+// ── 비밀번호 (doc/28) ──
+
+/** GET /users/me/password · POST /users/me/password/postpone 응답 */
+export interface PasswordStatusDto {
+  /** 비밀번호를 마지막으로 정한 시각 (ISO). 비밀번호가 없는 계정이면 null */
+  changedAt: string | null;
+  /** 바꿔야 하는 시각 (ISO). 기능이 꺼졌거나 비밀번호가 없으면 null */
+  dueAt: string | null;
+  /** 기한이 지났는지. 지나도 막지 않고 알리기만 한다 */
+  due: boolean;
+  /** 변경 주기 일수 (연장하면 지금부터 그만큼). 기능이 꺼졌으면 0 */
+  intervalDays: number;
+}
+
+/** POST /users/me/password 본문 */
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
 // ── 탈퇴 (doc/27) ──
 
 /** 탈퇴 사유 (보기에서 하나를 꼭 고른다) */

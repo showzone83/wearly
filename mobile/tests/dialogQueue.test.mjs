@@ -44,3 +44,10 @@ test('원래 줄은 바꾸지 않는다', () => {
   dismiss(q, 1);
   assert.equal(q.length, 1);
 });
+
+test('취소 버튼 글자가 다르면 같은 창으로 보지 않는다', () => {
+  const a = d(1, '비밀번호를 바꿀 때가 됐어요', { kind: 'confirm', okLabel: '바꾸기', cancelLabel: '90일 연장' });
+  const b = d(2, '비밀번호를 바꿀 때가 됐어요', { kind: 'confirm', okLabel: '바꾸기', cancelLabel: '180일 연장' });
+  assert.equal(enqueue([a], b).length, 2);
+  assert.equal(enqueue([a], { ...a, id: 3 }).length, 1);
+});

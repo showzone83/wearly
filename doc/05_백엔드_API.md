@@ -485,6 +485,7 @@ api.auth.signup({ email, password, name, inviteCode? })   // 토큰 저장까지
 api.auth.login({ email, password })          // 토큰 저장까지
 api.auth.logout()                            // 서버 폐기 + 저장소 비움 (서버 실패해도 비움)
 api.users.me() / api.users.withdraw({ reason, reasonText? })   // 탈퇴 신청(27 문서), withdraw도 저장소 비움. 취소는 api.auth.login({ …, cancelWithdrawal: true })
+api.password.status() / change({ currentPassword, newPassword }) / postpone()   // 비밀번호 변경 주기(28 문서). change는 다른 기기 로그아웃, postpone은 지금부터 주기만큼
 api.profile.get() / api.profile.put(dto)
 api.invite.get() / recordShare(channel) / friends()   // 친구 초대 (로그인, 25 문서)
 api.pairing.issueCode() / join(code) / list() / approve(id, permission) / reject(id) / update(id, { permission?, notifyOwner? }) / end(id) / actions(id)   // 옷장 도우미 연결 (로그인, 26 문서). 대리 작업은 api.owners.list/get/create/update/retire/restore/analyzeImage/uploadUrl/complete(ownerId, …)  (26 문서 5단계)

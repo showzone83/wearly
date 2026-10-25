@@ -373,6 +373,27 @@ export const confirm = (title: string, message: string, onOk: () => void, okLabe
   useDialogStore.getState().show({ kind: 'confirm', title, message, okLabel, onOk, danger });
 };
 
+/**
+ * 두 갈래 선택 대화상자 (DialogHost): 왼쪽 버튼(cancel)·오른쪽 버튼(ok) 모두 동작이 있다. 오른쪽은 기본 색.
+ * 뒤로 가기·바깥 누르기는 아무것도 고르지 않은 것으로 본다 (예: 비밀번호 바꾸기 / 90일 연장, doc/28)
+ */
+export const choose = (
+  title: string,
+  message: string,
+  options: { ok: string; onOk: () => void; cancel: string; onCancel: () => void },
+) => {
+  useDialogStore.getState().show({
+    kind: 'confirm',
+    title,
+    message,
+    okLabel: options.ok,
+    onOk: options.onOk,
+    cancelLabel: options.cancel,
+    onCancel: options.onCancel,
+    danger: false,
+  });
+};
+
 /** 알림 대화상자 (앱이 직접 그린다, DialogHost). 확인 버튼 하나 */
 export const notify = (title: string, message?: string) => {
   useDialogStore.getState().show({ kind: 'notify', title, message, okLabel: '확인' });
@@ -381,7 +402,7 @@ export const notify = (title: string, message?: string) => {
 /**
  * notify·confirm을 그리는 곳. 루트 레이아웃에 하나만 둔다. 시스템 Alert·브라우저 alert/confirm 대신 쓰므로
  * 웹·iOS·안드로이드 모두 테마 색의 같은 모양이다. 여러 개가 오면 차례로 하나씩 보인다.
- * 뒤로 가기·바깥 누르기는 취소(알림은 닫기)로 본다.
+ * 뒤로 가기·바깥 누르기는 취소(알림은 닫기)로 보되, choose의 왼쪽 버튼 동작(onCancel)은 부르지 않는다.
  */
 export const DialogHost = () => {
   const dialog = useDialogStore((st) => st.queue[0]);
@@ -390,7 +411,7 @@ export const DialogHost = () => {
 
   if (!dialog) return null;
 
-  const cancel = () => close(dialog.id, false);
+  const cancel = () => close(dialog.id, 'dismiss');
   const isConfirm = dialog.kind === 'confirm';
 
   return (
@@ -407,12 +428,20 @@ export const DialogHost = () => {
             </ScrollView>
           ) : null}
           <View style={s.dialogActions}>
-            {isConfirm && <Button title="취소" variant="outline" small onPress={cancel} style={s.dialogButton} />}
+            {isConfirm && (
+              <Button
+                title={dialog.cancelLabel ?? '취소'}
+                variant="outline"
+                small
+                onPress={() => close(dialog.id, 'cancel')}
+                style={s.dialogButton}
+              />
+            )}
             <Button
               title={dialog.okLabel}
               variant={isConfirm && dialog.danger !== false ? 'danger' : 'primary'}
               small
-              onPress={() => close(dialog.id, true)}
+              onPress={() => close(dialog.id, 'ok')}
               style={s.dialogButton}
             />
           </View>

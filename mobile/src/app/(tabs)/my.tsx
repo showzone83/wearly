@@ -292,6 +292,7 @@ export default function My() {
       <MenuCard>
         {isAccount ? (
           <>
+            <MenuRow icon="gear" label="비밀번호 변경" onPress={() => router.push('/password')} />
             <MenuRow
               icon="logout"
               label="로그아웃"

@@ -134,6 +134,7 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 ### 2026-10-25
 
 #### 추가
+- 비밀번호 변경 주기(3단계, 앱): 더보기 > "비밀번호 변경" 화면(`/password`, 바꾸면 다른 기기 로그아웃), 바꾼 지 90일이 지나면 앱을 열 때·로그인한 뒤 "바꾸기 / 90일 연장" 창, 서버 푸시를 누르면 변경 화면, 안드로이드 채널 "계정 알림". 앱 대화상자에 두 갈래 선택(`choose`). 규칙 `lib/passwordRules.ts`(단위 테스트), 하네스 시나리오 ([#21](https://github.com/showzone83/wearly/issues/21), [doc/28](doc/28_비밀번호_변경주기.md) 3단계) (작성: kang6123)
 - 비밀번호 변경 주기(2단계, 서버 푸시): 매일 10:00(`wearly.auth.password.reminder-cron`) 비밀번호 기한이 지난 활성 회원에게 "비밀번호를 바꿔 주세요" 푸시를 주기마다 한 번(`password_reminded_at`, 연장하면 다음 기한에 다시). `data.type = password-change-due`, 안드로이드 채널 `account` ([#21](https://github.com/showzone83/wearly/issues/21), [doc/28](doc/28_비밀번호_변경주기.md) 2단계) (작성: kang6123)
 - 비밀번호 변경 주기(1단계, 백엔드): 비밀번호를 바꾼 지 90일(`wearly.auth.password.change-interval`, 0이면 끔)이 지났는지 알려 주는 `GET /users/me/password`, 앱 회원 비밀번호 변경 `POST /users/me/password`(다른 기기 로그아웃, 같은 비밀번호 금지), 변경 알림 연장 `POST /users/me/password/postpone`. 관리자는 `GET /admin/me/password`·`POST /admin/me/password/postpone`(변경 이력 `ADMIN_PASSWORD_POSTPONE`). V31(`password_changed_at` 등), 로그인 이력 `PASSWORD_CHANGED`·`PASSWORD_POSTPONED` ([#21](https://github.com/showzone83/wearly/issues/21), [doc/28](doc/28_비밀번호_변경주기.md) 0~1단계) (작성: kang6123)
 - 탈퇴 유예 기간(5단계, 문서): [doc/27](doc/27_탈퇴_유예.md) 마무리(사람이 할 일: 개인정보 처리방침 30일 보관 문구·개발 백엔드 재시작·실제 휴대폰·예약 삭제 확인·이슈 댓글), [doc/14](doc/14_DB_명령.md) 탈퇴 예정·기록 조회와 테이블 표, [doc/26](doc/26_옷장_도우미.md) D9에 "탈퇴 신청 즉시 연결 끝남" ([#19](https://github.com/showzone83/wearly/issues/19)) (작성: kang6123)

@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { bootstrapSession } from '@/lib/account';
 import { API_BASE_URL } from '@/lib/api';
 import { syncAppConfig } from '@/lib/appConfig';
+import { remindPasswordIfDue } from '@/lib/passwordReminder';
 import { onAppActive, startPhotoMaintenance } from '@/lib/photoSync';
 import { recheckPlans } from '@/lib/placeWeather';
 import { onNotifyAppActive, startPlanNotifications } from '@/lib/planNotify';
@@ -178,6 +179,16 @@ const usePlanNotifications = (ready: boolean) => {
   }, [ready]);
 };
 
+/**
+ * 비밀번호 변경 알림 (doc/28 3단계): 화면이 준비되면(세션 확인 뒤) 한 번 묻고, 기한이 지났으면 "바꾸기 / 연장" 창.
+ * 같은 실행에서 같은 계정은 한 번만 묻는다(로그인한 뒤에는 auth 화면이 따로 부른다).
+ */
+const usePasswordReminder = (ready: boolean) => {
+  useEffect(() => {
+    if (ready) void remindPasswordIfDue();
+  }, [ready]);
+};
+
 /** 계정 모드에서 로그인이 풀리면(Refresh 실패) 로그인 화면으로 보낸다 */
 function AuthWatcher() {
   const lost = useStore((s) => s.authMode === 'account' && s.authLost);
@@ -209,6 +220,7 @@ export default function RootLayout() {
   const ready = themeHydrated && hydrated && sessionChecked && codes.phase === 'ready';
   const codesFailed = codes.phase === 'failed';
   usePlanNotifications(ready && notifyHydrated && weatherHydrated && placeHydrated);
+  usePasswordReminder(ready);
 
   return (
     <SafeAreaProvider>

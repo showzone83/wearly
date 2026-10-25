@@ -1,4 +1,4 @@
-// 로그아웃·회원 탈퇴(탈퇴 신청·취소, doc/27)
+// 로그아웃·회원 탈퇴(탈퇴 신청·취소, doc/27)·비밀번호 변경과 변경 주기(doc/28)
 import { eq, expectApiError } from '../lib/assert';
 import { item } from '../lib/fixtures';
 import { checkErrorBody, raw } from '../lib/http';
@@ -106,4 +106,47 @@ const withdraw: Scenario = {
   },
 };
 
-export const accountScenarios: Scenario[] = [logout, withdraw];
+const password: Scenario = {
+  group: '계정',
+  name: '비밀번호 변경 주기: 상태(90일 기한) → 같은 비밀번호 400 NOT_ALLOWED·틀린 비밀번호 403 → 변경 204 → 다른 기기 onAuthLost·옛 비밀번호 401·새 비밀번호 로그인 → 연장',
+  async run() {
+    const u = await signedUp('pw');
+    const s0 = await u.api.password.status();
+    eq([s0.due, s0.intervalDays], [false, 90], '가입 직후 상태');
+    eq(Math.round((Date.parse(s0.dueAt ?? '') - Date.parse(s0.changedAt ?? '')) / 86_400_000), 90, '기한은 90일 뒤');
+
+    const device2 = newSession();
+    await device2.api.auth.login({ email: u.email, password: TEST_PASSWORD });
+
+    const same = await expectApiError(
+      u.api.password.change({ currentPassword: TEST_PASSWORD, newPassword: TEST_PASSWORD }),
+      { status: 400, code: 'VALIDATION_FAILED' },
+      '같은 비밀번호로 변경',
+    );
+    eq(same.fieldErrors.map((f) => `${f.field}:${f.code}`), ['newPassword:NOT_ALLOWED'], '같은 비밀번호 필드 오류');
+    await expectApiError(
+      u.api.password.change({ currentPassword: 'wrong1234', newPassword: 'newpass99' }),
+      { status: 403, code: 'REAUTH_FAILED' },
+      '지금 비밀번호 틀림',
+    );
+
+    await u.api.password.change({ currentPassword: TEST_PASSWORD, newPassword: 'newpass99' });
+    eq((await u.api.users.me()).email, u.email, '바꾼 기기는 그대로');
+    await expectApiError(device2.api.users.me(), { status: 401, code: ['TOKEN_INVALID', 'TOKEN_EXPIRED'] }, '다른 기기 요청');
+    eq(device2.counts.authLost, 1, '다른 기기 onAuthLost 호출 횟수');
+    await expectApiError(
+      newSession().api.auth.login({ email: u.email, password: TEST_PASSWORD }),
+      { status: 401, code: 'INVALID_CREDENTIALS' },
+      '옛 비밀번호 로그인',
+    );
+    const again = newSession();
+    await again.api.auth.login({ email: u.email, password: 'newpass99' });
+
+    const later = await again.api.password.postpone();
+    eq(later.due, false, '연장 뒤 기한 전');
+    const days = (Date.parse(later.dueAt ?? '') - Date.now()) / 86_400_000;
+    eq(Math.round(days), 90, '연장하면 지금부터 90일');
+  },
+};
+
+export const accountScenarios: Scenario[] = [logout, withdraw, password];

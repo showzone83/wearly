@@ -349,6 +349,14 @@ const FIELD_OVERRIDE: Record<string, (code: string, p: TParams) => string | null
   regionCode: (code) => (code === 'NOT_FOUND' ? '없는 지역이에요.' : null),
   email: (code) => (code === 'INVALID_FORMAT' ? '이메일 형식을 확인해 주세요.' : null),
   password: (code) => (code === 'INVALID_FORMAT' ? '비밀번호는 8~64자로, 영문과 숫자를 모두 넣어 주세요.' : null),
+  /** 비밀번호 변경 (doc/28): NOT_ALLOWED는 지금과 같은 비밀번호 */
+  newPassword: (code) => {
+    if (code === 'INVALID_FORMAT') return '비밀번호는 8~64자로, 영문과 숫자를 모두 넣어 주세요.';
+    if (code === 'NOT_ALLOWED') return '지금 비밀번호와 다르게 정해 주세요.';
+    if (code === 'REQUIRED') return '새 비밀번호를 입력해 주세요.';
+    return null;
+  },
+  currentPassword: (code) => (code === 'REQUIRED' ? '지금 비밀번호를 입력해 주세요.' : null),
 };
 
 /** 필드 이름 (VALIDATION_FAILED 한 줄 문구 앞에 붙인다) */
@@ -358,6 +366,8 @@ const FIELD_LABEL: Record<string, string> = {
   label: '이름',
   email: '이메일',
   password: '비밀번호',
+  currentPassword: '지금 비밀번호',
+  newPassword: '새 비밀번호',
   brand: '브랜드',
   memo: '메모',
   'context.memo': '메모',

@@ -32,6 +32,7 @@ import {
   type IScheduledNotify,
 } from './planNotifyRules';
 import { HELPER_CHANNEL, helperNoticeRoute } from './pairingRules';
+import { ACCOUNT_CHANNEL, isPasswordDueNotice } from './passwordRules';
 import { planSource, weatherFromDay } from './planWeather';
 
 /** 서버 푸시 등록을 다시 하는 간격 (토큰이 바뀌었을 수 있다) */
@@ -110,6 +111,12 @@ const ensureChannel = (): Promise<void> => {
       Notifications.setNotificationChannelAsync(HELPER_CHANNEL, {
         name: '옷장 도우미 알림',
         description: '옷장 도우미 연결 요청과 대신 정리한 옷을 알려 드려요',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      }),
+      // 계정 알림: 비밀번호 변경 주기 (서버 푸시의 channelId와 같다, doc/28)
+      Notifications.setNotificationChannelAsync(ACCOUNT_CHANNEL, {
+        name: '계정 알림',
+        description: '비밀번호를 바꿀 때가 되면 알려 드려요',
         importance: Notifications.AndroidImportance.DEFAULT,
       }),
     ])
@@ -370,6 +377,11 @@ const openFromResponse = (response: NotificationsModule.NotificationResponse | n
   const helperRoute = helperNoticeRoute(data);
   if (helperRoute) {
     router.push(helperRoute as never);
+    return true;
+  }
+  // 비밀번호 변경 알림은 변경 화면을 연다 (doc/28)
+  if (isPasswordDueNotice(data)) {
+    router.push('/password?due=1');
     return true;
   }
   if (data?.type !== NOTIFY_TYPE) return false;

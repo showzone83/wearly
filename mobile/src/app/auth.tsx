@@ -10,6 +10,8 @@ import { MOCK_MODE } from '@/lib/mode';
 import { api, errorMessage } from '@/lib/api';
 import { fieldErrorText, systemTraceId } from '@/lib/errorText';
 import { formatInviteCode } from '@/lib/invite';
+import { passwordProblem } from '@/lib/passwordRules';
+import { remindPasswordIfDue } from '@/lib/passwordReminder';
 import { cancelWithdrawalText } from '@/lib/withdrawRules';
 import { useStore } from '@/store/useStore';
 import { inputBase, makeStyles, useColors } from '@/theme';
@@ -19,13 +21,6 @@ type Field = 'email' | 'password' | 'name' | 'inviteCode';
 const FIELDS: readonly Field[] = ['email', 'password', 'name', 'inviteCode'];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** 계약 5장: 비밀번호 8~64자, 영문과 숫자를 모두 포함 */
-function passwordProblem(pw: string): string | null {
-  if (pw.length < 8 || pw.length > 64) return '비밀번호는 8~64자로 입력해 주세요.';
-  if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return '영문과 숫자를 모두 넣어 주세요.';
-  return null;
-}
 
 function validate(mode: Mode, email: string, password: string, name: string): Partial<Record<Field, string>> {
   const errs: Partial<Record<Field, string>> = {};
@@ -89,6 +84,8 @@ export default function Auth() {
       // 스플래시·마이에서 들어온 경우 쌓인 화면을 정리하고 이동한다
       if (router.canDismiss()) router.dismissAll();
       router.replace(dest === 'home' ? '/home' : '/onboarding');
+      // 비밀번호 기한이 지났으면 "바꾸기 / 연장" 창 (doc/28). 가입 직후는 기한 전이라 띄우지 않는다
+      if (mode === 'login') void remindPasswordIfDue();
     } catch (e) {
       if (isApiError(e) && e.code === 'ACCOUNT_WITHDRAWN') {
         // 탈퇴 예정 계정 (doc/27): 삭제 예정일을 알리고 취소할지 묻는다

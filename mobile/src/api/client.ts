@@ -8,6 +8,7 @@ import type {
   AnalyzeFile,
   AnalyzeImageRequest,
   AppConfigDto,
+  ChangePasswordRequest,
   AppConfigResult,
   AnalyzeResponse,
   AuthResponse,
@@ -29,6 +30,7 @@ import type {
   LoginRequest,
   OutfitRecommendRequest,
   OutfitRecommendResponse,
+  PasswordStatusDto,
   PlaceSearchResponse,
   PlanBulkResponse,
   PlanDto,
@@ -457,6 +459,23 @@ export function createApiClient(options: ApiClientOptions) {
         const out = await request<WithdrawalDto>('POST', '/users/me/withdrawal', { auth: true, json: req });
         await tokenStore.clear();
         return out;
+      },
+    },
+    password: {
+      /** 비밀번호 변경 주기 상태 (doc/28). 예전 서버는 404 */
+      status(): Promise<PasswordStatusDto> {
+        return request<PasswordStatusDto>('GET', '/users/me/password', { auth: true });
+      },
+      /**
+       * 비밀번호 변경. 지금 기기만 남고 다른 기기는 로그아웃된다.
+       * 오류: 403 REAUTH_FAILED(지금 비밀번호 틀림) · 400 VALIDATION_FAILED(newPassword INVALID_FORMAT · NOT_ALLOWED 같은 비밀번호)
+       */
+      change(req: ChangePasswordRequest): Promise<void> {
+        return request<void>('POST', '/users/me/password', { auth: true, json: req });
+      },
+      /** 변경 알림 연장: 지금부터 주기만큼 미룬다. 기능이 꺼졌거나 비밀번호가 없으면 404 */
+      postpone(): Promise<PasswordStatusDto> {
+        return request<PasswordStatusDto>('POST', '/users/me/password/postpone', { auth: true });
       },
     },
     invite: {

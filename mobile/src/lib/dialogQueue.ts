@@ -14,7 +14,14 @@ export interface IDialog {
   danger?: boolean;
   /** confirm에서 확인을 눌렀을 때. 창을 닫은 뒤에 부른다 */
   onOk?: () => void;
+  /** confirm의 취소 버튼 글자 (기본 "취소"). 두 갈래 선택(바꾸기 / 90일 연장 등)에 쓴다 */
+  cancelLabel?: string;
+  /** confirm에서 취소 버튼을 눌렀을 때만 부른다 (뒤로 가기·바깥 누르기는 부르지 않는다). 창을 닫은 뒤에 부른다 */
+  onCancel?: () => void;
 }
+
+/** 창을 닫은 방법: 확인 버튼 · 취소 버튼 · 뒤로 가기·바깥 누르기 */
+export type TDialogChoice = 'ok' | 'cancel' | 'dismiss';
 
 /** 같은 내용이 이미 줄의 맨 끝에 있으면(연타) 그대로 둔다 */
 export const enqueue = (queue: readonly IDialog[], dialog: IDialog): IDialog[] => {
@@ -24,7 +31,8 @@ export const enqueue = (queue: readonly IDialog[], dialog: IDialog): IDialog[] =
     last.kind === dialog.kind &&
     last.title === dialog.title &&
     (last.message ?? '') === (dialog.message ?? '') &&
-    last.okLabel === dialog.okLabel
+    last.okLabel === dialog.okLabel &&
+    last.cancelLabel === dialog.cancelLabel
   ) {
     return [...queue];
   }
