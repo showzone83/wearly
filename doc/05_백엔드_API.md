@@ -209,6 +209,9 @@ SSO API 5개(`/auth/sso/**`)는 로그인 없이 부르는 공개 경로다. SSO
 |---|---|---|---|
 | GET | `/users/me` | — | `UserDto` |
 | POST | `/users/me/withdrawal` | `{ reason, reasonText? }` | 200 `{ requestedAt, purgeAt }`. 탈퇴 신청([27](27_탈퇴_유예.md)): 바로 지우지 않고 30일(`wearly.user.withdrawal.grace`) 동안 탈퇴 예정(`WITHDRAWN`)으로 둔다. 로그인 세션 전부·푸시 토큰을 바로 지우고(Access·Refresh 모두 401) 옷장 도우미 연결을 끝낸다. 옷·사진은 `purgeAt`까지 남고 그 전에 다시 로그인하면 취소할 수 있다. `reason`(필수)은 `NOT_USEFUL`·`BAD_RECOMMEND`·`HARD_TO_USE`·`PRIVACY`·`OTHER_APP`·`OTHER`, `reasonText`는 200자까지. 틀리면 400 `VALIDATION_FAILED`. 즉시 삭제(`DELETE /users/me`)는 없앴다 |
+| GET | `/users/me/password` | — | `{ changedAt, dueAt, due, intervalDays }`. 비밀번호 변경 주기([28](28_비밀번호_변경주기.md)): 비밀번호를 정한 시각, 바꿔야 하는 시각(정한 시각과 마지막 연장 중 늦은 쪽 + 주기 `wearly.auth.password.change-interval`, 기본 90일), 기한이 지났는지, 주기 일수. 기능이 꺼졌으면(주기 0) `dueAt = null`·`intervalDays = 0`, 비밀번호가 없는 계정은 `changedAt`도 null. 기한이 지나도 막지 않는다 |
+| POST | `/users/me/password` | `{ currentPassword, newPassword }` | 204. 비밀번호 변경. 현재 비밀번호가 틀리면 403 `REAUTH_FAILED`, 새 비밀번호가 가입 규칙에 안 맞으면 400 `VALIDATION_FAILED`(`newPassword` `INVALID_FORMAT`), 지금과 같으면 `NOT_ALLOWED`. 지금 세션만 남기고 다른 세션을 모두 끊고(그 기기는 401), 주기를 지금부터 다시 센다. 로그인 이력 `PASSWORD_CHANGED` |
+| POST | `/users/me/password/postpone` | — | 200 `{ changedAt, dueAt, due, intervalDays }`. 변경 알림 연장: 지금부터 주기만큼 미룬다(몇 번이든). 기능이 꺼졌거나 비밀번호가 없으면 404. 로그인 이력 `PASSWORD_POSTPONED` |
 | GET | `/users/me/profile` | — | `ProfileDto`. 저장 전이면 기본값과 `onboarded: false` |
 | PUT | `/users/me/profile` | `ProfileDto` | `ProfileDto` |
 

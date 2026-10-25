@@ -88,6 +88,16 @@ wearly:
     secret: ${WEARLY_JWT_SECRET:dev-only-wearly-jwt-secret-change-me-0123456789}
     access-ttl: ${WEARLY_ACCESS_TTL:PT30M}
     refresh-ttl: ${WEARLY_REFRESH_TTL:P30D}
+  # 로그인 (auth 컨텍스트)
+  auth:
+    # 비밀번호 변경 주기 (doc/28): 바꾼 지 이만큼 지나면 바꾸라고 알린다(막지는 않는다). 회원이 연장하면 그때부터 다시 이만큼. P0D면 끈다
+    password:
+      change-interval: ${WEARLY_AUTH_PASSWORD_CHANGE_INTERVAL:P90D}
+      # 기한이 지난 회원에게 푸시를 보내는 예약 작업 (한국 시간 cron, 기본 매일 10:00). 주기마다 한 번, 한 번에 reminder-batch명까지
+      reminder-cron: ${WEARLY_AUTH_PASSWORD_REMINDER_CRON:0 0 10 * * *}
+      reminder-batch: ${WEARLY_AUTH_PASSWORD_REMINDER_BATCH:500}
+      # false면 예약 작업을 만들지 않는다 (테스트용)
+      reminder-enabled: ${WEARLY_AUTH_PASSWORD_REMINDER_ENABLED:true}
   ai:
     # db(기본): 관리자 화면의 AI 공급자 설정(tb_ai_provider)을 우선순위 순으로 쓴다. mock: 목업 (./gradlew bootRunMock)
     # 공급자 키는 tb_ai_provider.api_key_env의 키 이름(ANTHROPIC_API_KEY …)으로 찾는다:

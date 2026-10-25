@@ -121,12 +121,6 @@ class AdminAiServiceTest {
         public long createAccount(String email, String rawPassword, String name, String role) {
           throw new UnsupportedOperationException();
         }
-
-        @Override
-        public int changePassword(
-            long userId, String keepSessionId, String currentPassword, String newPassword) {
-          throw new UnsupportedOperationException();
-        }
       };
 
   final RecordAuditPort audit =

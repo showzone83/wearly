@@ -10,6 +10,7 @@ import app.wearly.auth.application.port.in.dto.LoginDto;
 import app.wearly.auth.application.port.in.dto.LoginResultDto;
 import app.wearly.auth.application.port.in.dto.MfaVerifyDto;
 import app.wearly.auth.application.port.in.dto.MfaVerifyResultDto;
+import app.wearly.auth.application.port.in.dto.PasswordStatusDto;
 import app.wearly.auth.application.port.in.dto.SignupDto;
 import app.wearly.auth.application.port.out.AccessTokenIssuer;
 import app.wearly.auth.application.port.out.AuthEventPort;
@@ -20,8 +21,10 @@ import app.wearly.auth.domain.ClientKind;
 import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
 import app.wearly.auth.domain.MfaPolicy;
+import app.wearly.auth.domain.PasswordChangePolicy;
 import app.wearly.auth.domain.RefreshTokens;
 import app.wearly.auth.domain.TokenPolicy;
+import app.wearly.common.domain.FieldErrorCode;
 import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.support.FakeInvites;
@@ -83,7 +86,8 @@ class AuthServiceTest {
             throw new EmailTakenException(c.email());
           }
           long id = credentialRows.size() + 1L;
-          credentialRows.put(id, new LocalCredential(id, c.userId(), c.email(), c.passwordHash()));
+          credentialRows.put(
+              id, new LocalCredential(id, c.userId(), c.email(), c.passwordHash(), NOW, null));
         }
 
         @Override
@@ -92,10 +96,16 @@ class AuthServiceTest {
         }
 
         @Override
-        public void changePassword(long credentialId, String passwordHash) {
+        public void changePassword(long credentialId, String passwordHash, Instant at) {
           LocalCredential c = credentialRows.get(credentialId);
           credentialRows.put(
-              credentialId, new LocalCredential(c.id(), c.userId(), c.email(), passwordHash));
+              credentialId,
+              new LocalCredential(c.id(), c.userId(), c.email(), passwordHash, at, null));
+        }
+
+        @Override
+        public void postpone(long credentialId, Instant at) {
+          credentialRows.put(credentialId, credentialRows.get(credentialId).postponedAt(at));
         }
       };
 
@@ -162,6 +172,16 @@ class AuthServiceTest {
           eventPort,
           invites,
           withdrawals,
+          clock);
+
+  final PasswordService passwords =
+      new PasswordService(
+          credentials,
+          service,
+          hasher,
+          sessions,
+          eventPort,
+          new PasswordChangePolicy(Duration.ofDays(90), 500),
           clock);
 
   @Test
@@ -530,20 +550,114 @@ class AuthServiceTest {
   }
 
   @Test
-  void 비밀번호를_바꾸면_다른_세션만_끊는다() {
+  void 비밀번호를_바꾸면_다른_세션만_끊고_변경_주기를_다시_센다() {
     AuthResultDto keep = service.signup(new SignupDto("p@wearly.test", "pass1234", "비번"), PHONE);
-    AuthResultDto other = service.login(new LoginDto("p@wearly.test", "pass1234"), PHONE).tokens();
+    final AuthResultDto other =
+        service.login(new LoginDto("p@wearly.test", "pass1234"), PHONE).tokens();
     long id = keep.user().id();
+    long credentialId = credentialRows.keySet().iterator().next();
+    // 오래전에 정하고 연장까지 한 비밀번호
+    credentialRows.put(
+        credentialId,
+        new LocalCredential(
+            credentialId,
+            id,
+            "p@wearly.test",
+            "hash:pass1234",
+            NOW.minus(Duration.ofDays(200)),
+            NOW.minus(Duration.ofDays(100))));
+    assertThat(passwords.status(id).due()).isTrue();
 
-    assertThat(codeOf(() -> service.changePassword(id, sid(keep), "wrong", "newpass99")))
+    assertThat(codeOf(() -> passwords.change(id, sid(keep), "wrong", "newpass99")))
         .isEqualTo(ErrorCode.REAUTH_FAILED);
-    assertThat(codeOf(() -> service.changePassword(id, sid(keep), "pass1234", "short")))
+    assertThat(codeOf(() -> passwords.change(id, sid(keep), "pass1234", "short")))
         .isEqualTo(ErrorCode.VALIDATION_FAILED);
-    assertThat(service.changePassword(id, sid(keep), "pass1234", "newpass99")).isEqualTo(1);
+    events.clear();
+    assertThat(passwords.change(id, sid(keep), "pass1234", "newpass99")).isEqualTo(1);
 
     assertThat(service.authenticate(id, sid(keep))).isPresent();
     assertThat(service.authenticate(id, sid(other))).isEmpty();
     assertThat(service.passwordMatches(id, "newpass99")).isTrue();
+    LocalCredential changed = credentialRows.get(credentialId);
+    assertThat(changed.passwordChangedAt()).isEqualTo(NOW);
+    assertThat(changed.passwordPostponedAt()).isNull();
+    assertThat(passwords.status(id))
+        .isEqualTo(new PasswordStatusDto(NOW, NOW.plus(Duration.ofDays(90)), false, 90));
+    assertThat(events)
+        .extracting(AuthEvent::type)
+        .containsExactly(AuthEvent.Type.PASSWORD_CHANGED, AuthEvent.Type.FORCED_LOGOUT);
+    assertThat(events.get(0).sessionId()).isEqualTo(sid(keep));
+    assertThat(events.get(0).userAgent()).isEqualTo(PHONE.userAgent());
+  }
+
+  @Test
+  void 지금과_같은_비밀번호로는_못_바꾼다() {
+    AuthResultDto me = service.signup(new SignupDto("s@wearly.test", "pass1234", "같은"), PHONE);
+    long id = me.user().id();
+
+    assertThatThrownBy(() -> passwords.change(id, sid(me), "pass1234", "pass1234"))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            e -> {
+              assertThat(e.code()).isEqualTo(ErrorCode.VALIDATION_FAILED);
+              assertThat(e.fieldErrors())
+                  .singleElement()
+                  .satisfies(
+                      f -> {
+                        assertThat(f.field()).isEqualTo("newPassword");
+                        assertThat(f.code()).isEqualTo(FieldErrorCode.NOT_ALLOWED);
+                      });
+            });
+    assertThat(service.passwordMatches(id, "pass1234")).isTrue();
+  }
+
+  @Test
+  void 연장하면_지금부터_주기만큼_미루고_PASSWORD_POSTPONED를_남긴다() {
+    AuthResultDto me = service.signup(new SignupDto("d@wearly.test", "pass1234", "연장"), PHONE);
+    long id = me.user().id();
+    long credentialId = credentialRows.keySet().iterator().next();
+    credentialRows.put(
+        credentialId,
+        new LocalCredential(
+            credentialId,
+            id,
+            "d@wearly.test",
+            "hash:pass1234",
+            NOW.minus(Duration.ofDays(91)),
+            null));
+    assertThat(passwords.status(id))
+        .isEqualTo(
+            new PasswordStatusDto(
+                NOW.minus(Duration.ofDays(91)), NOW.minus(Duration.ofDays(1)), true, 90));
+    events.clear();
+
+    PasswordStatusDto after = passwords.postpone(id, sid(me));
+
+    assertThat(after.due()).isFalse();
+    assertThat(after.dueAt()).isEqualTo(NOW.plus(Duration.ofDays(90)));
+    assertThat(passwords.status(id)).isEqualTo(after);
+    assertThat(events)
+        .extracting(AuthEvent::type)
+        .containsExactly(AuthEvent.Type.PASSWORD_POSTPONED);
+  }
+
+  @Test
+  void 비밀번호가_없거나_기능이_꺼졌으면_연장할_수_없다() {
+    assertThat(passwords.status(999L)).isEqualTo(new PasswordStatusDto(null, null, false, 90));
+    assertThat(codeOf(() -> passwords.postpone(999L, null))).isEqualTo(ErrorCode.NOT_FOUND);
+
+    AuthResultDto me = service.signup(new SignupDto("o@wearly.test", "pass1234", "끔"), PHONE);
+    PasswordService off =
+        new PasswordService(
+            credentials,
+            service,
+            hasher,
+            sessions,
+            eventPort,
+            new PasswordChangePolicy(Duration.ZERO, 500),
+            clock);
+    assertThat(off.status(me.user().id())).isEqualTo(new PasswordStatusDto(NOW, null, false, 0));
+    assertThat(codeOf(() -> off.postpone(me.user().id(), sid(me)))).isEqualTo(ErrorCode.NOT_FOUND);
   }
 
   private LoginDto signupAndLogin() {

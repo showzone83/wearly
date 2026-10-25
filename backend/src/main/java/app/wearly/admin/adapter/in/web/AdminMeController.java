@@ -4,6 +4,7 @@ import app.wearly.admin.adapter.in.web.request.ChangePasswordRequest;
 import app.wearly.admin.adapter.in.web.request.MfaCodeRequest;
 import app.wearly.admin.adapter.in.web.response.AdminMfaSetupResponse;
 import app.wearly.admin.adapter.in.web.response.AdminMfaStatusResponse;
+import app.wearly.admin.adapter.in.web.response.AdminPasswordStatusResponse;
 import app.wearly.admin.adapter.in.web.response.RecoveryCodesResponse;
 import app.wearly.admin.application.port.in.AdminMeUseCase;
 import app.wearly.common.web.CurrentSession;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 로그인한 관리자 자신의 계정 API (22 문서 4.1): 비밀번호 변경, 2단계 인증. ADMIN 전용 */
+/** 로그인한 관리자 자신의 계정 API (22 문서 4.1): 비밀번호 변경·변경 주기(28 문서), 2단계 인증. ADMIN 전용 */
 @RestController
 @RequestMapping("/api/v1/admin/me")
 public class AdminMeController {
@@ -38,6 +39,19 @@ public class AdminMeController {
       @RequestBody(required = false) ChangePasswordRequest request) {
     ChangePasswordRequest r = request == null ? new ChangePasswordRequest(null, null) : request;
     me.changePassword(adminId, sessionId, r.currentPassword(), r.newPassword());
+  }
+
+  /** 비밀번호 변경 주기 상태 (28 문서) */
+  @GetMapping("/password")
+  public AdminPasswordStatusResponse passwordStatus(@CurrentUser long adminId) {
+    return AdminPasswordStatusResponse.from(me.passwordStatus(adminId));
+  }
+
+  /** 비밀번호 변경 알림 연장 (지금부터 주기만큼). 기능이 꺼졌거나 비밀번호가 없으면 404 */
+  @PostMapping("/password/postpone")
+  public AdminPasswordStatusResponse postponePassword(
+      @CurrentUser long adminId, @CurrentSession String sessionId) {
+    return AdminPasswordStatusResponse.from(me.postponePassword(adminId, sessionId));
   }
 
   @GetMapping("/mfa")

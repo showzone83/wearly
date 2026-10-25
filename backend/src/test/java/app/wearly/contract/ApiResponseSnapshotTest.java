@@ -158,6 +158,18 @@ class ApiResponseSnapshotTest {
     adminAi(admin);
     adminLogs(admin);
     errors(a);
+    // 비밀번호 변경 주기 (28 문서). 실제 변경은 세션을 끊으므로 오류 응답만 남긴다
+    record("users.password", api.get("/api/v1/users/me/password", a.accessToken()));
+    record(
+        "users.password.same",
+        api.post(
+            "/api/v1/users/me/password",
+            a.accessToken(),
+            Map.of("currentPassword", "pass1234", "newPassword", "pass1234")));
+    record(
+        "users.password.postpone",
+        api.post("/api/v1/users/me/password/postpone", a.accessToken(), null));
+    record("admin.me.password", api.get("/api/v1/admin/me/password", admin.accessToken()));
     // 탈퇴는 바로 지우지 않고 탈퇴 예정으로 둔다 (27 문서). 즉시 삭제(DELETE /users/me)는 없앴다
     record(
         "users.withdraw.badReason",

@@ -10698,6 +10698,45 @@
       "traceId" : "<traceId>"
     }
   },
+  "users.password" : {
+    "status" : 200,
+    "body" : {
+      "changedAt" : "<instant>",
+      "dueAt" : "<instant>",
+      "due" : false,
+      "intervalDays" : 90
+    }
+  },
+  "users.password.same" : {
+    "status" : 400,
+    "body" : {
+      "status" : 400,
+      "code" : "VALIDATION_FAILED",
+      "fieldErrors" : [ {
+        "field" : "newPassword",
+        "code" : "NOT_ALLOWED"
+      } ],
+      "traceId" : "<traceId>"
+    }
+  },
+  "users.password.postpone" : {
+    "status" : 200,
+    "body" : {
+      "changedAt" : "<instant>",
+      "dueAt" : "<instant>",
+      "due" : false,
+      "intervalDays" : 90
+    }
+  },
+  "admin.me.password" : {
+    "status" : 200,
+    "body" : {
+      "changedAt" : "<instant>",
+      "dueAt" : "<instant>",
+      "due" : false,
+      "intervalDays" : 90
+    }
+  },
   "users.withdraw.badReason" : {
     "status" : 400,
     "body" : {

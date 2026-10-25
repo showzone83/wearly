@@ -38,12 +38,6 @@ class AdminAccountServiceTest {
         public boolean passwordMatches(long userId, String rawPassword) {
           throw new UnsupportedOperationException();
         }
-
-        @Override
-        public int changePassword(
-            long userId, String keepSessionId, String currentPassword, String newPassword) {
-          throw new UnsupportedOperationException();
-        }
       };
 
   final AdminAccountService service = new AdminAccountService(accounts, users, audit);

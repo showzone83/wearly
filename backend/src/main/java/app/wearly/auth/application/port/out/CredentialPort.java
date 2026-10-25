@@ -18,6 +18,9 @@ public interface CredentialPort {
 
   void markLogin(long credentialId, Instant at);
 
-  /** 비밀번호 해시를 바꾼다 */
-  void changePassword(long credentialId, String passwordHash);
+  /** 비밀번호 해시를 바꾼다. 비밀번호를 정한 시각을 at으로 하고 변경 알림 연장·발송 기록을 지운다 (28 문서) */
+  void changePassword(long credentialId, String passwordHash, Instant at);
+
+  /** 비밀번호 변경 알림 연장 (28 문서) */
+  void postpone(long credentialId, Instant at);
 }

@@ -20,8 +20,6 @@ import app.wearly.auth.domain.ClientInfo;
 import app.wearly.auth.domain.ClientKind;
 import app.wearly.auth.domain.EmailTakenException;
 import app.wearly.auth.domain.LocalCredential;
-import app.wearly.auth.domain.PasswordPolicy;
-import app.wearly.common.domain.FieldError;
 import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.invite.application.port.in.InviteUseCase;
@@ -30,8 +28,6 @@ import app.wearly.user.application.port.in.WithdrawalUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.time.Clock;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -210,29 +206,6 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
       return false;
     }
     return passwords.matches(rawPassword, found.get().passwordHash());
-  }
-
-  @Override
-  @Transactional
-  public int changePassword(
-      long userId, String keepSessionId, String currentPassword, String newPassword) {
-    List<FieldError> errors = new ArrayList<>();
-    if (currentPassword == null || currentPassword.isEmpty()) {
-      errors.add(FieldError.required("currentPassword"));
-    }
-    if (newPassword == null || newPassword.isEmpty()) {
-      errors.add(FieldError.required("newPassword"));
-    } else if (!PasswordPolicy.isValid(newPassword)) {
-      errors.add(FieldError.invalidFormat("newPassword"));
-    }
-    BusinessException.throwIfAny(errors);
-    if (!passwordMatches(userId, currentPassword)) {
-      throw new BusinessException(ErrorCode.REAUTH_FAILED);
-    }
-    LocalCredential credential =
-        credentials.findByUserId(userId).orElseThrow(BusinessException::notFound);
-    credentials.changePassword(credential.id(), passwords.encode(newPassword));
-    return sessions.endOtherSessions(userId, keepSessionId);
   }
 
   /** 새 로그인 세션을 만들고 토큰을 준다 (LOGIN 기록) */

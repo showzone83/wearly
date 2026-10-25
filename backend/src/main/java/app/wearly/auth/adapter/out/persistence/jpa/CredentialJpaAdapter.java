@@ -50,15 +50,30 @@ class CredentialJpaAdapter implements CredentialPort {
   }
 
   @Override
-  public void changePassword(long credentialId, String passwordHash) {
-    credentials
-        .findById(credentialId)
-        .orElseThrow(() -> new IllegalStateException("자격 증명이 없어요: " + credentialId))
-        .changePassword(passwordHash);
+  public void changePassword(long credentialId, String passwordHash, Instant at) {
+    load(credentialId).changePassword(passwordHash, at);
     credentials.flush();
   }
 
+  @Override
+  public void postpone(long credentialId, Instant at) {
+    load(credentialId).postpone(at);
+    credentials.flush();
+  }
+
+  private LocalCredentialEntity load(long credentialId) {
+    return credentials
+        .findById(credentialId)
+        .orElseThrow(() -> new IllegalStateException("자격 증명이 없어요: " + credentialId));
+  }
+
   private static LocalCredential toDomain(LocalCredentialEntity e) {
-    return new LocalCredential(e.getId(), e.getUserId(), e.getEmail(), e.getPasswordHash());
+    return new LocalCredential(
+        e.getId(),
+        e.getUserId(),
+        e.getEmail(),
+        e.getPasswordHash(),
+        e.getPasswordChangedAt(),
+        e.getPasswordPostponedAt());
   }
 }

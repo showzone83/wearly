@@ -40,7 +40,11 @@ public record AuthEvent(
     /** 회사 계정(SSO)으로 관리자 사이트 로그인 (새 세션) */
     SSO_LOGIN,
     /** IdP 인증은 됐지만 관리자 그룹이 아니라 거부 (연결된 회원만 남긴다) */
-    SSO_DENIED
+    SSO_DENIED,
+    /** 회원이 비밀번호를 바꿈 (28 문서). 다른 세션이 끊긴 것은 FORCED_LOGOUT으로 따로 남는다 */
+    PASSWORD_CHANGED,
+    /** 비밀번호 변경 알림을 주기만큼 연장 (28 문서) */
+    PASSWORD_POSTPONED
   }
 
   /** 요청을 보낸 기기 정보로 */

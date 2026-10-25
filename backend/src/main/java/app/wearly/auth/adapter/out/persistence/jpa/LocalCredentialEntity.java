@@ -36,6 +36,15 @@ public class LocalCredentialEntity {
   @Column(name = "last_login_at")
   private Instant lastLoginAt;
 
+  @Column(name = "password_changed_at", nullable = false)
+  private Instant passwordChangedAt;
+
+  @Column(name = "password_postponed_at")
+  private Instant passwordPostponedAt;
+
+  @Column(name = "password_reminded_at")
+  private Instant passwordRemindedAt;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -54,6 +63,9 @@ public class LocalCredentialEntity {
   void onCreate() {
     createdAt = PersistenceClock.now();
     updatedAt = createdAt;
+    if (passwordChangedAt == null) {
+      passwordChangedAt = createdAt;
+    }
   }
 
   @PreUpdate
@@ -65,8 +77,16 @@ public class LocalCredentialEntity {
     this.lastLoginAt = at;
   }
 
-  public void changePassword(String passwordHash) {
+  /** 새 비밀번호: 기준 시각을 바꾸고 연장·알림 기록을 지운다 (28 문서) */
+  public void changePassword(String passwordHash, Instant at) {
     this.passwordHash = passwordHash;
+    this.passwordChangedAt = at;
+    this.passwordPostponedAt = null;
+    this.passwordRemindedAt = null;
+  }
+
+  public void postpone(Instant at) {
+    this.passwordPostponedAt = at;
   }
 
   public Long getId() {
@@ -83,5 +103,13 @@ public class LocalCredentialEntity {
 
   public String getPasswordHash() {
     return passwordHash;
+  }
+
+  public Instant getPasswordChangedAt() {
+    return passwordChangedAt;
+  }
+
+  public Instant getPasswordPostponedAt() {
+    return passwordPostponedAt;
   }
 }

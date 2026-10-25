@@ -2,11 +2,12 @@ package app.wearly.admin.application.port.in;
 
 import app.wearly.auth.application.port.in.dto.MfaSetupDto;
 import app.wearly.auth.application.port.in.dto.MfaStatusDto;
+import app.wearly.auth.application.port.in.dto.PasswordStatusDto;
 import java.util.List;
 
 /**
- * 로그인한 관리자 자신의 계정 (22 문서 4.1): 비밀번호 변경, 2단계 인증 상태·등록·초기화. 바꾸면 변경 이력(ADMIN_PASSWORD_CHANGE ·
- * ADMIN_MFA_ENROLL · ADMIN_MFA_RESET)을 남긴다.
+ * 로그인한 관리자 자신의 계정 (22 문서 4.1): 비밀번호 변경·변경 주기(28 문서), 2단계 인증 상태·등록·초기화. 바꾸면 변경
+ * 이력(ADMIN_PASSWORD_CHANGE · ADMIN_PASSWORD_POSTPONE · ADMIN_MFA_ENROLL · ADMIN_MFA_RESET)을 남긴다.
  */
 public interface AdminMeUseCase {
 
@@ -15,6 +16,12 @@ public interface AdminMeUseCase {
    * 세션은 모두 끊는다
    */
   void changePassword(long adminId, String sessionId, String currentPassword, String newPassword);
+
+  /** 비밀번호 변경 주기 상태 (28 문서). 기한이 지났으면 관리자 사이트가 안내 띠를 띄운다 */
+  PasswordStatusDto passwordStatus(long adminId);
+
+  /** 비밀번호 변경 알림 연장 (지금부터 주기만큼). 기능이 꺼졌거나 비밀번호가 없으면 404 */
+  PasswordStatusDto postponePassword(long adminId, String sessionId);
 
   MfaStatusDto mfaStatus(long adminId);
 

@@ -41,6 +41,8 @@ import org.testcontainers.utility.DockerImageName;
       "wearly.weather.keys.WEATHERAPI_KEY=",
       // 탈퇴 예약 삭제(27 문서): 예약 작업은 끄고 테스트가 유스케이스를 시각과 함께 부른다
       "wearly.user.withdrawal.scheduler-enabled=false",
+      // 비밀번호 변경 알림(28 문서): 예약 작업은 끄고 테스트가 유스케이스를 시각과 함께 부른다
+      "wearly.auth.password.reminder-enabled=false",
       // 장소별 날씨(19 문서): 좌표 요청 한도를 작게 둬서 한도 초과를 확인한다 (평년값도 목업 자료)
       "wearly.weather.on-demand-daily-limit=3",
     })
