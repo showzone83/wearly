@@ -134,6 +134,7 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 ### 2026-10-25
 
 #### 추가
+- 비밀번호 변경 주기(5단계, 문서): [doc/28](doc/28_비밀번호_변경주기.md) 마무리(사람이 할 일: 실제 휴대폰·개발 백엔드 재시작·첫 푸시 확인·이슈 댓글·후속), [doc/14](doc/14_DB_명령.md) 기한 지난 회원 조회, [doc/20](doc/20_오류_응답.md) 16장(새 오류 코드 없음, 같은 비밀번호는 `NOT_ALLOWED`) ([#21](https://github.com/showzone83/wearly/issues/21)) (작성: kang6123)
 - 비밀번호 변경 주기(4단계, 관리자): 관리자 비밀번호를 바꾼 지 90일이 지나면 모든 화면 위에 안내 띠("비밀번호 바꾸기"·"90일 연장"), "내 계정"에 다음에 바꿀 날, 변경 이력 "내 비밀번호 변경 연장"·로그인 기록 "비밀번호 변경"·"비밀번호 변경 연장" 라벨 ([#21](https://github.com/showzone83/wearly/issues/21), [doc/28](doc/28_비밀번호_변경주기.md) 4단계) (작성: kang6123)
 - 비밀번호 변경 주기(3단계, 앱): 더보기 > "비밀번호 변경" 화면(`/password`, 바꾸면 다른 기기 로그아웃), 바꾼 지 90일이 지나면 앱을 열 때·로그인한 뒤 "바꾸기 / 90일 연장" 창, 서버 푸시를 누르면 변경 화면, 안드로이드 채널 "계정 알림". 앱 대화상자에 두 갈래 선택(`choose`). 규칙 `lib/passwordRules.ts`(단위 테스트), 하네스 시나리오 ([#21](https://github.com/showzone83/wearly/issues/21), [doc/28](doc/28_비밀번호_변경주기.md) 3단계) (작성: kang6123)
 - 비밀번호 변경 주기(2단계, 서버 푸시): 매일 10:00(`wearly.auth.password.reminder-cron`) 비밀번호 기한이 지난 활성 회원에게 "비밀번호를 바꿔 주세요" 푸시를 주기마다 한 번(`password_reminded_at`, 연장하면 다음 기한에 다시). `data.type = password-change-due`, 안드로이드 채널 `account` ([#21](https://github.com/showzone83/wearly/issues/21), [doc/28](doc/28_비밀번호_변경주기.md) 2단계) (작성: kang6123)
