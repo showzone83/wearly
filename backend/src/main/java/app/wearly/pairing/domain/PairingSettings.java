@@ -3,7 +3,7 @@ package app.wearly.pairing.domain;
 import java.time.Duration;
 
 /**
- * 옷장 도우미 설정 (wearly.pairing.*, doc/26 D1·4.1). 대기 중 요청도 인원에 센다.
+ * 옷장 도우미 설정 (wearly.pairing.*, doc/26 D1·D8·4.1). 대기 중 요청도 인원에 센다.
  *
  * @param maxHelpersPerOwner 주인 한 명에게 연결할 수 있는 돕는 사람 수
  * @param maxClosetsPerHelper 돕는 사람 한 명이 맡을 수 있는 옷장 수
@@ -11,6 +11,8 @@ import java.time.Duration;
  * @param pendingTtl 주인 승인을 기다리는 시간. 지나면 대기 요청은 없는 것으로 본다
  * @param joinAttemptLimit 코드 입력 시도 한도 (joinAttemptWindow마다)
  * @param joinAttemptWindow 코드 입력 시도를 세는 시간
+ * @param digestDelay 마지막 대리 작업 뒤 이만큼 조용하면 주인에게 묶음 알림을 보낸다
+ * @param digestMaxWait 작업이 계속돼도 첫 작업 뒤 이만큼 지나면 묶음 알림을 보낸다
  */
 public record PairingSettings(
     int maxHelpersPerOwner,
@@ -18,4 +20,6 @@ public record PairingSettings(
     Duration codeTtl,
     Duration pendingTtl,
     int joinAttemptLimit,
-    Duration joinAttemptWindow) {}
+    Duration joinAttemptWindow,
+    Duration digestDelay,
+    Duration digestMaxWait) {}

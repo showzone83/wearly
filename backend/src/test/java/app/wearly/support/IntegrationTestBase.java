@@ -59,7 +59,9 @@ public abstract class IntegrationTestBase {
                       .asCompatibleSubstituteFor("postgres"))
               .withDatabaseName("wearly_test")
               .withUsername("wearly")
-              .withPassword("wearly");
+              .withPassword("wearly")
+              // 속성이 다른 통합 테스트마다 Spring 컨텍스트(연결 풀 10개)가 캐시에 남는다. 기본 100개로는 모자라다
+              .withCommand("postgres", "-c", "max_connections=300");
       POSTGRES.start();
     } else {
       POSTGRES = null;

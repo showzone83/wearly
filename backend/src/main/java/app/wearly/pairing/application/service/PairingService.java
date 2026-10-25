@@ -13,12 +13,14 @@ import app.wearly.pairing.application.port.in.dto.ProxyActionDto;
 import app.wearly.pairing.application.port.in.dto.UpdatePairingDto;
 import app.wearly.pairing.application.port.out.PairingAttemptPort;
 import app.wearly.pairing.application.port.out.PairingCodePort;
+import app.wearly.pairing.application.port.out.PairingNoticePort;
 import app.wearly.pairing.application.port.out.PairingPort;
 import app.wearly.pairing.application.port.out.PairingQueryPort;
 import app.wearly.pairing.application.port.out.dto.PairingRowDto;
 import app.wearly.pairing.domain.Pairing;
 import app.wearly.pairing.domain.PairingCode;
 import app.wearly.pairing.domain.PairingEndReason;
+import app.wearly.pairing.domain.PairingNotices;
 import app.wearly.pairing.domain.PairingPermission;
 import app.wearly.pairing.domain.PairingRole;
 import app.wearly.pairing.domain.PairingSettings;
@@ -46,6 +48,7 @@ public class PairingService implements PairingUseCase {
   private final PairingQueryPort queries;
   private final PairingCodePort codes;
   private final PairingAttemptPort attempts;
+  private final PairingNoticePort notices;
   private final PairingSettings settings;
   private final Clock clock;
 
@@ -54,12 +57,14 @@ public class PairingService implements PairingUseCase {
       PairingQueryPort queries,
       PairingCodePort codes,
       PairingAttemptPort attempts,
+      PairingNoticePort notices,
       PairingSettings settings,
       Clock clock) {
     this.pairings = pairings;
     this.queries = queries;
     this.codes = codes;
     this.attempts = attempts;
+    this.notices = notices;
     this.settings = settings;
     this.clock = clock;
   }
@@ -120,6 +125,13 @@ public class PairingService implements PairingUseCase {
             permission == null
                 ? Pairing.requested(ownerId, helperId, now)
                 : Pairing.accepted(ownerId, helperId, permission, now));
+    // 코드를 만든 쪽이 입력한 쪽의 소식을 받는다: 승인 대기면 주인이 요청을, 바로 연결되면 돕는 사람이 연결을
+    String joinerName = queries.findUserName(userId).orElse("");
+    if (permission == null) {
+      notices.sendAfterCommit(ownerId, created.id(), PairingNotices.requested(joinerName));
+    } else {
+      notices.sendAfterCommit(helperId, created.id(), PairingNotices.accepted(joinerName));
+    }
     return toDto(created, userId, issuerName);
   }
 
@@ -161,7 +173,12 @@ public class PairingService implements PairingUseCase {
       throw BusinessException.notFound();
     }
     PairingPermission perm = parsePermission(permission);
-    return toDto(pairings.save(p.approve(perm, clock.instant())), userId);
+    Pairing approved = pairings.save(p.approve(perm, clock.instant()));
+    notices.sendAfterCommit(
+        p.helperId(),
+        approved.id(),
+        PairingNotices.accepted(queries.findUserName(userId).orElse("")));
+    return toDto(approved, userId);
   }
 
   @Override
@@ -172,6 +189,8 @@ public class PairingService implements PairingUseCase {
       throw BusinessException.notFound();
     }
     pairings.save(p.end(PairingEndReason.OWNER, clock.instant()));
+    notices.sendAfterCommit(
+        p.helperId(), p.id(), PairingNotices.rejected(queries.findUserName(userId).orElse("")));
   }
 
   @Override
@@ -195,6 +214,13 @@ public class PairingService implements PairingUseCase {
   public void end(long userId, long pairingId) {
     Pairing p = findOpen(userId, pairingId, null);
     pairings.save(p.end(PairingEndReason.by(p.roleOf(userId)), clock.instant()));
+    // 연결된 뒤의 해제만 상대에게 알린다 (대기 요청 취소는 알리지 않는다)
+    if (p.status() == PairingStatus.ACTIVE) {
+      notices.sendAfterCommit(
+          p.partnerOf(userId),
+          p.id(),
+          PairingNotices.ended(queries.findUserName(userId).orElse("")));
+    }
   }
 
   @Override

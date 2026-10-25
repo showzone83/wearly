@@ -11,6 +11,7 @@ import app.wearly.pairing.application.port.in.dto.PairingListDto;
 import app.wearly.pairing.application.port.in.dto.UpdatePairingDto;
 import app.wearly.pairing.application.port.out.PairingAttemptPort;
 import app.wearly.pairing.application.port.out.PairingCodePort;
+import app.wearly.pairing.application.port.out.PairingNoticePort;
 import app.wearly.pairing.application.port.out.PairingPort;
 import app.wearly.pairing.application.port.out.PairingQueryPort;
 import app.wearly.pairing.application.port.out.dto.PairingRowDto;
@@ -18,6 +19,7 @@ import app.wearly.pairing.application.port.out.dto.ProxyActionRowDto;
 import app.wearly.pairing.domain.Pairing;
 import app.wearly.pairing.domain.PairingCode;
 import app.wearly.pairing.domain.PairingEndReason;
+import app.wearly.pairing.domain.PairingNotices;
 import app.wearly.pairing.domain.PairingSettings;
 import app.wearly.pairing.domain.PairingStatus;
 import java.time.Clock;
@@ -193,11 +195,36 @@ class PairingServiceTest {
 
   final PairingAttemptPort attempts = (userId, limit, window) -> ++attemptCount <= limit;
 
+  /** 보낸 알림: "받는 회원:종류:본문" */
+  final List<String> sent = new ArrayList<>();
+
+  final PairingNoticePort notices =
+      new PairingNoticePort() {
+        @Override
+        public boolean send(long userId, long pairingId, PairingNotices notice) {
+          sent.add(userId + ":" + notice.type() + ":" + notice.body());
+          return true;
+        }
+
+        @Override
+        public void sendAfterCommit(long userId, long pairingId, PairingNotices notice) {
+          send(userId, pairingId, notice);
+        }
+      };
+
   final PairingSettings settings =
-      new PairingSettings(1, 2, Duration.ofHours(24), Duration.ofDays(7), 10, Duration.ofHours(1));
+      new PairingSettings(
+          1,
+          2,
+          Duration.ofHours(24),
+          Duration.ofDays(7),
+          10,
+          Duration.ofHours(1),
+          Duration.ofMinutes(15),
+          Duration.ofHours(1));
 
   final PairingService service =
-      new PairingService(pairings, queries, codes, attempts, settings, clock);
+      new PairingService(pairings, queries, codes, attempts, notices, settings, clock);
 
   String codeOf(long userId, String role) {
     return service.issueCode(userId, role).code();
@@ -412,6 +439,36 @@ class PairingServiceTest {
 
     service.end(OWNER, p.id());
     assertThat(service.actions(HELPER, p.id())).hasSize(1);
+  }
+
+  @Test
+  void 연결_소식은_상대에게_간다() {
+    // 돕는 사람이 주인 코드를 넣으면 주인에게 요청, 승인하면 돕는 사람에게 연결
+    PairingDto p = service.join(HELPER, new JoinPairingDto(codeOf(OWNER, "OWNER"), null));
+    service.approve(OWNER, p.id(), "EDIT");
+    assertThat(sent)
+        .containsExactly(
+            "1:closet-pairing-request:딸님이 옷장 도우미가 되고 싶어 해요",
+            "2:closet-pairing-accepted:엄마님의 옷장을 도울 수 있어요");
+    sent.clear();
+
+    // 해제는 상대에게
+    service.end(HELPER, p.id());
+    assertThat(sent).containsExactly("1:closet-pairing-ended:딸님과의 옷장 도우미 연결이 해제됐어요");
+    sent.clear();
+
+    // 주인이 돕는 사람 코드를 넣으면 돕는 사람에게 연결, 거절은 돕는 사람에게
+    service.join(OWNER, new JoinPairingDto(codeOf(HELPER, "HELPER"), "VIEW"));
+    assertThat(sent).containsExactly("2:closet-pairing-accepted:엄마님의 옷장을 도울 수 있어요");
+    sent.clear();
+    PairingDto other = service.join(OTHER, new JoinPairingDto(codeOf(4L, "OWNER"), null));
+    service.end(OTHER, other.id()); // 대기 요청 취소는 알리지 않는다
+    assertThat(sent).containsExactly("4:closet-pairing-request:친구님이 옷장 도우미가 되고 싶어 해요");
+    sent.clear();
+    PairingDto again = service.join(OTHER, new JoinPairingDto(codeOf(4L, "OWNER"), null));
+    sent.clear();
+    service.reject(4L, again.id());
+    assertThat(sent).containsExactly("3:closet-pairing-rejected:아빠님이 옷장 도우미 요청을 거절했어요");
   }
 
   @Test

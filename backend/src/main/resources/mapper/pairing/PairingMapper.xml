@@ -40,4 +40,22 @@
          ORDER BY a.created_at DESC, a.action_id DESC
          LIMIT #{limit}
     </select>
+
+    <!-- 묶음 알림 (3단계): 마지막 작업이 quietBefore 이전이거나 첫 작업이 waitedBefore 이전인 연결 -->
+    <select id="findDueDigests" resultType="long">
+        SELECT a.pairing_id
+          FROM tb_closet_proxy_action a
+         WHERE a.notified_at IS NULL
+         GROUP BY a.pairing_id
+        HAVING max(a.created_at) &lt;= #{quietBefore} OR min(a.created_at) &lt;= #{waitedBefore}
+         ORDER BY a.pairing_id
+    </select>
+
+    <!-- 알리지 않은 작업을 알림 보낸 것으로 표시하며 돌려준다. 다른 서버가 먼저 했으면 빈 목록 -->
+    <select id="claimUnnotified" resultType="app.wearly.pairing.application.port.out.dto.ClaimedActionRowDto">
+        UPDATE tb_closet_proxy_action
+           SET notified_at = #{now}
+         WHERE pairing_id = #{pairingId} AND notified_at IS NULL AND created_at &lt;= #{upTo}
+        RETURNING action, item_id
+    </select>
 </mapper>

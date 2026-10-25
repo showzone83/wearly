@@ -16,6 +16,8 @@ public class PairingConfig {
         p.codeTtl(),
         p.pendingTtl(),
         p.joinAttemptLimit(),
-        p.joinAttemptWindow());
+        p.joinAttemptWindow(),
+        p.notification().digestDelay(),
+        p.notification().digestMaxWait());
   }
 }

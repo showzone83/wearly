@@ -1,5 +1,6 @@
 package app.wearly.pairing.adapter.out.persistence.mybatis.mapper;
 
+import app.wearly.pairing.application.port.out.dto.ClaimedActionRowDto;
 import app.wearly.pairing.application.port.out.dto.PairingRowDto;
 import app.wearly.pairing.application.port.out.dto.ProxyActionRowDto;
 import java.time.Instant;
@@ -21,6 +22,12 @@ public interface PairingMapper {
       @Param("userId") long userId, @Param("pendingSince") Instant pendingSince);
 
   String findUserName(@Param("userId") long userId);
+
+  List<Long> findDueDigests(
+      @Param("quietBefore") Instant quietBefore, @Param("waitedBefore") Instant waitedBefore);
+
+  List<ClaimedActionRowDto> claimUnnotified(
+      @Param("pairingId") long pairingId, @Param("upTo") Instant upTo, @Param("now") Instant now);
 
   List<ProxyActionRowDto> findActions(
       @Param("pairingId") long pairingId, @Param("limit") int limit);

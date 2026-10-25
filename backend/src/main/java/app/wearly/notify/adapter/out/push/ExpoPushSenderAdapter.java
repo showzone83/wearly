@@ -176,9 +176,9 @@ public final class ExpoPushSenderAdapter implements PushSenderPort {
     o.put("body", m.body());
     o.put("data", m.data() == null ? Map.of() : m.data());
     o.put("sound", "default");
-    o.put("channelId", CHANNEL_ID);
+    o.put("channelId", m.channelId() == null ? CHANNEL_ID : m.channelId());
     o.put("priority", "high");
-    o.put("ttl", TTL_SECONDS);
+    o.put("ttl", m.ttlSeconds() == null ? TTL_SECONDS : m.ttlSeconds());
     return o;
   }
 

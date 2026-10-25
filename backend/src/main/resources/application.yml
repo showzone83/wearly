@@ -189,6 +189,16 @@ wearly:
     # 코드 입력 시도 한도 (join-attempt-window마다, 맞는 입력도 센다)
     join-attempt-limit: ${WEARLY_PAIRING_JOIN_ATTEMPT_LIMIT:10}
     join-attempt-window: ${WEARLY_PAIRING_JOIN_ATTEMPT_WINDOW:PT1H}
+    # 돕는 사람의 대리 작업을 주인에게 묶어서 알린다 (서버 푸시가 켜져 있을 때만 작업을 예약한다)
+    notify:
+      # 마지막 작업 뒤 이만큼 조용하면 보낸다
+      digest-delay: ${WEARLY_PAIRING_NOTIFY_DIGEST_DELAY:PT15M}
+      # 작업이 계속돼도 첫 작업 뒤 이만큼 지나면 보낸다
+      digest-max-wait: ${WEARLY_PAIRING_NOTIFY_DIGEST_MAX_WAIT:PT1H}
+      # 보낼 때가 된 알림을 찾는 주기
+      scan-interval: ${WEARLY_PAIRING_NOTIFY_SCAN_INTERVAL:PT5M}
+      # false면 작업을 예약하지 않는다 (테스트용)
+      scheduler-enabled: ${WEARLY_PAIRING_NOTIFY_SCHEDULER_ENABLED:true}
   # 웹에서 넣은 AI 키를 암호화하는 마스터 키 (base64 32바이트, openssl rand -base64 32). 없으면 웹 키 입력이 꺼진다
   secret-key: ${WEARLY_SECRET_KEY:}
   admin:
