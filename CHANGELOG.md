@@ -128,6 +128,9 @@ Wearly의 눈에 띄는 변경을 [Keep a Changelog](https://keepachangelog.com/
 
 ### 2026-10-25
 
+#### 변경
+- 앱: Expo SDK 57 → 58 (`expo ~58.0.19`, React Native 0.88.0, React 19.3.0, `react-native-webview` 14.0.1, `react-native-view-shot` 6.1.1). RN 엄격 타입에서 없어진 `StyleSheet.NamedStyles` 대신 `theme.ts`에 같은 모양의 타입을 둠. expo-router 탭 바 props가 `navigation` 대신 `emitter`·`navigateToTab`이 되어 하단 탭 바를 맞춤. 쇼핑몰 캡처 화면 ref 타입(`ViewInstance`, webview 14 타입 우회 `WebView<object>`). 스토어 Expo Go가 SDK 58을 지원하기 전까지 휴대폰 확인 방법 ([doc/04](doc/04_목업_앱.md) 2장) (작성: kang6123)
+
 #### 수정
 - 앱 내 옷장: 옷 사진 그리드가 화면 너비를 다 채우지 못하고 한 줄에 2장만 나오던 문제. 타일 너비를 창 너비가 아니라 그리드의 실제 너비(`onLayout`)로 계산하고 정수로 내림한다. 이전에는 스크롤바나 소수점 반올림으로 셋째 열이 다음 줄로 밀렸다. 넓은 화면(태블릿·가로 모드)은 타일 최소 150에 맞춰 열을 늘린다 (작성: kang6123)
 

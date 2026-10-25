@@ -30,7 +30,7 @@ const RIGHT: ITabSlot[] = [
 /** 탭 바에 없는 라우트가 열려 있을 때 밝게 보일 탭 */
 const OWNER: Partial<Record<TRoute, TRoute>> = { calendar: 'my' };
 
-const TabBar = ({ state, navigation }: BottomTabBarProps) => {
+const TabBar = ({ state, emitter, navigateToTab }: BottomTabBarProps) => {
   const s = useStyles();
   const c = useColors();
   const insets = useSafeAreaInsets();
@@ -50,8 +50,8 @@ const TabBar = ({ state, navigation }: BottomTabBarProps) => {
         accessibilityState={{ selected: focused }}
         accessibilityLabel={tab.label}
         onPress={() => {
-          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (currentName !== tab.route && !event.defaultPrevented) navigation.navigate(route.name);
+          const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+          if (currentName !== tab.route && !event.defaultPrevented) navigateToTab(route.key);
         }}
         style={s.item}
       >

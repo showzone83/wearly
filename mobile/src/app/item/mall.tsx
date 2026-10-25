@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type ViewInstance,
 } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { WebView } from 'react-native-webview';
@@ -42,8 +43,9 @@ import { cardBase, makeStyles, useColors } from '@/theme';
 // 틀·손잡이는 캡처하는 뷰(shotRef) 밖에 겹쳐 그려서 사진에 찍히지 않는다. 손잡이 밖 터치는 웹 화면으로 간다.
 export default function MallCapture() {
   const { for: target = 'new' } = useLocalSearchParams<{ for?: string }>();
-  const shotRef = useRef<View>(null);
-  const webRef = useRef<WebView>(null);
+  const shotRef = useRef<ViewInstance>(null);
+  // react-native-webview 14 타입은 기본 P = undefined라 props가 never가 된다. 타입 인자를 직접 준다
+  const webRef = useRef<WebView<object>>(null);
   const [mall, setMall] = useState<IMall | null>(null);
   const [view, setView] = useState<ISize>({ width: 0, height: 0 });
   /** 사용자가 바꾼 틀. null이면 처음 틀(가운데) */
@@ -182,7 +184,7 @@ export default function MallCapture() {
     >
       <View style={s.webBox} onLayout={onLayout}>
         <View ref={shotRef} collapsable={false} style={StyleSheet.absoluteFill}>
-          <WebView
+          <WebView<object>
             ref={webRef}
             source={{ uri: mall.url }}
             style={s.web}
