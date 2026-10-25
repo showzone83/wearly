@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, Platform, Text, View } from 'react-native';
 
-import { Button, Title } from '@/components/ui';
+import { Button, DialogHost, Title } from '@/components/ui';
 import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -235,6 +235,8 @@ export default function RootLayout() {
               <ActivityIndicator color={colors.primary} />
             </View>
           )}
+          {/* notify·confirm 대화상자 (시작 중·실패 화면에서도 보이게 ready 밖에 둔다) */}
+          <DialogHost />
         </View>
       </View>
     </SafeAreaProvider>

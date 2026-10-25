@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import {
-  Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
   type StyleProp,
@@ -16,6 +17,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { traceLabelOf } from '@/lib/errorText';
+import { useDialogStore } from '@/store/useDialogStore';
 import { cardBase, makeStyles, space, useColors } from '@/theme';
 import { Icon, type IconName } from './Icon';
 
@@ -366,24 +368,58 @@ export const Notice = ({
   );
 };
 
-/** 확인 대화상자 (웹에서는 Alert 버튼이 동작하지 않아 window.confirm 사용) */
+/** 확인 대화상자 (앱이 직접 그린다, DialogHost). 취소·확인 두 버튼이고 확인은 위험한 동작 색이다 */
 export const confirm = (title: string, message: string, onOk: () => void, okLabel = '확인') => {
-  if (Platform.OS === 'web') {
-    if (globalThis.confirm?.(`${title}\n\n${message}`)) onOk();
-    return;
-  }
-  Alert.alert(title, message, [
-    { text: '취소', style: 'cancel' },
-    { text: okLabel, style: 'destructive', onPress: onOk },
-  ]);
+  useDialogStore.getState().show({ kind: 'confirm', title, message, okLabel, onOk });
 };
 
+/** 알림 대화상자 (앱이 직접 그린다, DialogHost). 확인 버튼 하나 */
 export const notify = (title: string, message?: string) => {
-  if (Platform.OS === 'web') {
-    globalThis.alert?.(message ? `${title}\n\n${message}` : title);
-    return;
-  }
-  Alert.alert(title, message);
+  useDialogStore.getState().show({ kind: 'notify', title, message, okLabel: '확인' });
+};
+
+/**
+ * notify·confirm을 그리는 곳. 루트 레이아웃에 하나만 둔다. 시스템 Alert·브라우저 alert/confirm 대신 쓰므로
+ * 웹·iOS·안드로이드 모두 테마 색의 같은 모양이다. 여러 개가 오면 차례로 하나씩 보인다.
+ * 뒤로 가기·바깥 누르기는 취소(알림은 닫기)로 본다.
+ */
+export const DialogHost = () => {
+  const dialog = useDialogStore((st) => st.queue[0]);
+  const close = useDialogStore((st) => st.close);
+  const s = useStyles();
+
+  if (!dialog) return null;
+
+  const cancel = () => close(dialog.id, false);
+  const isConfirm = dialog.kind === 'confirm';
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={cancel} statusBarTranslucent>
+      <View style={s.dialogBackdrop}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={cancel} accessibilityLabel="닫기" />
+        <View style={s.dialogCard} accessibilityViewIsModal>
+          <Text style={s.dialogTitle} accessibilityRole="header">
+            {dialog.title}
+          </Text>
+          {dialog.message ? (
+            <ScrollView style={s.dialogBody} contentContainerStyle={{ paddingBottom: 2 }}>
+              <Text style={s.dialogMessage}>{dialog.message}</Text>
+            </ScrollView>
+          ) : null}
+          <View style={s.dialogActions}>
+            {isConfirm && <Button title="취소" variant="outline" small onPress={cancel} style={s.dialogButton} />}
+            <Button
+              title={dialog.okLabel}
+              variant={isConfirm ? 'danger' : 'primary'}
+              small
+              onPress={() => close(dialog.id, true)}
+              style={s.dialogButton}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 };
 
 /**
@@ -486,4 +522,26 @@ const useStyles = makeStyles((t) => ({
   retiredTag: { fontSize: 11, fontWeight: '600', color: t.colors.textMuted },
   notice: { flexDirection: 'row', gap: 10, padding: 14, borderRadius: t.radius.md, alignItems: 'flex-start' },
   trace: { fontSize: 11, color: t.colors.textMuted, marginTop: 6, letterSpacing: 0.2 },
+  dialogBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  dialogCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: t.colors.surface,
+    borderRadius: t.radius.lg,
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 18,
+    gap: 10,
+  },
+  dialogTitle: { fontSize: 17, fontWeight: '800', color: t.colors.text, letterSpacing: -0.3 },
+  dialogBody: { maxHeight: 320 },
+  dialogMessage: { fontSize: 14, lineHeight: 21, color: t.colors.textSub },
+  dialogActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  dialogButton: { flex: 1 },
 }));
