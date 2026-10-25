@@ -231,6 +231,22 @@ public class PairingService implements PairingUseCase {
         .toList();
   }
 
+  @Override
+  @Transactional
+  public void endAllOnWithdrawal(long userId) {
+    codes.revokeAll(userId);
+    Instant now = clock.instant();
+    String name = queries.findUserName(userId).orElse("");
+    for (Pairing p : pairings.findUnendedOf(userId)) {
+      pairings.save(p.end(PairingEndReason.WITHDRAWN, now));
+      // 연결된 것만 알린다 (대기 요청은 알리지 않는다, 사용자 해제와 같은 규칙)
+      if (p.status() == PairingStatus.ACTIVE) {
+        notices.sendAfterCommit(
+            p.partnerOf(userId), p.id(), PairingNotices.endedByWithdrawal(name));
+      }
+    }
+  }
+
   /** 이 회원이 role 자리(null이면 아무 자리)로 있는 살아 있는 연결. 아니면 404 */
   private Pairing findOpen(long userId, long pairingId, PairingRole role) {
     Pairing p = pairings.find(pairingId).orElseThrow(BusinessException::notFound);

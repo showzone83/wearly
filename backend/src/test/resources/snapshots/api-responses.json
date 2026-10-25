@@ -10689,11 +10689,29 @@
       "traceId" : "<traceId>"
     }
   },
-  "users.delete" : {
-    "status" : 204,
-    "body" : null
+  "users.withdraw.badReason" : {
+    "status" : 400,
+    "body" : {
+      "status" : 400,
+      "code" : "VALIDATION_FAILED",
+      "fieldErrors" : [ {
+        "field" : "reason",
+        "code" : "NOT_ALLOWED",
+        "params" : {
+          "allowed" : [ "NOT_USEFUL", "BAD_RECOMMEND", "HARD_TO_USE", "PRIVACY", "OTHER_APP", "OTHER" ]
+        }
+      } ],
+      "traceId" : "<traceId>"
+    }
   },
-  "users.delete.after" : {
+  "users.withdraw" : {
+    "status" : 200,
+    "body" : {
+      "requestedAt" : "<instant>",
+      "purgeAt" : "<instant>"
+    }
+  },
+  "users.withdraw.after" : {
     "status" : 401,
     "body" : {
       "status" : 401,

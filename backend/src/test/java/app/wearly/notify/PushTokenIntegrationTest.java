@@ -121,11 +121,13 @@ class PushTokenIntegrationTest extends IntegrationTestBase {
   }
 
   @Test
-  void 탈퇴하면_토큰도_지운다() {
+  void 탈퇴를_신청하면_토큰을_바로_지운다() {
     Session s = signup();
     api().put(PATH, s.accessToken(), body(newToken(), "android", "dev")).expect(200);
     assertThat(rows(s.userId())).hasSize(1);
-    api().delete("/api/v1/users/me", s.accessToken()).expect(204);
+    api()
+        .post("/api/v1/users/me/withdrawal", s.accessToken(), Map.of("reason", "OTHER"))
+        .expect(200);
     assertThat(rows(s.userId())).isEmpty();
   }
 }

@@ -51,6 +51,8 @@ import type {
   WeatherDayWhere,
   WeatherDto,
   WeatherResult,
+  WithdrawalDto,
+  WithdrawRequest,
 } from './types';
 
 export interface ApiClientOptions {
@@ -446,10 +448,15 @@ export function createApiClient(options: ApiClientOptions) {
       me(): Promise<UserDto> {
         return request<UserDto>('GET', '/users/me', { auth: true });
       },
-      /** 회원 탈퇴 + 저장소 비움 */
-      async deleteMe(): Promise<void> {
-        await request<void>('DELETE', '/users/me', { auth: true });
+      /**
+       * 탈퇴 신청 + 저장소 비움 (doc/27). 바로 지우지 않고 purgeAt까지 탈퇴 예정으로 두며, 그 전에 다시 로그인하면
+       * auth.login({ …, cancelWithdrawal: true })로 취소할 수 있다. 서버의 로그인 세션·푸시 토큰은 바로 지워진다.
+       * 오류: 400 VALIDATION_FAILED(reason·reasonText)
+       */
+      async withdraw(req: WithdrawRequest): Promise<WithdrawalDto> {
+        const out = await request<WithdrawalDto>('POST', '/users/me/withdrawal', { auth: true, json: req });
         await tokenStore.clear();
+        return out;
       },
     },
     invite: {

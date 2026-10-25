@@ -153,6 +153,12 @@ export const SERVER_TEXT: Record<string, TText> = {
   FORBIDDEN: '접근할 수 없어요.',
   REAUTH_FAILED: '비밀번호가 맞지 않아요.',
   ACCOUNT_SUSPENDED: '이용이 정지된 계정이에요.',
+  // 탈퇴 예정 계정 (doc/27): 로그인 화면은 이 코드로 탈퇴 취소를 묻는다
+  ACCOUNT_WITHDRAWN: (p) => {
+    const at = has(p, 'purgeAt') ? new Date(str(p.purgeAt)) : null;
+    const when = at && !Number.isNaN(at.getTime()) ? `${at.getMonth() + 1}월 ${at.getDate()}일에 ` : '';
+    return `탈퇴를 신청한 계정이에요. ${when}모든 정보가 삭제돼요.`;
+  },
   // 관리자 계정 보완 (doc/22): 관리자 사이트 전용이라 앱에서는 거의 볼 일이 없다
   LAST_ADMIN: '마지막 관리자는 해제할 수 없어요.',
   MFA_REQUIRED: '2단계 인증을 마쳐야 관리자 기능을 쓸 수 있어요.',

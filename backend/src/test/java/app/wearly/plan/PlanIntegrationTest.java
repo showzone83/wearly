@@ -6,6 +6,7 @@ import app.wearly.code.CodeIntegrationTest;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
+import app.wearly.user.application.port.in.UserUseCase;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -27,6 +28,8 @@ class PlanIntegrationTest extends IntegrationTestBase {
   static final String BASE = "/api/v1/plans";
 
   @Autowired JdbcTemplate jdbc;
+
+  @Autowired UserUseCase users;
 
   static LocalDate today() {
     return LocalDate.now(ZoneId.of("Asia/Seoul"));
@@ -465,7 +468,8 @@ class PlanIntegrationTest extends IntegrationTestBase {
     api().post(BASE, s.accessToken(), plan("plan-2", today())).expect(201);
     assertThat(count(s)).isEqualTo(2);
 
-    api().delete("/api/v1/users/me", s.accessToken()).expect(204);
+    // 탈퇴 유예 기간이 지나 회원을 지운다 (doc/27, 예약 작업이 부르는 것과 같다)
+    users.delete(Long.parseLong(s.userId()));
     assertThat(count(s)).isZero();
   }
 

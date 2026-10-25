@@ -41,6 +41,11 @@ public record PairingNotices(String type, String title, String body) {
     return new PairingNotices(TYPE_ENDED, TITLE, partnerName + "님과의 옷장 도우미 연결이 해제됐어요");
   }
 
+  /** 상대가 탈퇴를 신청해 연결이 해제됐다 (남은 쪽에게, doc/27) */
+  public static PairingNotices endedByWithdrawal(String partnerName) {
+    return new PairingNotices(TYPE_ENDED, TITLE, partnerName + "님이 탈퇴해 옷장 도우미 연결이 해제됐어요");
+  }
+
   /** 관리자가 연결을 해제했다 (양쪽에게) */
   public static PairingNotices endedByAdmin() {
     return new PairingNotices(TYPE_ENDED, TITLE, "옷장 도우미 연결이 관리자에 의해 해제됐어요");

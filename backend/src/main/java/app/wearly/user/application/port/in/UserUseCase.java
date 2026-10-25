@@ -34,8 +34,9 @@ public interface UserUseCase {
   List<Long> lockActiveAdmins();
 
   /**
-   * 탈퇴: 회원 행을 지우면 FK ON DELETE CASCADE로 자격 증명·로그인 이력·프로필·옷장·AI 기록이 모두 지워진다. DB 밖의 로그인 세션(Valkey)은
-   * {@link UserDeletedListener}(auth)가 지운다. 남은 Access 토큰은 세션 확인에서 걸러져 401 TOKEN_INVALID가 된다.
+   * 회원 삭제 (탈퇴 유예 기간이 지난 뒤, doc/27): 회원 행을 지우면 FK ON DELETE CASCADE로 자격 증명·로그인 이력·프로필·옷장·AI 기록이 모두
+   * 지워진다. DB 밖의 로그인 세션(Valkey)·사진(MinIO)은 {@link UserDeletedListener}(auth·image)가 지운다. 회원이 부르는 탈퇴는
+   * {@link WithdrawalUseCase#withdraw}(탈퇴 예정)다.
    */
   void delete(long userId);
 }

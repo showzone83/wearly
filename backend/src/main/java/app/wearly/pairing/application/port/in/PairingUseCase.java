@@ -54,4 +54,10 @@ public interface PairingUseCase {
    * 회원)
    */
   List<ProxyActionDto> actions(long userId, long pairingId);
+
+  /**
+   * 탈퇴 신청 (doc/27): 이 회원이 만든 연결 코드를 지우고, 주인·돕는 사람으로 있는 끝나지 않은 연결을 모두 끝낸다(끝낸 쪽 WITHDRAWN). 연결된 것만
+   * 상대에게 알린다(커밋 뒤). 옷은 주인 옷장에 남는다. 탈퇴를 취소해도 되살리지 않는다.
+   */
+  void endAllOnWithdrawal(long userId);
 }

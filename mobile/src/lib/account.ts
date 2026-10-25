@@ -1,6 +1,6 @@
 // 계정 모드 흐름: 로그인 후 상태 구성, 세션 복구, 서버 동기화, 옷장·프로필 저장.
 // 게스트 모드에서는 모든 함수가 기존처럼 기기 안 저장소만 바꾼다.
-import type { ItemDto, UserDto } from '@/api/types';
+import type { ItemDto, UserDto, WithdrawalDto, WithdrawRequest } from '@/api/types';
 import type { ItemDraft } from '@/components/ItemForm';
 import { seedItems } from '@/data/seed';
 import type { Profile, WardrobeItem } from '@/data/types';
@@ -197,10 +197,12 @@ export async function logout(): Promise<void> {
   useStore.getState().resetAll();
 }
 
-export async function deleteAccount(): Promise<void> {
-  await api.users.deleteMe(); // 서버의 푸시 토큰도 함께 지워진다
+/** 탈퇴 신청 (doc/27): 서버는 purgeAt까지 탈퇴 예정으로 두고, 기기는 지금 비운다. 다시 로그인하면 취소할 수 있다 */
+export async function deleteAccount(req: WithdrawRequest): Promise<WithdrawalDto> {
+  const out = await api.users.withdraw(req); // 서버의 로그인 세션·푸시 토큰도 함께 지워진다
   await unregisterPushToken(false);
   useStore.getState().resetAll();
+  return out;
 }
 
 // ── 온보딩 ──

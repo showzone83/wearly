@@ -104,6 +104,11 @@ class DayBeforeNotifyServiceTest {
         public void delete(long userId, String deviceId) {}
 
         @Override
+        public int deleteAllOf(long userId) {
+          return 0;
+        }
+
+        @Override
         public int deleteTokens(Collection<String> t) {
           deletedTokens.addAll(t);
           tokenRows.removeIf(r -> t.contains(r.token()));

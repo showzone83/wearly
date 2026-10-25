@@ -136,7 +136,7 @@ interface ErrorBody {
 
 | 코드 묶음 | 문서 |
 |---|---|
-| 인증·토큰: `UNAUTHORIZED`, `TOKEN_EXPIRED`, `TOKEN_INVALID`, `INVALID_CREDENTIALS`, `REFRESH_INVALID`, `REFRESH_REUSED`, `ACCOUNT_SUSPENDED`, `EMAIL_TAKEN` | 이 문서 5장, [16](16_세션_Valkey.md) |
+| 인증·토큰: `UNAUTHORIZED`, `TOKEN_EXPIRED`, `TOKEN_INVALID`, `INVALID_CREDENTIALS`, `REFRESH_INVALID`, `REFRESH_REUSED`, `ACCOUNT_SUSPENDED`, `ACCOUNT_WITHDRAWN`, `EMAIL_TAKEN` | 이 문서 5장, [16](16_세션_Valkey.md) |
 | 관리자 회사 계정 로그인(SSO): `SSO_NOT_ADMIN`, `SSO_EMAIL_UNVERIFIED`, `SSO_STATE_INVALID`, `SSO_TOKEN_INVALID`, `SSO_IDP_ERROR`(`params.reason`), `SSO_PROVIDER_UNAVAILABLE`, `SSO_EXCHANGE_INVALID` | [22](22_관리자_계정_관리.md) 4.2.8 |
 | 권한: `FORBIDDEN`, `REAUTH_FAILED` | [07](07_관리자_사이트.md) |
 | 관리자 계정·2단계 인증: `LAST_ADMIN`, `MFA_REQUIRED`, `MFA_TOKEN_INVALID`, `MFA_CODE_INVALID`(`params.remainingAttempts`), `MFA_LOCKED`(`params.retryAfterSeconds`), `MFA_SETUP_REQUIRED`, `MFA_ALREADY_ENROLLED`, `MFA_NOT_ENROLLED` | [22](22_관리자_계정_관리.md) 4.1.8 |
@@ -168,7 +168,7 @@ interface ErrorBody {
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
 | POST | `/auth/signup` | `{ email, password, name, inviteCode? }` | 201 `AuthResponse`. `inviteCode`는 친구의 초대 코드(선택, 20자까지, 25 문서). 없는 코드여도 가입은 되고 가입 이력에 `UNKNOWN_CODE`로 남는다 |
-| POST | `/auth/login` | `{ email, password }` | 200 `AuthResponse`. **관리자 사이트 로그인(`X-Wearly-Client: admin`)에서 2단계 인증이 필요하면** 200 `MfaChallenge`(아래) |
+| POST | `/auth/login` | `{ email, password, cancelWithdrawal? }` | 200 `AuthResponse`. 탈퇴 예정 계정이면 403 `ACCOUNT_WITHDRAWN`(`params.purgeAt`, 비밀번호가 맞을 때만). `cancelWithdrawal: true`면 탈퇴를 취소하고 로그인한다 ([27](27_탈퇴_유예.md)). **관리자 사이트 로그인(`X-Wearly-Client: admin`)에서 2단계 인증이 필요하면** 200 `MfaChallenge`(아래) |
 | POST | `/auth/refresh` | `{ refreshToken }` | 200 `AuthResponse` |
 | POST | `/auth/logout` | `{ refreshToken }` | 204 (없는 토큰이어도 204) |
 | POST | `/auth/mfa/setup` | `{ mfaToken }` | 200 `{ secret, otpauthUrl }`. 관리자 2단계 인증을 아직 등록하지 않았을 때 (22 문서) |
@@ -208,7 +208,7 @@ SSO API 5개(`/auth/sso/**`)는 로그인 없이 부르는 공개 경로다. SSO
 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|
 | GET | `/users/me` | — | `UserDto` |
-| DELETE | `/users/me` | — | 204. 회원과 모든 하위 데이터 삭제, 로그인 세션 전부 삭제(Access·Refresh 모두 401) |
+| POST | `/users/me/withdrawal` | `{ reason, reasonText? }` | 200 `{ requestedAt, purgeAt }`. 탈퇴 신청([27](27_탈퇴_유예.md)): 바로 지우지 않고 30일(`wearly.user.withdrawal.grace`) 동안 탈퇴 예정(`WITHDRAWN`)으로 둔다. 로그인 세션 전부·푸시 토큰을 바로 지우고(Access·Refresh 모두 401) 옷장 도우미 연결을 끝낸다. 옷·사진은 `purgeAt`까지 남고 그 전에 다시 로그인하면 취소할 수 있다. `reason`(필수)은 `NOT_USEFUL`·`BAD_RECOMMEND`·`HARD_TO_USE`·`PRIVACY`·`OTHER_APP`·`OTHER`, `reasonText`는 200자까지. 틀리면 400 `VALIDATION_FAILED`. 즉시 삭제(`DELETE /users/me`)는 없앴다 |
 | GET | `/users/me/profile` | — | `ProfileDto`. 저장 전이면 기본값과 `onboarded: false` |
 | PUT | `/users/me/profile` | `ProfileDto` | `ProfileDto` |
 
@@ -481,7 +481,7 @@ const api = createApiClient({ baseUrl, tokenStore, onAuthLost });
 api.auth.signup({ email, password, name, inviteCode? })   // 토큰 저장까지. inviteCode는 선택 (25 문서)
 api.auth.login({ email, password })          // 토큰 저장까지
 api.auth.logout()                            // 서버 폐기 + 저장소 비움 (서버 실패해도 비움)
-api.users.me() / api.users.deleteMe()        // deleteMe도 저장소 비움
+api.users.me() / api.users.withdraw({ reason, reasonText? })   // 탈퇴 신청(27 문서), withdraw도 저장소 비움. 취소는 api.auth.login({ …, cancelWithdrawal: true })
 api.profile.get() / api.profile.put(dto)
 api.invite.get() / recordShare(channel) / friends()   // 친구 초대 (로그인, 25 문서)
 api.pairing.issueCode() / join(code) / list() / approve(id, permission) / reject(id) / update(id, { permission?, notifyOwner? }) / end(id) / actions(id)   // 옷장 도우미 연결 (로그인, 26 문서). 대리 작업은 api.owners.list/get/create/update/retire/restore/analyzeImage/uploadUrl/complete(ownerId, …)  (26 문서 5단계)

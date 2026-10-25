@@ -22,7 +22,7 @@ class InviteCodeJpaAdapter implements InviteCodePort {
 
   @Override
   public Optional<Long> findUserId(String code) {
-    return repository.findByCode(code).map(InviteCodeEntity::getUserId);
+    return repository.findLiveUserIdByCode(code);
   }
 
   @Override

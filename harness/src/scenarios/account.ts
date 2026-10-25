@@ -1,4 +1,4 @@
-// 로그아웃·회원 탈퇴
+// 로그아웃·회원 탈퇴(탈퇴 신청·취소, doc/27)
 import { eq, expectApiError } from '../lib/assert';
 import { item } from '../lib/fixtures';
 import { checkErrorBody, raw } from '../lib/http';
@@ -34,9 +34,9 @@ const logout: Scenario = {
   },
 };
 
-const deleteMe: Scenario = {
+const withdraw: Scenario = {
   group: '계정',
-  name: '회원 탈퇴 → 기존 access 401, refresh 401, 로그인 INVALID_CREDENTIALS, 같은 이메일 재가입 가능',
+  name: '탈퇴 신청(사유 필수) → 기존 access·refresh 401, 다른 기기 onAuthLost → 로그인 403 ACCOUNT_WITHDRAWN(purgeAt) → 같은 이메일 재가입 막힘 → cancelWithdrawal 로그인 → 옷장·나의 정보 그대로',
   async run(ctx) {
     const u = await signedUp('bye');
     await u.api.wardrobe.create(item());
@@ -50,7 +50,7 @@ const deleteMe: Scenario = {
       workRule: true,
       offRule: true,
       notify: { morning: true, evening: true, dMinus1: true },
-      // 나의 정보도 탈퇴하면 프로필과 함께 지워진다
+      // 나의 정보도 탈퇴 예정 동안 남고, 취소하면 그대로다
       ageRange: 'AGE_40',
       bodyType: 'UNKNOWN',
       heightCm: 180,
@@ -62,41 +62,48 @@ const deleteMe: Scenario = {
     await device2.api.auth.login({ email: u.email, password: TEST_PASSWORD });
     const t0 = await tokensOf(u);
 
-    await u.api.users.deleteMe();
-    eq(await u.store.get(), null, 'deleteMe 뒤 저장소 비움');
+    // 사유는 꼭 고른다 (틀리면 아무것도 바뀌지 않는다)
+    const bad = await expectApiError(u.api.users.withdraw({ reason: 'BORED' as never }), { status: 400, code: 'VALIDATION_FAILED' }, '모르는 사유');
+    eq(bad.fieldErrors.map((f) => `${f.field}:${f.code}`), ['reason:NOT_ALLOWED'], '사유 값 오류');
+
+    const out = await u.api.users.withdraw({ reason: 'HARD_TO_USE', reasonText: '하네스' });
+    eq(await u.store.get(), null, '탈퇴 신청 뒤 저장소 비움');
+    const days = (Date.parse(out.purgeAt) - Date.parse(out.requestedAt)) / 86_400_000;
+    eq(Math.round(days), 30, '삭제 예정은 30일 뒤');
 
     const me = await raw('GET', '/users/me', { token: t0.accessToken });
-    checkErrorBody(me, 401, ['TOKEN_INVALID', 'TOKEN_EXPIRED'], '탈퇴 뒤 기존 access 토큰');
+    checkErrorBody(me, 401, ['TOKEN_INVALID', 'TOKEN_EXPIRED'], '탈퇴 신청 뒤 기존 access 토큰');
     if (me.json?.code === 'TOKEN_EXPIRED') {
       ctx.note('탈퇴 뒤 access 확인이 3초 TTL보다 늦어 TOKEN_EXPIRED로 판정됨 (TOKEN_INVALID 확인 못 함)');
     }
-
     const ref = await raw('POST', '/auth/refresh', { body: { refreshToken: t0.refreshToken } });
-    checkErrorBody(ref, 401, 'REFRESH_INVALID', '탈퇴 뒤 refresh 토큰');
+    checkErrorBody(ref, 401, 'REFRESH_INVALID', '탈퇴 신청 뒤 refresh 토큰');
 
-    // 다른 기기의 앱 모듈: 탈퇴한 회원 토큰 → 오류, 저장소 비움, onAuthLost 1번
-    await expectApiError(device2.api.users.me(), { status: 401, code: ['TOKEN_INVALID', 'TOKEN_EXPIRED'] }, '탈퇴 뒤 다른 기기 요청');
-    eq(await device2.store.get(), null, '탈퇴 뒤 다른 기기 저장소 비움');
-    eq(device2.counts.authLost, 1, '탈퇴 뒤 다른 기기 onAuthLost 호출 횟수');
+    // 다른 기기의 앱 모듈: 토큰 → 오류, 저장소 비움, onAuthLost 1번
+    await expectApiError(device2.api.users.me(), { status: 401, code: ['TOKEN_INVALID', 'TOKEN_EXPIRED'] }, '탈퇴 신청 뒤 다른 기기 요청');
+    eq(await device2.store.get(), null, '탈퇴 신청 뒤 다른 기기 저장소 비움');
+    eq(device2.counts.authLost, 1, '탈퇴 신청 뒤 다른 기기 onAuthLost 호출 횟수');
 
-    await expectApiError(
+    // 비밀번호가 맞으면 탈퇴 예정 안내 (삭제 예정 시각)
+    const blocked = await expectApiError(
       newSession().api.auth.login({ email: u.email, password: TEST_PASSWORD }),
-      { status: 401, code: 'INVALID_CREDENTIALS' },
-      '탈퇴 뒤 로그인',
+      { status: 403, code: 'ACCOUNT_WITHDRAWN' },
+      '탈퇴 예정 계정 로그인',
+    );
+    eq(blocked.params?.purgeAt, out.purgeAt, '안내의 삭제 예정 시각');
+    await expectApiError(
+      newSession().api.auth.signup({ email: u.email, password: TEST_PASSWORD, name: '새사람' }),
+      { status: 409, code: 'EMAIL_TAKEN' },
+      '유예 중 같은 이메일 재가입',
     );
 
-    // 자격 증명이 지워졌으니 같은 이메일로 새로 가입할 수 있고, 옷장·프로필은 비어 있다
-    const fresh = newSession();
-    await fresh.api.auth.signup({ email: u.email, password: TEST_PASSWORD, name: '새사람' });
-    eq((await fresh.api.wardrobe.stats()).total, 0, '재가입 계정의 옷장은 비어 있음');
-    const freshProfile = await fresh.api.profile.get();
-    eq(freshProfile.onboarded, false, '재가입 계정의 프로필은 기본값');
-    eq(
-      [freshProfile.ageRange, freshProfile.bodyType, freshProfile.heightCm, freshProfile.fitPreference],
-      [null, null, null, null],
-      '재가입 계정의 나의 정보는 비어 있음 (탈퇴 때 지워짐)',
-    );
+    // 취소를 고르면 되돌리고 옷장·나의 정보를 그대로 쓴다
+    const back = newSession();
+    await back.api.auth.login({ email: u.email, password: TEST_PASSWORD, cancelWithdrawal: true });
+    eq((await back.api.wardrobe.stats()).total, 1, '취소 뒤 옷장 그대로');
+    const profile = await back.api.profile.get();
+    eq([profile.ageRange, profile.heightCm, profile.onboarded], ['AGE_40', 180, true], '취소 뒤 나의 정보 그대로');
   },
 };
 
-export const accountScenarios: Scenario[] = [logout, deleteMe];
+export const accountScenarios: Scenario[] = [logout, withdraw];

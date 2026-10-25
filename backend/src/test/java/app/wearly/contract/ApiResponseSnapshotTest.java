@@ -158,8 +158,18 @@ class ApiResponseSnapshotTest {
     adminAi(admin);
     adminLogs(admin);
     errors(a);
-    record("users.delete", api.delete("/api/v1/users/me", reloggedB.accessToken()));
-    record("users.delete.after", api.get("/api/v1/users/me", reloggedB.accessToken()));
+    // 탈퇴는 바로 지우지 않고 탈퇴 예정으로 둔다 (27 문서). 즉시 삭제(DELETE /users/me)는 없앴다
+    record(
+        "users.withdraw.badReason",
+        api.post(
+            "/api/v1/users/me/withdrawal", reloggedB.accessToken(), Map.of("reason", "BORED")));
+    record(
+        "users.withdraw",
+        api.post(
+            "/api/v1/users/me/withdrawal",
+            reloggedB.accessToken(),
+            Map.of("reason", "OTHER", "reasonText", "스냅샷")));
+    record("users.withdraw.after", api.get("/api/v1/users/me", reloggedB.accessToken()));
   }
 
   private void auth() {

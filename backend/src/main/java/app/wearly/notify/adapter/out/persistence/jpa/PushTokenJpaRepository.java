@@ -27,6 +27,10 @@ public interface PushTokenJpaRepository extends JpaRepository<PushTokenEntity, L
   int deleteByOwner(@Param("userId") Long userId, @Param("deviceId") String deviceId);
 
   @Modifying(flushAutomatically = true, clearAutomatically = true)
+  @Query("DELETE FROM PushTokenEntity t WHERE t.userId = :userId")
+  int deleteByUserId(@Param("userId") Long userId);
+
+  @Modifying(flushAutomatically = true, clearAutomatically = true)
   @Query("DELETE FROM PushTokenEntity t WHERE t.token IN :tokens")
   int deleteByTokens(@Param("tokens") Collection<String> tokens);
 }

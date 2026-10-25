@@ -10,11 +10,17 @@ public record UserAccountDto(
 
   public static final String ACTIVE = UserStatus.ACTIVE.name();
   public static final String SUSPENDED = UserStatus.SUSPENDED.name();
+  public static final String WITHDRAWN = UserStatus.WITHDRAWN.name();
   public static final String ROLE_USER = UserRole.USER.name();
   public static final String ROLE_ADMIN = UserRole.ADMIN.name();
 
   public boolean isActive() {
     return ACTIVE.equals(status);
+  }
+
+  /** 탈퇴 예정 (doc/27) */
+  public boolean isWithdrawn() {
+    return WITHDRAWN.equals(status);
   }
 
   public boolean isAdmin() {

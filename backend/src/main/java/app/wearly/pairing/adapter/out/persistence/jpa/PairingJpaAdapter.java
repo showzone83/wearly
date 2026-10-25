@@ -6,6 +6,7 @@ import app.wearly.pairing.domain.PairingEndReason;
 import app.wearly.pairing.domain.PairingPermission;
 import app.wearly.pairing.domain.PairingRole;
 import app.wearly.pairing.domain.PairingStatus;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +28,11 @@ class PairingJpaAdapter implements PairingPort {
   @Override
   public Optional<Pairing> findUnended(long ownerId, long helperId) {
     return repository.findUnended(ownerId, helperId).map(PairingJpaAdapter::toDomain);
+  }
+
+  @Override
+  public List<Pairing> findUnendedOf(long userId) {
+    return repository.findUnendedOf(userId).stream().map(PairingJpaAdapter::toDomain).toList();
   }
 
   @Override

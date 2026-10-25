@@ -7,6 +7,7 @@ import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
+import app.wearly.user.application.port.in.UserUseCase;
 import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,8 @@ class AuthIntegrationTest extends IntegrationTestBase {
   @Autowired JdbcTemplate jdbc;
 
   @Autowired StringRedisTemplate redis;
+
+  @Autowired UserUseCase users;
 
   private Object rt(String rawRefreshToken, String field) {
     return redis.opsForHash().get("wearly:rt:" + RefreshTokens.hash(rawRefreshToken), field);
@@ -273,7 +276,7 @@ class AuthIntegrationTest extends IntegrationTestBase {
   }
 
   @Test
-  void 탈퇴하면_모든_데이터가_지워지고_남은_토큰은_TOKEN_INVALID() {
+  void 탈퇴_신청하면_토큰이_끊기고_유예_뒤_삭제하면_모든_데이터가_지워진다() {
     String email = uniqueEmail();
     Session s = api().signup(email, "abcd1234", "민지");
     final long userId = Long.parseLong(s.userId());
@@ -337,12 +340,25 @@ class AuthIntegrationTest extends IntegrationTestBase {
             "image/jpeg")
         .expect(200);
 
-    api().delete("/api/v1/users/me", s.accessToken()).expect(204);
+    api()
+        .post("/api/v1/users/me/withdrawal", s.accessToken(), Map.of("reason", "OTHER"))
+        .expect(200);
 
     api().get("/api/v1/users/me", s.accessToken()).expectError(401, "TOKEN_INVALID");
     api()
         .post("/api/v1/auth/refresh", null, Map.of("refreshToken", s.refreshToken()))
         .expectError(401, "REFRESH_INVALID");
+    // 유예 중에는 탈퇴 예정 안내, 데이터는 남아 있다
+    api()
+        .post("/api/v1/auth/login", null, Map.of("email", email, "password", "abcd1234"))
+        .expectError(403, "ACCOUNT_WITHDRAWN");
+    assertThat(
+            jdbc.queryForObject(
+                "select count(*) from tb_wardrobe_item where user_id = ?", Integer.class, userId))
+        .isEqualTo(1);
+
+    // 유예 기간이 지나 지운다 (예약 작업이 부르는 것과 같다)
+    users.delete(userId);
     api()
         .post("/api/v1/auth/login", null, Map.of("email", email, "password", "abcd1234"))
         .expectError(401, "INVALID_CREDENTIALS");

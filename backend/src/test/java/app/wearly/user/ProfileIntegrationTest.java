@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.wearly.support.IntegrationTestBase;
 import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
+import app.wearly.user.application.port.in.UserUseCase;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,8 @@ class ProfileIntegrationTest extends IntegrationTestBase {
   static final String ME = "/api/v1/users/me/profile";
 
   @Autowired JdbcTemplate jdbc;
+
+  @Autowired UserUseCase users;
 
   @Test
   void 저장_전에는_앱_기본값과_onboarded_false() {
@@ -167,7 +170,8 @@ class ProfileIntegrationTest extends IntegrationTestBase {
     api().put(ME, s.accessToken(), withInfo(profile())).expect(200);
     long id = Long.parseLong(s.userId());
     assertThat(count(id)).isEqualTo(1);
-    api().delete("/api/v1/users/me", s.accessToken()).expect(204);
+    // 탈퇴 유예 기간이 지나 회원을 지운다 (doc/27, 예약 작업이 부르는 것과 같다)
+    users.delete(id);
     assertThat(count(id)).isZero();
   }
 

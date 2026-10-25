@@ -176,6 +176,11 @@ wearly:
       time: ${WEARLY_NOTIFY_DAY_BEFORE_TIME:19:30}
       # false면 작업을 예약하지 않는다 (테스트용)
       scheduler-enabled: ${WEARLY_NOTIFY_DAY_BEFORE_SCHEDULER_ENABLED:true}
+  # 회원 (user 컨텍스트)
+  user:
+    # 탈퇴 유예 (doc/27): 탈퇴를 신청하면 이만큼 "탈퇴 예정"으로 두고, 그 안에 다시 로그인하면 취소할 수 있다
+    withdrawal:
+      grace: ${WEARLY_USER_WITHDRAWAL_GRACE:P30D}
   # 옷장 도우미 연결 (pairing 컨텍스트, doc/26). 인원은 승인 대기 중인 요청도 센다
   pairing:
     # 주인 한 명에게 연결할 수 있는 돕는 사람 수

@@ -312,8 +312,11 @@ export default function My() {
               onPress={() =>
                 confirm(
                   '정말 탈퇴할까요?',
-                  '계정과 서버에 저장된 옷장·취향 설정이 모두 삭제되고 되돌릴 수 없어요. 이 기기의 데이터도 함께 지워져요.',
-                  () => void run(deleteAccount, '탈퇴하지 못했어요'),
+                  '30일 뒤 계정과 서버에 저장된 옷장·취향 설정이 모두 삭제돼요. 그 전에 다시 로그인하면 탈퇴를 취소할 수 있어요. 이 기기의 데이터는 지금 지워져요.',
+                  () =>
+                    void run(async () => {
+                      await deleteAccount({ reason: 'OTHER' });
+                    }, '탈퇴하지 못했어요'),
                   '탈퇴',
                 )
               }

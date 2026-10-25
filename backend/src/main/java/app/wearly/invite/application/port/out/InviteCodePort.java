@@ -8,7 +8,7 @@ public interface InviteCodePort {
 
   Optional<String> findCode(long userId);
 
-  /** 코드의 주인 */
+  /** 코드의 주인. 주인이 탈퇴 예정(doc/27)이면 빈 값 — 가입 때 추천인으로 잇지 않는다 */
   Optional<Long> findUserId(String code);
 
   /**

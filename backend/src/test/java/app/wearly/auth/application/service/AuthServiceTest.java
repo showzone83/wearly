@@ -26,9 +26,11 @@ import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.support.FakeInvites;
 import app.wearly.support.FakeUsers;
+import app.wearly.support.FakeWithdrawals;
 import app.wearly.support.InMemoryMfa;
 import app.wearly.support.InMemorySessionStore;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
+import app.wearly.user.application.port.in.dto.WithdrawDto;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -147,8 +149,20 @@ class AuthServiceTest {
 
   final FakeInvites invites = new FakeInvites();
 
+  final FakeWithdrawals withdrawals = new FakeWithdrawals(users);
+
   final AuthService service =
-      new AuthService(users, credentials, sessions, mfa, issuer, hasher, eventPort, invites, clock);
+      new AuthService(
+          users,
+          credentials,
+          sessions,
+          mfa,
+          issuer,
+          hasher,
+          eventPort,
+          invites,
+          withdrawals,
+          clock);
 
   @Test
   void 가입하면_이메일을_정규화해_저장하고_토큰을_준다() {
@@ -215,6 +229,39 @@ class AuthServiceTest {
     assertThat(events.stream().filter(e -> e.type() == AuthEvent.Type.LOGIN_FAILED))
         .singleElement()
         .satisfies(e -> assertThat(e.sessionId()).isNull());
+  }
+
+  @Test
+  void 탈퇴_예정_회원은_비밀번호가_맞을_때만_알리고_취소를_고르면_되돌려_로그인한다() {
+    AuthResultDto r = service.signup(new SignupDto("w@wearly.test", "pass1234", "탈퇴"), PHONE);
+    withdrawals.withdraw(r.user().id(), new WithdrawDto("OTHER", null));
+
+    assertThatThrownBy(() -> service.login(new LoginDto("w@wearly.test", "wrong"), PHONE))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            e -> assertThat(e.code()).isEqualTo(ErrorCode.INVALID_CREDENTIALS));
+    assertThatThrownBy(() -> service.login(new LoginDto("w@wearly.test", "pass1234"), PHONE))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            e -> {
+              assertThat(e.code()).isEqualTo(ErrorCode.ACCOUNT_WITHDRAWN);
+              assertThat(e.params()).containsEntry("purgeAt", FakeWithdrawals.PURGE.toString());
+            });
+    assertThat(withdrawals.canceled).isEmpty();
+
+    AuthResultDto back =
+        service.login(new LoginDto("w@wearly.test", "pass1234", true), PHONE).tokens();
+    assertThat(back.user().id()).isEqualTo(r.user().id());
+    assertThat(users.get(r.user().id()).isActive()).isTrue();
+    assertThat(withdrawals.canceled).containsEntry(r.user().id(), false);
+  }
+
+  @Test
+  void 탈퇴_취소_표시는_탈퇴_예정이_아니면_아무것도_하지_않는다() {
+    service.signup(new SignupDto("n@wearly.test", "pass1234", "보통"), PHONE);
+    assertThat(service.login(new LoginDto("n@wearly.test", "pass1234", true), PHONE).tokens())
+        .isNotNull();
+    assertThat(withdrawals.canceled).isEmpty();
   }
 
   @Test

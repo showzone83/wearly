@@ -26,10 +26,13 @@ import app.wearly.common.error.BusinessException;
 import app.wearly.common.error.ErrorCode;
 import app.wearly.invite.application.port.in.InviteUseCase;
 import app.wearly.user.application.port.in.UserUseCase;
+import app.wearly.user.application.port.in.WithdrawalUseCase;
 import app.wearly.user.application.port.in.dto.UserAccountDto;
 import java.time.Clock;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +48,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
   private final PasswordHasher passwords;
   private final AuthEventPort events;
   private final InviteUseCase invites;
+  private final WithdrawalUseCase withdrawals;
   private final Clock clock;
 
   /** 없는 이메일로 로그인할 때도 같은 시간이 걸리도록 비교에 쓰는 더미 해시 */
@@ -59,6 +63,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
       PasswordHasher passwords,
       AuthEventPort events,
       InviteUseCase invites,
+      WithdrawalUseCase withdrawals,
       Clock clock) {
     this.users = users;
     this.credentials = credentials;
@@ -68,6 +73,7 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
     this.passwords = passwords;
     this.events = events;
     this.invites = invites;
+    this.withdrawals = withdrawals;
     this.clock = clock;
     this.dummyHash = passwords.encode("wearly-dummy-password-1");
   }
@@ -105,6 +111,21 @@ public class AuthService implements AuthUseCase, AuthenticationUseCase, AccountU
       throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
     }
     UserAccountDto user = users.get(credential.userId());
+    // 탈퇴 예정 (27 문서): 비밀번호가 맞을 때만 알리고, 취소를 고르면 되돌린 뒤 이어서 로그인한다
+    if (user.isWithdrawn()) {
+      if (!req.cancelWithdrawal()) {
+        throw new BusinessException(
+            ErrorCode.ACCOUNT_WITHDRAWN,
+            withdrawals
+                .findOpen(user.id())
+                .<Map<String, Object>>map(
+                    w ->
+                        Map.of("purgeAt", w.purgeAfter().truncatedTo(ChronoUnit.MILLIS).toString()))
+                .orElse(Map.of()));
+      }
+      withdrawals.cancel(user.id(), false);
+      user = users.get(user.id());
+    }
     // 비밀번호가 맞을 때만 정지 여부를 알린다 (07 문서 2장)
     if (!user.isActive()) {
       throw new BusinessException(ErrorCode.ACCOUNT_SUSPENDED);

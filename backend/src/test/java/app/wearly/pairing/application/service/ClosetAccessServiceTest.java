@@ -46,6 +46,11 @@ class ClosetAccessServiceTest {
         }
 
         @Override
+        public List<Pairing> findUnendedOf(long userId) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
         public Pairing save(Pairing pairing) {
           throw new UnsupportedOperationException();
         }

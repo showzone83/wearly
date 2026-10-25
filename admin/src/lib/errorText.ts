@@ -238,6 +238,7 @@ export const SERVER_ERROR_TEXT: Record<string, TText | null> = {
   FORBIDDEN: '관리자 권한이 없어요.',
   REAUTH_FAILED: '비밀번호가 맞지 않아요. 내 관리자 비밀번호를 다시 입력해 주세요.',
   ACCOUNT_SUSPENDED: '이용이 정지된 계정이에요.',
+  ACCOUNT_WITHDRAWN: '탈퇴를 신청한 계정이에요. 앱에서 다시 로그인해 탈퇴를 취소한 뒤 쓸 수 있어요.',
   NOT_FOUND: '찾을 수 없어요. 이미 삭제됐거나 서버가 이 기능을 아직 모를 수 있어요.',
   METHOD_NOT_ALLOWED: '서버가 이 요청 방식을 지원하지 않아요. 백엔드 버전을 확인해 주세요.',
   EMAIL_TAKEN: null, // 앱 가입

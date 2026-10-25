@@ -19,4 +19,7 @@ public interface PushTokenUseCase {
    * <p>오류: 400 VALIDATION_FAILED (deviceId)
    */
   void unregister(long userId, String deviceId);
+
+  /** 회원의 토큰을 모든 기기에서 지운다 (탈퇴 신청, doc/27 — 탈퇴 예정 회원에게 알림이 가지 않게). 없어도 성공이다 */
+  void unregisterAll(long userId);
 }

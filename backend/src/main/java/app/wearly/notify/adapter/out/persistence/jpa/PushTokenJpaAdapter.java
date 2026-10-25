@@ -40,6 +40,12 @@ class PushTokenJpaAdapter implements PushTokenPort {
 
   @Override
   @Transactional
+  public int deleteAllOf(long userId) {
+    return repository.deleteByUserId(userId);
+  }
+
+  @Override
+  @Transactional
   public int deleteTokens(Collection<String> tokens) {
     return tokens.isEmpty() ? 0 : repository.deleteByTokens(tokens);
   }

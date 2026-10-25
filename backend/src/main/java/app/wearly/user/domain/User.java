@@ -14,6 +14,10 @@ public class User {
 
   public static final int NAME_MAX = 20;
 
+  /** 관리자가 상태 바꾸기로 넣을 수 있는 값 */
+  static final List<String> ACCESS_STATUSES =
+      List.of(UserStatus.ACTIVE.name(), UserStatus.SUSPENDED.name());
+
   private final Long id;
   private final String email;
   private String name;
@@ -37,12 +41,15 @@ public class User {
     return new User(null, email, name, UserStatus.ACTIVE, role, null);
   }
 
-  /** 문자열 상태·역할을 바꾼다. 허용 값이 아니면 status·role 필드 오류를 함께 모아 DomainValidationException */
+  /**
+   * 문자열 상태·역할을 바꾼다 (관리자). 허용 값이 아니면 status·role 필드 오류를 함께 모아 DomainValidationException. 탈퇴
+   * 예정(WITHDRAWN)은 넣을 수도, 탈퇴 예정인 회원을 바꿀 수도 없다 — 탈퇴 신청·취소로만 바뀐다 (doc/27)
+   */
   public void changeAccess(String status, String role) {
     List<FieldError> errors = new ArrayList<>();
     UserStatus s = UserStatus.parse(status).orElse(null);
-    if (s == null) {
-      errors.add(FieldError.notAllowed("status", names(UserStatus.values())));
+    if (s == null || s == UserStatus.WITHDRAWN || this.status == UserStatus.WITHDRAWN) {
+      errors.add(FieldError.notAllowed("status", ACCESS_STATUSES));
     }
     UserRole r = UserRole.parse(role).orElse(null);
     if (r == null) {
@@ -58,8 +65,30 @@ public class User {
     this.name = name;
   }
 
+  /** 탈퇴를 신청한다 (탈퇴 예정). 이미 탈퇴 예정이면 false */
+  public boolean withdraw() {
+    if (status == UserStatus.WITHDRAWN) {
+      return false;
+    }
+    this.status = UserStatus.WITHDRAWN;
+    return true;
+  }
+
+  /** 탈퇴를 취소한다 (다시 사용 중). 탈퇴 예정이 아니면 false */
+  public boolean cancelWithdrawal() {
+    if (status != UserStatus.WITHDRAWN) {
+      return false;
+    }
+    this.status = UserStatus.ACTIVE;
+    return true;
+  }
+
   public boolean isActive() {
     return status == UserStatus.ACTIVE;
+  }
+
+  public boolean isWithdrawn() {
+    return status == UserStatus.WITHDRAWN;
   }
 
   public boolean isAdmin() {

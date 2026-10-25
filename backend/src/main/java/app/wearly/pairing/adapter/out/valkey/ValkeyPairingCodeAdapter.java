@@ -4,6 +4,7 @@ import app.wearly.pairing.application.port.out.PairingCodePort;
 import app.wearly.pairing.domain.PairingCode;
 import app.wearly.pairing.domain.PairingRole;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -60,6 +61,24 @@ class ValkeyPairingCodeAdapter implements PairingCodePort {
           """,
           Long.class);
 
+  /**
+   * KEYS = 회원의 자리별 지금 코드 키들. ARGV[1] = 코드 키 앞부분, ARGV[i + 1] = KEYS[i] 자리의 값. 코드가 아직 그 회원 것이면 함께
+   * 지운다
+   */
+  static final RedisScript<Long> REVOKE =
+      new DefaultRedisScript<>(
+          """
+          for i, key in ipairs(KEYS) do
+            local code = redis.call('GET', key)
+            if code and redis.call('GET', ARGV[1] .. code) == ARGV[i + 1] then
+              redis.call('DEL', ARGV[1] .. code)
+            end
+            redis.call('DEL', key)
+          end
+          return 1
+          """,
+          Long.class);
+
   private final StringRedisTemplate redis;
 
   ValkeyPairingCodeAdapter(StringRedisTemplate redis) {
@@ -89,6 +108,18 @@ class ValkeyPairingCodeAdapter implements PairingCodePort {
     Long r =
         redis.execute(TAKE, List.of(CODE_PREFIX + code, issuerKey(value)), format(value), code);
     return r != null && r == 1;
+  }
+
+  @Override
+  public void revokeAll(long issuerId) {
+    List<String> keys = new ArrayList<>();
+    List<String> args = new ArrayList<>(List.of(CODE_PREFIX));
+    for (PairingRole role : PairingRole.values()) {
+      PairingCode value = new PairingCode(issuerId, role);
+      keys.add(issuerKey(value));
+      args.add(format(value));
+    }
+    redis.execute(REVOKE, keys, args.toArray());
   }
 
   private static String issuerKey(PairingCode value) {

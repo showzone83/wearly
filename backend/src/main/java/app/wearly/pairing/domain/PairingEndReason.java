@@ -9,7 +9,9 @@ public enum PairingEndReason {
   /** 승인을 기다리다 시간이 지났다 */
   EXPIRED,
   /** 관리자가 강제로 해제했다 (doc/26 6단계) */
-  ADMIN;
+  ADMIN,
+  /** 어느 한쪽이 탈퇴를 신청했다 (doc/27) */
+  WITHDRAWN;
 
   public static PairingEndReason by(PairingRole role) {
     return role == PairingRole.OWNER ? OWNER : HELPER;

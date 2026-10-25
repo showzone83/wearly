@@ -30,6 +30,7 @@ const ENDED_BY_LABEL: Record<string, string> = {
   HELPER: '돕는 사람',
   EXPIRED: '대기 만료',
   ADMIN: '관리자',
+  WITHDRAWN: '탈퇴 신청',
 };
 
 const ACTION_LABEL: Record<string, string> = {

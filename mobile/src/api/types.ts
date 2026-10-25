@@ -129,6 +129,27 @@ export interface ProxyActionDto {
 export interface LoginRequest {
   email: string;
   password: string;
+  /** 탈퇴 예정 계정이면 탈퇴를 취소하고 로그인한다 (doc/27). 없으면 403 ACCOUNT_WITHDRAWN(params.purgeAt) */
+  cancelWithdrawal?: boolean;
+}
+
+// ── 탈퇴 (doc/27) ──
+
+/** 탈퇴 사유 (보기에서 하나를 꼭 고른다) */
+export type WithdrawalReason = 'NOT_USEFUL' | 'BAD_RECOMMEND' | 'HARD_TO_USE' | 'PRIVACY' | 'OTHER_APP' | 'OTHER';
+
+/** POST /users/me/withdrawal 본문 */
+export interface WithdrawRequest {
+  reason: WithdrawalReason;
+  /** 하고 싶은 말 (선택, 200자) */
+  reasonText?: string;
+}
+
+/** POST /users/me/withdrawal 응답 */
+export interface WithdrawalDto {
+  requestedAt: string;
+  /** 이 시각이 지나면 모두 지워진다. 그 전에 다시 로그인하면 취소할 수 있다 (ISO) */
+  purgeAt: string;
 }
 
 // ── 프로필 ──

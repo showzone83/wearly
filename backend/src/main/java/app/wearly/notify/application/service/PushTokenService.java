@@ -43,4 +43,10 @@ public class PushTokenService implements PushTokenUseCase {
     BusinessException.throwIfAny(PushTokenRules.validateDeviceId(deviceId));
     tokens.delete(userId, deviceId);
   }
+
+  @Override
+  @Transactional
+  public void unregisterAll(long userId) {
+    tokens.deleteAllOf(userId);
+  }
 }

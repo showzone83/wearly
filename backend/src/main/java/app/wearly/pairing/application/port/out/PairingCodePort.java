@@ -15,4 +15,7 @@ public interface PairingCodePort {
 
   /** 코드가 아직 value이면 지우고 true (1회용). 그새 쓰였거나 바뀌었으면 false */
   boolean take(String code, PairingCode value);
+
+  /** 이 회원이 만든 코드를 모두 지운다 (탈퇴 신청, doc/27). 없어도 성공이다 */
+  void revokeAll(long issuerId);
 }

@@ -11,6 +11,7 @@
     { "code": "FORBIDDEN", "status": 403, "description": "권한 없음 (관리자 API에 일반 회원 등)", "params": [], "message": "접근할 수 없어요." },
     { "code": "REAUTH_FAILED", "status": 403, "description": "AI 키 넣기·지우기에서 관리자 비밀번호 재확인 실패 (관리자)", "params": [], "message": "비밀번호가 맞지 않아요." },
     { "code": "ACCOUNT_SUSPENDED", "status": 403, "description": "정지된 회원의 로그인 (비밀번호가 맞을 때만)", "params": [], "message": "이용이 정지된 계정이에요." },
+    { "code": "ACCOUNT_WITHDRAWN", "status": 403, "description": "탈퇴 예정(유예 기간 중) 회원의 로그인 (비밀번호가 맞을 때만, 27 문서). 로그인 본문에 cancelWithdrawal: true를 넣어 다시 보내면 탈퇴를 취소하고 로그인한다", "params": ["purgeAt"], "message": "탈퇴를 신청한 계정이에요." },
     { "code": "LAST_ADMIN", "status": 409, "description": "관리자 해제(PATCH /admin/users/{id} role=USER)로 쓸 수 있는 관리자(ADMIN·ACTIVE)가 한 명도 남지 않게 될 때 (관리자)", "params": [], "message": "마지막 관리자는 해제할 수 없어요." },
     { "code": "MFA_REQUIRED", "status": 403, "description": "2단계 인증을 마치지 않은 로그인 세션(앱 로그인·인증 전 세션)으로 관리자 API를 부름. 관리자 사이트에서 다시 로그인해 TOTP를 확인해야 한다 (관리자)", "params": [], "message": "2단계 인증을 마쳐야 관리자 기능을 쓸 수 있어요. 다시 로그인해 주세요." },
     { "code": "MFA_TOKEN_INVALID", "status": 401, "description": "MFA 대기 토큰이 없거나 만료(5분)·사용됨·잠금으로 무효, 또는 그사이 관리자가 아니게 됨 (/auth/mfa/setup·verify)", "params": [], "message": "인증 시간이 지났어요. 처음부터 다시 로그인해 주세요." },

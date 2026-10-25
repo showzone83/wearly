@@ -9,6 +9,7 @@ export type ApiErrorCode =
   | 'INVALID_CREDENTIALS'
   | 'REFRESH_INVALID'
   | 'REFRESH_REUSED'
+  | 'ACCOUNT_WITHDRAWN'
   | 'NOT_FOUND'
   | 'EMAIL_TAKEN'
   | 'IMAGE_TOO_LARGE'

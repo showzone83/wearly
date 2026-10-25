@@ -12,6 +12,7 @@ import app.wearly.support.TestApi.Resp;
 import app.wearly.support.TestApi.Session;
 import app.wearly.support.TestImages;
 import app.wearly.support.TestMinio;
+import app.wearly.user.application.port.in.UserUseCase;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.metadata.exif.GpsDirectory;
 import java.awt.image.BufferedImage;
@@ -57,6 +58,8 @@ class ItemImageIntegrationTest extends IntegrationTestBase {
           .build();
 
   @Autowired JdbcTemplate jdbc;
+
+  @Autowired UserUseCase users;
   @Autowired ImageCleanupUseCase cleanup;
 
   @AfterAll
@@ -360,7 +363,8 @@ class ItemImageIntegrationTest extends IntegrationTestBase {
     assertThat(count("users/" + userId + "/")).isEqualTo(4);
     assertThat(count("uploads/" + userId + "/")).isEqualTo(1);
 
-    api().delete("/api/v1/users/me", s.accessToken()).expect(204);
+    // 탈퇴 유예 기간이 지나 회원을 지운다 (doc/27, 예약 작업이 부르는 것과 같다)
+    users.delete(userId);
     assertThat(count("users/" + userId + "/")).isZero();
     assertThat(count("uploads/" + userId + "/")).isZero();
     assertThat(

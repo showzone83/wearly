@@ -87,6 +87,14 @@ class PairingServiceTest {
         }
 
         @Override
+        public List<Pairing> findUnendedOf(long userId) {
+          return rows.values().stream()
+              .filter(p -> p.ownerId() == userId || p.helperId() == userId)
+              .filter(p -> p.status() != PairingStatus.ENDED)
+              .toList();
+        }
+
+        @Override
         public Pairing save(Pairing p) {
           Pairing saved =
               p.id() != null
@@ -189,6 +197,11 @@ class PairingServiceTest {
         @Override
         public boolean take(String code, PairingCode value) {
           return codeRows.remove(code, value);
+        }
+
+        @Override
+        public void revokeAll(long issuerId) {
+          codeRows.values().removeIf(v -> v.issuerId() == issuerId);
         }
       };
 

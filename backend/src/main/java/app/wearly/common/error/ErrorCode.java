@@ -21,6 +21,8 @@ public enum ErrorCode {
   FORBIDDEN(403, "접근할 수 없어요."),
   REAUTH_FAILED(403, "비밀번호가 맞지 않아요."),
   ACCOUNT_SUSPENDED(403, "이용이 정지된 계정이에요."),
+  // 탈퇴 유예 (27 문서): 탈퇴 예정 계정의 로그인. params.purgeAt
+  ACCOUNT_WITHDRAWN(403, "탈퇴를 신청한 계정이에요.", "purgeAt"),
   // 관리자 계정 보완 (22 문서 1단계): 마지막 관리자, 관리자 2단계 인증(TOTP)
   LAST_ADMIN(409, "마지막 관리자는 해제할 수 없어요."),
   MFA_REQUIRED(403, "2단계 인증을 마쳐야 관리자 기능을 쓸 수 있어요. 다시 로그인해 주세요."),

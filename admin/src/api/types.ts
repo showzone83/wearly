@@ -517,7 +517,7 @@ export type TPairingStatus = 'PENDING' | 'ACTIVE' | 'ENDED' | (string & {});
 export type TPairingPermission = 'VIEW' | 'EDIT' | (string & {});
 
 /** 연결을 끝낸 쪽: 주인 · 돕는 사람 · 승인 대기 만료 · 관리자 */
-export type TPairingEndedBy = 'OWNER' | 'HELPER' | 'EXPIRED' | 'ADMIN' | (string & {});
+export type TPairingEndedBy = 'OWNER' | 'HELPER' | 'EXPIRED' | 'ADMIN' | 'WITHDRAWN' | (string & {});
 
 /** 돕는 사람이 한 일 */
 export type TProxyAction = 'ITEM_CREATE' | 'ITEM_UPDATE' | 'ITEM_RETIRE' | 'ITEM_RESTORE' | (string & {});
