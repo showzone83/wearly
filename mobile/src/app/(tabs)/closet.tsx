@@ -30,6 +30,8 @@ const SORT_LABEL: Record<TSortKey, string> = { recent: '최근 등록순', worn:
 const NEXT_SORT: Record<TSortKey, TSortKey> = { recent: 'worn', worn: 'sleeping', sleeping: 'recent' };
 /** 하트(자주 입는 옷)로 표시하는 착용 횟수 기준 */
 const FAVORITE_WORN = 5;
+/** 타일 최소 너비: 그리드가 넓으면(태블릿·가로 모드) 이 너비를 지키는 만큼 열을 늘린다 (최소 3열) */
+const MIN_TILE = 150;
 
 export default function Closet() {
   const all = useStore((s) => s.items);
@@ -44,13 +46,16 @@ export default function Closet() {
   /** 검색칸·계절 필터 줄 펼침 (보드의 검색·필터 아이콘) */
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const { width } = useWindowDimensions();
+  /** 그리드의 실제 너비 (onLayout). 창 너비로만 계산하면 스크롤바·반올림으로 칸보다 넓어져 마지막 열이 다음 줄로 밀린다 */
+  const [gridW, setGridW] = useState(Math.min(width, 480) - space.gutter * 2);
   const s = useStyles();
   const c = useColors();
-  const { width } = useWindowDimensions();
 
-  const cols = 3;
   const gap = 10;
-  const tile = (Math.min(width, 480) - space.gutter * 2 - gap * (cols - 1)) / cols;
+  const cols = Math.max(3, Math.floor((gridW + gap) / (MIN_TILE + gap)));
+  // 내림으로 남는 1~2px은 space-between이 열 사이에 나눈다
+  const tile = Math.floor((gridW - gap * (cols - 1)) / cols);
 
   // 기본 목록·통계는 사용 중인 옷만
   const items = useMemo(() => activeItems(all), [all]);
@@ -214,7 +219,7 @@ export default function Closet() {
           <Text style={s.emptyText}>조건에 맞는 옷이 없어요.</Text>
         )
       ) : (
-        <View style={[s.grid, { gap }]}>
+        <View style={[s.grid, { rowGap: gap }]} onLayout={(e) => setGridW(e.nativeEvent.layout.width)}>
           {list.map((it) => (
             <Pressable key={it.id} style={{ width: tile }} onPress={() => router.push(`/item/${it.id}`)}>
               <ItemThumb
@@ -245,6 +250,10 @@ export default function Closet() {
               </Text>
             </Pressable>
           ))}
+          {/* 마지막 줄이 덜 차면 space-between이 타일을 벌리므로 빈 칸으로 채워 왼쪽 정렬 */}
+          {Array.from({ length: (cols - (list.length % cols)) % cols }, (_, i) => (
+            <View key={`pad-${i}`} style={{ width: tile }} />
+          ))}
         </View>
       )}
     </Screen>
@@ -266,7 +275,7 @@ const useStyles = makeStyles((t) => ({
   toolbar: { justifyContent: 'space-between', marginTop: 8, marginBottom: 12 },
   tool: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   toolText: { fontSize: 13, fontWeight: '700', color: t.colors.primary },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   name: { fontSize: 13, fontWeight: '700', color: t.colors.text, marginTop: 7 },
   meta: { fontSize: 12, color: t.colors.textMuted, marginTop: 2, marginBottom: 8 },
   status: {
