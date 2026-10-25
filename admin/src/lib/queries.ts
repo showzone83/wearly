@@ -26,6 +26,8 @@ export const qk = {
   users: (q: object) => ['users', q] as const,
   /** 내 2단계 인증 상태 (내 계정 화면) */
   myMfa: ['me', 'mfa'] as const,
+  /** 내 비밀번호 변경 주기 (화면 위 안내 띠·내 계정 화면, doc/28) */
+  myPassword: ['me', 'password'] as const,
   /** 관리자 로그인 기록 */
   authEvents: (q: object) => ['auth-events', q] as const,
   inviteSignups: (q: object) => ['invite-signups', q] as const,
@@ -211,6 +213,29 @@ export const useUpdateAppTheme = () => {
       if (data.themeId) queryClient.setQueryData(qk.appTheme, data);
       else void queryClient.invalidateQueries({ queryKey: qk.appTheme });
       void queryClient.invalidateQueries({ queryKey: ['audit'] });
+    },
+  });
+};
+
+/** 내 비밀번호 변경 주기 (doc/28). 예전 서버(404)·오류면 다시 묻지 않는다 (안내 띠는 부가 기능) */
+export const useMyPasswordStatus = () => {
+  return useQuery({
+    queryKey: qk.myPassword,
+    queryFn: () => api.me.passwordStatus(),
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+};
+
+/** 비밀번호 변경 알림 연장. 성공하면 상태 캐시를 응답으로 바꾸고 변경 이력을 다시 읽게 한다 */
+export const usePostponePassword = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.me.postponePassword(),
+    onSuccess: (data) => {
+      queryClient.setQueryData(qk.myPassword, data);
+      void queryClient.invalidateQueries({ queryKey: ['audit'] });
+      void queryClient.invalidateQueries({ queryKey: ['auth-events'] });
     },
   });
 };

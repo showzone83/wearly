@@ -29,6 +29,9 @@ export const AUTH_EVENTS: Record<string, { label: string; tone: TBadgeTone }> = 
   // 회사 계정 로그인 (SSO, doc/22 4.2)
   SSO_LOGIN: { label: '회사 계정 로그인', tone: 'green' },
   SSO_DENIED: { label: '회사 계정 거부', tone: 'red' },
+  // 비밀번호 변경 주기 (doc/28)
+  PASSWORD_CHANGED: { label: '비밀번호 변경', tone: 'green' },
+  PASSWORD_POSTPONED: { label: '비밀번호 변경 연장', tone: 'gray' },
 };
 
 /** 종류 필터 선택지 */

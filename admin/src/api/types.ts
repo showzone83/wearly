@@ -120,6 +120,18 @@ export interface IMyMfaStatus {
   required: boolean;
 }
 
+/** `GET /admin/me/password` · `POST /admin/me/password/postpone`: 비밀번호 변경 주기 (doc/28) */
+export interface IPasswordStatus {
+  /** 비밀번호를 마지막으로 정한 시각. 비밀번호가 없는 계정(SSO만)이면 null */
+  changedAt: string | null;
+  /** 바꿔야 하는 시각. 기능이 꺼졌거나 비밀번호가 없으면 null */
+  dueAt: string | null;
+  /** 기한이 지났는지 (막지 않고 안내 띠만 띄운다) */
+  due: boolean;
+  /** 변경 주기 일수 (연장하면 지금부터 그만큼). 기능이 꺼졌으면 0 */
+  intervalDays: number;
+}
+
 /** `POST /admin/me/password` */
 export interface IPasswordChangeRequest {
   currentPassword: string;
@@ -663,6 +675,9 @@ export type TAuthEventType =
   | 'SSO_LOGIN'
   /** IdP 인증은 됐지만 관리자 그룹이 아니라 거부 (연결된 회원만) */
   | 'SSO_DENIED'
+  /** 비밀번호 변경·변경 알림 연장 (doc/28) */
+  | 'PASSWORD_CHANGED'
+  | 'PASSWORD_POSTPONED'
   | (string & {});
 
 /** 회원별 최근 로그인 이력 (`tb_auth_event`) */

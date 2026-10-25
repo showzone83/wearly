@@ -378,6 +378,7 @@ const FIELD_OVERRIDE_TEXT: Record<string, string> = {
   // 세션 전체 끊기(DELETE /admin/users/{id}/sessions)와 2단계 인증 초기화(DELETE /admin/users/{id}/mfa)
   'SELF_NOT_ALLOWED:id': '자기 자신의 세션 전체 끊기·2단계 인증 초기화는 여기서 할 수 없어요.',
   'INVALID_FORMAT:newPassword': '8~64자로, 영문과 숫자를 함께 넣어 주세요.',
+  'NOT_ALLOWED:newPassword': '지금 비밀번호와 다른 비밀번호를 입력해 주세요.',
   'INVALID_FORMAT:code': '인증 앱의 6자리 숫자를 입력해 주세요.',
   'DISABLED_BY_SERVER:options.baseUrl': '서버 설정(wearly.ai.allow-base-url)이 꺼져 있어 API 주소를 바꿀 수 없어요.',
   'NOT_ALLOWED:attrs.pairs': '없는 색 코드가 들어 있어요.',

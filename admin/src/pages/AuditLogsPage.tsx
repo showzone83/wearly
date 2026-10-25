@@ -40,6 +40,7 @@ const ACTION_LABELS: Record<string, string> = {
   SSO_ACCOUNT_CREATE: '회사 계정으로 관리자 생성',
   SSO_ACCOUNT_LINK: '회사 계정 연결',
   ADMIN_PASSWORD_CHANGE: '내 비밀번호 변경',
+  ADMIN_PASSWORD_POSTPONE: '내 비밀번호 변경 연장',
   ADMIN_MFA_ENROLL: '2단계 인증 등록',
   ADMIN_MFA_RESET: '내 2단계 인증 초기화',
   USER_MFA_RESET: '회원 2단계 인증 초기화',

@@ -3,10 +3,13 @@ import { API_URL } from '@/api';
 import { Button, Notice } from '@/components/ui';
 
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useToastStore } from '@/stores/useToastStore';
 
 import { NavLink, Outlet, useNavigate } from 'react-router';
 
 import { lowRecoveryCodesText } from '@/lib/mfa';
+import { passwordDueBannerText, postponedToastText, postponeLabel } from '@/lib/passwordDue';
+import { useMyPasswordStatus, usePostponePassword } from '@/lib/queries';
 
 const MENU = [
   { to: '/', label: '대시보드', icon: '◧', end: true },
@@ -36,10 +39,25 @@ export const Layout = () => {
   const logout = useAuthStore((s) => s.logout);
   const recoveryCodesLeft = useAuthStore((s) => s.recoveryCodesLeft);
   const setRecoveryCodesLeft = useAuthStore((s) => s.setRecoveryCodesLeft);
+  const toast = useToastStore((s) => s.show);
+  const toastError = useToastStore((s) => s.showError);
   const navigate = useNavigate();
+  const { data: password } = useMyPasswordStatus();
+  const postpone = usePostponePassword();
 
   /** 로그인 때 받은 남은 복구 코드가 적으면 화면 위에 띄운다 (doc/22) */
   const lowCodes = lowRecoveryCodesText(recoveryCodesLeft);
+  /** 비밀번호를 바꾼 지 주기가 지났으면 화면 위에 띄운다 (doc/28). 막지는 않는다 */
+  const passwordDue = passwordDueBannerText(password);
+
+  const postponePassword = async () => {
+    try {
+      const next = await postpone.mutateAsync();
+      toast(postponedToastText(next.dueAt));
+    } catch (e) {
+      toastError(e, '알림을 미루지 못했어요.');
+    }
+  };
 
   return (
     <div className="shell">
@@ -92,6 +110,19 @@ export const Layout = () => {
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setRecoveryCodesLeft(null)}>
                 닫기
+              </Button>
+            </div>
+          </Notice>
+        ) : null}
+        {passwordDue ? (
+          <Notice tone="warn">
+            <div className="top-banner">
+              <span>{passwordDue}</span>
+              <Button size="sm" onClick={() => navigate('/me')}>
+                비밀번호 바꾸기
+              </Button>
+              <Button size="sm" variant="ghost" busy={postpone.isPending} onClick={() => void postponePassword()}>
+                {postponeLabel(password?.intervalDays)}
               </Button>
             </div>
           </Notice>

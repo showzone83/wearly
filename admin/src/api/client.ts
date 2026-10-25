@@ -43,6 +43,7 @@ import type {
   IPairingQuery,
   IPairingRow,
   IPasswordChangeRequest,
+  IPasswordStatus,
   IProviderCreate,
   IProviderModel,
   IProviderModelList,
@@ -277,6 +278,16 @@ const toMyMfaStatus = (raw: unknown): IMyMfaStatus => {
     enrolledAt: str(r.enrolledAt),
     recoveryCodesLeft: num(r.recoveryCodesLeft),
     required: r.required === true,
+  };
+};
+
+const toPasswordStatus = (raw: unknown): IPasswordStatus => {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  return {
+    changedAt: str(r.changedAt),
+    dueAt: str(r.dueAt),
+    due: r.due === true,
+    intervalDays: num(r.intervalDays) ?? 0,
   };
 };
 
@@ -628,7 +639,15 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       mfaStatus: async (): Promise<IMyMfaStatus> => {
         return toMyMfaStatus(await get<unknown>('/admin/me/mfa'));
       },
-      /** 204. 오류: 400 VALIDATION_FAILED(currentPassword·newPassword) · 403 REAUTH_FAILED */
+      /** 비밀번호 변경 주기 (doc/28). 예전 서버는 404 */
+      passwordStatus: async (): Promise<IPasswordStatus> => {
+        return toPasswordStatus(await get<unknown>('/admin/me/password'));
+      },
+      /** 변경 알림 연장: 지금부터 주기만큼 (변경 이력 ADMIN_PASSWORD_POSTPONE). 기능이 꺼졌거나 비밀번호가 없으면 404 */
+      postponePassword: async (): Promise<IPasswordStatus> => {
+        return toPasswordStatus(await request<unknown>('POST', '/admin/me/password/postpone', { auth: true }));
+      },
+      /** 204. 오류: 400 VALIDATION_FAILED(currentPassword·newPassword, 같은 비밀번호면 NOT_ALLOWED) · 403 REAUTH_FAILED */
       changePassword: (body: IPasswordChangeRequest): Promise<void> => {
         return request<void>('POST', '/admin/me/password', { auth: true, json: body });
       },

@@ -18,7 +18,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorTextWithTrace, fieldErrorOf } from '@/lib/errorText';
 import { fmtDateTime } from '@/lib/format';
 import { isTotpCode, lowRecoveryCodesText, normalizeRecoveryCode, passwordRuleError } from '@/lib/mfa';
-import { isUnsupportedApi, qk } from '@/lib/queries';
+import { nextChangeText } from '@/lib/passwordDue';
+import { isUnsupportedApi, qk, useMyPasswordStatus } from '@/lib/queries';
 
 type TPasswordField = 'currentPassword' | 'newPassword' | 'confirm';
 
@@ -33,6 +34,10 @@ const PasswordCard = () => {
 
   const queryClient = useQueryClient();
   const toast = useToastStore((s) => s.show);
+  const { data: status } = useMyPasswordStatus();
+
+  /** 다음에 바꿀 날 (변경 주기, doc/28) */
+  const nextChange = nextChangeText(status);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -56,6 +61,8 @@ const PasswordCard = () => {
       toast('비밀번호를 바꿨어요. 다른 기기의 로그인은 모두 끊겼어요.');
       void queryClient.invalidateQueries({ queryKey: ['sessions'] });
       void queryClient.invalidateQueries({ queryKey: ['audit'] });
+      // 변경 주기를 지금부터 다시 센다 → 화면 위 안내 띠가 사라진다
+      void queryClient.invalidateQueries({ queryKey: qk.myPassword });
     } catch (err) {
       setCurrent('');
       if (isApiError(err) && err.code === 'REAUTH_FAILED') {
@@ -78,6 +85,12 @@ const PasswordCard = () => {
       <form className="form w-form" onSubmit={submit} noValidate>
         <p className="muted small">
           바꾸면 다른 기기(다른 브라우저·앱)의 내 로그인은 모두 끊기고, 지금 화면은 그대로예요.
+          {nextChange ? (
+            <>
+              <br />
+              {nextChange}
+            </>
+          ) : null}
         </p>
         <Field label="지금 비밀번호" error={fieldErrors.currentPassword} required>
           <input
