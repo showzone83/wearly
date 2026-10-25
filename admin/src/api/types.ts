@@ -508,6 +508,61 @@ export interface IInviteShareQuery extends IPageQuery {
   channel?: string;
 }
 
+// ───────── 옷장 도우미 (doc/26 6단계) ─────────
+
+/** 연결 상태: 주인 승인 대기 · 연결됨 · 끝남 */
+export type TPairingStatus = 'PENDING' | 'ACTIVE' | 'ENDED' | (string & {});
+
+/** 돕는 사람 권한: 보기 · 등록·수정 */
+export type TPairingPermission = 'VIEW' | 'EDIT' | (string & {});
+
+/** 연결을 끝낸 쪽: 주인 · 돕는 사람 · 승인 대기 만료 · 관리자 */
+export type TPairingEndedBy = 'OWNER' | 'HELPER' | 'EXPIRED' | 'ADMIN' | (string & {});
+
+/** 돕는 사람이 한 일 */
+export type TProxyAction = 'ITEM_CREATE' | 'ITEM_UPDATE' | 'ITEM_RETIRE' | 'ITEM_RESTORE' | (string & {});
+
+/** `GET /admin/pairings` 한 줄: 주인과 돕는 사람의 연결 */
+export interface IPairingRow {
+  id: string;
+  status: TPairingStatus;
+  /** 승인 전이면 null */
+  permission: TPairingPermission | null;
+  /** 연결 코드를 만든 쪽 (OWNER · HELPER) */
+  issuedBy: string;
+  notifyOwner: boolean;
+  createdAt: string;
+  approvedAt: string | null;
+  endedAt: string | null;
+  endedBy: TPairingEndedBy | null;
+  ownerId: string;
+  ownerEmail: string | null;
+  ownerName: string;
+  helperId: string;
+  helperEmail: string | null;
+  helperName: string;
+  /** 돕는 사람이 한 일 수 */
+  actionCount: number;
+  lastActionAt: string | null;
+}
+
+/** `GET /admin/pairings/{id}/actions` 한 줄 */
+export interface IPairingAction {
+  id: string;
+  action: TProxyAction;
+  /** 주인이 완전 삭제했으면 지금은 없을 수 있다 */
+  itemId: string;
+  /** 기록 당시 옷 이름 */
+  itemName: string | null;
+  createdAt: string;
+}
+
+export interface IPairingQuery extends IPageQuery {
+  /** 주인·돕는 사람 이메일·이름 */
+  q?: string;
+  status?: string;
+}
+
 // ───────── 로그인 세션 (doc/16 4장) ─────────
 // 백엔드 최종 응답 모양이 다르면 이 절과 api/client.ts의 toSession·toAuthEvent·toUserSessions만 고치면 된다.
 

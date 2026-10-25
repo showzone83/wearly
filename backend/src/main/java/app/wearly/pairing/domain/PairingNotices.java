@@ -41,6 +41,11 @@ public record PairingNotices(String type, String title, String body) {
     return new PairingNotices(TYPE_ENDED, TITLE, partnerName + "님과의 옷장 도우미 연결이 해제됐어요");
   }
 
+  /** 관리자가 연결을 해제했다 (양쪽에게) */
+  public static PairingNotices endedByAdmin() {
+    return new PairingNotices(TYPE_ENDED, TITLE, "옷장 도우미 연결이 관리자에 의해 해제됐어요");
+  }
+
   /**
    * 묶음 알림 (주인에게): 종류별로 건드린 옷 수를 센다. 예: "민지님이 옷 3벌을 등록하고 1벌을 수정했어요". 모두 0이면 null (보낼 것이 없다)
    *

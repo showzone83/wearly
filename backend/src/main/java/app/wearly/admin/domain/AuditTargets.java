@@ -24,6 +24,9 @@ public final class AuditTargets {
   /** 날씨 지금 실행. targetId는 실행 ID */
   public static final String WEATHER_REFRESH = "WEATHER_REFRESH";
 
+  /** 옷장 도우미 연결 강제 해제 (doc/26 6단계). targetId는 연결 ID */
+  public static final String PAIRING = "PAIRING";
+
   /** 허용 값 (오류 응답 params.allowed에도 이 순서로 쓴다) */
   public static final List<String> ALL =
       List.of(
@@ -34,7 +37,8 @@ public final class AuditTargets {
           SESSION,
           WEATHER_SETTING,
           WEATHER_PROVIDER,
-          WEATHER_REFRESH);
+          WEATHER_REFRESH,
+          PAIRING);
 
   private AuditTargets() {}
 }

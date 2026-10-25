@@ -39,6 +39,9 @@ import type {
   IMyMfaStatus,
   IPage,
   IPageQuery,
+  IPairingAction,
+  IPairingQuery,
+  IPairingRow,
   IPasswordChangeRequest,
   IProviderCreate,
   IProviderModel,
@@ -756,6 +759,21 @@ export const createAdminApi = (options: IAdminApiOptions) => {
       /** 초대한 이력 */
       shares: async (q: IInviteShareQuery): Promise<IPage<IInviteShareRow>> => {
         return toPage(await get<unknown>('/admin/invites/shares', { ...q }), q);
+      },
+    },
+
+    /** 옷장 도우미 연결 (doc/26 6단계, 최근 요청순) */
+    pairings: {
+      list: async (q: IPairingQuery): Promise<IPage<IPairingRow>> => {
+        return toPage(await get<unknown>('/admin/pairings', { ...q }), q);
+      },
+      /** 돕는 사람이 한 일 (최신순 최대 100건) */
+      actions: async (id: string): Promise<IPairingAction[]> => {
+        return toArray<IPairingAction>(await get<unknown>(`/admin/pairings/${enc(id)}/actions`));
+      },
+      /** 강제 해제 (204). 없거나 이미 끝났으면 404 */
+      end: (id: string): Promise<void> => {
+        return request<void>('POST', `/admin/pairings/${enc(id)}/end`, { auth: true });
       },
     },
 

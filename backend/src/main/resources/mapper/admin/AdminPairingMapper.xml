@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 관리자 옷장 도우미 (doc/26 6단계): 연결 목록(최근 요청순)·대리 작업 기록 -->
+<mapper namespace="app.wearly.admin.adapter.out.persistence.mybatis.mapper.AdminPairingMapper">
+
+    <sql id="pairingWhere">
+        <where>
+            <if test="f.query != null">
+                <bind name="queryPattern" value="@app.wearly.common.mybatis.LikePatterns@contains(f.query)"/>
+                (o.email ILIKE #{queryPattern} ESCAPE '\' OR o.name ILIKE #{queryPattern} ESCAPE '\'
+                 OR h.email ILIKE #{queryPattern} ESCAPE '\' OR h.name ILIKE #{queryPattern} ESCAPE '\')
+            </if>
+            <if test="f.status != null">AND p.status = #{f.status}</if>
+        </where>
+    </sql>
+
+    <sql id="pairingColumns">
+        p.pairing_id AS id, p.status, p.permission, p.issued_by, p.notify_owner, p.created_at, p.approved_at,
+        p.ended_at, p.ended_by,
+        p.owner_id, o.email AS owner_email, o.name AS owner_name,
+        p.helper_id, h.email AS helper_email, h.name AS helper_name,
+        (SELECT count(*) FROM tb_closet_proxy_action a WHERE a.pairing_id = p.pairing_id) AS action_count,
+        (SELECT max(a.created_at) FROM tb_closet_proxy_action a WHERE a.pairing_id = p.pairing_id) AS last_action_at
+    </sql>
+
+    <select id="findPairings" resultType="app.wearly.admin.application.port.out.dto.AdminPairingRowDto">
+        SELECT <include refid="pairingColumns"/>
+          FROM tb_closet_pairing p
+          JOIN tb_user o ON o.user_id = p.owner_id
+          JOIN tb_user h ON h.user_id = p.helper_id
+        <include refid="pairingWhere"/>
+         ORDER BY p.created_at DESC, p.pairing_id DESC
+         LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPairings" resultType="long">
+        SELECT count(*)
+          FROM tb_closet_pairing p
+          JOIN tb_user o ON o.user_id = p.owner_id
+          JOIN tb_user h ON h.user_id = p.helper_id
+        <include refid="pairingWhere"/>
+    </select>
+
+    <select id="findPairing" resultType="app.wearly.admin.application.port.out.dto.AdminPairingRowDto">
+        SELECT <include refid="pairingColumns"/>
+          FROM tb_closet_pairing p
+          JOIN tb_user o ON o.user_id = p.owner_id
+          JOIN tb_user h ON h.user_id = p.helper_id
+         WHERE p.pairing_id = #{pairingId}
+    </select>
+
+    <select id="findActions" resultType="app.wearly.admin.application.port.out.dto.AdminPairingActionRowDto">
+        SELECT a.action_id AS id, a.action, a.item_id, a.item_name, a.created_at
+          FROM tb_closet_proxy_action a
+         WHERE a.pairing_id = #{pairingId}
+         ORDER BY a.created_at DESC, a.action_id DESC
+         LIMIT #{limit}
+    </select>
+</mapper>

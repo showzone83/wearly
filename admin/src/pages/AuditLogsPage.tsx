@@ -28,6 +28,8 @@ const TARGET_TYPES: { value: string; label: string }[] = [
   { value: 'WEATHER_SETTING', label: '날씨 스케줄' },
   { value: 'WEATHER_PROVIDER', label: '날씨 공급자' },
   { value: 'WEATHER_REFRESH', label: '날씨 지금 실행' },
+  // 옷장 도우미 연결 강제 해제 (PAIRING_FORCE_END, doc/26 6단계)
+  { value: 'PAIRING', label: '옷장 도우미' },
 ];
 
 /** 동작 라벨. 없는 동작은 원문(SESSION_REVOKE 같은 값) 그대로 보여 준다 */

@@ -10,6 +10,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { InvitesPage } from '@/pages/InvitesPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { MyAccountPage } from '@/pages/MyAccountPage';
+import { PairingsPage } from '@/pages/PairingsPage';
 import { ProvidersPage } from '@/pages/providers/ProvidersPage';
 import { SessionsPage } from '@/pages/SessionsPage';
 import { SsoCallbackPage } from '@/pages/SsoCallbackPage';
@@ -49,6 +50,7 @@ export const App = () => {
         <Route path="ai/logs" element={<AiLogsPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="invites" element={<InvitesPage />} />
+        <Route path="pairings" element={<PairingsPage />} />
         <Route path="sessions" element={<SessionsPage />} />
         <Route path="auth-events" element={<AuthEventsPage />} />
         <Route path="me" element={<MyAccountPage />} />

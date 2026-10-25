@@ -10568,7 +10568,7 @@
         "field" : "targetType",
         "code" : "NOT_ALLOWED",
         "params" : {
-          "allowed" : [ "CODE", "AI_PROVIDER", "USER", "APP_SETTING", "SESSION", "WEATHER_SETTING", "WEATHER_PROVIDER", "WEATHER_REFRESH" ]
+          "allowed" : [ "CODE", "AI_PROVIDER", "USER", "APP_SETTING", "SESSION", "WEATHER_SETTING", "WEATHER_PROVIDER", "WEATHER_REFRESH", "PAIRING" ]
         }
       } ],
       "traceId" : "<traceId>"
